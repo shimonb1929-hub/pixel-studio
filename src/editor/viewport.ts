@@ -66,6 +66,8 @@ export function screenToDocument(viewport: Viewport, x: number, y: number): Poin
   return { x: (x - viewport.panX) / viewport.zoom, y: (y - viewport.panY) / viewport.zoom }
 }
 
+// Whole numbers read best; only very small zooms need a decimal.
 export function formatZoom(zoom: number): string {
-  return `${Number((zoom * 100).toFixed(2))}%`
+  const percent = zoom * 100
+  return `${percent >= 10 ? Math.round(percent) : Number(percent.toFixed(1))}%`
 }

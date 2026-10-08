@@ -7,9 +7,12 @@ export interface ToolInfo {
   name: string
   key: string
   icon: LucideIcon
+  // Shown when hovering the tool.
   description: string
-  // Shown in the bar under the menu while the tool is selected.
-  howTo: string
+  // Shown at the top of the canvas while the tool is in use.
+  hint: string
+  // Extra words people might type into search to find this tool.
+  keywords: string[]
 }
 
 export const TOOLS: ToolInfo[] = [
@@ -19,16 +22,18 @@ export const TOOLS: ToolInfo[] = [
     key: 'H',
     icon: Hand,
     description:
-      'Moves your view around the image, like sliding a paper on a desk. It never changes the image. ' +
-      'Tip: hold Space with any tool to use the Hand for a moment.',
-    howTo: 'Drag on the image to move around.',
+      'Slide your design around to see a different part of it. It never changes your design. ' +
+      'Tip: hold Space to use the Hand at any time.',
+    hint: 'Drag to slide your design around.',
+    keywords: ['move around', 'pan', 'scroll', 'slide', 'drag', 'navigate', 'look around'],
   },
   {
     id: 'zoom',
     name: 'Zoom',
     key: 'Z',
     icon: ZoomIn,
-    description: `Gets closer to or farther from the image. Click a spot to zoom in on it. Hold ${ALT_LABEL} and click to zoom out.`,
-    howTo: `Click to zoom in. Hold ${ALT_LABEL} and click to zoom out.`,
+    description: `Look closer or step back. Click a spot to zoom in on it. Hold ${ALT_LABEL} and click to zoom out.`,
+    hint: `Click to zoom in. Hold ${ALT_LABEL} and click to zoom out.`,
+    keywords: ['magnify', 'magnifying glass', 'closer', 'bigger', 'smaller', 'look closer'],
   },
 ]

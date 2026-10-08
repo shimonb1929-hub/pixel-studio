@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { exportFileName, formatFileSize, stripExtension, type ExportFormat } from '../editor/fileNames.ts'
 import { exportDocument } from '../editor/io.ts'
 import type { EditorDocument } from '../editor/types.ts'
-import { ChoiceGroup, Dialog, Field, inputClass } from './Dialog.tsx'
+import { ChoiceGroup, Dialog, Field } from './Dialog.tsx'
+import { inputClass } from './ui.tsx'
 
 export interface ExportOptions {
   format: ExportFormat
@@ -16,13 +17,13 @@ const FORMATS: { value: ExportFormat; label: string; description: string }[] = [
     value: 'png',
     label: 'PNG',
     description:
-      'Keeps every detail and any see-through areas. Files are bigger. Best for graphics, text, drawings and screenshots.',
+      'Keeps every detail and any see-through parts. Files are bigger. Best for drawings, text, graphics and screenshots.',
   },
   {
     value: 'jpeg',
     label: 'JPG',
     description:
-      'Makes much smaller files and is best for photos. It cannot be see-through, so empty areas turn white. A little detail is lost.',
+      'Makes much smaller files and is best for photos. It cannot be see-through, so empty parts turn white. A tiny bit of detail is lost.',
   },
 ]
 
@@ -30,10 +31,10 @@ const FORMATS: { value: ExportFormat; label: string; description: string }[] = [
 const ESTIMATE_PIXEL_LIMIT = 16_000_000
 
 function describeQuality(quality: number): string {
-  if (quality >= 90) return 'Very high quality. Looks just like the original.'
-  if (quality >= 75) return 'High quality. Hard to tell apart from the original, and a good balance for most uses.'
-  if (quality >= 50) return 'Medium quality. Fine for the web, but edges may look a little soft.'
-  return 'Low quality. A very small file, but you will likely see blur and blocky patches.'
+  if (quality >= 90) return 'Very high quality. Looks just like your design.'
+  if (quality >= 75) return 'High quality. Hard to tell apart from your design, and a good choice for most things.'
+  if (quality >= 50) return 'Medium quality. Fine for websites, but edges may look a little soft.'
+  return 'Low quality. A very small file, but you will probably see blur and blocky patches.'
 }
 
 interface ExportDialogProps {
@@ -69,14 +70,15 @@ export function ExportDialog({ doc, onExport, onClose }: ExportDialogProps) {
 
   return (
     <Dialog
-      title="Export as PNG or JPG"
-      submitLabel="Export"
+      title="Download your design"
+      subtitle="Save it to your computer as a picture you can share or print."
+      submitLabel="Download"
       onSubmit={() => onExport({ format, quality, fileName })}
       onClose={onClose}
     >
       <Field
         label="File type"
-        help="How the picture is stored in the file. PNG keeps everything perfect; JPG makes small files for photos."
+        help="How the picture is stored. PNG keeps everything perfect. JPG makes small files for photos."
         note={FORMATS.find((f) => f.value === format)!.description}
       >
         <ChoiceGroup name="File type" value={format} options={FORMATS} onChange={setFormat} />
@@ -86,7 +88,7 @@ export function ExportDialog({ doc, onExport, onClose }: ExportDialogProps) {
         <Field
           label="Quality"
           htmlFor="export-quality"
-          help="Lower quality makes a smaller file, but the picture can look blurry or blocky. Try moving the slider and watch the file size below."
+          help="Lower quality makes a smaller file, but the picture can look blurry or blocky. Move the slider and watch the file size change."
           note={describeQuality(quality)}
         >
           <div className="flex items-center gap-3">
@@ -97,9 +99,9 @@ export function ExportDialog({ doc, onExport, onClose }: ExportDialogProps) {
               max={100}
               value={quality}
               onChange={(e) => setQuality(Number(e.target.value))}
-              className="flex-1 accent-accent"
+              className="flex-1"
             />
-            <span className="w-8 text-right text-sm tabular-nums text-zinc-100">{quality}</span>
+            <span className="w-8 text-right text-sm font-medium tabular-nums">{quality}</span>
           </div>
         </Field>
       )}
@@ -108,18 +110,18 @@ export function ExportDialog({ doc, onExport, onClose }: ExportDialogProps) {
         label="File name"
         htmlFor="export-name"
         help="The name of the saved file. The ending (.png or .jpg) is added for you."
-        note={`Saved as ${fileName}. Your browser puts it in your Downloads folder unless you have chosen another place.`}
+        note={`Saves as ${fileName}, usually into your Downloads folder.`}
       >
         <input id="export-name" data-autofocus className={inputClass} value={baseName} onChange={(e) => setBaseName(e.target.value)} />
       </Field>
 
       {canEstimate && (
-        <p className="text-xs text-zinc-400">
-          File size:{' '}
-          <span className="tabular-nums text-zinc-100">
-            {estimate && estimate.key === estimateKey ? `about ${formatFileSize(estimate.size)}` : 'measuring…'}
+        <div className="flex items-center justify-between rounded-[10px] bg-subtle px-3.5 py-2.5 text-[13px]">
+          <span className="text-ink-2">File size</span>
+          <span className="font-medium tabular-nums">
+            {estimate && estimate.key === estimateKey ? `About ${formatFileSize(estimate.size)}` : 'Measuring…'}
           </span>
-        </p>
+        </div>
       )}
     </Dialog>
   )

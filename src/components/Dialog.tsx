@@ -1,9 +1,11 @@
-import { X } from 'lucide-react'
-import { useEffect, useRef, type FormEvent, type ReactNode } from 'react'
+import { CircleHelp, X } from 'lucide-react'
+import { useEffect, useId, useRef, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { Tooltip } from './Tooltip.tsx'
+import { Button } from './ui.tsx'
 
 interface DialogProps {
   title: string
+  subtitle?: string
   submitLabel: string
   submitDisabled?: boolean
   onSubmit: () => void
@@ -11,8 +13,10 @@ interface DialogProps {
   children: ReactNode
 }
 
-export function Dialog({ title, submitLabel, submitDisabled, onSubmit, onClose, children }: DialogProps) {
+export function Dialog({ title, subtitle, submitLabel, submitDisabled, onSubmit, onClose, children }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
+  const pressedBackdropRef = useRef(false)
+  const titleId = useId()
 
   useEffect(() => {
     const dialog = ref.current
@@ -23,40 +27,50 @@ export function Dialog({ title, submitLabel, submitDisabled, onSubmit, onClose, 
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    onSubmit()
+    if (!submitDisabled) onSubmit()
+  }
+
+  // A click that starts and ends on the dialog element itself is a click on the dimmed
+  // backdrop. Checking the start too keeps a text selection dragged outside from closing it.
+  function handleBackdropClick(event: MouseEvent<HTMLDialogElement>) {
+    if (pressedBackdropRef.current && event.target === event.currentTarget) onClose()
   }
 
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       onClose={onClose}
-      className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-zinc-700 bg-zinc-900 p-0 text-zinc-200 shadow-2xl backdrop:bg-black/60"
+      onPointerDown={(event) => (pressedBackdropRef.current = event.target === event.currentTarget)}
+      onClick={handleBackdropClick}
+      className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-2xl border border-line bg-surface p-0 text-ink shadow-float backdrop:bg-[rgb(16_24_40/0.32)] backdrop:backdrop-blur-[2px]"
     >
       <form onSubmit={handleSubmit}>
-        <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-3">
-          <h2 className="text-sm font-semibold text-zinc-50">{title}</h2>
+        <div className="flex items-start justify-between gap-4 px-6 pb-2 pt-5">
+          <div>
+            <h2 id={titleId} className="text-base font-semibold tracking-tight">
+              {title}
+            </h2>
+            {subtitle && <p className="mt-0.5 text-[13px] text-ink-2">{subtitle}</p>}
+          </div>
           <button
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+            className="-mr-2 -mt-1 flex h-8 w-8 items-center justify-center rounded-lg text-ink-3 hover:bg-subtle hover:text-ink"
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
-        <div className="space-y-5 px-5 py-4">{children}</div>
-        <div className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50"
-          >
+        <div className="space-y-5 px-6 py-4">{children}</div>
+        <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
+          <Button variant="ghost" className="h-9 px-4" onClick={onClose}>
             Cancel
-          </button>
+          </Button>
           <button
             type="submit"
-            disabled={submitDisabled}
-            className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+            aria-disabled={submitDisabled || undefined}
+            className="h-9 rounded-lg bg-accent px-5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent-hover aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:hover:bg-accent"
           >
             {submitLabel}
           </button>
@@ -74,17 +88,19 @@ interface FieldProps {
   note?: ReactNode
 }
 
-// A form row whose label explains the option on hover, with an optional live note underneath.
+// A form row. Hovering the label (or its question mark) explains the option, and the note
+// underneath describes the current choice and updates as it changes.
 export function Field({ label, help, htmlFor, children, note }: FieldProps) {
   return (
     <div>
       <Tooltip side="top" title={label} description={help}>
-        <label htmlFor={htmlFor} className="mb-1.5 block cursor-help text-xs font-medium text-zinc-300 underline decoration-zinc-600 decoration-dotted underline-offset-4">
+        <label htmlFor={htmlFor} className="mb-2 flex cursor-help items-center gap-1.5 text-[13px] font-medium text-ink">
           {label}
+          <CircleHelp size={14} className="text-ink-3" aria-hidden />
         </label>
       </Tooltip>
       {children}
-      {note && <p className="mt-1.5 text-xs leading-relaxed text-zinc-400">{note}</p>}
+      {note && <p className="mt-2 text-xs leading-relaxed text-ink-2">{note}</p>}
     </div>
   )
 }
@@ -104,7 +120,7 @@ interface ChoiceGroupProps<T extends string> {
 
 export function ChoiceGroup<T extends string>({ name, value, options, onChange }: ChoiceGroupProps<T>) {
   return (
-    <div role="radiogroup" aria-label={name} className="flex rounded-md border border-zinc-700 bg-zinc-950 p-0.5">
+    <div role="radiogroup" aria-label={name} className="flex gap-1 rounded-[10px] border border-line bg-subtle p-1">
       {options.map((option) => (
         <Tooltip key={option.value} title={option.label} description={option.description} className="flex flex-1">
           <button
@@ -112,8 +128,8 @@ export function ChoiceGroup<T extends string>({ name, value, options, onChange }
             role="radio"
             aria-checked={value === option.value}
             onClick={() => onChange(option.value)}
-            className={`flex-1 rounded px-2 py-1.5 text-xs font-medium ${
-              value === option.value ? 'bg-zinc-700 text-zinc-50' : 'text-zinc-400 hover:text-zinc-100'
+            className={`flex-1 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors ${
+              value === option.value ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
             }`}
           >
             {option.label}
@@ -123,6 +139,3 @@ export function ChoiceGroup<T extends string>({ name, value, options, onChange }
     </div>
   )
 }
-
-export const inputClass =
-  'w-full rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-sm text-zinc-100 outline-none focus:border-accent'

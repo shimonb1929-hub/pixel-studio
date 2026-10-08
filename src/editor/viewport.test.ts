@@ -70,9 +70,11 @@ describe('centeredViewport', () => {
 })
 
 describe('formatZoom', () => {
-  it('shows up to two decimals', () => {
+  it('rounds to whole numbers, keeping one decimal for tiny zooms', () => {
     expect(formatZoom(1)).toBe('100%')
-    expect(formatZoom(2 / 3)).toBe('66.67%')
-    expect(formatZoom(0.125)).toBe('12.5%')
+    expect(formatZoom(2 / 3)).toBe('67%')
+    expect(formatZoom(0.5962)).toBe('60%')
+    expect(formatZoom(1 / 12)).toBe('8.3%')
+    expect(formatZoom(0.01)).toBe('1%')
   })
 })

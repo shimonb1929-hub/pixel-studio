@@ -5,6 +5,8 @@ export interface TipContent {
   title: string
   description?: string
   shortcut?: string
+  // Highlighted line, used to explain why something can't be used yet.
+  note?: string
 }
 
 interface TooltipProps extends TipContent {
@@ -21,7 +23,7 @@ let lastHiddenAt = 0
 const GAP = 8
 const EDGE = 8
 
-export function Tooltip({ title, description, shortcut, side = 'bottom', children, className }: TooltipProps) {
+export function Tooltip({ title, description, shortcut, note, side = 'bottom', children, className }: TooltipProps) {
   const anchorRef = useRef<HTMLSpanElement>(null)
   const tipRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<number | undefined>(undefined)
@@ -91,14 +93,17 @@ export function Tooltip({ title, description, shortcut, side = 'bottom', childre
           <div
             ref={tipRef}
             role="tooltip"
-            className="pointer-events-none fixed z-50 max-w-72 rounded-md border border-zinc-600 bg-zinc-800 px-3 py-2 text-left shadow-xl"
+            className="pointer-events-none fixed z-50 max-w-72 rounded-[10px] bg-ink px-3 py-2.5 text-left shadow-float"
             style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
           >
-            <div className="flex items-baseline justify-between gap-4">
-              <span className="text-[13px] font-semibold text-zinc-50">{title}</span>
-              {shortcut && <kbd className="font-sans text-[11px] text-zinc-400">{shortcut}</kbd>}
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[13px] font-semibold text-white">{title}</span>
+              {shortcut && (
+                <kbd className="rounded bg-white/12 px-1.5 py-0.5 font-sans text-[11px] font-medium text-white/80">{shortcut}</kbd>
+              )}
             </div>
-            {description && <p className="mt-1 text-xs leading-relaxed text-zinc-300">{description}</p>}
+            {description && <p className="mt-1 text-xs leading-relaxed text-white/75">{description}</p>}
+            {note && <p className="mt-1.5 text-xs font-medium leading-relaxed text-[#ffc56e]">{note}</p>}
           </div>,
           container,
         )}
