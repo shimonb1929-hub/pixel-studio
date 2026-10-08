@@ -1,4 +1,4 @@
-import { Brush, Eraser, Hand, Move, Pipette, SquareDashed, ZoomIn, type LucideIcon } from 'lucide-react'
+import { Brush, Crop, Eraser, Hand, Move, PaintBucket, Pipette, Scaling, SquareDashed, ZoomIn, type LucideIcon } from 'lucide-react'
 import type { ToolId } from './editor/types.ts'
 import { ALT_LABEL } from './keys.ts'
 
@@ -15,8 +15,8 @@ export interface ToolInfo {
   hint: string
   // Extra words people might type into search to find this tool.
   keywords: string[]
-  // Drawing tools sit in the first group of the dock, view tools in the second.
-  group: 'draw' | 'view'
+  // The dock shows tools in groups: arranging things, drawing, and looking around.
+  group: 'arrange' | 'draw' | 'view'
 }
 
 export const TOOLS: ToolInfo[] = [
@@ -30,7 +30,7 @@ export const TOOLS: ToolInfo[] = [
       'Drag to move the selected layer. If part of it is selected, only that part moves. Arrow keys move it one pixel at a time.',
     hint: 'Drag to move the selected layer, or just the selected part. Arrow keys nudge it.',
     keywords: ['move', 'drag', 'position', 'place', 'shift', 'nudge', 'arrange'],
-    group: 'draw',
+    group: 'arrange',
   },
   {
     id: 'select',
@@ -41,7 +41,31 @@ export const TOOLS: ToolInfo[] = [
     description: `Choose part of your design to work on. Painting, erasing, deleting and moving then only affect that part. Draw a rectangle, an oval, or any shape by hand.`,
     hint: `Drag to select an area. Hold Shift to add to it, ${ALT_LABEL} to take away. Click outside to clear it.`,
     keywords: ['select', 'selection', 'marquee', 'lasso', 'choose area', 'cut out', 'rectangle', 'oval', 'circle'],
-    group: 'draw',
+    group: 'arrange',
+  },
+  {
+    id: 'transform',
+    name: 'Resize and rotate',
+    label: 'Resize',
+    key: 'T',
+    icon: Scaling,
+    description:
+      'Make things bigger or smaller, turn them, or flip them. Works on the selected layer, or just the selected part. Nothing changes for good until you press Apply.',
+    hint: 'Drag a corner to resize, the round handle to turn. Press Enter to apply, Esc to cancel.',
+    keywords: ['resize', 'scale', 'rotate', 'turn', 'flip', 'mirror', 'bigger', 'smaller', 'transform', 'stretch', 'size'],
+    group: 'arrange',
+  },
+  {
+    id: 'crop',
+    name: 'Crop',
+    label: 'Crop',
+    key: 'C',
+    icon: Crop,
+    description:
+      'Cut your design down to just the part you want to keep. Nothing is thrown away: you can undo it, or crop again to bring parts back.',
+    hint: 'Drag the edges or corners to choose what to keep. Press Enter to crop, Esc to start over.',
+    keywords: ['crop', 'trim', 'cut down', 'frame', 'canvas size', 'shape'],
+    group: 'arrange',
   },
   {
     id: 'brush',
@@ -65,6 +89,18 @@ export const TOOLS: ToolInfo[] = [
       'Rub out paint on the selected layer. Erased parts become see-through, so the layers underneath show again.',
     hint: 'Drag to rub out paint on the selected layer. Shift + click erases in a straight line.',
     keywords: ['erase', 'rub out', 'remove', 'delete paint', 'clean up', 'rubber'],
+    group: 'draw',
+  },
+  {
+    id: 'fill',
+    name: 'Fill bucket',
+    label: 'Fill',
+    key: 'G',
+    icon: PaintBucket,
+    description:
+      'Click an area to fill it with your color, like coloring in a coloring book. It fills everything of a similar color around where you click.',
+    hint: 'Click an area to fill it with your color.',
+    keywords: ['fill', 'bucket', 'paint bucket', 'color in', 'flood', 'coloring'],
     group: 'draw',
   },
   {

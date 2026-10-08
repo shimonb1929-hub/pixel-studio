@@ -1,3 +1,4 @@
+import type { Affine } from './transform.ts'
 import type { EditorDocument, Viewport } from './types.ts'
 
 export const WORKSPACE_COLOR = '#e7e9ee'
@@ -54,6 +55,8 @@ export interface RenderPart {
   canvas: HTMLCanvasElement
   x: number
   y: number
+  // When set, places the canvas through this transform instead of at x, y.
+  transform?: Affine
 }
 
 // Shown in place of a layer while it's being painted on or moved.
@@ -117,7 +120,19 @@ export function renderScene(
     if (!layer.visible || layer.opacity <= 0) continue
     ctx.globalAlpha = layer.opacity
     const parts = override?.layerId === layer.id ? override.parts : [layer]
-    for (const part of parts) ctx.drawImage(part.canvas, part.x, part.y)
+    for (const part of parts) {
+      if (!('transform' in part) || !part.transform) {
+        ctx.drawImage(part.canvas, part.x, part.y)
+        continue
+      }
+      const { a, b, c, d, e, f } = part.transform
+      ctx.save()
+      ctx.transform(a, b, c, d, e, f)
+      // Turned or resized pictures always need smoothing, whatever the zoom.
+      ctx.imageSmoothingEnabled = true
+      ctx.drawImage(part.canvas, 0, 0)
+      ctx.restore()
+    }
   }
   ctx.restore()
 

@@ -12,9 +12,14 @@ export async function newDesign(page: Page, width = 400, height = 300): Promise<
   await dialog.getByLabel('Width in pixels').fill(String(width))
   await dialog.getByLabel('Height in pixels').fill(String(height))
   await dialog.getByRole('button', { name: 'Create design' }).click()
-  await expect(page.getByText(`${width} × ${height} px`)).toBeVisible()
+  await expectDesignSize(page, width, height)
   await expect(page.getByRole('button', { name: 'Zoom level' })).toHaveText('100%')
   return { width, height }
+}
+
+// The design's size, read from the canvas's own label (tool settings can show sizes too).
+export async function expectDesignSize(page: Page, width: number, height: number) {
+  await expect(page.getByRole('main').locator('canvas[aria-label]')).toHaveAttribute('aria-label', new RegExp(`, ${width} by ${height} pixels$`))
 }
 
 // Where a point of the design is on the screen.

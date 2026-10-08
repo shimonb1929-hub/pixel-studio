@@ -21,6 +21,10 @@ export interface AppCommands {
   deleteArea: () => void
   toNewLayer: () => void
   center: () => void
+  resizeDesign: () => void
+  cropToSelection: () => void
+  rotateDesign: (direction: 1 | -1) => void
+  flipDesign: (axis: 'horizontal' | 'vertical') => void
   layerAdd: () => void
   layerDuplicate: () => void
   layerUp: () => void
@@ -268,6 +272,61 @@ export function buildActions({ doc, undoLabel, redoLabel }: ActionState, c: AppC
       needsDocument: true,
       disabledReason: doc && doc.layers.length <= 1 ? 'A design needs at least one layer.' : undefined,
       run: c.layerDelete,
+    },
+    {
+      id: 'resize-design',
+      group: 'Whole design',
+      title: 'Resize design…',
+      description: 'Make the whole design, with every layer, bigger or smaller.',
+      keywords: ['resize', 'image size', 'scale', 'bigger', 'smaller', 'dimensions', 'pixels', 'shrink', 'enlarge'],
+      needsDocument: true,
+      run: c.resizeDesign,
+    },
+    {
+      id: 'crop-to-selection',
+      group: 'Whole design',
+      title: 'Crop to selection',
+      description: 'Cut the design down to the selected area. Nothing is thrown away, so you can undo it.',
+      keywords: ['crop', 'trim', 'cut down', 'selection'],
+      needsDocument: true,
+      disabledReason: noSelection,
+      run: c.cropToSelection,
+    },
+    {
+      id: 'rotate-design-left',
+      group: 'Whole design',
+      title: 'Turn design left',
+      description: 'Turn the whole design a quarter turn to the left.',
+      keywords: ['rotate', 'turn', 'left', 'counterclockwise', 'sideways', 'portrait', 'landscape'],
+      needsDocument: true,
+      run: () => c.rotateDesign(-1),
+    },
+    {
+      id: 'rotate-design-right',
+      group: 'Whole design',
+      title: 'Turn design right',
+      description: 'Turn the whole design a quarter turn to the right.',
+      keywords: ['rotate', 'turn', 'right', 'clockwise', 'sideways', 'portrait', 'landscape'],
+      needsDocument: true,
+      run: () => c.rotateDesign(1),
+    },
+    {
+      id: 'flip-design-horizontal',
+      group: 'Whole design',
+      title: 'Flip design left to right',
+      description: 'Mirror the whole design, so the left side becomes the right side.',
+      keywords: ['flip', 'mirror', 'reverse', 'horizontal'],
+      needsDocument: true,
+      run: () => c.flipDesign('horizontal'),
+    },
+    {
+      id: 'flip-design-vertical',
+      group: 'Whole design',
+      title: 'Flip design upside down',
+      description: 'Mirror the whole design top to bottom.',
+      keywords: ['flip', 'mirror', 'upside down', 'vertical'],
+      needsDocument: true,
+      run: () => c.flipDesign('vertical'),
     },
     {
       id: 'zoom-in',

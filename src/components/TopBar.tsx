@@ -5,7 +5,7 @@ import { shortcut } from '../keys.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button } from './ui.tsx'
 
-const MENU_GROUPS: ActionGroup[] = ['Design', 'Edit', 'Select', 'Layers', 'View']
+const MENU_GROUPS: ActionGroup[] = ['Design', 'Edit', 'Select', 'Layers', 'Whole design', 'View']
 
 function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: boolean }) {
   const [open, setOpen] = useState(false)

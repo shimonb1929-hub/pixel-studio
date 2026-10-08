@@ -21,6 +21,8 @@ Pixel Studio should feel obvious to a 10-year-old and still be able to do real w
 - **Drawing that looks good from the first stroke.** Ready-made brushes (Pencil, Ink pen, Marker,
   Soft brush, Highlighter) each show a live sample. "Steady hand" smooths shaky lines, pen
   pressure works on drawing tablets, and one stroke never gets darker where it crosses itself.
+- **Try first, then decide.** Resizing, turning and cropping show the result live while you drag,
+  with the exact size and angle. Nothing changes until you press Apply (or Enter); Esc puts it back.
 - **Mistakes are safe.** Every design starts as paper with a clear sheet on top, so the eraser
   only rubs out your drawing. Undo goes back up to 100 steps, and closing a design with changes
   you haven't downloaded asks first.
@@ -54,6 +56,9 @@ Before the first `npm run test:e2e` on a new computer, run `npx playwright insta
 src/
   editor/
     stroke.ts    The brush engine: dabs, smoothing, pressure, and painting into a layer
+    selection.ts Selections as shapes (rectangle, oval, freehand) that add, take away or invert
+    transform.ts The Resize and rotate box: handles, turning, flipping and the math behind them
+    flood.ts     Finding the area the fill bucket fills
     history.ts   Undo and redo, with memory limits and "changed since download" tracking
     layers.ts    Adding, removing, moving and changing layers
     brushes.ts   The ready-made brushes and erasers
@@ -68,9 +73,12 @@ src/
 e2e/             Browser tests that use the program like a person would
 ```
 
-Each layer is its own off-screen canvas. A brush stroke paints onto a separate stroke canvas and
-is shown on a preview of the layer while you draw; when you let go, the changed area is copied
-into the layer and kept for undo.
+Each layer is its own off-screen canvas with a position, and grows when you paint or move
+things past its edge, so nothing is ever cut off by accident. Cropping only moves the layers and
+changes the design size, so undo brings back everything.
+
+A brush stroke paints onto a separate stroke canvas and is shown on a preview of the layer while
+you draw; when you let go, the changed area is copied into the layer and kept for undo.
 
 ## Roadmap
 
@@ -79,7 +87,9 @@ into the layer and kept for undo.
 2. **Drawing** (done) — brushes and erasers with live samples, steady hand, pen pressure,
    straight lines, colors with a picker, swatches and recent colors, undo and redo, layers
    (add, duplicate, delete, reorder, rename, hide, opacity), protection against losing work.
-3. **Selections and changes** — select areas, move, crop, resize, rotate, flip; save and reopen
+3. **Selections and changes** (in progress) — done: select areas (rectangle, oval, freehand; add,
+   take away, invert), move, copy and paste, resize, turn and flip with handles, crop with
+   ready-made shapes, resize or turn the whole design, fill bucket. Next: save and reopen
    projects with all their layers, with automatic saving.
 4. **Adjustments and filters** — brightness, contrast, colors, blur, sharpen.
 5. **Vector shapes** — rectangles, circles, lines and a pen tool, with editable fill and outline.

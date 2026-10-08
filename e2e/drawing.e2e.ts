@@ -116,7 +116,7 @@ test('colors come from swatches, color codes and the design itself', async ({ pa
 
 test('brush presets, size keys and Reset', async ({ page }) => {
   await newDesign(page)
-  const sizeSlider = page.getByLabel('Size')
+  const sizeSlider = page.getByLabel('Size', { exact: true })
   await expect(sizeSlider).toHaveAttribute('aria-valuetext', '10 px')
   await page.keyboard.press(']')
   await expect(sizeSlider).toHaveAttribute('aria-valuetext', '15 px')

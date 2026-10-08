@@ -37,6 +37,8 @@ export interface ChangeOptions {
 
 export interface Editor {
   doc: EditorDocument | null
+  // The design right now, including changes made earlier in the same event, before React re-renders.
+  getDoc: () => EditorDocument | null
   // Goes up whenever pixels change, so views know to redraw.
   revision: number
   undoLabel: string | null
@@ -98,6 +100,7 @@ export function useEditor(): Editor {
 
   return {
     doc,
+    getDoc: () => docRef.current,
     revision,
     undoLabel: history.undoLabel,
     redoLabel: history.redoLabel,

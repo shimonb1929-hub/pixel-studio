@@ -12,13 +12,14 @@ const PILL = 'absolute z-10 items-center border border-line bg-surface/95 shadow
 export function ToolHint({ tool, extra }: { tool: ToolId; extra?: string }) {
   const info = TOOLS.find((t) => t.id === tool)!
   const Icon = info.icon
+  // Centered with auto margins rather than left: 50%, which would limit it to half the width.
   return (
     <div
       role="status"
-      className={`${PILL} pointer-events-none flex left-1/2 top-3 max-w-[calc(100%-1.5rem)] -translate-x-1/2 gap-2 rounded-full px-3.5 py-1.5 text-xs`}
+      className={`${PILL} pointer-events-none inset-x-3 top-3 mx-auto flex w-fit max-w-[calc(100%-1.5rem)] gap-2 rounded-full px-3.5 py-1.5 text-xs`}
     >
       <Icon size={14} className="shrink-0 text-accent" />
-      <span className="font-semibold text-ink">{info.name}</span>
+      <span className="shrink-0 whitespace-nowrap font-semibold text-ink">{info.name}</span>
       <span className="truncate text-ink-2">
         {info.hint}
         {extra && <span className="font-medium text-accent"> {extra}</span>}

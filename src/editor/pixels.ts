@@ -1,4 +1,6 @@
-import { createCanvas, getContext2d } from './document.ts'
+import { hexToRgb } from './color.ts'
+import { createCanvas, flattenDocument, getContext2d } from './document.ts'
+import { floodRegion, growRegion } from './flood.ts'
 import type { Rect } from './geometry.ts'
 import { selectionInfo } from './selection.ts'
 import type { EditorDocument, Layer } from './types.ts'
@@ -94,4 +96,56 @@ export function contentBounds(layer: Layer): Rect | null {
   }
   if (maxX < 0) return null
   return { x: minX + layer.x, y: minY + layer.y, width: maxX - minX + 1, height: maxY - minY + 1 }
+}
+
+export interface FillPieces {
+  // The area itself, painted over what's there.
+  core: Piece
+  // A one-pixel rim around it, slipped underneath what's already on the layer, so outlines keep
+  // their soft edges and no pale gap is left along them.
+  rim: Piece
+}
+
+// Works out the fill for a click at `point`: the connected area of similar color in what you see
+// (all visible layers), kept inside the selection if there is one. Null if there's nothing to fill.
+export function fillArea(doc: EditorDocument, point: { x: number; y: number }, color: string, tolerance: number): FillPieces | null {
+  const px = Math.floor(point.x)
+  const py = Math.floor(point.y)
+  if (px < 0 || py < 0 || px >= doc.width || py >= doc.height) return null
+  const flat = flattenDocument(doc)
+  const pixels = flat.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, doc.width, doc.height).data
+  const region = floodRegion(pixels, doc.width, doc.height, px, py, tolerance)
+  if (!region) return null
+  const grown = growRegion(region, doc.width, doc.height)
+  const { x, y, width, height } = grown.bounds
+
+  // How much of each pixel the selection allows, 0–255; everything when nothing is selected.
+  let allowed: Uint8ClampedArray | null = null
+  if (doc.selection) {
+    const { mask } = selectionInfo(doc.selection, doc.width, doc.height)
+    allowed = mask.getContext('2d', { willReadFrequently: true })!.getImageData(x, y, width, height).data
+  }
+
+  const { r, g, b } = hexToRgb(color)
+  const core = new ImageData(width, height)
+  const rim = new ImageData(width, height)
+  let any = false
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const i = (y + row) * doc.width + (x + col)
+      if (!grown.mask[i]) continue
+      const alpha = allowed ? allowed[(row * width + col) * 4 + 3] : 255
+      if (alpha === 0) continue
+      const target = region.mask[i] ? core : rim
+      target.data.set([r, g, b, alpha], (row * width + col) * 4)
+      any = true
+    }
+  }
+  if (!any) return null
+  const toPiece = (data: ImageData): Piece => {
+    const canvas = createCanvas(width, height)
+    getContext2d(canvas).putImageData(data, 0, 0)
+    return { canvas, x, y }
+  }
+  return { core: toPiece(core), rim: toPiece(rim) }
 }

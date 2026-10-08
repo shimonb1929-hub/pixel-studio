@@ -1,4 +1,4 @@
-import { Circle, Contrast, Copy, Crosshair, Lasso, PaintBucket, RotateCcw, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Trash2, type LucideIcon } from 'lucide-react'
+import { Check, Circle, Contrast, Copy, Crosshair, FlipHorizontal2, FlipVertical2, Lasso, Link, PaintBucket, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Trash2, Unlink, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import {
   BRUSH_PRESETS,
@@ -226,6 +226,126 @@ function SelectOptions({
   )
 }
 
+export interface TransformControls {
+  // False when there's nothing on the layer to resize.
+  active: boolean
+  changed: boolean
+  width: number
+  height: number
+  angle: number
+  keepProportions: boolean
+  onKeepProportions: (keep: boolean) => void
+  flip: (axis: 'horizontal' | 'vertical') => void
+  rotate90: (direction: 1 | -1) => void
+  apply: () => void
+  cancel: () => void
+}
+
+export type CropShape = 'free' | 'original' | 'square' | 'portrait' | 'wide'
+
+export interface CropControls {
+  width: number
+  height: number
+  shape: CropShape
+  onShape: (shape: CropShape) => void
+  changed: boolean
+  apply: () => void
+  reset: () => void
+}
+
+function Readout({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+  return (
+    <Tooltip title={title} description={description}>
+      <span className="shrink-0 cursor-default whitespace-nowrap rounded-lg bg-subtle px-2.5 py-1.5 text-[12px] font-medium tabular-nums text-ink">{children}</span>
+    </Tooltip>
+  )
+}
+
+function TransformOptions({ controls }: { controls: TransformControls }) {
+  if (!controls.active) {
+    return <Hint>There is nothing on this layer to resize yet. Paint something first, or pick another layer in the Layers panel.</Hint>
+  }
+  const notYet = controls.changed ? undefined : 'Drag a handle first.'
+  return (
+    <>
+      <Readout title="Size" description="How big it will be, in pixels.">
+        {Math.round(Math.abs(controls.width))} × {Math.round(Math.abs(controls.height))} px
+      </Readout>
+      <Readout title="Angle" description="How far it is turned. Hold Shift while turning to go in neat 15° steps.">
+        {controls.angle}°
+      </Readout>
+      <Divider />
+      <div className="flex shrink-0 items-center">
+        {/* The icon names describe the mirror line: a vertical line flips left to right. */}
+        <BarButton icon={FlipVertical2} label="Mirror" title="Flip left to right" description="Mirror it, so the left side becomes the right side." onClick={() => controls.flip('horizontal')} />
+        <BarButton icon={FlipHorizontal2} label="Upside down" title="Flip upside down" description="Mirror it top to bottom, so the top becomes the bottom." onClick={() => controls.flip('vertical')} />
+        <BarButton icon={RotateCcw} label="Left" title="Turn left" description="Turn it a quarter turn to the left." onClick={() => controls.rotate90(-1)} />
+        <BarButton icon={RotateCw} label="Right" title="Turn right" description="Turn it a quarter turn to the right." onClick={() => controls.rotate90(1)} />
+      </div>
+      <Tooltip
+        title="Keep shape"
+        description="When on, dragging a corner keeps the same shape, so nothing gets squashed or stretched. Hold Shift while dragging to do the opposite."
+      >
+        <button
+          type="button"
+          aria-pressed={controls.keepProportions}
+          aria-label="Keep shape"
+          onClick={() => controls.onKeepProportions(!controls.keepProportions)}
+          className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
+            controls.keepProportions ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
+          }`}
+        >
+          {controls.keepProportions ? <Link size={15} /> : <Unlink size={15} />}
+          Keep shape
+        </button>
+      </Tooltip>
+      <Divider />
+      <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" disabled={!controls.changed} onClick={controls.cancel} tip={{ title: 'Cancel', shortcut: 'Esc', description: 'Put it back the way it was.', note: notYet }}>
+        Cancel
+      </Button>
+      <Button variant="primary" className="h-8 shrink-0 px-3.5 text-[13px]" disabled={!controls.changed} onClick={controls.apply} tip={{ title: 'Apply', shortcut: 'Enter', description: 'Keep the new size and angle.', note: notYet }}>
+        <Check size={15} />
+        Apply
+      </Button>
+    </>
+  )
+}
+
+const CROP_SHAPES: Choice<CropShape>[] = [
+  { value: 'free', label: 'Free', icon: Scan, description: 'Any shape you like.' },
+  { value: 'original', label: 'Original', icon: RectangleHorizontal, description: 'The same shape your design has now.' },
+  { value: 'square', label: 'Square', icon: Square, description: 'A perfect square, good for profile pictures and square posts.' },
+  { value: 'portrait', label: '4:5', icon: RectangleVertical, description: 'A little taller than wide, good for social posts.' },
+  { value: 'wide', label: '16:9', icon: RectangleHorizontal, description: 'Wide like a TV screen, good for slides and video thumbnails.' },
+]
+
+function CropOptions({ controls }: { controls: CropControls }) {
+  const notYet = controls.changed ? undefined : 'Drag the frame first.'
+  return (
+    <>
+      <Segmented label="Crop shape" value={controls.shape} choices={CROP_SHAPES} onChange={controls.onShape} />
+      <Readout title="New size" description="How big your design will be after cropping, in pixels.">
+        {controls.width} × {controls.height} px
+      </Readout>
+      <Divider />
+      <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" disabled={!controls.changed} onClick={controls.reset} tip={{ title: 'Start over', shortcut: 'Esc', description: 'Put the frame back around the whole design.', note: notYet }}>
+        Start over
+      </Button>
+      <Button variant="primary" className="h-8 shrink-0 px-3.5 text-[13px]" disabled={!controls.changed} onClick={controls.apply} tip={{ title: 'Crop', shortcut: 'Enter', description: 'Cut the design down to the frame. You can undo this.', note: notYet }}>
+        <Check size={15} />
+        Crop
+      </Button>
+    </>
+  )
+}
+
+function describeTolerance(tolerance: number): string {
+  if (tolerance < 0.02) return 'Only exactly the same color gets filled.'
+  if (tolerance < 0.25) return 'Fills very similar colors. Good for flat areas and drawings.'
+  if (tolerance < 0.6) return 'Fills somewhat similar colors too. Good for photos.'
+  return 'Fills almost any color. Be careful, it may fill a lot.'
+}
+
 function Hint({ children }: { children: ReactNode }) {
   return <p className="min-w-64 text-[13px] leading-snug text-ink-2">{children}</p>
 }
@@ -237,6 +357,10 @@ interface ToolOptionsProps {
   onSelectionShapeChange: (shape: SelectionShape) => void
   onSelectionModeChange: (mode: SelectionMode) => void
   selection: SelectionCommands
+  transform: TransformControls
+  crop: CropControls
+  fillTolerance: number
+  onFillToleranceChange: (tolerance: number) => void
   brush: BrushSettings
   brushPresetId: string | null
   eraser: BrushSettings
@@ -275,6 +399,23 @@ export function ToolOptions(props: ToolOptionsProps) {
           onShapeChange={props.onSelectionShapeChange}
           onModeChange={props.onSelectionModeChange}
         />
+      ) : props.tool === 'transform' ? (
+        <TransformOptions controls={props.transform} />
+      ) : props.tool === 'crop' ? (
+        <CropOptions controls={props.crop} />
+      ) : props.tool === 'fill' ? (
+        <>
+          <Slider
+            className="w-40 shrink-0"
+            label="Similar colors"
+            help="How different a color can be and still get filled. Low fills only one exact color; high fills more."
+            value={props.fillTolerance}
+            display={`${Math.round(props.fillTolerance * 100)}%`}
+            note={describeTolerance(props.fillTolerance)}
+            onChange={(position) => props.onFillToleranceChange(Math.round(position * 100) / 100)}
+          />
+          <Hint>Click inside an area to fill it with your color. It looks at everything you can see, and paints on the selected layer.</Hint>
+        </>
       ) : props.tool === 'move' ? (
         <>
           <Hint>

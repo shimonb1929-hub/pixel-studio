@@ -16,8 +16,22 @@ import {
   type SelectionShape,
 } from '../editor/selection.ts'
 import { StrokeSession, type InputPoint, type StrokeResult } from '../editor/stroke.ts'
+import { boxCorners, boxPoint, dragHandle, HANDLE_SIGNS, hitHandle, rotationKnob, type Handle, type TransformBox } from '../editor/transform.ts'
 import type { EditorDocument, Layer, Point, ToolId, Viewport } from '../editor/types.ts'
 import { nextZoomLevel, panBy, screenToDocument, zoomAtPoint } from '../editor/viewport.ts'
+
+// A box with handles being edited on the canvas: the Resize and rotate box, or the crop frame.
+export interface BoxEditing {
+  kind: 'transform' | 'crop'
+  value: TransformBox
+  // Corners keep the shape; Shift does the opposite.
+  keepProportions: boolean
+  // Whether the edge handles show (a fixed-shape crop only has corners).
+  edges: boolean
+  onChange: (box: TransformBox) => void
+  // Clicking away from the Resize box applies it.
+  onApply: () => void
+}
 
 export interface CanvasViewProps {
   doc: EditorDocument
@@ -41,6 +55,10 @@ export interface CanvasViewProps {
   onMove: (session: MoveSession, dx: number, dy: number) => void
   onSelect: (selection: Selection | null, label: string) => void
   onBlocked: (message: string) => void
+  // Shown in place of a layer while it's being resized or rotated.
+  override: LayerOverride | null
+  box: BoxEditing | null
+  onFill: (point: Point) => void
 }
 
 interface PanDrag {
@@ -71,6 +89,28 @@ type SelectDrag =
       moved: boolean
     }
   | { kind: 'outline'; pointerId: number; start: Point; dx: number; dy: number }
+
+interface BoxDrag {
+  pointerId: number
+  handle: Handle
+  start: Point
+  startBox: TransformBox
+  startClient: Point
+  moved: boolean
+}
+
+const HANDLE_CURSORS: Record<Handle, string> = {
+  move: 'move',
+  rotate: 'grab',
+  n: 'ns-resize',
+  s: 'ns-resize',
+  e: 'ew-resize',
+  w: 'ew-resize',
+  ne: 'nesw-resize',
+  sw: 'nesw-resize',
+  nw: 'nwse-resize',
+  se: 'nwse-resize',
+}
 
 // Mouse wheels jump ~100px per notch while trackpad pinches send small steps;
 // capping the step keeps both feeling about the same.
@@ -164,6 +204,78 @@ function drawAnts(ctx: CanvasRenderingContext2D, offset: number) {
   ctx.setLineDash([])
 }
 
+function toScreen(p: Point, viewport: Viewport): Point {
+  return { x: p.x * viewport.zoom + viewport.panX, y: p.y * viewport.zoom + viewport.panY }
+}
+
+// The Resize box or the crop frame, with its handles.
+function drawBox(ctx: CanvasRenderingContext2D, box: BoxEditing, viewport: Viewport, width: number, height: number) {
+  const corners = boxCorners(box.value).map((p) => toScreen(p, viewport))
+  const outline = () => {
+    ctx.beginPath()
+    corners.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
+    ctx.closePath()
+  }
+
+  if (box.kind === 'crop') {
+    // Darken what will be cut away.
+    ctx.beginPath()
+    ctx.rect(0, 0, width, height)
+    corners.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
+    ctx.closePath()
+    ctx.fillStyle = 'rgba(16, 24, 40, 0.5)'
+    ctx.fill('evenodd')
+    // Lines at the thirds help line things up nicely.
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)'
+    ctx.lineWidth = 1
+    for (const t of [1 / 3, 2 / 3]) {
+      const a = toScreen(boxPoint(box.value, t * 2 - 1, -1), viewport)
+      const b = toScreen(boxPoint(box.value, t * 2 - 1, 1), viewport)
+      const c = toScreen(boxPoint(box.value, -1, t * 2 - 1), viewport)
+      const d = toScreen(boxPoint(box.value, 1, t * 2 - 1), viewport)
+      ctx.beginPath()
+      ctx.moveTo(a.x, a.y)
+      ctx.lineTo(b.x, b.y)
+      ctx.moveTo(c.x, c.y)
+      ctx.lineTo(d.x, d.y)
+      ctx.stroke()
+    }
+    outline()
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 2
+    ctx.stroke()
+  } else {
+    outline()
+    ctx.strokeStyle = '#3366ff'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    // The stem and round knob for turning.
+    const top = toScreen(boxPoint(box.value, 0, -1), viewport)
+    const knob = toScreen(rotationKnob(box.value, viewport.zoom), viewport)
+    ctx.beginPath()
+    ctx.moveTo(top.x, top.y)
+    ctx.lineTo(knob.x, knob.y)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.arc(knob.x, knob.y, 6, 0, Math.PI * 2)
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+    ctx.stroke()
+  }
+
+  for (const [sx, sy] of Object.values(HANDLE_SIGNS)) {
+    if (!box.edges && (sx === 0 || sy === 0)) continue
+    const p = toScreen(boxPoint(box.value, sx, sy), viewport)
+    ctx.fillStyle = '#ffffff'
+    ctx.strokeStyle = '#3366ff'
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.rect(p.x - 4.5, p.y - 4.5, 9, 9)
+    ctx.fill()
+    ctx.stroke()
+  }
+}
+
 // The shape being drawn with the Select tool, as a polygon in design coordinates.
 function dragPolygon(drag: Extract<SelectDrag, { kind: 'shape' }>): Point[] {
   if (drag.shape === 'freehand') return drag.points
@@ -183,6 +295,7 @@ export function CanvasView(props: CanvasViewProps) {
   const pickRef = useRef<number | null>(null)
   const moveRef = useRef<MoveDrag | null>(null)
   const selectRef = useRef<SelectDrag | null>(null)
+  const boxRef = useRef<BoxDrag | null>(null)
   const hoverRef = useRef<Point | null>(null)
   const lastEndRef = useRef<{ docId: string; point: InputPoint } | null>(null)
   const antsRef = useRef(0)
@@ -191,13 +304,14 @@ export function CanvasView(props: CanvasViewProps) {
   const [dragging, setDragging] = useState(false)
   const [picking, setPicking] = useState(false)
   const [overSelection, setOverSelection] = useState(false)
+  const [boxHover, setBoxHover] = useState<Handle | null>(null)
 
   function sceneOverride(): LayerOverride | null {
     const stroke = strokeRef.current?.session
     if (stroke) return { layerId: stroke.layerId, parts: [{ canvas: stroke.preview, x: stroke.x, y: stroke.y }] }
     const move = moveRef.current
     if (move) return { layerId: move.session.layerId, parts: move.session.parts(move.dx, move.dy) }
-    return null
+    return propsRef.current.override
   }
 
   function drawScene() {
@@ -214,7 +328,8 @@ export function CanvasView(props: CanvasViewProps) {
   function drawSelection(ctx: CanvasRenderingContext2D, p: CanvasViewProps) {
     const selection = p.doc.selection
     const drag = selectRef.current
-    if (selection) {
+    // While resizing, the box shows the selected part; its outline catches up once applied.
+    if (selection && p.box?.kind !== 'transform') {
       let dx = 0
       let dy = 0
       if (moveRef.current?.session.movesSelection) {
@@ -264,6 +379,7 @@ export function CanvasView(props: CanvasViewProps) {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     drawSelection(ctx, p)
+    if (p.box) drawBox(ctx, p.box, p.viewport, p.width, p.height)
 
     const hover = hoverRef.current
     if (!hover || panRef.current || moveRef.current || p.spaceHeld) return
@@ -291,11 +407,11 @@ export function CanvasView(props: CanvasViewProps) {
 
   useLayoutEffect(() => {
     drawScene()
-  }, [doc, revision, viewport, width, height])
+  }, [doc, revision, viewport, width, height, props.override])
 
   useLayoutEffect(() => {
     drawOverlay()
-  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking])
+  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box])
 
   // The dashed outline keeps moving while something is selected, so it's easy to spot.
   useEffect(() => {
@@ -476,10 +592,31 @@ export function CanvasView(props: CanvasViewProps) {
     requestOverlay()
   }
 
+  function startBoxDrag(event: PointerEvent<HTMLCanvasElement>, box: BoxEditing) {
+    const point = documentPoint(event.clientX, event.clientY)
+    let handle = hitHandle(box.value, point, viewport.zoom, { rotate: box.kind === 'transform', edges: box.edges })
+    let startBox = box.value
+    if (!handle) {
+      if (box.kind === 'transform') {
+        // Clicking away from the Resize box applies it.
+        box.onApply()
+        return
+      }
+      // Dragging outside the crop frame draws a new one, keeping its shape if it has a fixed one.
+      const ratio = Math.abs(box.value.width / box.value.height)
+      startBox = box.keepProportions
+        ? { cx: point.x + ratio / 2, cy: point.y + 0.5, width: ratio, height: 1, rotation: 0 }
+        : { cx: point.x + 0.5, cy: point.y + 0.5, width: 1, height: 1, rotation: 0 }
+      handle = 'se'
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    boxRef.current = { pointerId: event.pointerId, handle, start: point, startBox, startClient: { x: event.clientX, y: event.clientY }, moved: false }
+  }
+
   function handlePointerDown(event: PointerEvent<HTMLCanvasElement>) {
     hoverRef.current = localPoint(event.clientX, event.clientY)
     // Ignore a second finger or button while something is already happening.
-    if (strokeRef.current || panRef.current || pickRef.current !== null || moveRef.current || selectRef.current) return
+    if (strokeRef.current || panRef.current || pickRef.current !== null || moveRef.current || selectRef.current || boxRef.current) return
 
     const isPan = event.button === 1 || (event.button === 0 && (tool === 'hand' || spaceHeld))
     if (isPan) {
@@ -506,6 +643,10 @@ export function CanvasView(props: CanvasViewProps) {
       startMoveDrag(event)
     } else if (tool === 'select') {
       startSelect(event)
+    } else if ((tool === 'transform' || tool === 'crop') && props.box) {
+      startBoxDrag(event, props.box)
+    } else if (tool === 'fill') {
+      if (usableLayer('fill')) props.onFill(documentPoint(event.clientX, event.clientY))
     }
   }
 
@@ -536,6 +677,22 @@ export function CanvasView(props: CanvasViewProps) {
         requestOverlay()
       }
       return
+    }
+
+    const boxDrag = boxRef.current
+    if (boxDrag && boxDrag.pointerId === event.pointerId && props.box) {
+      if (!boxDrag.moved && Math.hypot(event.clientX - boxDrag.startClient.x, event.clientY - boxDrag.startClient.y) >= CLICK_DISTANCE) boxDrag.moved = true
+      if (boxDrag.moved) {
+        const keepProportions = props.box.keepProportions !== event.shiftKey
+        props.box.onChange(dragHandle(boxDrag.startBox, boxDrag.handle, boxDrag.start, point, { keepProportions, snapAngle: event.shiftKey }))
+      }
+      return
+    }
+
+    // Over the box, the pointer shows what dragging will do.
+    if ((tool === 'transform' || tool === 'crop') && props.box) {
+      const hovered = hitHandle(props.box.value, point, viewport.zoom, { rotate: props.box.kind === 'transform', edges: props.box.edges })
+      if (hovered !== boxHover) setBoxHover(hovered)
     }
 
     const drag = selectRef.current
@@ -590,31 +747,28 @@ export function CanvasView(props: CanvasViewProps) {
     if (strokeRef.current?.pointerId === event.pointerId) finishStroke()
     if (moveRef.current?.pointerId === event.pointerId) finishMove()
     if (selectRef.current?.pointerId === event.pointerId) finishSelect()
+    if (boxRef.current?.pointerId === event.pointerId) boxRef.current = null
     requestOverlay()
   }
 
   const pickMode = picking || tool === 'picker' || (tool === 'brush' && altHeld)
   const painting = tool === 'brush' || tool === 'eraser'
   const outlineVisible = painting && (brush.size / 2) * viewport.zoom >= MIN_OUTLINE_RADIUS
-  const cursor = dragging
-    ? tool === 'move'
-      ? 'move'
-      : 'grabbing'
-    : tool === 'hand' || spaceHeld
-      ? 'grab'
-      : tool === 'zoom'
-        ? altHeld
-          ? 'zoom-out'
-          : 'zoom-in'
-        : tool === 'move' || (tool === 'select' && overSelection)
-          ? 'move'
-          : pickMode || tool === 'select'
-            ? 'crosshair'
-            : outlineVisible
-              ? 'none'
-              : painting
-                ? 'crosshair'
-                : 'default'
+  // The pointer's shape tells you what will happen when you press.
+  function pickCursor(): string {
+    if (dragging) return tool === 'move' ? 'move' : 'grabbing'
+    if (tool === 'hand' || spaceHeld) return 'grab'
+    if (tool === 'zoom') return altHeld ? 'zoom-out' : 'zoom-in'
+    if ((tool === 'transform' || tool === 'crop') && props.box) {
+      if (boxHover) return HANDLE_CURSORS[boxHover]
+      return tool === 'crop' ? 'crosshair' : 'default'
+    }
+    if (tool === 'move' || (tool === 'select' && overSelection)) return 'move'
+    if (pickMode || tool === 'select' || tool === 'fill') return 'crosshair'
+    if (outlineVisible) return 'none'
+    return painting ? 'crosshair' : 'default'
+  }
+  const cursor = pickCursor()
 
   return (
     <>
@@ -632,9 +786,10 @@ export function CanvasView(props: CanvasViewProps) {
           if (strokeRef.current?.pointerId === event.pointerId) finishStroke()
           if (moveRef.current?.pointerId === event.pointerId) finishMove()
           if (selectRef.current?.pointerId === event.pointerId) finishSelect()
+          if (boxRef.current?.pointerId === event.pointerId) boxRef.current = null
         }}
         onPointerLeave={() => {
-          if (strokeRef.current || panRef.current || pickRef.current !== null || moveRef.current || selectRef.current) return
+          if (strokeRef.current || panRef.current || pickRef.current !== null || moveRef.current || selectRef.current || boxRef.current) return
           hoverRef.current = null
           props.onCursorChange(null)
           requestOverlay()

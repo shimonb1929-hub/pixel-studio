@@ -1,28 +1,42 @@
-import { useEffect, useLayoutEffect, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { buildActions, type AppCommands } from './appActions.ts'
-import { CanvasView } from './components/CanvasView.tsx'
+import { CanvasView, type BoxEditing } from './components/CanvasView.tsx'
 import { ColorPanel } from './components/ColorPanel.tsx'
 import { CommandPalette } from './components/CommandPalette.tsx'
 import { Dialog } from './components/Dialog.tsx'
 import { ExportDialog, type ExportOptions } from './components/ExportDialog.tsx'
 import { LayersPanel } from './components/LayersPanel.tsx'
 import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocumentDialog.tsx'
+import { ResizeDialog } from './components/ResizeDialog.tsx'
 import { Toast, type Notice } from './components/Toast.tsx'
 import { ToolDock } from './components/ToolDock.tsx'
-import { ToolOptions } from './components/ToolOptions.tsx'
+import { ToolOptions, type CropShape } from './components/ToolOptions.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { DesignInfo, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
 import { BRUSH_PRESETS, ERASER_PRESETS, stepBrushSize, type BrushSettings } from './editor/brushes.ts'
 import { getClipboard, ownCopyCheck, setClipboard } from './editor/clipboard.ts'
-import { createBlankDocument, createCanvas, createDocumentFromImage, createLayer, duplicateLayer, getContext2d, layerFromCanvas } from './editor/document.ts'
-import { intersectRect } from './editor/geometry.ts'
+import {
+  createBlankDocument,
+  createCanvas,
+  createDocumentFromImage,
+  createLayer,
+  duplicateLayer,
+  getContext2d,
+  layerFromCanvas,
+  MAX_DOCUMENT_SIDE,
+} from './editor/document.ts'
+import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocument } from './editor/documentOps.ts'
+import { intersectRect, type Rect } from './editor/geometry.ts'
 import { downloadBlob, exportDocument, imageFileToCanvas, openImageFile } from './editor/io.ts'
 import { activeLayer, insertLayerAboveActive, moveLayer, nextLayerName, removeLayer, updateLayer } from './editor/layers.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
-import { clearSelected, contentBounds, copySelected, editArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
+import { clearSelected, contentBounds, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
+import type { LayerOverride } from './editor/render.ts'
 import { invertSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
 import type { StrokeResult } from './editor/stroke.ts'
+import { boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
+import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
 import type { EditorDocument, Layer, Point, ToolId, Viewport } from './editor/types.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useEditor } from './hooks/useEditor.ts'
@@ -31,7 +45,7 @@ import { isTypingTarget, shortcut } from './keys.ts'
 import type { SizePreset } from './presets.ts'
 import { TOOLS } from './tools.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'discard'
+type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -61,6 +75,46 @@ function canvasBytes(canvas: HTMLCanvasElement): number {
   return canvas.width * canvas.height * 4
 }
 
+function fullFrame(doc: EditorDocument): TransformBox {
+  return boxFromRect({ x: 0, y: 0, width: doc.width, height: doc.height })
+}
+
+function cropRatio(shape: CropShape, doc: EditorDocument): number | null {
+  if (shape === 'original') return doc.width / doc.height
+  if (shape === 'square') return 1
+  if (shape === 'portrait') return 4 / 5
+  if (shape === 'wide') return 16 / 9
+  return null
+}
+
+// The crop frame always stays upright, with a real size, and never larger than a design can be.
+function tidyCropBox(box: TransformBox): TransformBox {
+  const width = Math.min(MAX_DOCUMENT_SIDE, Math.max(1, Math.abs(box.width)))
+  const height = Math.min(MAX_DOCUMENT_SIDE, Math.max(1, Math.abs(box.height)))
+  return { cx: box.cx, cy: box.cy, width, height, rotation: 0 }
+}
+
+function cropRect(box: TransformBox): Rect {
+  const x = Math.round(box.cx - box.width / 2)
+  const y = Math.round(box.cy - box.height / 2)
+  return { x, y, width: Math.round(box.width), height: Math.round(box.height) }
+}
+
+interface TransformState {
+  session: TransformSession
+  box: TransformBox
+}
+
+// The crop frame belongs to one version of the design: once the layers or size change (after
+// cropping, or by undo), it starts again around the whole design.
+interface CropState {
+  layers: EditorDocument['layers']
+  width: number
+  height: number
+  box: TransformBox
+  shape: CropShape
+}
+
 export default function App() {
   const editor = useEditor()
   const { doc } = editor
@@ -85,6 +139,10 @@ export default function App() {
   })
   const [selectionShape, setSelectionShape] = useState<SelectionShape>('rectangle')
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('replace')
+  const [transformEdit, setTransformEdit] = useState<TransformState | null>(null)
+  const [keepProportions, setKeepProportions] = useState(true)
+  const [cropEdit, setCropEdit] = useState<CropState | null>(null)
+  const [fillTolerance, setFillTolerance] = useState(0.15)
   const workspaceRef = useRef<HTMLElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const strokeActiveRef = useRef(false)
@@ -95,6 +153,8 @@ export default function App() {
 
   const problem = (message: string) => setNotice({ message, tone: 'problem' })
   const inform = (message: string) => setNotice({ message, tone: 'info' })
+  // Commands read the design through this, so they see changes made earlier in the same click.
+  const current = () => editor.getDoc()
 
   // Confirmations like "Copied" go away by themselves; problems stay until dismissed.
   useEffect(() => {
@@ -126,7 +186,88 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', warn)
   }, [editor.isDirty])
 
+  // While the Resize tool is on, handles are ready around the selected layer (or the selected part).
+  // A new layer or selection, including one brought back by undo, starts fresh handles.
+  const activeNow = doc ? activeLayer(doc) : undefined
+  const transformOn = tool === 'transform'
+  const session = useMemo(
+    () => (transformOn && doc ? startTransform(doc) : null),
+    // Only the layer and the selection matter; other changes to the design keep the same handles.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [transformOn, activeNow, doc?.selection],
+  )
+  const transform: TransformState | null = session && {
+    session,
+    box: transformEdit?.session === session ? transformEdit.box : session.original,
+  }
+  const setTransformBox = (box: TransformBox) => session && setTransformEdit({ session, box })
+
+  // While the Crop tool is on, a frame is ready, starting around the whole design.
+  const crop: CropState | null =
+    tool === 'crop' && doc
+      ? cropEdit && cropEdit.layers === doc.layers && cropEdit.width === doc.width && cropEdit.height === doc.height
+        ? cropEdit
+        : { layers: doc.layers, width: doc.width, height: doc.height, box: fullFrame(doc), shape: 'free' }
+      : null
+  const setCrop = (box: TransformBox, shape: CropShape) =>
+    doc && setCropEdit({ layers: doc.layers, width: doc.width, height: doc.height, box, shape })
+
+  const transformChanged = !!transform && !isIdentity(transform.box, transform.session.original)
+  const cropChanged = !!crop && !!doc && !isIdentity(crop.box, fullFrame(doc))
+
+  // Keeps the new size and angle. Returns false if it couldn't (the result would be too big).
+  function applyTransform(): boolean {
+    if (!transform || !transformChanged) return true
+    const { session, box } = transform
+    let tooBig = false
+    editor.change(
+      describeChange(box, session.original),
+      (d) => {
+        const next = commitTransform(d, session, box)
+        if (!next) tooBig = true
+        return next ?? d
+      },
+      { bytes: canvasBytes(session.layer.canvas) + canvasBytes(session.source) },
+    )
+    if (tooBig) {
+      problem('That would be too big to draw. Try making it a little smaller.')
+      return false
+    }
+    setTransformEdit(null)
+    return true
+  }
+
+  function cancelTransform() {
+    setTransformEdit(null)
+  }
+
+  function applyCrop() {
+    const d = current()
+    if (!crop || !d || isIdentity(crop.box, fullFrame(d))) return
+    const rect = cropRect(crop.box)
+    editor.change('Crop', (doc) => cropDocument(doc, rect))
+    // Keep the part you kept exactly where it was on screen.
+    setViewport((v) => ({ ...v, panX: v.panX + rect.x * v.zoom, panY: v.panY + rect.y * v.zoom }))
+    setCropEdit(null)
+  }
+
+  // Unfinished resizing or cropping is applied before doing anything else, so nothing gets mixed up.
+  function settle() {
+    if (transformChanged) applyTransform()
+    if (cropChanged) applyCrop()
+  }
+
   function setTool(next: ToolId) {
+    if (next !== tool) {
+      if (tool === 'transform') {
+        if (!applyTransform()) return
+        setTransformEdit(null)
+      }
+      if (tool === 'crop') {
+        applyCrop()
+        setCropEdit(null)
+      }
+    }
     if (next === 'brush' || next === 'eraser') lastDrawToolRef.current = next
     setToolState(next)
   }
@@ -137,6 +278,8 @@ export default function App() {
 
   function showDocument(next: EditorDocument) {
     editor.load(next)
+    setTransformEdit(null)
+    setCropEdit(null)
     setCursor(null)
     setNotice(null)
     setViewport(fitted(next, false))
@@ -144,7 +287,8 @@ export default function App() {
 
   // Runs the action right away, or asks first if there are changes that would be lost.
   function guardDiscard(action: () => void) {
-    if (editor.isDirty) {
+    settle()
+    if (editor.isDirty || transformChanged || cropChanged) {
       pendingDiscardRef.current = action
       setDialog('discard')
     } else {
@@ -179,9 +323,10 @@ export default function App() {
   }
 
   async function download({ format, quality, fileName }: ExportOptions) {
-    if (!doc) return
+    const d = current()
+    if (!d) return
     try {
-      downloadBlob(await exportDocument(doc, format, quality / 100), fileName)
+      downloadBlob(await exportDocument(d, format, quality / 100), fileName)
       editor.markSaved()
       setDialog(null)
     } catch (e) {
@@ -204,7 +349,7 @@ export default function App() {
   }
 
   function handleMove(session: MoveSession, dx: number, dy: number) {
-    const layer = doc?.layers.find((l) => l.id === session.layerId)
+    const layer = current()?.layers.find((l) => l.id === session.layerId)
     editor.change(session.label, (d) => session.commit(d, dx, dy), { bytes: session.movesSelection && layer ? canvasBytes(layer.canvas) : 0 })
   }
 
@@ -212,10 +357,27 @@ export default function App() {
     editor.change(label, (d) => ({ ...d, selection }))
   }
 
+  function handleFill(point: Point) {
+    const d = current()
+    const layer = d && activeLayer(d)
+    if (!d || !layer) return
+    const pieces = fillArea(d, point, color, Math.round(fillTolerance * 255))
+    if (!pieces) return
+    const { core, rim } = pieces
+    const area = { x: core.x, y: core.y, width: core.canvas.width, height: core.canvas.height }
+    editor.paint('Fill area', layer.id, area, (ctx, l) => {
+      ctx.drawImage(core.canvas, core.x - l.x, core.y - l.y)
+      // The rim slips underneath what's already there, so outlines keep their soft edges.
+      ctx.globalCompositeOperation = 'destination-over'
+      ctx.drawImage(rim.canvas, rim.x - l.x, rim.y - l.y)
+    })
+    rememberColor(color)
+  }
+
   function changeBrushSize(direction: 1 | -1) {
-    const update = (current: { settings: BrushSettings; presetId: string | null }) => ({
-      ...current,
-      settings: { ...current.settings, size: stepBrushSize(current.settings.size, direction) },
+    const update = (state: { settings: BrushSettings; presetId: string | null }) => ({
+      ...state,
+      settings: { ...state.settings, size: stepBrushSize(state.settings.size, direction) },
     })
     if (tool === 'eraser') setEraser(update)
     else setBrush(update)
@@ -227,7 +389,8 @@ export default function App() {
 
   // The selected layer, if it can be changed; otherwise says why not.
   function usableLayer(doing: string): Layer | null {
-    const layer = doc && activeLayer(doc)
+    const d = current()
+    const layer = d && activeLayer(d)
     if (!layer) return null
     if (!layer.visible) {
       problem(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then ${doing} again.`)
@@ -246,11 +409,12 @@ export default function App() {
 
   // The selected part of the selected layer, or a message saying there's nothing there.
   function selectedPiece(): Piece | null {
-    const layer = doc && activeLayer(doc)
-    if (!doc || !layer) return null
-    const piece = copySelected(layer, doc)
+    const d = current()
+    const layer = d && activeLayer(d)
+    if (!d || !layer) return null
+    const piece = copySelected(layer, d)
     if (!piece || isBlank(piece.canvas)) {
-      problem(doc.selection ? `There is nothing in the selected area on "${layer.name}".` : `"${layer.name}" is empty, so there is nothing to copy.`)
+      problem(d.selection ? `There is nothing in the selected area on "${layer.name}".` : `"${layer.name}" is empty, so there is nothing to copy.`)
       return null
     }
     return piece
@@ -259,7 +423,8 @@ export default function App() {
   // Puts a picture on a new layer: where it was copied from, or in the middle if that's off the design.
   function pastePiece(piece: Piece | { canvas: HTMLCanvasElement; x?: number; y?: number }) {
     const { canvas } = piece
-    if (!doc) {
+    const d = current()
+    if (!d) {
       // With no design open, the pasted picture becomes a new design.
       showDocument(createDocumentFromImage('Pasted picture', canvas, canvas.width, canvas.height))
       return
@@ -267,13 +432,13 @@ export default function App() {
     const onDesign =
       piece.x !== undefined &&
       piece.y !== undefined &&
-      intersectRect({ x: piece.x, y: piece.y, width: canvas.width, height: canvas.height }, { x: 0, y: 0, width: doc.width, height: doc.height })
-    const x = onDesign ? piece.x! : Math.round((doc.width - canvas.width) / 2)
-    const y = onDesign ? piece.y! : Math.round((doc.height - canvas.height) / 2)
+      intersectRect({ x: piece.x, y: piece.y, width: canvas.width, height: canvas.height }, { x: 0, y: 0, width: d.width, height: d.height })
+    const x = onDesign ? piece.x! : Math.round((d.width - canvas.width) / 2)
+    const y = onDesign ? piece.y! : Math.round((d.height - canvas.height) / 2)
     // A copy, so changing the pasted layer never changes what's on the clipboard.
     const copy = createCanvas(canvas.width, canvas.height)
     getContext2d(copy).drawImage(canvas, 0, 0)
-    editor.change('Paste', (d) => ({ ...insertLayerAboveActive(d, layerFromCanvas('Pasted', copy, x, y)), selection: null }), {
+    editor.change('Paste', (doc) => ({ ...insertLayerAboveActive(doc, layerFromCanvas('Pasted', copy, x, y)), selection: null }), {
       bytes: canvasBytes(copy),
     })
     setTool('move')
@@ -284,6 +449,7 @@ export default function App() {
     const ownCopy = ownCopyCheck()
     try {
       const canvas = await imageFileToCanvas(file)
+      settle()
       // Pixel Studio's own copy remembers where it came from, so it goes back in place.
       pastePiece(ownCopy(canvas.width, canvas.height) ?? { canvas })
     } catch (e) {
@@ -293,121 +459,219 @@ export default function App() {
 
   function moveBy(dx: number, dy: number, mergeKey?: string) {
     const layer = usableLayer('move it')
-    if (!layer || !doc) return
-    editor.change(doc.selection ? 'Move selected area' : 'Move layer', (d) => startMove(d)?.commit(d, dx, dy) ?? d, {
+    const d = current()
+    if (!layer || !d) return
+    editor.change(d.selection ? 'Move selected area' : 'Move layer', (doc) => startMove(doc)?.commit(doc, dx, dy) ?? doc, {
       mergeKey,
-      bytes: doc.selection ? canvasBytes(layer.canvas) : 0,
+      bytes: d.selection ? canvasBytes(layer.canvas) : 0,
     })
   }
 
+  // Whole-design changes: the view refits so the whole result is in sight.
+  function changeWholeDesign(label: string, update: (d: EditorDocument) => EditorDocument) {
+    settle()
+    const d = current()
+    if (!d) return
+    editor.change(label, update, { bytes: documentBytes(d) })
+    const next = current()
+    if (next) setViewport(fitted(next, false))
+  }
+
   const layers = {
-    add: () => editor.change('New layer', (d) => insertLayerAboveActive(d, createLayer(nextLayerName(d.layers), d.width, d.height))),
-    duplicate: () =>
+    select: (layerId: string) => {
+      settle()
+      editor.select(layerId)
+    },
+    add: () => {
+      settle()
+      editor.change('New layer', (d) => insertLayerAboveActive(d, createLayer(nextLayerName(d.layers), d.width, d.height)))
+    },
+    duplicate: () => {
+      settle()
       editor.change(
         'Duplicate layer',
         (d) => {
           const layer = activeLayer(d)
           return layer ? insertLayerAboveActive(d, duplicateLayer(layer)) : d
         },
-        { bytes: active ? canvasBytes(active.canvas) : 0 },
-      ),
-    remove: () => editor.change('Delete layer', (d) => removeLayer(d, d.activeLayerId), { bytes: active ? canvasBytes(active.canvas) : 0 }),
-    move: (direction: 1 | -1) =>
-      editor.change(direction > 0 ? 'Move layer up' : 'Move layer down', (d) => moveLayer(d, d.activeLayerId, direction)),
+        { bytes: activeNow ? canvasBytes(activeNow.canvas) : 0 },
+      )
+    },
+    remove: () => {
+      settle()
+      editor.change('Delete layer', (d) => removeLayer(d, d.activeLayerId), { bytes: activeNow ? canvasBytes(activeNow.canvas) : 0 })
+    },
+    move: (direction: 1 | -1) => {
+      settle()
+      editor.change(direction > 0 ? 'Move layer up' : 'Move layer down', (d) => moveLayer(d, d.activeLayerId, direction))
+    },
     rename: (layerId: string, name: string) => editor.change('Rename layer', (d) => updateLayer(d, layerId, { name })),
     opacity: (layerId: string, opacity: number) =>
       editor.change('Change layer opacity', (d) => updateLayer(d, layerId, { opacity }), { mergeKey: `opacity:${layerId}` }),
     toggleVisibility: (layerId: string) => {
-      const layer = doc?.layers.find((l) => l.id === layerId)
+      settle()
+      const layer = current()?.layers.find((l) => l.id === layerId)
       if (layer) editor.change(layer.visible ? 'Hide layer' : 'Show layer', (d) => updateLayer(d, layerId, { visible: !layer.visible }))
     },
   }
 
-  const active = doc ? activeLayer(doc) : undefined
   const pasteHint = `Press ${shortcut('mod', 'V')} to paste it as a new layer.`
 
-  const commands: AppCommands & { nudge: (dx: number, dy: number) => void; pasteFile: (file: File) => void; hasSelection: () => boolean } = {
-    newDesign: () => setDialog('new'),
+  type ExtraCommands = {
+    nudge: (dx: number, dy: number) => void
+    pasteFile: (file: File) => void
+    hasSelection: () => boolean
+    // Enter and Esc while resizing or cropping.
+    applyPending: () => boolean
+    cancelPending: () => boolean
+  }
+
+  const commands: AppCommands & ExtraCommands = {
+    newDesign: () => {
+      settle()
+      setDialog('new')
+    },
     open: () => fileInputRef.current?.click(),
-    download: () => doc && setDialog('export'),
+    download: () => {
+      settle()
+      if (current()) setDialog('export')
+    },
     close: () => guardDiscard(() => editor.close()),
     // Undo waits until a stroke is finished, so it never pulls pixels out from under the brush.
-    undo: () => !strokeActiveRef.current && editor.undo(),
-    redo: () => !strokeActiveRef.current && editor.redo(),
+    // While resizing or cropping, it first takes back the unapplied change.
+    undo: () => {
+      if (strokeActiveRef.current) return
+      if (transformChanged) return cancelTransform()
+      if (cropChanged) return setCropEdit(null)
+      editor.undo()
+    },
+    redo: () => {
+      if (strokeActiveRef.current || transformChanged || cropChanged) return
+      editor.redo()
+    },
     copy: () => {
+      settle()
       const piece = selectedPiece()
       if (!piece) return
       setClipboard(piece)
       inform(`Copied. ${pasteHint}`)
     },
     cut: () => {
-      if (!doc?.selection) {
+      settle()
+      const d = current()
+      if (!d?.selection) {
         problem('Select an area first, with the Select tool.')
         return
       }
       const layer = usableLayer('cut')
-      const area = editArea(doc)
+      const area = editArea(d)
       const piece = layer && selectedPiece()
       if (!layer || !piece || !area) return
       setClipboard(piece)
-      editor.paint('Cut', layer.id, area, (ctx, l) => clearSelected(ctx, l, doc))
+      editor.paint('Cut', layer.id, area, (ctx, l) => clearSelected(ctx, l, d))
       inform(`Cut. ${pasteHint}`)
     },
     paste: () => {
+      settle()
       const piece = getClipboard()
       if (piece) pastePiece(piece)
       else problem(`Nothing to paste yet. Copy part of your design first, or copy a picture in another program and press ${shortcut('mod', 'V')}.`)
     },
     pasteFile: (file) => void pasteFile(file),
-    selectAll: () => doc && setSelection('Select all', (d) => selectAll(d.width, d.height)),
-    deselect: () => doc?.selection && setSelection('Deselect', () => null),
-    invert: () => doc && setSelection('Invert selection', (d) => invertSelection(d.selection, d.width, d.height)),
+    selectAll: () => {
+      settle()
+      if (current()) setSelection('Select all', (d) => selectAll(d.width, d.height))
+    },
+    deselect: () => {
+      settle()
+      if (current()?.selection) setSelection('Deselect', () => null)
+    },
+    invert: () => {
+      settle()
+      if (current()) setSelection('Invert selection', (d) => invertSelection(d.selection, d.width, d.height))
+    },
     fill: () => {
+      settle()
       const layer = usableLayer('fill')
-      const area = doc && editArea(doc)
-      if (!doc || !layer || !area) return
-      editor.paint('Fill with color', layer.id, area, (ctx, l) => fillSelected(ctx, l, doc, color))
+      const d = current()
+      const area = d && editArea(d)
+      if (!d || !layer || !area) return
+      editor.paint('Fill with color', layer.id, area, (ctx, l) => fillSelected(ctx, l, d, color))
       rememberColor(color)
     },
     deleteArea: () => {
-      if (!doc?.selection) {
+      settle()
+      const d = current()
+      if (!d?.selection) {
         problem('Select an area first, with the Select tool. To remove a whole layer, use Delete layer.')
         return
       }
       const layer = usableLayer('delete')
-      const area = editArea(doc)
-      if (layer && area) editor.paint('Delete selected area', layer.id, area, (ctx, l) => clearSelected(ctx, l, doc))
+      const area = editArea(d)
+      if (layer && area) editor.paint('Delete selected area', layer.id, area, (ctx, l) => clearSelected(ctx, l, d))
     },
     toNewLayer: () => {
-      const layer = doc && activeLayer(doc)
+      settle()
+      const d = current()
+      const layer = d && activeLayer(d)
       const piece = selectedPiece()
       if (!layer || !piece) return
       editor.change(
         'Copy to new layer',
-        (d) => ({ ...insertLayerAboveActive(d, layerFromCanvas(`${layer.name} copy`, piece.canvas, piece.x, piece.y)), selection: null }),
+        (doc) => ({ ...insertLayerAboveActive(doc, layerFromCanvas(`${layer.name} copy`, piece.canvas, piece.x, piece.y)), selection: null }),
         { bytes: canvasBytes(piece.canvas) },
       )
     },
     center: () => {
+      settle()
       const layer = usableLayer('center it')
-      if (!doc || !layer) return
-      const bounds = doc.selection ? selectionInfo(doc.selection, doc.width, doc.height).bounds : contentBounds(layer)
+      const d = current()
+      if (!d || !layer) return
+      const bounds = d.selection ? selectionInfo(d.selection, d.width, d.height).bounds : contentBounds(layer)
       if (!bounds) {
         problem(`"${layer.name}" is empty, so there is nothing to center.`)
         return
       }
-      const dx = Math.round((doc.width - bounds.width) / 2 - bounds.x)
-      const dy = Math.round((doc.height - bounds.height) / 2 - bounds.y)
+      const dx = Math.round((d.width - bounds.width) / 2 - bounds.x)
+      const dy = Math.round((d.height - bounds.height) / 2 - bounds.y)
       if (dx === 0 && dy === 0) inform('It is already in the middle.')
       else moveBy(dx, dy)
     },
     nudge: (dx, dy) => moveBy(dx, dy, 'nudge'),
-    hasSelection: () => !!doc?.selection,
+    hasSelection: () => !!current()?.selection,
+    applyPending: () => {
+      if (tool === 'transform' && transformChanged) return applyTransform(), true
+      if (tool === 'crop' && cropChanged) return applyCrop(), true
+      return false
+    },
+    cancelPending: () => {
+      if (tool === 'transform' && transformChanged) return cancelTransform(), true
+      if (tool === 'crop' && cropChanged) return setCropEdit(null), true
+      return false
+    },
+    resizeDesign: () => {
+      settle()
+      if (current()) setDialog('resize')
+    },
+    cropToSelection: () => {
+      const d = current()
+      const bounds = d?.selection && selectionInfo(d.selection, d.width, d.height).bounds
+      if (!bounds) {
+        problem('Select an area first, with the Select tool.')
+        return
+      }
+      settle()
+      editor.change('Crop to selection', (doc) => cropDocument({ ...doc, selection: null }, bounds))
+      setViewport((v) => ({ ...v, panX: v.panX + bounds.x * v.zoom, panY: v.panY + bounds.y * v.zoom }))
+    },
+    rotateDesign: (direction) => changeWholeDesign(direction > 0 ? 'Turn design right' : 'Turn design left', (d) => rotateDocument(d, direction)),
+    flipDesign: (axis) =>
+      changeWholeDesign(axis === 'horizontal' ? 'Flip design left to right' : 'Flip design upside down', (d) => flipDocument(d, axis)),
     layerAdd: layers.add,
     layerDuplicate: layers.duplicate,
     layerUp: () => layers.move(1),
     layerDown: () => layers.move(-1),
-    layerToggle: () => active && layers.toggleVisibility(active.id),
+    layerToggle: () => activeNow && layers.toggleVisibility(activeNow.id),
     layerDelete: layers.remove,
     zoomIn: () => doc && zoomBy(1),
     zoomOut: () => doc && zoomBy(-1),
@@ -422,9 +686,11 @@ export default function App() {
   const actions = buildActions({ doc, undoLabel: editor.undoLabel, redoLabel: editor.redoLabel }, commands)
 
   // Keyboard and paste handlers live in effects, so they read the latest commands through refs.
+  // A layout effect updates them together with the screen, so a key pressed right after a drag
+  // acts on what is shown, not on the step before.
   const commandsRef = useRef(commands)
   const stateRef = useRef({ hasDoc: !!doc, dialogOpen: dialog !== null, tool })
-  useEffect(() => {
+  useLayoutEffect(() => {
     commandsRef.current = commands
     stateRef.current = { hasDoc: !!doc, dialogOpen: dialog !== null, tool }
   })
@@ -450,6 +716,9 @@ export default function App() {
         setSpaceHeld(true)
         return
       }
+      // Enter and Esc finish or undo an unapplied resize or crop.
+      if (plain && event.key === 'Enter' && c.applyPending()) return event.preventDefault()
+      if (event.key === 'Escape' && c.cancelPending()) return event.preventDefault()
 
       let action: (() => unknown) | undefined
       if (mod && code === 'KeyK') action = c.search
@@ -544,17 +813,53 @@ export default function App() {
     if (file) void openFile(file)
   }
 
+  function changeCropShape(shape: CropShape) {
+    if (!doc || !crop) return
+    const ratio = cropRatio(shape, doc)
+    let box = crop.box
+    if (ratio) {
+      // The biggest frame of the new shape that fits inside the current one.
+      const width = Math.min(Math.abs(box.width), Math.abs(box.height) * ratio)
+      box = { ...box, width, height: width / ratio }
+    }
+    setCrop(box, shape)
+  }
+
   const paintSettings = tool === 'eraser' ? eraser.settings : brush.settings
   const hintTool: ToolId = spaceHeld ? 'hand' : altHeld && tool === 'brush' ? 'picker' : tool
   const hintExtra = doc?.selection && (hintTool === 'brush' || hintTool === 'eraser') ? 'Only the selected area changes.' : undefined
+
+  const box: BoxEditing | null =
+    tool === 'transform' && transform
+      ? {
+          kind: 'transform',
+          value: transform.box,
+          keepProportions,
+          edges: true,
+          onChange: setTransformBox,
+          onApply: applyTransform,
+        }
+      : tool === 'crop' && crop
+        ? {
+            kind: 'crop',
+            value: crop.box,
+            keepProportions: crop.shape !== 'free',
+            edges: crop.shape === 'free',
+            onChange: (next) => setCrop(tidyCropBox(next), crop.shape),
+            onApply: applyCrop,
+          }
+        : null
+
+  const override: LayerOverride | null =
+    tool === 'transform' && transform && transformChanged ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) } : null
 
   return (
     <div className="flex h-full select-none flex-col" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       <TopBar
         actions={actions}
         documentName={doc?.name ?? null}
-        undoLabel={editor.undoLabel}
-        redoLabel={editor.redoLabel}
+        undoLabel={transformChanged ? 'Resize changes' : cropChanged ? 'Crop frame' : editor.undoLabel}
+        redoLabel={transformChanged || cropChanged ? null : editor.redoLabel}
         onUndo={commands.undo}
         onRedo={commands.redo}
         onSearch={commands.search}
@@ -584,6 +889,30 @@ export default function App() {
           toNewLayer: commands.toNewLayer,
           center: commands.center,
         }}
+        transform={{
+          active: !!transform,
+          changed: transformChanged,
+          width: transform?.box.width ?? 0,
+          height: transform?.box.height ?? 0,
+          angle: Math.round((normalizeAngle(transform?.box.rotation ?? 0) * 180) / Math.PI),
+          keepProportions,
+          onKeepProportions: setKeepProportions,
+          flip: (axis) => transform && setTransformBox(flipBox(transform.box, axis)),
+          rotate90: (direction) => transform && setTransformBox(rotateBox90(transform.box, direction)),
+          apply: applyTransform,
+          cancel: cancelTransform,
+        }}
+        crop={{
+          width: crop ? cropRect(crop.box).width : 0,
+          height: crop ? cropRect(crop.box).height : 0,
+          shape: crop?.shape ?? 'free',
+          onShape: changeCropShape,
+          changed: cropChanged,
+          apply: applyCrop,
+          reset: () => setCropEdit(null),
+        }}
+        fillTolerance={fillTolerance}
+        onFillToleranceChange={setFillTolerance}
       />
 
       <div className="flex min-h-0 flex-1 gap-2 px-2 pb-2">
@@ -617,6 +946,9 @@ export default function App() {
                 onMove={handleMove}
                 onSelect={handleSelect}
                 onBlocked={problem}
+                override={override}
+                box={box}
+                onFill={handleFill}
               />
               <ToolHint tool={hintTool} extra={hintExtra} />
               <ZoomControls
@@ -643,7 +975,7 @@ export default function App() {
           <LayersPanel
             doc={doc}
             revision={editor.revision}
-            onSelect={editor.select}
+            onSelect={layers.select}
             onToggleVisibility={layers.toggleVisibility}
             onRename={layers.rename}
             onOpacity={layers.opacity}
@@ -672,6 +1004,17 @@ export default function App() {
       )}
       {dialog === 'export' && doc && <ExportDialog doc={doc} onExport={download} onClose={() => setDialog(null)} />}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
+      {dialog === 'resize' && doc && (
+        <ResizeDialog
+          width={doc.width}
+          height={doc.height}
+          onClose={() => setDialog(null)}
+          onResize={(width, height) => {
+            setDialog(null)
+            changeWholeDesign('Resize design', (d) => resizeDocument(d, width, height))
+          }}
+        />
+      )}
       {dialog === 'discard' && (
         <Dialog
           title="Throw away your changes?"
