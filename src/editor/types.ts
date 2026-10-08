@@ -21,6 +21,8 @@ export interface EditorDocument {
   height: number
   // Bottom layer first, top layer last.
   layers: Layer[]
+  // The layer that painting and layer actions apply to.
+  activeLayerId: string
 }
 
 // Where the document sits on screen: a screen point equals
@@ -31,4 +33,4 @@ export interface Viewport {
   panY: number
 }
 
-export type ToolId = 'hand' | 'zoom'
+export type ToolId = 'brush' | 'eraser' | 'picker' | 'hand' | 'zoom'

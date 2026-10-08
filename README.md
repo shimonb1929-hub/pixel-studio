@@ -17,7 +17,13 @@ Pixel Studio should feel obvious to a 10-year-old and still be able to do real w
   plain-language tip on hover. Options show a live note that describes the current choice.
   Buttons that can't be used yet still explain why and what to do first.
 - **The program always says what will happen.** A hint at the top of the canvas describes what
-  the current tool does.
+  the current tool does, and Undo names the exact step it will take back ("Undo brush stroke").
+- **Drawing that looks good from the first stroke.** Ready-made brushes (Pencil, Ink pen, Marker,
+  Soft brush, Highlighter) each show a live sample. "Steady hand" smooths shaky lines, pen
+  pressure works on drawing tablets, and one stroke never gets darker where it crosses itself.
+- **Mistakes are safe.** Every design starts as paper with a clear sheet on top, so the eraser
+  only rubs out your drawing. Undo goes back up to 100 steps, and closing a design with changes
+  you haven't downloaded asks first.
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 
@@ -36,8 +42,8 @@ Then open the address it prints (usually http://localhost:5173).
 | --- | --- |
 | `npm run dev` | Starts the program locally and reloads on every change |
 | `npm run build` | Checks the types and builds the finished site into `dist/` |
-| `npm test` | Runs the unit tests (zoom math, search, file names) |
-| `npm run test:e2e` | Opens the program in a real browser and clicks through every feature |
+| `npm test` | Runs the unit tests (zoom math, colors, undo history, brushes, layers, search) |
+| `npm run test:e2e` | Opens the program in a real browser, on a normal and a sharp (Retina) screen, and uses every feature |
 | `npm run lint` | Checks the code for common mistakes |
 
 Before the first `npm run test:e2e` on a new computer, run `npx playwright install chromium` once.
@@ -46,8 +52,15 @@ Before the first `npm run test:e2e` on a new computer, run `npx playwright insta
 
 ```
 src/
-  editor/        The engine: document and layers, zoom math, drawing, opening and downloading files
-  components/    The screens: top bar, tool dock, canvas, layers, dialogs, search, tooltips
+  editor/
+    stroke.ts    The brush engine: dabs, smoothing, pressure, and painting into a layer
+    history.ts   Undo and redo, with memory limits and "changed since download" tracking
+    layers.ts    Adding, removing, moving and changing layers
+    brushes.ts   The ready-made brushes and erasers
+    color.ts     Color codes and the color picker math
+    ...          The document, zoom math, drawing to screen, opening and downloading files
+  components/    The screens: top bar, tool settings, canvas, color, layers, dialogs, search, tips
+  hooks/         The editor state (document, layers, undo) and element sizes
   actions.ts     Every action, described once in plain words; the menu, search and tips read it
   tools.ts       The tools, their explanations and hints
   presets.ts     The ready-made sizes
@@ -55,19 +68,21 @@ src/
 e2e/             Browser tests that use the program like a person would
 ```
 
-Each layer is its own off-screen canvas. The visible canvas draws the layers on top of each
-other at the current zoom, so editing never touches the screen directly.
+Each layer is its own off-screen canvas. A brush stroke paints onto a separate stroke canvas and
+is shown on a preview of the layer while you draw; when you let go, the changed area is copied
+into the layer and kept for undo.
 
 ## Roadmap
 
 1. **Foundation** (done) — start from a ready-made or custom size, open a picture (button or
-   drag and drop), zoom and move around, download as PNG or JPG, layers panel, search,
-   hover help everywhere.
-2. **Drawing** — brush, eraser, color picker, color panel.
-3. **Layers** — add, delete, reorder, rename, opacity.
-4. **Undo and redo**, plus saving and reopening editable project files.
-5. **Selections and changes** — select areas, move, crop, resize, rotate, flip.
-6. **Adjustments and filters** — brightness, contrast, colors, blur, sharpen.
-7. **Vector shapes** — rectangles, circles, lines and a pen tool, with editable fill and outline.
-8. **Text** — text layers, fonts, sizes, paragraph settings.
-9. **Pages and layout** — multi-page documents, guides, text boxes, PDF export.
+   drag and drop), zoom and move around, download as PNG or JPG, search, hover help everywhere.
+2. **Drawing** (done) — brushes and erasers with live samples, steady hand, pen pressure,
+   straight lines, colors with a picker, swatches and recent colors, undo and redo, layers
+   (add, duplicate, delete, reorder, rename, hide, opacity), protection against losing work.
+3. **Selections and changes** — select areas, move, crop, resize, rotate, flip; save and reopen
+   projects with all their layers, with automatic saving.
+4. **Adjustments and filters** — brightness, contrast, colors, blur, sharpen.
+5. **Vector shapes** — rectangles, circles, lines and a pen tool, with editable fill and outline.
+6. **Text** — text layers, fonts, sizes, paragraph settings.
+7. **Pages and layout** — multi-page documents, guides, text boxes, PDF export.
+8. **Ready to sell** — accounts, saving to the cloud, payments and a free trial.

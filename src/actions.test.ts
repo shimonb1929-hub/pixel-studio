@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isActionEnabled, searchActions, type Action } from './actions.ts'
+import { actionBlocker, NEEDS_DOCUMENT_HINT, searchActions, type Action } from './actions.ts'
 
 const noop = () => {}
 
@@ -47,11 +47,17 @@ describe('searchActions', () => {
   })
 })
 
-describe('isActionEnabled', () => {
+describe('actionBlocker', () => {
   it('turns off design actions until a design is open', () => {
     const download = ACTIONS[2]
-    expect(isActionEnabled(download, false)).toBe(false)
-    expect(isActionEnabled(download, true)).toBe(true)
-    expect(isActionEnabled(ACTIONS[0], false)).toBe(true)
+    expect(actionBlocker(download, false)).toBe(NEEDS_DOCUMENT_HINT)
+    expect(actionBlocker(download, true)).toBeNull()
+    expect(actionBlocker(ACTIONS[0], false)).toBeNull()
+  })
+
+  it('explains other reasons an action is off', () => {
+    const undo: Action = { ...ACTIONS[0], id: 'undo', needsDocument: true, disabledReason: 'Nothing to undo yet.' }
+    expect(actionBlocker(undo, false)).toBe(NEEDS_DOCUMENT_HINT)
+    expect(actionBlocker(undo, true)).toBe('Nothing to undo yet.')
   })
 })

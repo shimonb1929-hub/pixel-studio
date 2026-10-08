@@ -1,4 +1,4 @@
-export type ActionGroup = 'Design' | 'View' | 'Tools'
+export type ActionGroup = 'Design' | 'Edit' | 'Layers' | 'View' | 'Tools' | 'Brush'
 
 // Everything a person can do, described once in plain words. The menu, the search box
 // and the hover tips all read from this list, so they always say the same thing.
@@ -11,13 +11,17 @@ export interface Action {
   keywords: string[]
   shortcut?: string
   needsDocument?: boolean
+  // Set when the action can't be used right now, explaining why in plain words.
+  disabledReason?: string
   run: () => void
 }
 
 export const NEEDS_DOCUMENT_HINT = 'Start a new design or open a picture first.'
 
-export function isActionEnabled(action: Action, hasDocument: boolean): boolean {
-  return !action.needsDocument || hasDocument
+// Why an action can't be used right now, or null if it can.
+export function actionBlocker(action: Action, hasDocument: boolean): string | null {
+  if (action.needsDocument && !hasDocument) return NEEDS_DOCUMENT_HINT
+  return action.disabledReason ?? null
 }
 
 function normalize(text: string): string {

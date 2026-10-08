@@ -55,3 +55,56 @@ button:focus-visible,
 input[type='range'] {
   accent-color: var(--color-accent);
 }
+
+/* A calm slider: thin track filled up to the handle, round white handle. */
+.slider {
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+}
+.slider:focus-visible {
+  outline: none;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--color-accent) var(--fill, 0%), var(--color-line) var(--fill, 0%));
+}
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid rgb(16 24 40 / 0.12);
+  box-shadow: 0 1px 3px rgb(16 24 40 / 0.25);
+  transition: box-shadow 0.15s;
+}
+.slider:focus-visible::-webkit-slider-thumb,
+.slider:active::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgb(51 102 255 / 0.22), 0 1px 3px rgb(16 24 40 / 0.25);
+}
+.slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-line);
+}
+.slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-accent);
+}
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid rgb(16 24 40 / 0.12);
+  box-shadow: 0 1px 3px rgb(16 24 40 / 0.25);
+}
+.slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgb(51 102 255 / 0.22), 0 1px 3px rgb(16 24 40 / 0.25);
+}

@@ -16,6 +16,11 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 900 } },
     },
+    {
+      // Sharp "Retina" screens draw two pixels per point, which catches rounding mistakes.
+      name: 'chromium-hidpi',
+      use: { ...devices['Desktop Chrome HiDPI'], viewport: { width: 1400, height: 900 } },
+    },
   ],
   webServer: {
     command: `npx vite --port ${PORT} --strictPort`,

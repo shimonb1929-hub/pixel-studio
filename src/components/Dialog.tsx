@@ -7,13 +7,16 @@ interface DialogProps {
   title: string
   subtitle?: string
   submitLabel: string
+  cancelLabel?: string
+  // For actions that throw work away: the main button turns red.
+  danger?: boolean
   submitDisabled?: boolean
   onSubmit: () => void
   onClose: () => void
-  children: ReactNode
+  children?: ReactNode
 }
 
-export function Dialog({ title, subtitle, submitLabel, submitDisabled, onSubmit, onClose, children }: DialogProps) {
+export function Dialog({ title, subtitle, submitLabel, cancelLabel = 'Cancel', danger, submitDisabled, onSubmit, onClose, children }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const pressedBackdropRef = useRef(false)
   const titleId = useId()
@@ -62,15 +65,17 @@ export function Dialog({ title, subtitle, submitLabel, submitDisabled, onSubmit,
             <X size={18} />
           </button>
         </div>
-        <div className="space-y-5 px-6 py-4">{children}</div>
+        {children && <div className="space-y-5 px-6 py-4">{children}</div>}
         <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
-          <Button variant="ghost" className="h-9 px-4" onClick={onClose}>
-            Cancel
+          <Button variant="ghost" className="h-9 px-4" onClick={onClose} data-autofocus={danger ? true : undefined}>
+            {cancelLabel}
           </Button>
           <button
             type="submit"
             aria-disabled={submitDisabled || undefined}
-            className="h-9 rounded-lg bg-accent px-5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent-hover aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:hover:bg-accent"
+            className={`h-9 rounded-lg px-5 text-sm font-medium text-white shadow-sm transition-colors aria-disabled:cursor-not-allowed aria-disabled:opacity-45 ${
+              danger ? 'bg-danger hover:bg-[#a52a08]' : 'bg-accent hover:bg-accent-hover aria-disabled:hover:bg-accent'
+            }`}
           >
             {submitLabel}
           </button>

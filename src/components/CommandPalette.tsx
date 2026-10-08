@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
-import { isActionEnabled, NEEDS_DOCUMENT_HINT, searchActions, type Action } from '../actions.ts'
+import { actionBlocker, searchActions, type Action } from '../actions.ts'
 
 interface CommandPaletteProps {
   actions: Action[]
@@ -31,7 +31,7 @@ export function CommandPalette({ actions, hasDocument, onClose }: CommandPalette
   }, [activeIndex])
 
   function run(action: Action | undefined) {
-    if (!action || !isActionEnabled(action, hasDocument)) return
+    if (!action || actionBlocker(action, hasDocument) !== null) return
     onClose()
     action.run()
   }
@@ -82,7 +82,8 @@ export function CommandPalette({ actions, hasDocument, onClose }: CommandPalette
 
       <ul id="palette-results" ref={listRef} role="listbox" aria-label="Results" className="max-h-[min(24rem,55vh)] overflow-y-auto p-2">
         {results.map((action, index) => {
-          const enabled = isActionEnabled(action, hasDocument)
+          const blocker = actionBlocker(action, hasDocument)
+          const enabled = blocker === null
           return (
             <li
               key={action.id}
@@ -102,7 +103,7 @@ export function CommandPalette({ actions, hasDocument, onClose }: CommandPalette
                   <span className="text-[11px] text-ink-3">{action.group}</span>
                 </div>
                 <p className={`mt-0.5 line-clamp-2 text-xs leading-relaxed ${enabled ? 'text-ink-2' : 'text-[#b54708]'}`}>
-                  {enabled ? action.description : NEEDS_DOCUMENT_HINT}
+                  {blocker ?? action.description}
                 </p>
               </div>
               {action.shortcut && (

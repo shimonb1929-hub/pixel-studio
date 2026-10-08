@@ -5,14 +5,17 @@ export interface TipContent {
   title: string
   description?: string
   shortcut?: string
-  // Highlighted line, used to explain why something can't be used yet.
+  // Highlighted line: why something can't be used yet, or what the current value means.
   note?: string
+  noteTone?: 'warning' | 'info'
 }
 
 interface TooltipProps extends TipContent {
   side?: 'right' | 'bottom' | 'top'
   children: ReactNode
   className?: string
+  // Keep the tip open while pressing, so a slider's live explanation stays visible as you drag.
+  keepOpenOnPress?: boolean
 }
 
 const SHOW_DELAY = 350
@@ -23,7 +26,17 @@ let lastHiddenAt = 0
 const GAP = 8
 const EDGE = 8
 
-export function Tooltip({ title, description, shortcut, note, side = 'bottom', children, className }: TooltipProps) {
+export function Tooltip({
+  title,
+  description,
+  shortcut,
+  note,
+  noteTone = 'warning',
+  side = 'bottom',
+  children,
+  className,
+  keepOpenOnPress,
+}: TooltipProps) {
   const anchorRef = useRef<HTMLSpanElement>(null)
   const tipRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<number | undefined>(undefined)
@@ -80,6 +93,7 @@ export function Tooltip({ title, description, shortcut, note, side = 'bottom', c
         hide()
       }}
       onPointerDown={() => {
+        if (keepOpenOnPress) return
         suppressedRef.current = true
         hide()
       }}
@@ -103,7 +117,11 @@ export function Tooltip({ title, description, shortcut, note, side = 'bottom', c
               )}
             </div>
             {description && <p className="mt-1 text-xs leading-relaxed text-white/75">{description}</p>}
-            {note && <p className="mt-1.5 text-xs font-medium leading-relaxed text-[#ffc56e]">{note}</p>}
+            {note && (
+              <p className={`mt-1.5 text-xs font-medium leading-relaxed ${noteTone === 'warning' ? 'text-[#ffc56e]' : 'text-[#a9c1ff]'}`}>
+                {note}
+              </p>
+            )}
           </div>,
           container,
         )}

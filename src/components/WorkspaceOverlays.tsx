@@ -103,7 +103,7 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut, onActualSize, onFit }:
 export function DesignInfo({ doc, cursor }: { doc: EditorDocument; cursor: Point | null }) {
   const inside = cursor && cursor.x >= 0 && cursor.y >= 0 && cursor.x < doc.width && cursor.y < doc.height
   return (
-    <div className={`${PILL} bottom-3 left-3 hidden gap-3 rounded-xl px-3 py-2 text-xs tabular-nums text-ink-2 lg:flex`}>
+    <div className={`${PILL} bottom-3 left-3 hidden gap-3 rounded-xl px-3 py-2 text-xs tabular-nums text-ink-2 xl:flex`}>
       <Tooltip
         side="top"
         title="Design size"

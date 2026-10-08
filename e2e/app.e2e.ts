@@ -91,7 +91,8 @@ test.describe('starting', () => {
   test('one click on a size starts a design', async ({ page }) => {
     await page.getByRole('button', { name: /Square post/ }).click()
     await expect(page.getByText('1080 × 1080 px')).toBeVisible()
-    await expect(page.getByRole('complementary', { name: 'Layers' })).toContainText('Background')
+    await expect(page.getByRole('region', { name: 'Layers' })).toContainText('Background')
+    await expect(page.getByRole('button', { name: 'Layer: Layer 1' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.locator('header')).toContainText('Square post')
     // White background in the middle of the design.
     const box = (await page.locator('main').boundingBox())!
@@ -208,6 +209,7 @@ test.describe('looking around', () => {
   })
 
   test('Hand tool and Space + drag slide the design', async ({ page }) => {
+    await page.keyboard.press('h')
     const box = (await page.locator('main').boundingBox())!
     const cx = box.width / 2
     const cy = box.height / 2
@@ -235,7 +237,7 @@ test.describe('looking around', () => {
   test('Zoom tool zooms in on click and out with Alt + click', async ({ page }) => {
     await page.getByRole('button', { name: 'Zoom tool' }).click()
     await expect(page.getByRole('status')).toContainText('Click to zoom in')
-    const canvas = page.locator('main canvas')
+    const canvas = page.locator('main canvas[aria-label]')
     await canvas.click({ position: { x: 300, y: 300 } })
     await expect(zoomLevel(page)).toHaveText('200%')
     await canvas.click({ position: { x: 300, y: 300 }, modifiers: ['Alt'] })
@@ -269,7 +271,7 @@ test.describe('search and menu', () => {
     await page.keyboard.press('Control+k')
     const search = page.getByRole('combobox', { name: 'What do you want to do?' })
     await expect(search).toBeFocused()
-    await search.fill('bigger')
+    await search.fill('closer')
     await expect(page.getByRole('option').first()).toContainText('Zoom in')
     await search.press('Enter')
     await expect(zoomLevel(page)).toHaveText('200%')
@@ -381,11 +383,11 @@ test.describe('downloading', () => {
     await openPicture(page)
     const box = (await page.locator('main').boundingBox())!
     const before = await canvasPixel(page, box.width / 2, box.height / 2)
-    await page.getByRole('button', { name: 'Hide Background' }).click()
+    await page.getByRole('button', { name: 'Hide Picture' }).click()
     expect(await canvasPixel(page, box.width / 2, box.height / 2)).not.toEqual(before)
     const png = await downloadAs(page, 'PNG')
     expect((await filePixel(page, png.bytes, 300, 200)).pixel[3]).toBe(0)
-    await page.getByRole('button', { name: 'Show Background' }).click()
+    await page.getByRole('button', { name: 'Show Picture' }).click()
     expect(await canvasPixel(page, box.width / 2, box.height / 2)).toEqual(before)
   })
 })

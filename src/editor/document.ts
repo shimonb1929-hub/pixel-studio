@@ -51,6 +51,19 @@ export function createLayer(name: string, width: number, height: number): Layer 
   }
 }
 
+export function duplicateLayer(layer: Layer): Layer {
+  const copy = createLayer(`${layer.name} copy`, layer.canvas.width, layer.canvas.height)
+  getContext2d(copy.canvas).drawImage(layer.canvas, 0, 0)
+  return { ...copy, visible: layer.visible, opacity: layer.opacity }
+}
+
+// Every design starts like a sheet of paper with a clear sheet on top. You draw on the clear
+// sheet, so the eraser rubs out your drawing and never the paper or the picture underneath.
+function withDrawingLayer(name: string, base: Layer, width: number, height: number): EditorDocument {
+  const drawing = createLayer('Layer 1', width, height)
+  return { id: createId('doc'), name, width, height, layers: [base, drawing], activeLayerId: drawing.id }
+}
+
 export function createBlankDocument(
   name: string,
   width: number,
@@ -63,7 +76,7 @@ export function createBlankDocument(
     ctx.fillStyle = BACKGROUND_COLORS[background]
     ctx.fillRect(0, 0, width, height)
   }
-  return { id: createId('doc'), name, width, height, layers: [layer] }
+  return withDrawingLayer(name, layer, width, height)
 }
 
 export function createDocumentFromImage(
@@ -72,9 +85,9 @@ export function createDocumentFromImage(
   width: number,
   height: number,
 ): EditorDocument {
-  const layer = createLayer('Background', width, height)
+  const layer = createLayer('Picture', width, height)
   getContext2d(layer.canvas).drawImage(image, 0, 0, width, height)
-  return { id: createId('doc'), name, width, height, layers: [layer] }
+  return withDrawingLayer(name, layer, width, height)
 }
 
 // Merges all visible layers into a single canvas, optionally over a solid color.

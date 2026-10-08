@@ -1,11 +1,11 @@
-import { Download, Menu as MenuIcon, Search } from 'lucide-react'
+import { Download, Menu as MenuIcon, Redo2, Search, Undo2 } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { isActionEnabled, NEEDS_DOCUMENT_HINT, type Action, type ActionGroup } from '../actions.ts'
+import { actionBlocker, NEEDS_DOCUMENT_HINT, type Action, type ActionGroup } from '../actions.ts'
 import { shortcut } from '../keys.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button } from './ui.tsx'
 
-const MENU_GROUPS: ActionGroup[] = ['Design', 'View']
+const MENU_GROUPS: ActionGroup[] = ['Design', 'Edit', 'Layers', 'View']
 
 function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: boolean }) {
   const [open, setOpen] = useState(false)
@@ -69,7 +69,7 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
           role="menu"
           aria-label="Menu"
           onKeyDown={handleMenuKeyDown}
-          className="absolute left-0 top-full z-40 mt-2 w-72 rounded-xl border border-line bg-surface p-1.5 shadow-float"
+          className="absolute left-0 top-full z-40 mt-2 max-h-[calc(100vh-5rem)] w-72 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-float"
         >
           {MENU_GROUPS.map((group, groupIndex) => (
             <div key={group} role="group" aria-label={group}>
@@ -78,14 +78,15 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
               {actions
                 .filter((action) => action.group === group)
                 .map((action) => {
-                  const enabled = isActionEnabled(action, hasDocument)
+                  const blocker = actionBlocker(action, hasDocument)
+                  const enabled = blocker === null
                   return (
                     <Tooltip
                       key={action.id}
                       side="right"
                       title={action.title.replace('…', '')}
                       description={action.description}
-                      note={enabled ? undefined : NEEDS_DOCUMENT_HINT}
+                      note={blocker ?? undefined}
                       className="flex"
                     >
                       <button
@@ -117,17 +118,53 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
 interface TopBarProps {
   actions: Action[]
   documentName: string | null
+  undoLabel: string | null
+  redoLabel: string | null
+  onUndo: () => void
+  onRedo: () => void
   onSearch: () => void
   onDownload: () => void
 }
 
-export function TopBar({ actions, documentName, onSearch, onDownload }: TopBarProps) {
+export function TopBar({ actions, documentName, undoLabel, redoLabel, onUndo, onRedo, onSearch, onDownload }: TopBarProps) {
   const hasDocument = documentName !== null
   return (
     <header className="grid h-14 shrink-0 grid-cols-[1fr_minmax(0,28rem)_1fr] items-center gap-3 px-3">
       <div className="flex min-w-0 items-center gap-2">
         <span className="whitespace-nowrap px-2 text-[15px] font-semibold tracking-tight text-ink">Pixel Studio</span>
         <MainMenu actions={actions} hasDocument={hasDocument} />
+        <div className="ml-1 flex items-center">
+          <Button
+            variant="ghost"
+            aria-label="Undo"
+            className="h-9 w-9"
+            disabled={!undoLabel}
+            onClick={onUndo}
+            tip={{
+              title: undoLabel ? `Undo ${undoLabel.toLowerCase()}` : 'Undo',
+              shortcut: shortcut('mod', 'Z'),
+              description: 'Take back your last change. Press again to keep going back.',
+              note: undoLabel ? undefined : hasDocument ? 'Nothing to undo yet.' : NEEDS_DOCUMENT_HINT,
+            }}
+          >
+            <Undo2 size={17} />
+          </Button>
+          <Button
+            variant="ghost"
+            aria-label="Redo"
+            className="h-9 w-9"
+            disabled={!redoLabel}
+            onClick={onRedo}
+            tip={{
+              title: redoLabel ? `Redo ${redoLabel.toLowerCase()}` : 'Redo',
+              shortcut: shortcut('mod', 'shift', 'Z'),
+              description: 'Bring back a change you just undid.',
+              note: redoLabel ? undefined : hasDocument ? 'Nothing to redo. Redo works right after you undo.' : NEEDS_DOCUMENT_HINT,
+            }}
+          >
+            <Redo2 size={17} />
+          </Button>
+        </div>
       </div>
 
       <Tooltip

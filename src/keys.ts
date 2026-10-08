@@ -13,9 +13,12 @@ export function shortcut(...parts: string[]): string {
   return parts.map((part) => MODIFIER_LABELS[part as keyof typeof MODIFIER_LABELS] ?? part).join('+')
 }
 
+// Inputs that aren't for typing, like sliders, shouldn't swallow shortcuts such as Ctrl+Z.
+const NON_TEXT_INPUTS = new Set(['range', 'checkbox', 'radio', 'button', 'color', 'file'])
+
+// True when keys pressed should go into a text box rather than trigger shortcuts.
 export function isTypingTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
-  )
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return true
+  return target instanceof HTMLInputElement && !NON_TEXT_INPUTS.has(target.type)
 }

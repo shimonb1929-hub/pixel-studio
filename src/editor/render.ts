@@ -50,11 +50,18 @@ export interface Surface {
   dpr: number
 }
 
+// Shown in place of a layer while it's being painted on.
+export interface LayerOverride {
+  layerId: string
+  canvas: HTMLCanvasElement
+}
+
 export function renderScene(
   ctx: CanvasRenderingContext2D,
   surface: Surface,
   doc: EditorDocument,
   viewport: Viewport,
+  override?: LayerOverride | null,
 ): void {
   const { dpr } = surface
   ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -103,7 +110,7 @@ export function renderScene(
   for (const layer of doc.layers) {
     if (!layer.visible || layer.opacity <= 0) continue
     ctx.globalAlpha = layer.opacity
-    ctx.drawImage(layer.canvas, 0, 0)
+    ctx.drawImage(override?.layerId === layer.id ? override.canvas : layer.canvas, 0, 0)
   }
   ctx.restore()
 
