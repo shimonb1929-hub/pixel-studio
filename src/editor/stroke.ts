@@ -1,14 +1,8 @@
 import type { BrushSettings } from './brushes.ts'
 import { hexToRgb, type Rgb } from './color.ts'
 import { createCanvas, getContext2d } from './document.ts'
+import { clampRect, unionRect, type Rect } from './geometry.ts'
 import type { Layer, Point } from './types.ts'
-
-export interface Rect {
-  x: number
-  y: number
-  width: number
-  height: number
-}
 
 export interface InputPoint extends Point {
   // 0–1. A mouse always reports 1; a drawing tablet reports how hard you press.
@@ -21,28 +15,6 @@ export type StrokeMode = 'paint' | 'erase'
 const SPACING = 0.1
 // The lightest pen touch still draws at a quarter of the full size.
 const MIN_PRESSURE_SCALE = 0.25
-
-export function unionRect(a: Rect | null, b: Rect): Rect {
-  if (!a) return b
-  const x = Math.min(a.x, b.x)
-  const y = Math.min(a.y, b.y)
-  return {
-    x,
-    y,
-    width: Math.max(a.x + a.width, b.x + b.width) - x,
-    height: Math.max(a.y + a.height, b.y + b.height) - y,
-  }
-}
-
-// Snaps a rectangle outward to whole pixels and trims it to the design. Null if nothing is left.
-export function clampRect(rect: Rect, width: number, height: number): Rect | null {
-  const x0 = Math.max(0, Math.floor(rect.x))
-  const y0 = Math.max(0, Math.floor(rect.y))
-  const x1 = Math.min(width, Math.ceil(rect.x + rect.width))
-  const y1 = Math.min(height, Math.ceil(rect.y + rect.height))
-  if (x1 <= x0 || y1 <= y0) return null
-  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
-}
 
 // Paints evenly spaced round dabs along a path. Used by real strokes and by the brush previews.
 export class DabPainter {
@@ -124,6 +96,7 @@ export class DabPainter {
   }
 }
 
+// x and y are in the layer's own coordinates.
 export interface StrokeResult {
   x: number
   y: number
@@ -147,12 +120,21 @@ export function restoreRegion(target: HTMLCanvasElement, region: HTMLCanvasEleme
   ctx.drawImage(region, x, y)
 }
 
-// Reused between strokes, so drawing on a big poster doesn't allocate two huge canvases each time.
-let strokeCanvas: HTMLCanvasElement | null = null
-let previewCanvas: HTMLCanvasElement | null = null
+// Reused between strokes, so drawing on a big poster doesn't allocate huge canvases each time.
+const pool = { stroke: null as HTMLCanvasElement | null, preview: null as HTMLCanvasElement | null, masked: null as HTMLCanvasElement | null }
 
-function pooled(canvas: HTMLCanvasElement | null, width: number, height: number): HTMLCanvasElement {
-  return canvas && canvas.width === width && canvas.height === height ? canvas : createCanvas(width, height)
+function pooled(key: keyof typeof pool, width: number, height: number): HTMLCanvasElement {
+  const canvas = pool[key]
+  if (canvas && canvas.width === width && canvas.height === height) return canvas
+  return (pool[key] = createCanvas(width, height))
+}
+
+// Limits painting to a selected area. The mask's alpha says how much of each pixel is selected.
+export interface StrokeMask {
+  canvas: HTMLCanvasElement
+  // Where the mask's top-left corner sits in the design.
+  x: number
+  y: number
 }
 
 // One brush or eraser stroke, from pointer down to pointer up.
@@ -161,13 +143,20 @@ function pooled(canvas: HTMLCanvasElement | null, width: number, height: number)
 // stroke laid on top at the brush opacity, so overlapping dabs within one stroke never build up
 // darker than the opacity you chose. When the stroke ends, the preview is copied into the layer
 // and the before/after pixels are kept for undo.
+//
+// Points come in design coordinates and are turned into the layer's own coordinates here.
 export class StrokeSession {
   readonly layerId: string
   readonly preview: HTMLCanvasElement
+  // Where the preview sits in the design (the same place as the layer).
+  readonly x: number
+  readonly y: number
   private readonly layer: Layer
   private readonly settings: BrushSettings
   private readonly mode: StrokeMode
+  private readonly mask: StrokeMask | null
   private readonly stroke: HTMLCanvasElement
+  private readonly masked: HTMLCanvasElement | null
   private readonly previewCtx: CanvasRenderingContext2D
   private readonly painter: DabPainter
   private readonly width: number
@@ -176,36 +165,40 @@ export class StrokeSession {
   private target: InputPoint | null = null
   private total: Rect | null = null
 
-  constructor(layer: Layer, settings: BrushSettings, color: string, mode: StrokeMode, width: number, height: number) {
+  constructor(layer: Layer, settings: BrushSettings, color: string, mode: StrokeMode, mask: StrokeMask | null = null) {
     this.layerId = layer.id
     this.layer = layer
     this.settings = settings
     this.mode = mode
-    this.width = width
-    this.height = height
+    this.mask = mask
+    this.x = layer.x
+    this.y = layer.y
+    this.width = layer.canvas.width
+    this.height = layer.canvas.height
 
-    strokeCanvas = pooled(strokeCanvas, width, height)
-    previewCanvas = pooled(previewCanvas, width, height)
-    this.stroke = strokeCanvas
-    this.preview = previewCanvas
+    this.stroke = pooled('stroke', this.width, this.height)
+    this.preview = pooled('preview', this.width, this.height)
+    this.masked = mask ? pooled('masked', this.width, this.height) : null
 
     const strokeCtx = getContext2d(this.stroke)
-    strokeCtx.clearRect(0, 0, width, height)
+    strokeCtx.clearRect(0, 0, this.width, this.height)
     this.previewCtx = getContext2d(this.preview)
-    this.previewCtx.clearRect(0, 0, width, height)
+    this.previewCtx.clearRect(0, 0, this.width, this.height)
     this.previewCtx.drawImage(layer.canvas, 0, 0)
 
     this.painter = new DabPainter(strokeCtx, settings, mode === 'erase' ? { r: 0, g: 0, b: 0 } : hexToRgb(color))
   }
 
+  // Where the stroke ended, in design coordinates.
   get endPoint(): Point | null {
-    return this.target && { x: this.target.x, y: this.target.y }
+    return this.target && { x: this.target.x + this.x, y: this.target.y + this.y }
   }
 
   begin(point: InputPoint): void {
-    this.smoothed = point
-    this.target = point
-    this.painter.begin(point)
+    const local = this.local(point)
+    this.smoothed = local
+    this.target = local
+    this.painter.begin(local)
   }
 
   // Follows the pointer, smoothed by the "steady hand" setting.
@@ -214,16 +207,17 @@ export class StrokeSession {
       this.begin(point)
       return
     }
-    this.target = point
+    this.target = this.local(point)
     this.followTarget()
   }
 
   // A straight line with no smoothing, for Shift + click.
   lineTo(point: InputPoint): void {
     if (!this.smoothed) this.begin(point)
-    this.painter.lineTo(point)
-    this.smoothed = point
-    this.target = point
+    const local = this.local(point)
+    this.painter.lineTo(local)
+    this.smoothed = local
+    this.target = local
   }
 
   // Shows everything painted so far. Returns false if nothing changed.
@@ -233,6 +227,24 @@ export class StrokeSession {
     if (!rect) return false
     this.total = unionRect(this.total, rect)
     const { x, y, width, height } = rect
+
+    // With a selection, only the selected part of the stroke counts. It is masked into a
+    // separate canvas each time, so soft selection edges don't fade further on every update.
+    let source = this.stroke
+    if (this.mask && this.masked) {
+      const masked = getContext2d(this.masked)
+      masked.save()
+      masked.clearRect(x, y, width, height)
+      masked.drawImage(this.stroke, x, y, width, height, x, y, width, height)
+      masked.beginPath()
+      masked.rect(x, y, width, height)
+      masked.clip()
+      masked.globalCompositeOperation = 'destination-in'
+      masked.drawImage(this.mask.canvas, this.mask.x - this.x, this.mask.y - this.y)
+      masked.restore()
+      source = this.masked
+    }
+
     const ctx = this.previewCtx
     ctx.save()
     ctx.clearRect(x, y, width, height)
@@ -240,12 +252,12 @@ export class StrokeSession {
     ctx.globalAlpha = this.settings.opacity
     ctx.globalCompositeOperation =
       this.mode === 'erase' ? 'destination-out' : this.settings.blend === 'multiply' ? 'multiply' : 'source-over'
-    ctx.drawImage(this.stroke, x, y, width, height, x, y, width, height)
+    ctx.drawImage(source, x, y, width, height, x, y, width, height)
     ctx.restore()
     return true
   }
 
-  // Ends the stroke and writes it into the layer. Null if it never touched the design.
+  // Ends the stroke and writes it into the layer. Null if it never touched the layer.
   finish(): StrokeResult | null {
     // Let a smoothed line catch up with where the pointer stopped, so it ends in the right place.
     if (this.smoothed && this.target) {
@@ -262,6 +274,10 @@ export class StrokeSession {
     const after = copyRegion(this.preview, this.total)
     restoreRegion(this.layer.canvas, after, x, y)
     return { x, y, before, after }
+  }
+
+  private local(point: InputPoint): InputPoint {
+    return { x: point.x - this.x, y: point.y - this.y, pressure: point.pressure }
   }
 
   private followTarget(): void {

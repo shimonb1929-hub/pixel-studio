@@ -4,11 +4,11 @@ import type { EditorDocument, Layer } from './types.ts'
 
 // The layer stack logic never touches the pixels, so a stand-in canvas is enough here.
 function layer(id: string, name = id): Layer {
-  return { id, kind: 'raster', name, canvas: {} as HTMLCanvasElement, visible: true, opacity: 1 }
+  return { id, kind: 'raster', name, canvas: {} as HTMLCanvasElement, x: 0, y: 0, visible: true, opacity: 1 }
 }
 
 function doc(ids: string[], active: string): EditorDocument {
-  return { id: 'doc', name: 'Test', width: 10, height: 10, layers: ids.map((id) => layer(id)), activeLayerId: active }
+  return { id: 'doc', name: 'Test', width: 10, height: 10, layers: ids.map((id) => layer(id)), activeLayerId: active, selection: null }
 }
 
 const order = (d: EditorDocument) => d.layers.map((l) => l.id)

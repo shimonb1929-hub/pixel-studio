@@ -9,7 +9,7 @@ import { Tooltip, type TipContent } from './Tooltip.tsx'
 const PILL = 'absolute z-10 items-center border border-line bg-surface/95 shadow-card backdrop-blur'
 
 // Always says what the current tool will do, right where you're looking.
-export function ToolHint({ tool }: { tool: ToolId }) {
+export function ToolHint({ tool, extra }: { tool: ToolId; extra?: string }) {
   const info = TOOLS.find((t) => t.id === tool)!
   const Icon = info.icon
   return (
@@ -19,7 +19,10 @@ export function ToolHint({ tool }: { tool: ToolId }) {
     >
       <Icon size={14} className="shrink-0 text-accent" />
       <span className="font-semibold text-ink">{info.name}</span>
-      <span className="truncate text-ink-2">{info.hint}</span>
+      <span className="truncate text-ink-2">
+        {info.hint}
+        {extra && <span className="font-medium text-accent"> {extra}</span>}
+      </span>
     </div>
   )
 }

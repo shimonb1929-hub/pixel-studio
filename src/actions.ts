@@ -1,4 +1,4 @@
-export type ActionGroup = 'Design' | 'Edit' | 'Layers' | 'View' | 'Tools' | 'Brush'
+export type ActionGroup = 'Design' | 'Edit' | 'Select' | 'Layers' | 'View' | 'Tools' | 'Brush'
 
 // Everything a person can do, described once in plain words. The menu, the search box
 // and the hover tips all read from this list, so they always say the same thing.

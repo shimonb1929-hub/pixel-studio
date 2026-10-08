@@ -1,10 +1,22 @@
 import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type PointerEvent, type SetStateAction } from 'react'
 import type { BrushSettings } from '../editor/brushes.ts'
+import { coverRect } from '../editor/document.ts'
+import { ellipsePolygon, rectFromCorners, rectPolygon, squareFromCorners } from '../editor/geometry.ts'
 import { activeLayer } from '../editor/layers.ts'
-import { renderScene } from '../editor/render.ts'
+import { startMove, type MoveSession } from '../editor/move.ts'
+import { renderScene, type LayerOverride } from '../editor/render.ts'
 import { sampleColor } from '../editor/sample.ts'
+import {
+  combineSelection,
+  isPointSelected,
+  selectionInfo,
+  translateSelection,
+  type Selection,
+  type SelectionMode,
+  type SelectionShape,
+} from '../editor/selection.ts'
 import { StrokeSession, type InputPoint, type StrokeResult } from '../editor/stroke.ts'
-import type { EditorDocument, Point, ToolId, Viewport } from '../editor/types.ts'
+import type { EditorDocument, Layer, Point, ToolId, Viewport } from '../editor/types.ts'
 import { nextZoomLevel, panBy, screenToDocument, zoomAtPoint } from '../editor/viewport.ts'
 
 export interface CanvasViewProps {
@@ -21,9 +33,13 @@ export interface CanvasViewProps {
   // Settings of the current painting tool (brush or eraser).
   brush: BrushSettings
   color: string
-  onStroke: (layerId: string, result: StrokeResult, label: string) => void
+  selectionShape: SelectionShape
+  selectionMode: SelectionMode
+  onStroke: (layerId: string, result: StrokeResult, label: string, grown?: Layer) => void
   onStrokeActiveChange: (active: boolean) => void
   onPickColor: (hex: string) => void
+  onMove: (session: MoveSession, dx: number, dy: number) => void
+  onSelect: (selection: Selection | null, label: string) => void
   onBlocked: (message: string) => void
 }
 
@@ -33,6 +49,29 @@ interface PanDrag {
   lastY: number
 }
 
+interface MoveDrag {
+  session: MoveSession
+  pointerId: number
+  start: Point
+  dx: number
+  dy: number
+}
+
+type SelectDrag =
+  | {
+      kind: 'shape'
+      pointerId: number
+      mode: SelectionMode
+      shape: SelectionShape
+      start: Point
+      current: Point
+      constrain: boolean
+      points: Point[]
+      startClient: Point
+      moved: boolean
+    }
+  | { kind: 'outline'; pointerId: number; start: Point; dx: number; dy: number }
+
 // Mouse wheels jump ~100px per notch while trackpad pinches send small steps;
 // capping the step keeps both feeling about the same.
 const WHEEL_ZOOM_SPEED = 0.01
@@ -41,6 +80,12 @@ const WHEEL_ZOOM_MAX_STEP = 25
 const MIN_OUTLINE_RADIUS = 3
 const PICKER_RING_RADIUS = 30
 const PICKER_RING_WIDTH = 12
+// A press that moves less than this many screen pixels is a click, not a drag.
+const CLICK_DISTANCE = 3
+const ANTS_DASH = 4
+const ANTS_INTERVAL_MS = 90
+
+const SHAPE_LABELS: Record<SelectionShape, string> = { rectangle: 'rectangle', ellipse: 'oval', freehand: 'freehand area' }
 
 function pressureOf(event: globalThis.PointerEvent): number {
   // Only pens report real pressure; a mouse or finger always paints at full size.
@@ -92,20 +137,68 @@ function drawBrushOutline(ctx: CanvasRenderingContext2D, x: number, y: number, r
   }
 }
 
+// Traces loops of design points as one path in screen space.
+function tracePath(ctx: CanvasRenderingContext2D, loops: Point[][], viewport: Viewport, dx = 0, dy = 0) {
+  ctx.beginPath()
+  for (const loop of loops) {
+    loop.forEach((p, i) => {
+      const x = (p.x + dx) * viewport.zoom + viewport.panX
+      const y = (p.y + dy) * viewport.zoom + viewport.panY
+      if (i === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    })
+    ctx.closePath()
+  }
+}
+
+// The classic "marching ants": a black dashed line over a white one, so it shows on any color.
+function drawAnts(ctx: CanvasRenderingContext2D, offset: number) {
+  ctx.lineWidth = 1
+  ctx.setLineDash([])
+  ctx.strokeStyle = '#ffffff'
+  ctx.stroke()
+  ctx.setLineDash([ANTS_DASH, ANTS_DASH])
+  ctx.lineDashOffset = -offset
+  ctx.strokeStyle = '#1b2130'
+  ctx.stroke()
+  ctx.setLineDash([])
+}
+
+// The shape being drawn with the Select tool, as a polygon in design coordinates.
+function dragPolygon(drag: Extract<SelectDrag, { kind: 'shape' }>): Point[] {
+  if (drag.shape === 'freehand') return drag.points
+  const corner = (p: Point) => ({ x: Math.round(p.x), y: Math.round(p.y) })
+  const box = drag.constrain ? squareFromCorners(corner(drag.start), corner(drag.current)) : rectFromCorners(corner(drag.start), corner(drag.current))
+  if (box.width === 0 || box.height === 0) return []
+  return drag.shape === 'ellipse' ? ellipsePolygon(box) : rectPolygon(box)
+}
+
 export function CanvasView(props: CanvasViewProps) {
-  const { doc, revision, viewport, width, height, tool, spaceHeld, altHeld, brush, color } = props
+  const { doc, revision, viewport, width, height, tool, spaceHeld, altHeld, brush, color, selectionMode } = props
   const sceneRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const propsRef = useRef(props)
-  const strokeRef = useRef<{ session: StrokeSession; pointerId: number; label: string } | null>(null)
+  const strokeRef = useRef<{ session: StrokeSession; pointerId: number; label: string; grown?: Layer } | null>(null)
   const panRef = useRef<PanDrag | null>(null)
   const pickRef = useRef<number | null>(null)
+  const moveRef = useRef<MoveDrag | null>(null)
+  const selectRef = useRef<SelectDrag | null>(null)
   const hoverRef = useRef<Point | null>(null)
   const lastEndRef = useRef<{ docId: string; point: InputPoint } | null>(null)
+  const antsRef = useRef(0)
   const sceneFrameRef = useRef(0)
   const overlayFrameRef = useRef(0)
   const [dragging, setDragging] = useState(false)
   const [picking, setPicking] = useState(false)
+  const [overSelection, setOverSelection] = useState(false)
+
+  function sceneOverride(): LayerOverride | null {
+    const stroke = strokeRef.current?.session
+    if (stroke) return { layerId: stroke.layerId, parts: [{ canvas: stroke.preview, x: stroke.x, y: stroke.y }] }
+    const move = moveRef.current
+    if (move) return { layerId: move.session.layerId, parts: move.session.parts(move.dx, move.dy) }
+    return null
+  }
 
   function drawScene() {
     sceneFrameRef.current = 0
@@ -115,8 +208,47 @@ export function CanvasView(props: CanvasViewProps) {
     const dpr = window.devicePixelRatio || 1
     sizeCanvas(canvas, p.width, p.height, dpr)
     const ctx = canvas.getContext('2d')
-    const stroke = strokeRef.current?.session
-    if (ctx) renderScene(ctx, { width: p.width, height: p.height, dpr }, p.doc, p.viewport, stroke && { layerId: stroke.layerId, canvas: stroke.preview })
+    if (ctx) renderScene(ctx, { width: p.width, height: p.height, dpr }, p.doc, p.viewport, sceneOverride())
+  }
+
+  function drawSelection(ctx: CanvasRenderingContext2D, p: CanvasViewProps) {
+    const selection = p.doc.selection
+    const drag = selectRef.current
+    if (selection) {
+      let dx = 0
+      let dy = 0
+      if (moveRef.current?.session.movesSelection) {
+        dx = moveRef.current.dx
+        dy = moveRef.current.dy
+      } else if (drag?.kind === 'outline') {
+        dx = drag.dx
+        dy = drag.dy
+      }
+      const { outline } = selectionInfo(selection, p.doc.width, p.doc.height)
+      if (outline.length > 0) {
+        tracePath(ctx, outline, p.viewport, dx, dy)
+        drawAnts(ctx, antsRef.current)
+      }
+    }
+    // The shape being drawn right now, in the "you can click this" blue.
+    if (drag?.kind === 'shape' && drag.moved) {
+      const polygon = dragPolygon(drag)
+      if (polygon.length > 1) {
+        tracePath(ctx, [polygon], p.viewport)
+        ctx.lineWidth = 1.5
+        ctx.setLineDash([5, 4])
+        ctx.strokeStyle = '#3366ff'
+        ctx.stroke()
+        ctx.setLineDash([])
+        if (drag.mode === 'subtract') {
+          ctx.fillStyle = 'rgba(196, 50, 10, 0.12)'
+          ctx.fill()
+        } else {
+          ctx.fillStyle = 'rgba(51, 102, 255, 0.08)'
+          ctx.fill()
+        }
+      }
+    }
   }
 
   function drawOverlay() {
@@ -130,9 +262,11 @@ export function CanvasView(props: CanvasViewProps) {
     if (!ctx) return
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    const hover = hoverRef.current
-    if (!hover || panRef.current || p.spaceHeld) return
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    drawSelection(ctx, p)
+
+    const hover = hoverRef.current
+    if (!hover || panRef.current || moveRef.current || p.spaceHeld) return
     if (pickRef.current !== null || p.tool === 'picker' || (p.tool === 'brush' && p.altHeld)) {
       const point = screenToDocument(p.viewport, hover.x, hover.y)
       drawPickerRing(ctx, hover.x, hover.y, sampleColor(p.doc, point.x, point.y), p.color)
@@ -162,6 +296,16 @@ export function CanvasView(props: CanvasViewProps) {
   useLayoutEffect(() => {
     drawOverlay()
   }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking])
+
+  // The dashed outline keeps moving while something is selected, so it's easy to spot.
+  useEffect(() => {
+    if (!doc.selection) return
+    const timer = window.setInterval(() => {
+      antsRef.current = (antsRef.current + 1) % (ANTS_DASH * 2)
+      requestOverlay()
+    }, ANTS_INTERVAL_MS)
+    return () => window.clearInterval(timer)
+  }, [doc.selection])
 
   useEffect(
     () => () => {
@@ -208,16 +352,26 @@ export function CanvasView(props: CanvasViewProps) {
     return screenToDocument(propsRef.current.viewport, local.x, local.y)
   }
 
-  function startStroke(event: PointerEvent<HTMLCanvasElement>) {
+  // Painting and moving need a layer you can see; otherwise nothing would seem to happen.
+  function usableLayer(action: string): Layer | null {
     const layer = activeLayer(doc)
-    if (!layer) return
+    if (!layer) return null
     if (!layer.visible) {
-      props.onBlocked(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then paint again.`)
-      return
+      props.onBlocked(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then ${action} again.`)
+      return null
     }
+    return layer
+  }
+
+  function startStroke(event: PointerEvent<HTMLCanvasElement>) {
+    const layer = usableLayer('paint')
+    if (!layer) return
     event.currentTarget.setPointerCapture(event.pointerId)
+    // A moved or pasted layer may not cover the whole design yet; paint on an enlarged copy.
+    const target = coverRect(layer, { x: 0, y: 0, width: doc.width, height: doc.height })
+    const mask = doc.selection ? { canvas: selectionInfo(doc.selection, doc.width, doc.height).mask, x: 0, y: 0 } : null
     const mode = tool === 'eraser' ? 'erase' : 'paint'
-    const session = new StrokeSession(layer, brush, color, mode, doc.width, doc.height)
+    const session = new StrokeSession(target, brush, color, mode, mask)
     const point = { ...documentPoint(event.clientX, event.clientY), pressure: pressureOf(event.nativeEvent) }
     const last = lastEndRef.current
     let label = mode === 'erase' ? 'Erase' : 'Brush stroke'
@@ -228,7 +382,7 @@ export function CanvasView(props: CanvasViewProps) {
     } else {
       session.begin(point)
     }
-    strokeRef.current = { session, pointerId: event.pointerId, label }
+    strokeRef.current = { session, pointerId: event.pointerId, label, grown: target === layer ? undefined : target }
     props.onStrokeActiveChange(true)
     session.flush()
     requestScene()
@@ -243,7 +397,7 @@ export function CanvasView(props: CanvasViewProps) {
     if (end) lastEndRef.current = { docId: propsRef.current.doc.id, point: { ...end, pressure: 1 } }
     drawScene()
     propsRef.current.onStrokeActiveChange(false)
-    if (result) propsRef.current.onStroke(stroke.session.layerId, result, stroke.label)
+    if (result) propsRef.current.onStroke(stroke.session.layerId, result, stroke.label, stroke.grown)
   }
 
   function finishPick(clientX: number, clientY: number) {
@@ -254,10 +408,78 @@ export function CanvasView(props: CanvasViewProps) {
     if (hex) propsRef.current.onPickColor(hex)
   }
 
+  function startMoveDrag(event: PointerEvent<HTMLCanvasElement>) {
+    if (!usableLayer('move it')) return
+    const session = startMove(doc)
+    if (!session) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    moveRef.current = { session, pointerId: event.pointerId, start: documentPoint(event.clientX, event.clientY), dx: 0, dy: 0 }
+    setDragging(true)
+    requestScene()
+    requestOverlay()
+  }
+
+  function finishMove() {
+    const move = moveRef.current
+    if (!move) return
+    if (move.dx !== 0 || move.dy !== 0) propsRef.current.onMove(move.session, move.dx, move.dy)
+    moveRef.current = null
+    setDragging(false)
+    drawScene()
+    requestOverlay()
+  }
+
+  function startSelect(event: PointerEvent<HTMLCanvasElement>) {
+    const point = documentPoint(event.clientX, event.clientY)
+    const mode: SelectionMode = event.shiftKey ? 'add' : event.altKey ? 'subtract' : selectionMode
+    event.currentTarget.setPointerCapture(event.pointerId)
+    // Dragging from inside the current selection moves its outline instead of starting a new one.
+    if (mode === 'replace' && doc.selection && isPointSelected(doc.selection, doc.width, doc.height, point)) {
+      selectRef.current = { kind: 'outline', pointerId: event.pointerId, start: point, dx: 0, dy: 0 }
+      return
+    }
+    selectRef.current = {
+      kind: 'shape',
+      pointerId: event.pointerId,
+      mode,
+      shape: props.selectionShape,
+      start: point,
+      current: point,
+      constrain: false,
+      points: [point],
+      startClient: { x: event.clientX, y: event.clientY },
+      moved: false,
+    }
+  }
+
+  function finishSelect() {
+    const drag = selectRef.current
+    selectRef.current = null
+    if (!drag) return
+    const p = propsRef.current
+    const current = p.doc.selection
+    if (drag.kind === 'outline') {
+      if (current && (drag.dx !== 0 || drag.dy !== 0)) p.onSelect(translateSelection(current, drag.dx, drag.dy), 'Move selection outline')
+      requestOverlay()
+      return
+    }
+    // A click without dragging clears the selection, like clicking away in most programs.
+    if (!drag.moved) {
+      if (drag.mode === 'replace' && current) p.onSelect(null, 'Deselect')
+      requestOverlay()
+      return
+    }
+    let next = combineSelection(current, dragPolygon(drag), drag.mode)
+    if (next && !selectionInfo(next, p.doc.width, p.doc.height).bounds) next = null
+    const label = drag.mode === 'add' ? 'Add to selection' : drag.mode === 'subtract' ? 'Remove from selection' : `Select ${SHAPE_LABELS[drag.shape]}`
+    if (next !== current) p.onSelect(next, label)
+    requestOverlay()
+  }
+
   function handlePointerDown(event: PointerEvent<HTMLCanvasElement>) {
     hoverRef.current = localPoint(event.clientX, event.clientY)
     // Ignore a second finger or button while something is already happening.
-    if (strokeRef.current || panRef.current || pickRef.current !== null) return
+    if (strokeRef.current || panRef.current || pickRef.current !== null || moveRef.current || selectRef.current) return
 
     const isPan = event.button === 1 || (event.button === 0 && (tool === 'hand' || spaceHeld))
     if (isPan) {
@@ -280,12 +502,17 @@ export function CanvasView(props: CanvasViewProps) {
       setPicking(true)
     } else if (tool === 'brush' || tool === 'eraser') {
       startStroke(event)
+    } else if (tool === 'move') {
+      startMoveDrag(event)
+    } else if (tool === 'select') {
+      startSelect(event)
     }
   }
 
   function handlePointerMove(event: PointerEvent<HTMLCanvasElement>) {
     hoverRef.current = localPoint(event.clientX, event.clientY)
-    props.onCursorChange(documentPoint(event.clientX, event.clientY))
+    const point = documentPoint(event.clientX, event.clientY)
+    props.onCursorChange(point)
 
     const pan = panRef.current
     if (pan && pan.pointerId === event.pointerId) {
@@ -294,6 +521,38 @@ export function CanvasView(props: CanvasViewProps) {
       pan.lastX = event.clientX
       pan.lastY = event.clientY
       props.onViewportChange((v) => panBy(v, dx, dy))
+      return
+    }
+
+    const move = moveRef.current
+    if (move && move.pointerId === event.pointerId) {
+      // Moves snap to whole pixels, so nothing ends up blurry.
+      const dx = Math.round(point.x - move.start.x)
+      const dy = Math.round(point.y - move.start.y)
+      if (dx !== move.dx || dy !== move.dy) {
+        move.dx = dx
+        move.dy = dy
+        requestScene()
+        requestOverlay()
+      }
+      return
+    }
+
+    const drag = selectRef.current
+    if (drag && drag.pointerId === event.pointerId) {
+      if (drag.kind === 'outline') {
+        drag.dx = Math.round(point.x - drag.start.x)
+        drag.dy = Math.round(point.y - drag.start.y)
+      } else {
+        drag.current = point
+        drag.constrain = event.shiftKey
+        if (!drag.moved && Math.hypot(event.clientX - drag.startClient.x, event.clientY - drag.startClient.y) >= CLICK_DISTANCE) drag.moved = true
+        if (drag.shape === 'freehand') {
+          const last = drag.points[drag.points.length - 1]
+          if (Math.hypot(point.x - last.x, point.y - last.y) * propsRef.current.viewport.zoom >= 2) drag.points.push(point)
+        }
+      }
+      requestOverlay()
       return
     }
 
@@ -306,49 +565,56 @@ export function CanvasView(props: CanvasViewProps) {
       }
       if (stroke.session.flush()) requestScene()
     }
-    requestOverlay()
-  }
 
-  function handlePointerUp(event: PointerEvent<HTMLCanvasElement>) {
-    if (panRef.current?.pointerId === event.pointerId) {
-      panRef.current = null
-      setDragging(false)
+    // Over the selection, the Select tool shows that dragging will move it.
+    if (tool === 'select') {
+      const inside = doc.selection !== null && !event.shiftKey && !event.altKey && selectionMode === 'replace' && isPointSelected(doc.selection, doc.width, doc.height, point)
+      if (inside !== overSelection) setOverSelection(inside)
     }
-    if (pickRef.current === event.pointerId) finishPick(event.clientX, event.clientY)
-    if (strokeRef.current?.pointerId === event.pointerId) finishStroke()
     requestOverlay()
   }
 
-  function handlePointerCancel(event: PointerEvent<HTMLCanvasElement>) {
+  function endPointer(event: PointerEvent<HTMLCanvasElement>, cancelled: boolean) {
     if (panRef.current?.pointerId === event.pointerId) {
       panRef.current = null
       setDragging(false)
     }
     if (pickRef.current === event.pointerId) {
-      pickRef.current = null
-      setPicking(false)
+      if (cancelled) {
+        pickRef.current = null
+        setPicking(false)
+      } else {
+        finishPick(event.clientX, event.clientY)
+      }
     }
     if (strokeRef.current?.pointerId === event.pointerId) finishStroke()
+    if (moveRef.current?.pointerId === event.pointerId) finishMove()
+    if (selectRef.current?.pointerId === event.pointerId) finishSelect()
+    requestOverlay()
   }
 
   const pickMode = picking || tool === 'picker' || (tool === 'brush' && altHeld)
   const painting = tool === 'brush' || tool === 'eraser'
   const outlineVisible = painting && (brush.size / 2) * viewport.zoom >= MIN_OUTLINE_RADIUS
   const cursor = dragging
-    ? 'grabbing'
+    ? tool === 'move'
+      ? 'move'
+      : 'grabbing'
     : tool === 'hand' || spaceHeld
       ? 'grab'
       : tool === 'zoom'
         ? altHeld
           ? 'zoom-out'
           : 'zoom-in'
-        : pickMode
-          ? 'crosshair'
-          : outlineVisible
-            ? 'none'
-            : painting
-              ? 'crosshair'
-              : 'default'
+        : tool === 'move' || (tool === 'select' && overSelection)
+          ? 'move'
+          : pickMode || tool === 'select'
+            ? 'crosshair'
+            : outlineVisible
+              ? 'none'
+              : painting
+                ? 'crosshair'
+                : 'default'
 
   return (
     <>
@@ -360,11 +626,15 @@ export function CanvasView(props: CanvasViewProps) {
         style={{ width, height, cursor }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerCancel}
-        onLostPointerCapture={(event) => strokeRef.current?.pointerId === event.pointerId && finishStroke()}
+        onPointerUp={(event) => endPointer(event, false)}
+        onPointerCancel={(event) => endPointer(event, true)}
+        onLostPointerCapture={(event) => {
+          if (strokeRef.current?.pointerId === event.pointerId) finishStroke()
+          if (moveRef.current?.pointerId === event.pointerId) finishMove()
+          if (selectRef.current?.pointerId === event.pointerId) finishSelect()
+        }}
         onPointerLeave={() => {
-          if (strokeRef.current || panRef.current || pickRef.current !== null) return
+          if (strokeRef.current || panRef.current || pickRef.current !== null || moveRef.current || selectRef.current) return
           hoverRef.current = null
           props.onCursorChange(null)
           requestOverlay()

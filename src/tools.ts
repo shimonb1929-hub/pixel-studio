@@ -1,4 +1,4 @@
-import { Brush, Eraser, Hand, Pipette, ZoomIn, type LucideIcon } from 'lucide-react'
+import { Brush, Eraser, Hand, Move, Pipette, SquareDashed, ZoomIn, type LucideIcon } from 'lucide-react'
 import type { ToolId } from './editor/types.ts'
 import { ALT_LABEL } from './keys.ts'
 
@@ -20,6 +20,29 @@ export interface ToolInfo {
 }
 
 export const TOOLS: ToolInfo[] = [
+  {
+    id: 'move',
+    name: 'Move',
+    label: 'Move',
+    key: 'V',
+    icon: Move,
+    description:
+      'Drag to move the selected layer. If part of it is selected, only that part moves. Arrow keys move it one pixel at a time.',
+    hint: 'Drag to move the selected layer, or just the selected part. Arrow keys nudge it.',
+    keywords: ['move', 'drag', 'position', 'place', 'shift', 'nudge', 'arrange'],
+    group: 'draw',
+  },
+  {
+    id: 'select',
+    name: 'Select',
+    label: 'Select',
+    key: 'M',
+    icon: SquareDashed,
+    description: `Choose part of your design to work on. Painting, erasing, deleting and moving then only affect that part. Draw a rectangle, an oval, or any shape by hand.`,
+    hint: `Drag to select an area. Hold Shift to add to it, ${ALT_LABEL} to take away. Click outside to clear it.`,
+    keywords: ['select', 'selection', 'marquee', 'lasso', 'choose area', 'cut out', 'rectangle', 'oval', 'circle'],
+    group: 'draw',
+  },
   {
     id: 'brush',
     name: 'Brush',

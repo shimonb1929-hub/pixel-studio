@@ -1,3 +1,5 @@
+import type { Selection } from './selection.ts'
+
 export interface Point {
   x: number
   y: number
@@ -9,7 +11,12 @@ export interface Layer {
   id: string
   kind: 'raster'
   name: string
+  // The layer's pixels. The canvas can be bigger or smaller than the design and sit anywhere,
+  // so moving a layer never cuts anything off.
   canvas: HTMLCanvasElement
+  // Where the canvas's top-left corner sits in the design.
+  x: number
+  y: number
   visible: boolean
   opacity: number
 }
@@ -23,6 +30,8 @@ export interface EditorDocument {
   layers: Layer[]
   // The layer that painting and layer actions apply to.
   activeLayerId: string
+  // The selected area; painting and editing stay inside it. Null means nothing is selected.
+  selection: Selection | null
 }
 
 // Where the document sits on screen: a screen point equals
@@ -33,4 +42,4 @@ export interface Viewport {
   panY: number
 }
 
-export type ToolId = 'brush' | 'eraser' | 'picker' | 'hand' | 'zoom'
+export type ToolId = 'move' | 'select' | 'brush' | 'eraser' | 'picker' | 'hand' | 'zoom'

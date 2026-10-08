@@ -1,25 +1,31 @@
 import { useRef, useState } from 'react'
+import { coverRect, getContext2d } from '../editor/document.ts'
+import type { Rect } from '../editor/geometry.ts'
 import { History } from '../editor/history.ts'
-import { selectLayer } from '../editor/layers.ts'
-import { restoreRegion, type StrokeResult } from '../editor/stroke.ts'
+import { selectLayer, updateLayer } from '../editor/layers.ts'
+import { copyRegion, restoreRegion, type StrokeResult } from '../editor/stroke.ts'
 import type { EditorDocument, Layer } from '../editor/types.ts'
 
-interface LayerState {
-  layers: Layer[]
-  activeLayerId: string
-}
+// Everything about a design except its pixels, which change in place and are kept separately.
+type DocState = Pick<EditorDocument, 'width' | 'height' | 'layers' | 'activeLayerId' | 'selection'>
 
-// What one undo step remembers: either pixels that changed on a layer, or the layer stack.
+// What one undo step remembers: pixels that changed on a layer, the design's structure, or a
+// few of those together (like growing a layer and then painting on it).
 type Change =
   | { kind: 'pixels'; layerId: string; x: number; y: number; before: HTMLCanvasElement; after: HTMLCanvasElement }
-  | { kind: 'layers'; before: LayerState; after: LayerState }
+  | { kind: 'structure'; before: DocState; after: DocState }
+  | { kind: 'compound'; changes: Change[] }
 
 function mergeChanges(earlier: Change, later: Change): Change {
-  return earlier.kind === 'layers' && later.kind === 'layers' ? { kind: 'layers', before: earlier.before, after: later.after } : later
+  return earlier.kind === 'structure' && later.kind === 'structure' ? { kind: 'structure', before: earlier.before, after: later.after } : later
 }
 
-function layerState(doc: EditorDocument): LayerState {
-  return { layers: doc.layers, activeLayerId: doc.activeLayerId }
+function docState({ width, height, layers, activeLayerId, selection }: EditorDocument): DocState {
+  return { width, height, layers, activeLayerId, selection }
+}
+
+function regionBytes(region: HTMLCanvasElement): number {
+  return region.width * region.height * 4
 }
 
 export interface ChangeOptions {
@@ -40,7 +46,10 @@ export interface Editor {
   close: () => void
   change: (label: string, update: (doc: EditorDocument) => EditorDocument, options?: ChangeOptions) => void
   select: (layerId: string) => void
-  commitStroke: (label: string, layerId: string, result: StrokeResult) => void
+  // A finished brush stroke. `grown` is the layer it was painted on, if it had to be enlarged first.
+  commitStroke: (label: string, layerId: string, result: StrokeResult, grown?: Layer) => void
+  // Changes pixels of a layer inside `area` (design coordinates), growing the layer if needed.
+  paint: (label: string, layerId: string, area: Rect, draw: (ctx: CanvasRenderingContext2D, layer: Layer) => void) => void
   undo: () => void
   redo: () => void
   markSaved: () => void
@@ -61,6 +70,11 @@ export function useEditor(): Editor {
   }
 
   function apply(change: Change, side: 'before' | 'after') {
+    if (change.kind === 'compound') {
+      const steps = side === 'before' ? [...change.changes].reverse() : change.changes
+      for (const step of steps) apply(step, side)
+      return
+    }
     const current = docRef.current
     if (!current) return
     if (change.kind === 'pixels') {
@@ -68,9 +82,18 @@ export function useEditor(): Editor {
       if (layer) restoreRegion(layer.canvas, change[side], change.x, change.y)
       setRevision((r) => r + 1)
     } else {
-      const state = change[side]
-      setDoc({ ...current, layers: state.layers, activeLayerId: state.activeLayerId })
+      setDoc({ ...current, ...change[side] })
     }
+  }
+
+  // Swaps a layer for its enlarged copy and returns the undo step for it, if it changed.
+  function growLayer(layerId: string, grown: Layer): Change | null {
+    const current = docRef.current
+    const layer = current?.layers.find((l) => l.id === layerId)
+    if (!current || !layer || layer === grown) return null
+    const next = updateLayer(current, layerId, { canvas: grown.canvas, x: grown.x, y: grown.y })
+    setDoc(next)
+    return { kind: 'structure', before: docState(current), after: docState(next) }
   }
 
   return {
@@ -100,7 +123,7 @@ export function useEditor(): Editor {
       if (next === current) return
       history.push({
         label,
-        change: { kind: 'layers', before: layerState(current), after: layerState(next) },
+        change: { kind: 'structure', before: docState(current), after: docState(next) },
         bytes: options.bytes ?? 0,
         mergeKey: options.mergeKey,
       })
@@ -114,11 +137,45 @@ export function useEditor(): Editor {
       if (current) setDoc(selectLayer(current, layerId))
     },
 
-    commitStroke(label, layerId, result) {
+    commitStroke(label, layerId, result, grown) {
+      const pixels: Change = { kind: 'pixels', layerId, x: result.x, y: result.y, before: result.before, after: result.after }
+      const growth = grown ? growLayer(layerId, grown) : null
       history.push({
         label,
-        change: { kind: 'pixels', layerId, x: result.x, y: result.y, before: result.before, after: result.after },
-        bytes: result.before.width * result.before.height * 4 * 2,
+        change: growth ? { kind: 'compound', changes: [growth, pixels] } : pixels,
+        bytes: regionBytes(result.before) * 2 + (growth && grown ? regionBytes(grown.canvas) : 0),
+      })
+      setRevision((r) => r + 1)
+      refresh()
+    },
+
+    paint(label, layerId, area, draw) {
+      const current = docRef.current
+      const original = current?.layers.find((l) => l.id === layerId)
+      if (!current || !original) return
+      const layer = coverRect(original, area)
+      const growth = growLayer(layerId, layer)
+      // Only the part of the layer inside the area can change, so only that part is kept for undo.
+      const local = {
+        x: Math.max(0, Math.floor(area.x - layer.x)),
+        y: Math.max(0, Math.floor(area.y - layer.y)),
+        width: 0,
+        height: 0,
+      }
+      local.width = Math.min(layer.canvas.width, Math.ceil(area.x + area.width - layer.x)) - local.x
+      local.height = Math.min(layer.canvas.height, Math.ceil(area.y + area.height - layer.y)) - local.y
+      if (local.width <= 0 || local.height <= 0) return
+      const before = copyRegion(layer.canvas, local)
+      const ctx = getContext2d(layer.canvas)
+      ctx.save()
+      draw(ctx, layer)
+      ctx.restore()
+      const after = copyRegion(layer.canvas, local)
+      const pixels: Change = { kind: 'pixels', layerId, x: local.x, y: local.y, before, after }
+      history.push({
+        label,
+        change: growth ? { kind: 'compound', changes: [growth, pixels] } : pixels,
+        bytes: regionBytes(before) * 2 + (growth ? regionBytes(layer.canvas) : 0),
       })
       setRevision((r) => r + 1)
       refresh()

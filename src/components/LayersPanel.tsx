@@ -7,7 +7,8 @@ import { Slider } from './ui.tsx'
 
 const THUMB_SIZE = 40
 
-function LayerThumbnail({ layer, revision }: { layer: Layer; revision: number }) {
+// A tiny picture of the design's frame with this layer in it, where it sits.
+function LayerThumbnail({ layer, revision, docWidth, docHeight }: { layer: Layer; revision: number; docWidth: number; docHeight: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
 
   useLayoutEffect(() => {
@@ -16,9 +17,9 @@ function LayerThumbnail({ layer, revision }: { layer: Layer; revision: number })
     if (!thumb || !ctx) return
     const dpr = window.devicePixelRatio || 1
     thumb.width = thumb.height = THUMB_SIZE * dpr
-    const scale = Math.min(thumb.width / layer.canvas.width, thumb.height / layer.canvas.height)
-    const w = layer.canvas.width * scale
-    const h = layer.canvas.height * scale
+    const scale = Math.min(thumb.width / docWidth, thumb.height / docHeight)
+    const w = docWidth * scale
+    const h = docHeight * scale
     const x = (thumb.width - w) / 2
     const y = (thumb.height - h) / 2
     ctx.clearRect(0, 0, thumb.width, thumb.height)
@@ -30,9 +31,14 @@ function LayerThumbnail({ layer, revision }: { layer: Layer; revision: number })
         ctx.fillRect(x + col * square, y + row * square, Math.min(square, w - col * square), Math.min(square, h - row * square))
       }
     }
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(x, y, w, h)
+    ctx.clip()
     ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(layer.canvas, x, y, w, h)
-  }, [layer, revision])
+    ctx.drawImage(layer.canvas, x + layer.x * scale, y + layer.y * scale, layer.canvas.width * scale, layer.canvas.height * scale)
+    ctx.restore()
+  }, [layer, revision, docWidth, docHeight])
 
   return <canvas ref={ref} aria-hidden className="shrink-0 rounded-md border border-line bg-subtle" style={{ width: THUMB_SIZE, height: THUMB_SIZE }} />
 }
@@ -148,7 +154,7 @@ export function LayersPanel(props: LayersPanelProps) {
               >
                 {renamingId === layer.id ? (
                   <div className="flex min-w-0 flex-1 items-center gap-2.5 py-1.5 pl-2">
-                    <LayerThumbnail layer={layer} revision={revision} />
+                    <LayerThumbnail layer={layer} revision={revision} docWidth={doc.width} docHeight={doc.height} />
                     <RenameInput layer={layer} onRename={(name) => props.onRename(layer.id, name)} onDone={() => setRenamingId(null)} />
                   </div>
                 ) : (
@@ -170,7 +176,7 @@ export function LayersPanel(props: LayersPanelProps) {
                       onDoubleClick={() => setRenamingId(layer.id)}
                       className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 pl-2 text-left text-[13px] text-ink"
                     >
-                      <LayerThumbnail layer={layer} revision={revision} />
+                      <LayerThumbnail layer={layer} revision={revision} docWidth={doc.width} docHeight={doc.height} />
                       <span className="min-w-0 flex-1 truncate">{layer.name}</span>
                     </button>
                   </Tooltip>

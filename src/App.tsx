@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type DragEvent } from 'react'
-import type { Action } from './actions.ts'
+import { buildActions, type AppCommands } from './appActions.ts'
 import { CanvasView } from './components/CanvasView.tsx'
 import { ColorPanel } from './components/ColorPanel.tsx'
 import { CommandPalette } from './components/CommandPalette.tsx'
@@ -7,18 +7,23 @@ import { Dialog } from './components/Dialog.tsx'
 import { ExportDialog, type ExportOptions } from './components/ExportDialog.tsx'
 import { LayersPanel } from './components/LayersPanel.tsx'
 import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocumentDialog.tsx'
-import { Toast } from './components/Toast.tsx'
+import { Toast, type Notice } from './components/Toast.tsx'
 import { ToolDock } from './components/ToolDock.tsx'
 import { ToolOptions } from './components/ToolOptions.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { DesignInfo, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
 import { BRUSH_PRESETS, ERASER_PRESETS, stepBrushSize, type BrushSettings } from './editor/brushes.ts'
-import { createBlankDocument, createLayer, duplicateLayer } from './editor/document.ts'
-import { downloadBlob, exportDocument, openImageFile } from './editor/io.ts'
+import { getClipboard, ownCopyCheck, setClipboard } from './editor/clipboard.ts'
+import { createBlankDocument, createCanvas, createDocumentFromImage, createLayer, duplicateLayer, getContext2d, layerFromCanvas } from './editor/document.ts'
+import { intersectRect } from './editor/geometry.ts'
+import { downloadBlob, exportDocument, imageFileToCanvas, openImageFile } from './editor/io.ts'
 import { activeLayer, insertLayerAboveActive, moveLayer, nextLayerName, removeLayer, updateLayer } from './editor/layers.ts'
+import { startMove, type MoveSession } from './editor/move.ts'
+import { clearSelected, contentBounds, copySelected, editArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
+import { invertSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
 import type { StrokeResult } from './editor/stroke.ts'
-import type { EditorDocument, Point, ToolId, Viewport } from './editor/types.ts'
+import type { EditorDocument, Layer, Point, ToolId, Viewport } from './editor/types.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useEditor } from './hooks/useEditor.ts'
 import { useElementSize } from './hooks/useElementSize.ts'
@@ -31,6 +36,7 @@ type DialogId = 'new' | 'export' | 'search' | 'discard'
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
 const MAX_RECENT_COLORS = 9
+const NOTICE_MS = 3500
 
 // The same faint dots the canvas draws, so the empty workspace matches it.
 const DOT_BACKGROUND = {
@@ -41,6 +47,8 @@ const DOT_BACKGROUND = {
 const DEFAULT_BRUSH = BRUSH_PRESETS.find((p) => p.id === 'pen')!
 const DEFAULT_ERASER = ERASER_PRESETS.find((p) => p.id === 'block')!
 
+const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -49,8 +57,8 @@ function hasFiles(event: DragEvent): boolean {
   return Array.from(event.dataTransfer.types).includes('Files')
 }
 
-function layerBytes(doc: EditorDocument): number {
-  return doc.width * doc.height * 4
+function canvasBytes(canvas: HTMLCanvasElement): number {
+  return canvas.width * canvas.height * 4
 }
 
 export default function App() {
@@ -60,7 +68,7 @@ export default function App() {
   const [tool, setToolState] = useState<ToolId>('brush')
   const [cursor, setCursor] = useState<Point | null>(null)
   const [dialog, setDialog] = useState<DialogId | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<Notice | null>(null)
   const [dropActive, setDropActive] = useState(false)
   const [spaceHeld, setSpaceHeld] = useState(false)
   const [altHeld, setAltHeld] = useState(false)
@@ -75,6 +83,8 @@ export default function App() {
     settings: DEFAULT_ERASER.settings,
     presetId: DEFAULT_ERASER.id,
   })
+  const [selectionShape, setSelectionShape] = useState<SelectionShape>('rectangle')
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>('replace')
   const workspaceRef = useRef<HTMLElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const strokeActiveRef = useRef(false)
@@ -82,6 +92,16 @@ export default function App() {
   // After picking a color, go back to the drawing tool you came from.
   const lastDrawToolRef = useRef<'brush' | 'eraser'>('brush')
   const workspace = useElementSize(workspaceRef)
+
+  const problem = (message: string) => setNotice({ message, tone: 'problem' })
+  const inform = (message: string) => setNotice({ message, tone: 'info' })
+
+  // Confirmations like "Copied" go away by themselves; problems stay until dismissed.
+  useEffect(() => {
+    if (notice?.tone !== 'info') return
+    const timer = window.setTimeout(() => setNotice(null), NOTICE_MS)
+    return () => window.clearTimeout(timer)
+  }, [notice])
 
   // When the window changes size, keep whatever was in the middle of the view in the middle.
   const lastWorkspaceRef = useRef(workspace)
@@ -118,7 +138,7 @@ export default function App() {
   function showDocument(next: EditorDocument) {
     editor.load(next)
     setCursor(null)
-    setError(null)
+    setNotice(null)
     setViewport(fitted(next, false))
   }
 
@@ -137,7 +157,7 @@ export default function App() {
       const next = await openImageFile(file)
       guardDiscard(() => showDocument(next))
     } catch (e) {
-      setError(errorMessage(e))
+      problem(errorMessage(e))
     }
   }
 
@@ -150,7 +170,7 @@ export default function App() {
         setDesignCount((count) => count + 1)
       })
     } catch (e) {
-      setError(errorMessage(e))
+      problem(errorMessage(e))
     }
   }
 
@@ -165,18 +185,31 @@ export default function App() {
       editor.markSaved()
       setDialog(null)
     } catch (e) {
-      setError(errorMessage(e))
+      problem(errorMessage(e))
     }
   }
 
-  function handleStroke(layerId: string, result: StrokeResult, label: string) {
-    editor.commitStroke(label, layerId, result)
-    if (tool === 'brush') setRecentColors((recent) => [color, ...recent.filter((c) => c !== color)].slice(0, MAX_RECENT_COLORS))
+  function rememberColor(used: string) {
+    setRecentColors((recent) => [used, ...recent.filter((c) => c !== used)].slice(0, MAX_RECENT_COLORS))
+  }
+
+  function handleStroke(layerId: string, result: StrokeResult, label: string, grown?: Layer) {
+    editor.commitStroke(label, layerId, result, grown)
+    if (tool === 'brush') rememberColor(color)
   }
 
   function handlePickColor(hex: string) {
     setColor(hex)
     if (tool === 'picker') setToolState(lastDrawToolRef.current)
+  }
+
+  function handleMove(session: MoveSession, dx: number, dy: number) {
+    const layer = doc?.layers.find((l) => l.id === session.layerId)
+    editor.change(session.label, (d) => session.commit(d, dx, dy), { bytes: session.movesSelection && layer ? canvasBytes(layer.canvas) : 0 })
+  }
+
+  function handleSelect(selection: Selection | null, label: string) {
+    editor.change(label, (d) => ({ ...d, selection }))
   }
 
   function changeBrushSize(direction: 1 | -1) {
@@ -192,6 +225,81 @@ export default function App() {
     setViewport((v) => zoomAtPoint(v, nextZoomLevel(v.zoom, direction), workspace.width / 2, workspace.height / 2))
   }
 
+  // The selected layer, if it can be changed; otherwise says why not.
+  function usableLayer(doing: string): Layer | null {
+    const layer = doc && activeLayer(doc)
+    if (!layer) return null
+    if (!layer.visible) {
+      problem(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then ${doing} again.`)
+      return null
+    }
+    return layer
+  }
+
+  // Selections that end up empty (say, everything was taken away) count as no selection.
+  function setSelection(label: string, next: (d: EditorDocument) => Selection | null) {
+    editor.change(label, (d) => {
+      const selection = next(d)
+      return { ...d, selection: selection && selectionInfo(selection, d.width, d.height).bounds ? selection : null }
+    })
+  }
+
+  // The selected part of the selected layer, or a message saying there's nothing there.
+  function selectedPiece(): Piece | null {
+    const layer = doc && activeLayer(doc)
+    if (!doc || !layer) return null
+    const piece = copySelected(layer, doc)
+    if (!piece || isBlank(piece.canvas)) {
+      problem(doc.selection ? `There is nothing in the selected area on "${layer.name}".` : `"${layer.name}" is empty, so there is nothing to copy.`)
+      return null
+    }
+    return piece
+  }
+
+  // Puts a picture on a new layer: where it was copied from, or in the middle if that's off the design.
+  function pastePiece(piece: Piece | { canvas: HTMLCanvasElement; x?: number; y?: number }) {
+    const { canvas } = piece
+    if (!doc) {
+      // With no design open, the pasted picture becomes a new design.
+      showDocument(createDocumentFromImage('Pasted picture', canvas, canvas.width, canvas.height))
+      return
+    }
+    const onDesign =
+      piece.x !== undefined &&
+      piece.y !== undefined &&
+      intersectRect({ x: piece.x, y: piece.y, width: canvas.width, height: canvas.height }, { x: 0, y: 0, width: doc.width, height: doc.height })
+    const x = onDesign ? piece.x! : Math.round((doc.width - canvas.width) / 2)
+    const y = onDesign ? piece.y! : Math.round((doc.height - canvas.height) / 2)
+    // A copy, so changing the pasted layer never changes what's on the clipboard.
+    const copy = createCanvas(canvas.width, canvas.height)
+    getContext2d(copy).drawImage(canvas, 0, 0)
+    editor.change('Paste', (d) => ({ ...insertLayerAboveActive(d, layerFromCanvas('Pasted', copy, x, y)), selection: null }), {
+      bytes: canvasBytes(copy),
+    })
+    setTool('move')
+    inform('Pasted on a new layer. Drag it to put it where you want.')
+  }
+
+  async function pasteFile(file: File) {
+    const ownCopy = ownCopyCheck()
+    try {
+      const canvas = await imageFileToCanvas(file)
+      // Pixel Studio's own copy remembers where it came from, so it goes back in place.
+      pastePiece(ownCopy(canvas.width, canvas.height) ?? { canvas })
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
+  function moveBy(dx: number, dy: number, mergeKey?: string) {
+    const layer = usableLayer('move it')
+    if (!layer || !doc) return
+    editor.change(doc.selection ? 'Move selected area' : 'Move layer', (d) => startMove(d)?.commit(d, dx, dy) ?? d, {
+      mergeKey,
+      bytes: doc.selection ? canvasBytes(layer.canvas) : 0,
+    })
+  }
+
   const layers = {
     add: () => editor.change('New layer', (d) => insertLayerAboveActive(d, createLayer(nextLayerName(d.layers), d.width, d.height))),
     duplicate: () =>
@@ -201,9 +309,9 @@ export default function App() {
           const layer = activeLayer(d)
           return layer ? insertLayerAboveActive(d, duplicateLayer(layer)) : d
         },
-        { bytes: doc ? layerBytes(doc) : 0 },
+        { bytes: active ? canvasBytes(active.canvas) : 0 },
       ),
-    remove: () => editor.change('Delete layer', (d) => removeLayer(d, d.activeLayerId), { bytes: doc ? layerBytes(doc) : 0 }),
+    remove: () => editor.change('Delete layer', (d) => removeLayer(d, d.activeLayerId), { bytes: active ? canvasBytes(active.canvas) : 0 }),
     move: (direction: 1 | -1) =>
       editor.change(direction > 0 ? 'Move layer up' : 'Move layer down', (d) => moveLayer(d, d.activeLayerId, direction)),
     rename: (layerId: string, name: string) => editor.change('Rename layer', (d) => updateLayer(d, layerId, { name })),
@@ -215,7 +323,10 @@ export default function App() {
     },
   }
 
-  const commands = {
+  const active = doc ? activeLayer(doc) : undefined
+  const pasteHint = `Press ${shortcut('mod', 'V')} to paste it as a new layer.`
+
+  const commands: AppCommands & { nudge: (dx: number, dy: number) => void; pasteFile: (file: File) => void; hasSelection: () => boolean } = {
     newDesign: () => setDialog('new'),
     open: () => fileInputRef.current?.click(),
     download: () => doc && setDialog('export'),
@@ -223,6 +334,81 @@ export default function App() {
     // Undo waits until a stroke is finished, so it never pulls pixels out from under the brush.
     undo: () => !strokeActiveRef.current && editor.undo(),
     redo: () => !strokeActiveRef.current && editor.redo(),
+    copy: () => {
+      const piece = selectedPiece()
+      if (!piece) return
+      setClipboard(piece)
+      inform(`Copied. ${pasteHint}`)
+    },
+    cut: () => {
+      if (!doc?.selection) {
+        problem('Select an area first, with the Select tool.')
+        return
+      }
+      const layer = usableLayer('cut')
+      const area = editArea(doc)
+      const piece = layer && selectedPiece()
+      if (!layer || !piece || !area) return
+      setClipboard(piece)
+      editor.paint('Cut', layer.id, area, (ctx, l) => clearSelected(ctx, l, doc))
+      inform(`Cut. ${pasteHint}`)
+    },
+    paste: () => {
+      const piece = getClipboard()
+      if (piece) pastePiece(piece)
+      else problem(`Nothing to paste yet. Copy part of your design first, or copy a picture in another program and press ${shortcut('mod', 'V')}.`)
+    },
+    pasteFile: (file) => void pasteFile(file),
+    selectAll: () => doc && setSelection('Select all', (d) => selectAll(d.width, d.height)),
+    deselect: () => doc?.selection && setSelection('Deselect', () => null),
+    invert: () => doc && setSelection('Invert selection', (d) => invertSelection(d.selection, d.width, d.height)),
+    fill: () => {
+      const layer = usableLayer('fill')
+      const area = doc && editArea(doc)
+      if (!doc || !layer || !area) return
+      editor.paint('Fill with color', layer.id, area, (ctx, l) => fillSelected(ctx, l, doc, color))
+      rememberColor(color)
+    },
+    deleteArea: () => {
+      if (!doc?.selection) {
+        problem('Select an area first, with the Select tool. To remove a whole layer, use Delete layer.')
+        return
+      }
+      const layer = usableLayer('delete')
+      const area = editArea(doc)
+      if (layer && area) editor.paint('Delete selected area', layer.id, area, (ctx, l) => clearSelected(ctx, l, doc))
+    },
+    toNewLayer: () => {
+      const layer = doc && activeLayer(doc)
+      const piece = selectedPiece()
+      if (!layer || !piece) return
+      editor.change(
+        'Copy to new layer',
+        (d) => ({ ...insertLayerAboveActive(d, layerFromCanvas(`${layer.name} copy`, piece.canvas, piece.x, piece.y)), selection: null }),
+        { bytes: canvasBytes(piece.canvas) },
+      )
+    },
+    center: () => {
+      const layer = usableLayer('center it')
+      if (!doc || !layer) return
+      const bounds = doc.selection ? selectionInfo(doc.selection, doc.width, doc.height).bounds : contentBounds(layer)
+      if (!bounds) {
+        problem(`"${layer.name}" is empty, so there is nothing to center.`)
+        return
+      }
+      const dx = Math.round((doc.width - bounds.width) / 2 - bounds.x)
+      const dy = Math.round((doc.height - bounds.height) / 2 - bounds.y)
+      if (dx === 0 && dy === 0) inform('It is already in the middle.')
+      else moveBy(dx, dy)
+    },
+    nudge: (dx, dy) => moveBy(dx, dy, 'nudge'),
+    hasSelection: () => !!doc?.selection,
+    layerAdd: layers.add,
+    layerDuplicate: layers.duplicate,
+    layerUp: () => layers.move(1),
+    layerDown: () => layers.move(-1),
+    layerToggle: () => active && layers.toggleVisibility(active.id),
+    layerDelete: layers.remove,
     zoomIn: () => doc && zoomBy(1),
     zoomOut: () => doc && zoomBy(-1),
     fit: () => doc && setViewport(fitted(doc)),
@@ -230,210 +416,22 @@ export default function App() {
     search: () => setDialog('search'),
     biggerBrush: () => changeBrushSize(1),
     smallerBrush: () => changeBrushSize(-1),
+    setTool,
   }
 
-  const active = doc ? activeLayer(doc) : undefined
-  const activeIndex = doc && active ? doc.layers.indexOf(active) : -1
+  const actions = buildActions({ doc, undoLabel: editor.undoLabel, redoLabel: editor.redoLabel }, commands)
 
-  const actions: Action[] = [
-    {
-      id: 'new',
-      group: 'Design',
-      title: 'New design…',
-      description: 'Start a fresh, empty design. You choose its size and background color.',
-      keywords: ['new', 'blank', 'start', 'create', 'canvas', 'empty', 'begin', 'make', 'size'],
-      shortcut: shortcut('mod', 'alt', 'N'),
-      run: commands.newDesign,
-    },
-    {
-      id: 'open',
-      group: 'Design',
-      title: 'Open a picture…',
-      description: 'Pick a picture from your computer to edit it. You can also drop a file onto the window.',
-      keywords: ['open', 'photo', 'picture', 'image', 'upload', 'import', 'load', 'file'],
-      shortcut: shortcut('mod', 'O'),
-      run: commands.open,
-    },
-    {
-      id: 'download',
-      group: 'Design',
-      title: 'Download…',
-      description: 'Save your design to your computer as a PNG or JPG picture you can share or print.',
-      keywords: ['save', 'export', 'download', 'share', 'png', 'jpg', 'jpeg', 'print', 'file', 'keep'],
-      shortcut: shortcut('mod', 'S'),
-      needsDocument: true,
-      run: commands.download,
-    },
-    {
-      id: 'close',
-      group: 'Design',
-      title: 'Close design',
-      description: 'Close this design and go back to the start. If it has changes you have not downloaded, you will be asked first.',
-      keywords: ['close', 'exit', 'finish', 'done', 'start over', 'home'],
-      needsDocument: true,
-      run: commands.close,
-    },
-    {
-      id: 'undo',
-      group: 'Edit',
-      title: editor.undoLabel ? `Undo ${editor.undoLabel.toLowerCase()}` : 'Undo',
-      description: 'Take back your last change. Press again to keep going back.',
-      keywords: ['undo', 'back', 'oops', 'mistake', 'revert', 'take back'],
-      shortcut: shortcut('mod', 'Z'),
-      needsDocument: true,
-      disabledReason: editor.undoLabel ? undefined : 'Nothing to undo yet.',
-      run: commands.undo,
-    },
-    {
-      id: 'redo',
-      group: 'Edit',
-      title: editor.redoLabel ? `Redo ${editor.redoLabel.toLowerCase()}` : 'Redo',
-      description: 'Bring back a change you just undid.',
-      keywords: ['redo', 'again', 'forward', 'bring back'],
-      shortcut: shortcut('mod', 'shift', 'Z'),
-      needsDocument: true,
-      disabledReason: editor.redoLabel ? undefined : 'Nothing to redo. Redo works right after you undo.',
-      run: commands.redo,
-    },
-    {
-      id: 'layer-new',
-      group: 'Layers',
-      title: 'New layer',
-      description: 'Add a clear sheet above the selected layer, so you can paint without changing what is below.',
-      keywords: ['add layer', 'new sheet', 'transparent layer', 'layer'],
-      needsDocument: true,
-      run: layers.add,
-    },
-    {
-      id: 'layer-duplicate',
-      group: 'Layers',
-      title: 'Duplicate layer',
-      description: 'Make an exact copy of the selected layer, placed right above it.',
-      keywords: ['copy layer', 'clone', 'duplicate'],
-      needsDocument: true,
-      run: layers.duplicate,
-    },
-    {
-      id: 'layer-up',
-      group: 'Layers',
-      title: 'Move layer up',
-      description: 'Move the selected layer toward the front.',
-      keywords: ['bring forward', 'raise', 'front', 'arrange', 'order'],
-      needsDocument: true,
-      disabledReason: doc && activeIndex === doc.layers.length - 1 ? 'This layer is already at the front.' : undefined,
-      run: () => layers.move(1),
-    },
-    {
-      id: 'layer-down',
-      group: 'Layers',
-      title: 'Move layer down',
-      description: 'Move the selected layer toward the back.',
-      keywords: ['send backward', 'lower', 'back', 'behind', 'arrange', 'order'],
-      needsDocument: true,
-      disabledReason: activeIndex === 0 ? 'This layer is already at the back.' : undefined,
-      run: () => layers.move(-1),
-    },
-    {
-      id: 'layer-visibility',
-      group: 'Layers',
-      title: active && !active.visible ? 'Show layer' : 'Hide layer',
-      description: 'Hide or show the selected layer. Hidden layers are left out when you download.',
-      keywords: ['hide', 'show', 'visible', 'invisible', 'eye'],
-      needsDocument: true,
-      run: () => active && layers.toggleVisibility(active.id),
-    },
-    {
-      id: 'layer-delete',
-      group: 'Layers',
-      title: 'Delete layer',
-      description: 'Remove the selected layer and everything on it. You can undo this.',
-      keywords: ['remove layer', 'delete', 'trash', 'throw away'],
-      needsDocument: true,
-      disabledReason: doc && doc.layers.length <= 1 ? 'A design needs at least one layer.' : undefined,
-      run: layers.remove,
-    },
-    {
-      id: 'zoom-in',
-      group: 'View',
-      title: 'Zoom in',
-      description: 'See your design bigger, to work on small details. Your design itself does not change.',
-      keywords: ['bigger', 'closer', 'magnify', 'enlarge', 'larger', 'zoom'],
-      shortcut: shortcut('mod', 'Plus'),
-      needsDocument: true,
-      run: commands.zoomIn,
-    },
-    {
-      id: 'zoom-out',
-      group: 'View',
-      title: 'Zoom out',
-      description: 'See your design smaller, so more of it fits. Your design itself does not change.',
-      keywords: ['smaller', 'farther', 'shrink', 'zoom', 'back', 'away'],
-      shortcut: shortcut('mod', 'Minus'),
-      needsDocument: true,
-      run: commands.zoomOut,
-    },
-    {
-      id: 'fit',
-      group: 'View',
-      title: 'Fit on screen',
-      description: 'Show your whole design, as big as fits in the window.',
-      keywords: ['fit', 'whole', 'all', 'entire', 'screen', 'reset', 'center', 'see everything'],
-      shortcut: shortcut('mod', '0'),
-      needsDocument: true,
-      run: commands.fit,
-    },
-    {
-      id: 'actual-size',
-      group: 'View',
-      title: 'Actual size (100%)',
-      description: 'Show your design at its real size: each pixel of your design takes one pixel of your screen.',
-      keywords: ['100', 'real', 'actual', 'original', 'pixels', 'true size'],
-      shortcut: shortcut('mod', 'alt', '0'),
-      needsDocument: true,
-      run: commands.actualSize,
-    },
-    {
-      id: 'brush-bigger',
-      group: 'Brush',
-      title: 'Bigger brush',
-      description: 'Make the brush or eraser thicker.',
-      keywords: ['thicker', 'wider', 'brush size', 'increase size', 'bigger'],
-      shortcut: ']',
-      run: commands.biggerBrush,
-    },
-    {
-      id: 'brush-smaller',
-      group: 'Brush',
-      title: 'Smaller brush',
-      description: 'Make the brush or eraser thinner.',
-      keywords: ['thinner', 'narrower', 'brush size', 'decrease size', 'smaller'],
-      shortcut: '[',
-      run: commands.smallerBrush,
-    },
-    ...TOOLS.map(
-      (t): Action => ({
-        id: `tool-${t.id}`,
-        group: 'Tools',
-        title: `${t.name} tool`,
-        description: t.description,
-        keywords: t.keywords,
-        shortcut: t.key,
-        run: () => setTool(t.id),
-      }),
-    ),
-  ]
-
-  // Keyboard handlers live in an effect, so they read the latest commands through a ref.
-  const commandsRef = useRef({ ...commands, setTool })
-  const stateRef = useRef({ hasDoc: !!doc, dialogOpen: dialog !== null })
+  // Keyboard and paste handlers live in effects, so they read the latest commands through refs.
+  const commandsRef = useRef(commands)
+  const stateRef = useRef({ hasDoc: !!doc, dialogOpen: dialog !== null, tool })
   useEffect(() => {
-    commandsRef.current = { ...commands, setTool }
-    stateRef.current = { hasDoc: !!doc, dialogOpen: dialog !== null }
+    commandsRef.current = commands
+    stateRef.current = { hasDoc: !!doc, dialogOpen: dialog !== null, tool }
   })
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const { hasDoc, dialogOpen } = stateRef.current
+      const { hasDoc, dialogOpen, tool: currentTool } = stateRef.current
       if (event.key === 'Alt') {
         setAltHeld(true)
         // Stops some browsers from jumping to their own menu bar when Alt is let go.
@@ -463,15 +461,27 @@ export default function App() {
       else if (mod && code === 'KeyZ' && event.shiftKey) action = c.redo
       else if (mod && code === 'KeyZ') action = c.undo
       else if (mod && code === 'KeyY') action = c.redo
-      else if (mod && (code === 'Equal' || code === 'NumpadAdd') && hasDoc) action = c.zoomIn
+      else if (mod && code === 'KeyA' && hasDoc) action = c.selectAll
+      else if (mod && code === 'KeyD' && hasDoc) action = c.deselect
+      else if (mod && !event.shiftKey && code === 'KeyC' && hasDoc) action = c.copy
+      else if (mod && code === 'KeyX' && hasDoc) action = c.cut
+      else if (mod && code === 'KeyJ' && hasDoc) action = c.toNewLayer
+      else if (event.altKey && !mod && code === 'Backspace' && hasDoc) action = c.fill
+      else if (plain && (code === 'Delete' || code === 'Backspace') && c.hasSelection()) action = c.deleteArea
+      else if (code === 'Escape' && c.hasSelection()) action = c.deselect
+      else if (!mod && !event.altKey && ARROWS[event.key] && hasDoc && currentTool === 'move') {
+        const step = event.shiftKey ? 10 : 1
+        const [dx, dy] = ARROWS[event.key]
+        action = () => c.nudge(dx * step, dy * step)
+      } else if (mod && (code === 'Equal' || code === 'NumpadAdd') && hasDoc) action = c.zoomIn
       else if (mod && (code === 'Minus' || code === 'NumpadSubtract') && hasDoc) action = c.zoomOut
       else if (mod && event.altKey && (code === 'Digit0' || code === 'Numpad0') && hasDoc) action = c.actualSize
       else if (mod && (code === 'Digit0' || code === 'Numpad0') && hasDoc) action = c.fit
       else if (plain && code === 'BracketRight') action = c.biggerBrush
       else if (plain && code === 'BracketLeft') action = c.smallerBrush
       else if (plain && !event.shiftKey) {
-        const tool = TOOLS.find((t) => `Key${t.key}` === code)
-        if (tool) action = () => c.setTool(tool.id)
+        const found = TOOLS.find((t) => `Key${t.key}` === code)
+        if (found) action = () => c.setTool(found.id)
       }
 
       if (action) {
@@ -491,16 +501,26 @@ export default function App() {
         if (hasDoc && !dialogOpen && !isTypingTarget(event.target)) event.preventDefault()
       }
     }
+    // Ctrl+V arrives as a paste event, which also carries pictures copied in other programs.
+    const onPaste = (event: ClipboardEvent) => {
+      if (stateRef.current.dialogOpen || isTypingTarget(event.target)) return
+      event.preventDefault()
+      const file = Array.from(event.clipboardData?.files ?? []).find((f) => f.type.startsWith('image/'))
+      if (file) commandsRef.current.pasteFile(file)
+      else commandsRef.current.paste()
+    }
     const reset = () => {
       setSpaceHeld(false)
       setAltHeld(false)
     }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('paste', onPaste)
     window.addEventListener('blur', reset)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('paste', onPaste)
       window.removeEventListener('blur', reset)
     }
   }, [])
@@ -526,6 +546,7 @@ export default function App() {
 
   const paintSettings = tool === 'eraser' ? eraser.settings : brush.settings
   const hintTool: ToolId = spaceHeld ? 'hand' : altHeld && tool === 'brush' ? 'picker' : tool
+  const hintExtra = doc?.selection && (hintTool === 'brush' || hintTool === 'eraser') ? 'Only the selected area changes.' : undefined
 
   return (
     <div className="flex h-full select-none flex-col" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
@@ -549,6 +570,20 @@ export default function App() {
         color={color}
         onBrushChange={(settings, presetId) => setBrush({ settings, presetId })}
         onEraserChange={(settings, presetId) => setEraser({ settings, presetId })}
+        selectionShape={selectionShape}
+        selectionMode={selectionMode}
+        onSelectionShapeChange={setSelectionShape}
+        onSelectionModeChange={setSelectionMode}
+        selection={{
+          hasSelection: !!doc?.selection,
+          selectAll: commands.selectAll,
+          deselect: commands.deselect,
+          invert: commands.invert,
+          fill: commands.fill,
+          remove: commands.deleteArea,
+          toNewLayer: commands.toNewLayer,
+          center: commands.center,
+        }}
       />
 
       <div className="flex min-h-0 flex-1 gap-2 px-2 pb-2">
@@ -574,12 +609,16 @@ export default function App() {
                 altHeld={altHeld}
                 brush={paintSettings}
                 color={color}
+                selectionShape={selectionShape}
+                selectionMode={selectionMode}
                 onStroke={handleStroke}
                 onStrokeActiveChange={(activeStroke) => (strokeActiveRef.current = activeStroke)}
                 onPickColor={handlePickColor}
-                onBlocked={setError}
+                onMove={handleMove}
+                onSelect={handleSelect}
+                onBlocked={problem}
               />
-              <ToolHint tool={hintTool} />
+              <ToolHint tool={hintTool} extra={hintExtra} />
               <ZoomControls
                 zoom={viewport.zoom}
                 onZoomIn={commands.zoomIn}
@@ -653,7 +692,7 @@ export default function App() {
         />
       )}
 
-      {error && <Toast message={error} onDismiss={() => setError(null)} />}
+      {notice && <Toast notice={notice} onDismiss={() => setNotice(null)} />}
     </div>
   )
 }

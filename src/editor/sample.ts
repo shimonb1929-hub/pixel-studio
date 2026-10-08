@@ -18,8 +18,11 @@ export function sampleColor(doc: EditorDocument, x: number, y: number): string |
   sampler.clearRect(0, 0, 1, 1)
   for (const layer of doc.layers) {
     if (!layer.visible || layer.opacity <= 0) continue
+    const lx = px - layer.x
+    const ly = py - layer.y
+    if (lx < 0 || ly < 0 || lx >= layer.canvas.width || ly >= layer.canvas.height) continue
     sampler.globalAlpha = layer.opacity
-    sampler.drawImage(layer.canvas, px, py, 1, 1, 0, 0, 1, 1)
+    sampler.drawImage(layer.canvas, lx, ly, 1, 1, 0, 0, 1, 1)
   }
   sampler.globalAlpha = 1
   const [r, g, b, a] = sampler.getImageData(0, 0, 1, 1).data

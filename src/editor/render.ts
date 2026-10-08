@@ -50,10 +50,16 @@ export interface Surface {
   dpr: number
 }
 
-// Shown in place of a layer while it's being painted on.
+export interface RenderPart {
+  canvas: HTMLCanvasElement
+  x: number
+  y: number
+}
+
+// Shown in place of a layer while it's being painted on or moved.
 export interface LayerOverride {
   layerId: string
-  canvas: HTMLCanvasElement
+  parts: RenderPart[]
 }
 
 export function renderScene(
@@ -110,7 +116,8 @@ export function renderScene(
   for (const layer of doc.layers) {
     if (!layer.visible || layer.opacity <= 0) continue
     ctx.globalAlpha = layer.opacity
-    ctx.drawImage(override?.layerId === layer.id ? override.canvas : layer.canvas, 0, 0)
+    const parts = override?.layerId === layer.id ? override.parts : [layer]
+    for (const part of parts) ctx.drawImage(part.canvas, part.x, part.y)
   }
   ctx.restore()
 

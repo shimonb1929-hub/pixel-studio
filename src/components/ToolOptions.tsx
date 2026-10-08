@@ -1,4 +1,5 @@
-import { RotateCcw } from 'lucide-react'
+import { Circle, Contrast, Copy, Crosshair, Lasso, PaintBucket, RotateCcw, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Trash2, type LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 import {
   BRUSH_PRESETS,
   describeOpacity,
@@ -11,7 +12,9 @@ import {
   sliderToSize,
   type BrushSettings,
 } from '../editor/brushes.ts'
+import type { SelectionMode, SelectionShape } from '../editor/selection.ts'
 import type { ToolId } from '../editor/types.ts'
+import { ALT_LABEL } from '../keys.ts'
 import { toolInfo } from '../tools.ts'
 import { StrokePreview } from './StrokePreview.tsx'
 import { Tooltip } from './Tooltip.tsx'
@@ -117,8 +120,123 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
   )
 }
 
+interface Choice<T extends string> {
+  value: T
+  label: string
+  icon: LucideIcon
+  description: string
+}
+
+function Segmented<T extends string>({ label, value, choices, onChange }: { label: string; value: T; choices: Choice<T>[]; onChange: (value: T) => void }) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex shrink-0 gap-0.5 rounded-[10px] border border-line bg-subtle p-0.5">
+      {choices.map((choice) => (
+        <Tooltip key={choice.value} title={choice.label} description={choice.description}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={value === choice.value}
+            aria-label={choice.label}
+            onClick={() => onChange(choice.value)}
+            className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
+              value === choice.value ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
+            }`}
+          >
+            <choice.icon size={15} strokeWidth={1.9} />
+            {choice.label}
+          </button>
+        </Tooltip>
+      ))}
+    </div>
+  )
+}
+
+const SHAPES: Choice<SelectionShape>[] = [
+  { value: 'rectangle', label: 'Rectangle', icon: Square, description: 'Drag to select a rectangle. Hold Shift while dragging for a perfect square.' },
+  { value: 'ellipse', label: 'Oval', icon: Circle, description: 'Drag to select an oval. Hold Shift while dragging for a perfect circle.' },
+  { value: 'freehand', label: 'Freehand', icon: Lasso, description: 'Draw around any shape by hand. Let go to close it.' },
+]
+
+const MODES: Choice<SelectionMode>[] = [
+  { value: 'replace', label: 'New', icon: Square, description: 'Each drag starts a fresh selection.' },
+  { value: 'add', label: 'Add', icon: SquarePlus, description: 'Each drag adds to what is already selected. Tip: holding Shift does this too.' },
+  { value: 'subtract', label: 'Take away', icon: SquareMinus, description: `Each drag removes from what is already selected. Tip: holding ${ALT_LABEL} does this too.` },
+]
+
+export interface SelectionCommands {
+  hasSelection: boolean
+  selectAll: () => void
+  deselect: () => void
+  invert: () => void
+  fill: () => void
+  remove: () => void
+  toNewLayer: () => void
+  center: () => void
+}
+
+function BarButton({ icon: Icon, label, title, description, disabledReason, onClick }: { icon: LucideIcon; label: string; title?: string; description: string; disabledReason?: string; onClick: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      aria-label={title ?? label}
+      className="h-8 shrink-0 px-2 text-[12px]"
+      disabled={!!disabledReason}
+      onClick={onClick}
+      tip={{ title: title ?? label, description, note: disabledReason }}
+    >
+      <Icon size={15} />
+      <span className="hidden xl:inline">{label}</span>
+    </Button>
+  )
+}
+
+const Divider = () => <div className="h-9 w-px shrink-0 bg-line" />
+
+function SelectOptions({
+  shape,
+  mode,
+  commands,
+  onShapeChange,
+  onModeChange,
+}: {
+  shape: SelectionShape
+  mode: SelectionMode
+  commands: SelectionCommands
+  onShapeChange: (shape: SelectionShape) => void
+  onModeChange: (mode: SelectionMode) => void
+}) {
+  const nothing = commands.hasSelection ? undefined : 'Select an area first.'
+  return (
+    <>
+      <Segmented label="Shape" value={shape} choices={SHAPES} onChange={onShapeChange} />
+      <Segmented label="When you drag" value={mode} choices={MODES} onChange={onModeChange} />
+      <Divider />
+      <div className="flex shrink-0 items-center">
+        <BarButton icon={SquareDashed} label="All" title="Select all" description="Select the whole design." onClick={commands.selectAll} />
+        <BarButton icon={SquareSlash} label="None" title="Deselect" description="Clear the selection, so you can work on the whole design again." disabledReason={nothing} onClick={commands.deselect} />
+        <BarButton icon={Contrast} label="Invert" title="Invert selection" description="Swap what is selected and what is not." onClick={commands.invert} />
+      </div>
+      <Divider />
+      <div className="flex shrink-0 items-center">
+        <BarButton icon={PaintBucket} label="Fill" title="Fill with color" description="Fill the selected area of the selected layer with your current color." disabledReason={nothing} onClick={commands.fill} />
+        <BarButton icon={Trash2} label="Delete" title="Delete selected area" description="Erase everything inside the selection on the selected layer." disabledReason={nothing} onClick={commands.remove} />
+        <BarButton icon={Copy} label="To new layer" title="Copy to new layer" description="Copy the selected part of the layer onto a new layer of its own, so you can move or change it separately." disabledReason={nothing} onClick={commands.toNewLayer} />
+      </div>
+    </>
+  )
+}
+
+function Hint({ children }: { children: ReactNode }) {
+  return <p className="min-w-64 text-[13px] leading-snug text-ink-2">{children}</p>
+}
+
 interface ToolOptionsProps {
   tool: ToolId
+  selectionShape: SelectionShape
+  selectionMode: SelectionMode
+  onSelectionShapeChange: (shape: SelectionShape) => void
+  onSelectionModeChange: (mode: SelectionMode) => void
+  selection: SelectionCommands
   brush: BrushSettings
   brushPresetId: string | null
   eraser: BrushSettings
@@ -149,8 +267,33 @@ export function ToolOptions(props: ToolOptionsProps) {
         <PaintOptions erasing={false} settings={props.brush} presetId={props.brushPresetId} color={props.color} onChange={props.onBrushChange} />
       ) : props.tool === 'eraser' ? (
         <PaintOptions erasing settings={props.eraser} presetId={props.eraserPresetId} color={props.color} onChange={props.onEraserChange} />
+      ) : props.tool === 'select' ? (
+        <SelectOptions
+          shape={props.selectionShape}
+          mode={props.selectionMode}
+          commands={props.selection}
+          onShapeChange={props.onSelectionShapeChange}
+          onModeChange={props.onSelectionModeChange}
+        />
+      ) : props.tool === 'move' ? (
+        <>
+          <Hint>
+            Drag to move the selected layer{props.selection.hasSelection ? ', or just the selected part' : ''}. Arrow keys nudge it 1 pixel; with Shift, 10 pixels.
+          </Hint>
+          <BarButton
+            icon={Crosshair}
+            label="Center"
+            title="Center on design"
+            description={
+              props.selection.hasSelection
+                ? 'Move the selected part so it sits exactly in the middle of your design.'
+                : 'Move the selected layer so what is on it sits exactly in the middle of your design.'
+            }
+            onClick={props.selection.center}
+          />
+        </>
       ) : (
-        <p className="min-w-64 text-[13px] leading-snug text-ink-2">{info.description}</p>
+        <Hint>{info.description}</Hint>
       )}
     </div>
   )

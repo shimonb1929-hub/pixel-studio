@@ -1,4 +1,4 @@
-import { createDocumentFromImage, flattenDocument, MAX_DOCUMENT_SIDE } from './document.ts'
+import { createCanvas, createDocumentFromImage, flattenDocument, getContext2d, MAX_DOCUMENT_SIDE } from './document.ts'
 import { EXPORT_FORMATS, type ExportFormat } from './fileNames.ts'
 import type { EditorDocument } from './types.ts'
 
@@ -35,10 +35,8 @@ async function decodeImage(file: Blob): Promise<DecodedImage> {
   }
 }
 
-export async function openImageFile(file: File): Promise<EditorDocument> {
-  if (file.type && !file.type.startsWith('image/')) {
-    throw new Error(`"${file.name}" is not an image file.`)
-  }
+// Decodes a picture file into a canvas, checking that it's a size Pixel Studio can handle.
+export async function imageFileToCanvas(file: Blob): Promise<HTMLCanvasElement> {
   const image = await decodeImage(file)
   try {
     if (image.width < 1 || image.height < 1) throw new Error(CANNOT_OPEN)
@@ -48,10 +46,20 @@ export async function openImageFile(file: File): Promise<EditorDocument> {
           `${MAX_DOCUMENT_SIDE.toLocaleString('en-US')} pixels on each side.`,
       )
     }
-    return createDocumentFromImage(file.name, image.source, image.width, image.height)
+    const canvas = createCanvas(image.width, image.height)
+    getContext2d(canvas).drawImage(image.source, 0, 0, image.width, image.height)
+    return canvas
   } finally {
     image.release()
   }
+}
+
+export async function openImageFile(file: File): Promise<EditorDocument> {
+  if (file.type && !file.type.startsWith('image/')) {
+    throw new Error(`"${file.name}" is not an image file.`)
+  }
+  const canvas = await imageFileToCanvas(file)
+  return createDocumentFromImage(file.name, canvas, canvas.width, canvas.height)
 }
 
 // quality is 0–1 and only affects JPG.

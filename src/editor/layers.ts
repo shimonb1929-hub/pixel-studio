@@ -44,7 +44,7 @@ export function moveLayer(doc: EditorDocument, layerId: string, direction: 1 | -
   return { ...doc, layers }
 }
 
-export function updateLayer(doc: EditorDocument, layerId: string, patch: Partial<Omit<Layer, 'id' | 'canvas'>>): EditorDocument {
+export function updateLayer(doc: EditorDocument, layerId: string, patch: Partial<Omit<Layer, 'id'>>): EditorDocument {
   return { ...doc, layers: doc.layers.map((l) => (l.id === layerId ? { ...l, ...patch } : l)) }
 }
 
