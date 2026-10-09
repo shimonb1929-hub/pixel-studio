@@ -1,13 +1,19 @@
 # Pixel Studio
 
-A design program that runs in the browser. The goal is to cover most of what people do in
-Photoshop, Illustrator and InDesign — photo editing, drawing, vector shapes, text and page
-layout — while staying simple enough for a child or someone who has never used a design
-program.
+A design program that runs in the browser: Photoshop, Illustrator and InDesign in one —
+photo editing, drawing, vector shapes, text and page layout.
+
+The goal has two halves, and both matter equally:
+
+- **Professional results.** Anything you can make with the professional tools, you should be
+  able to make here, at the same quality. Advanced features are not left out; they are made
+  easy to reach.
+- **Simple enough for a 15-year-old** who has never used a design program. Every feature is
+  explained in plain words, starts from a good default, and can be tried before it's kept.
 
 ## Design principles
 
-Pixel Studio should feel obvious to a 10-year-old and still be able to do real work.
+Pixel Studio should feel obvious to a 15-year-old and still produce professional work.
 
 - **Start from what you're making.** The first screen asks "What are you making today?" and
   offers ready-made sizes (square post, phone story, A4 page, poster…). One click and you're in.
@@ -120,7 +126,15 @@ pulling in see-through pixels, so blurred photos keep solid edges.
 4. **Adjustments and looks** (done) — ready-made looks with previews, brightness, contrast, color
    strength, warmth, blur and sharpen, on a layer or just the selected part, with press-and-hold
    to compare.
-5. **Vector shapes** — rectangles, circles, lines and a pen tool, with editable fill and outline.
-6. **Text** — text layers, fonts, sizes, paragraph settings.
-7. **Pages and layout** — multi-page documents, guides, text boxes, PDF export.
-8. **Ready to sell** — accounts, saving to the cloud, payments and a free trial.
+5. **Shapes and the pen** (Illustrator) — shape layers that stay sharp at any size and stay
+   editable: rectangles, rounded corners, ovals, polygons, stars, lines and arrows; a pen for
+   curves with editable points; fills (color and gradient) and outlines (width, dashes, ends);
+   combine shapes (join, cut out, overlap); align, distribute and snapping guides; SVG export.
+6. **Text** (all three) — text layers, fonts, size, spacing, alignment, paragraphs, text in a
+   box and along a path, text effects.
+7. **Pages and print** (InDesign) — multi-page documents, master pages, margins, columns and
+   guides, text that flows from box to box, print-ready PDF with bleed.
+8. **Pro layers and photo tools** (Photoshop) — blend modes, layer masks, layer groups, effects
+   (shadow, glow, outline), adjustments that stay editable, curves and levels, clone and heal,
+   select by color and select subject.
+9. **Ready to sell** — accounts, saving to the cloud, payments and a free trial.
