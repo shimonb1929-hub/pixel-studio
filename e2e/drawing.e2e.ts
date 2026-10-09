@@ -213,44 +213,6 @@ test('layer opacity fades a layer, and a whole slider drag is one undo step', as
   expectColor(await designPixel(page, size, 200, 150), INK)
 })
 
-test('closing with changes asks first, and downloading counts as saved', async ({ page }) => {
-  const size = await newDesign(page)
-  await drag(page, size, [
-    [50, 150],
-    [350, 150],
-  ])
-  const close = async () => {
-    await page.getByRole('button', { name: 'Menu' }).click()
-    await page.getByRole('menuitem', { name: 'Close design' }).click()
-  }
-  const warning = page.getByRole('dialog', { name: 'Throw away your changes?' })
-
-  await close()
-  await expect(warning).toBeVisible()
-  await expect(warning.getByRole('button', { name: 'Keep editing' })).toBeFocused()
-  await warning.getByRole('button', { name: 'Keep editing' }).click()
-  await expect(page.getByText('400 × 300 px')).toBeVisible()
-
-  await close()
-  await warning.getByRole('button', { name: 'Throw away changes' }).click()
-  await expect(page.getByRole('heading', { name: 'What are you making today?' })).toBeVisible()
-
-  // After downloading, closing doesn't ask.
-  const again = await newDesign(page)
-  await drag(page, again, [
-    [50, 150],
-    [350, 150],
-  ])
-  await page.keyboard.press('Control+s')
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('dialog', { name: 'Download your design' }).getByRole('button', { name: 'Download' }).click(),
-  ])
-  expect(download.suggestedFilename()).toBe('My design 2.png')
-  await close()
-  await expect(page.getByRole('heading', { name: 'What are you making today?' })).toBeVisible()
-})
-
 test('search understands everyday words for the new actions', async ({ page }) => {
   const size = await newDesign(page)
   await drag(page, size, [

@@ -35,7 +35,9 @@ function describeShape(width: number, height: number): string {
 }
 
 export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumentDialogProps) {
-  const [name, setName] = useState(defaultName)
+  // Follows the suggested name until you type your own.
+  const [typedName, setTypedName] = useState<string | null>(null)
+  const name = typedName ?? defaultName
   const [width, setWidth] = useState('1920')
   const [height, setHeight] = useState('1080')
   const [background, setBackground] = useState<BackgroundFill>('white')
@@ -61,7 +63,7 @@ export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumen
       onClose={onClose}
     >
       <Field label="Name" htmlFor="new-name" help="What your design is called. It becomes the file name when you download it.">
-        <input id="new-name" data-autofocus className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
+        <input id="new-name" data-autofocus className={inputClass} value={name} onChange={(e) => setTypedName(e.target.value)} />
       </Field>
 
       <Field

@@ -11,6 +11,7 @@ Pixel Studio should feel obvious to a 10-year-old and still be able to do real w
 
 - **Start from what you're making.** The first screen asks "What are you making today?" and
   offers ready-made sizes (square post, phone story, A4 page, poster…). One click and you're in.
+  People coming back see their own designs first, with a preview of each.
 - **Ask in your own words.** The "What do you want to do?" search (Ctrl+K) finds any action from
   everyday words: "save" finds Download, "bigger" finds Zoom in, "photo" finds Open.
 - **Everything explains itself.** Every tool, button, menu item and option has a short,
@@ -24,8 +25,12 @@ Pixel Studio should feel obvious to a 10-year-old and still be able to do real w
 - **Try first, then decide.** Resizing, turning and cropping show the result live while you drag,
   with the exact size and angle. Nothing changes until you press Apply (or Enter); Esc puts it back.
 - **Mistakes are safe.** Every design starts as paper with a clear sheet on top, so the eraser
-  only rubs out your drawing. Undo goes back up to 100 steps, and closing a design with changes
-  you haven't downloaded asks first.
+  only rubs out your drawing. Undo goes back up to 100 steps.
+- **Nothing is ever lost.** Every design is kept in the browser as you work, with all its layers,
+  and "Saved" at the top says so. Closing the design, the tab or the whole browser is always
+  safe: it waits under "Your designs" on the start screen. Download it as a Project to keep a
+  copy or move it to another computer. If the browser can't keep designs (some private
+  windows), the top says "Not saved", and closing with changes that aren't downloaded asks first.
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 
@@ -44,7 +49,7 @@ Then open the address it prints (usually http://localhost:5173).
 | --- | --- |
 | `npm run dev` | Starts the program locally and reloads on every change |
 | `npm run build` | Checks the types and builds the finished site into `dist/` |
-| `npm test` | Runs the unit tests (zoom math, colors, undo history, brushes, layers, search) |
+| `npm test` | Runs the unit tests (zoom math, colors, undo history, brushes, layers, search, project files) |
 | `npm run test:e2e` | Opens the program in a real browser, on a normal and a sharp (Retina) screen, and uses every feature |
 | `npm run lint` | Checks the code for common mistakes |
 
@@ -60,12 +65,14 @@ src/
     transform.ts The Resize and rotate box: handles, turning, flipping and the math behind them
     flood.ts     Finding the area the fill bucket fills
     history.ts   Undo and redo, with memory limits and "changed since download" tracking
+    project.ts   Project files: every layer and setting in one file, checked carefully when opened
+    library.ts   "Your designs": designs kept in the browser (IndexedDB)
     layers.ts    Adding, removing, moving and changing layers
     brushes.ts   The ready-made brushes and erasers
     color.ts     Color codes and the color picker math
     ...          The document, zoom math, drawing to screen, opening and downloading files
   components/    The screens: top bar, tool settings, canvas, color, layers, dialogs, search, tips
-  hooks/         The editor state (document, layers, undo) and element sizes
+  hooks/         The editor state (document, layers, undo), automatic saving and element sizes
   actions.ts     Every action, described once in plain words; the menu, search and tips read it
   tools.ts       The tools, their explanations and hints
   presets.ts     The ready-made sizes
@@ -80,6 +87,12 @@ changes the design size, so undo brings back everything.
 A brush stroke paints onto a separate stroke canvas and is shown on a preview of the layer while
 you draw; when you let go, the changed area is copied into the layer and kept for undo.
 
+A project (`.pixel`) is the letters `PXSTUDIO`, a JSON description of the design (size, layers
+with their names, positions, visibility and opacity, the selection), and then each layer's
+pixels as a PNG. Designs kept in the browser use the same format. Saving happens a moment after
+each change (and right away when you switch tabs or leave a design); only layers whose pixels
+changed are encoded again, so saving stays quick on poster-size designs.
+
 ## Roadmap
 
 1. **Foundation** (done) — start from a ready-made or custom size, open a picture (button or
@@ -87,10 +100,10 @@ you draw; when you let go, the changed area is copied into the layer and kept fo
 2. **Drawing** (done) — brushes and erasers with live samples, steady hand, pen pressure,
    straight lines, colors with a picker, swatches and recent colors, undo and redo, layers
    (add, duplicate, delete, reorder, rename, hide, opacity), protection against losing work.
-3. **Selections and changes** (in progress) — done: select areas (rectangle, oval, freehand; add,
+3. **Selections, changes and saving** (done) — select areas (rectangle, oval, freehand; add,
    take away, invert), move, copy and paste, resize, turn and flip with handles, crop with
-   ready-made shapes, resize or turn the whole design, fill bucket. Next: save and reopen
-   projects with all their layers, with automatic saving.
+   ready-made shapes, resize or turn the whole design, fill bucket, automatic saving in the
+   browser with "Your designs" on the start screen, project files with every layer, renaming.
 4. **Adjustments and filters** — brightness, contrast, colors, blur, sharpen.
 5. **Vector shapes** — rectangles, circles, lines and a pen tool, with editable fill and outline.
 6. **Text** — text layers, fonts, sizes, paragraph settings.

@@ -8,6 +8,8 @@ export interface AppCommands {
   newDesign: () => void
   open: () => void
   download: () => void
+  downloadProject: () => void
+  renameDesign: () => void
   close: () => void
   undo: () => void
   redo: () => void
@@ -69,9 +71,9 @@ export function buildActions({ doc, undoLabel, redoLabel }: ActionState, c: AppC
     {
       id: 'open',
       group: 'Design',
-      title: 'Open a picture…',
-      description: 'Pick a picture from your computer to edit it. You can also drop a file onto the window.',
-      keywords: ['open', 'photo', 'picture', 'image', 'upload', 'import', 'load', 'file'],
+      title: 'Open…',
+      description: 'Pick a picture or a Pixel Studio project from your computer to edit it. You can also drop a file onto the window.',
+      keywords: ['open', 'photo', 'picture', 'image', 'upload', 'import', 'load', 'file', 'project', 'continue'],
       shortcut: shortcut('mod', 'O'),
       run: c.open,
     },
@@ -79,17 +81,36 @@ export function buildActions({ doc, undoLabel, redoLabel }: ActionState, c: AppC
       id: 'download',
       group: 'Design',
       title: 'Download…',
-      description: 'Save your design to your computer as a PNG or JPG picture you can share or print.',
+      description: 'Save your design to your computer as a PNG or JPG picture you can share or print, or as a project.',
       keywords: ['save', 'export', 'download', 'share', 'png', 'jpg', 'jpeg', 'print', 'file', 'keep'],
       shortcut: shortcut('mod', 'S'),
       needsDocument: true,
       run: c.download,
     },
     {
+      id: 'download-project',
+      group: 'Design',
+      title: 'Download project…',
+      description:
+        'Save your design with all its layers as a project file. Open it again later to keep editing, or on another computer.',
+      keywords: ['save project', 'project', 'layers', 'backup', 'keep editing', 'later', 'another computer', 'move', 'file'],
+      needsDocument: true,
+      run: c.downloadProject,
+    },
+    {
+      id: 'rename',
+      group: 'Design',
+      title: 'Rename design…',
+      description: "Change your design's name. You'll see it under Your designs, and it becomes the file name when you download.",
+      keywords: ['rename', 'name', 'title', 'call', 'label'],
+      needsDocument: true,
+      run: c.renameDesign,
+    },
+    {
       id: 'close',
       group: 'Design',
       title: 'Close design',
-      description: 'Close this design and go back to the start. If it has changes you have not downloaded, you will be asked first.',
+      description: 'Close this design and go back to the start. It stays in this browser, so you can open it again from Your designs.',
       keywords: ['close', 'exit', 'finish', 'done', 'start over', 'home'],
       needsDocument: true,
       run: c.close,

@@ -1,6 +1,7 @@
-import { Download, Menu as MenuIcon, Redo2, Search, Undo2 } from 'lucide-react'
+import { Check, CircleAlert, Download, Menu as MenuIcon, Redo2, Search, Undo2 } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { actionBlocker, NEEDS_DOCUMENT_HINT, type Action, type ActionGroup } from '../actions.ts'
+import type { SaveStatus } from '../hooks/useAutosave.ts'
 import { shortcut } from '../keys.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button } from './ui.tsx'
@@ -115,9 +116,41 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
   )
 }
 
+const KEPT_HERE = 'Your design is kept in this browser as you work, so you can close it any time. Open it again from the start screen, under Your designs.'
+
+// Says whether the design is safely kept, so there's never a need to wonder.
+function SaveIndicator({ status, problem }: { status: SaveStatus; problem: string | null }) {
+  if (status === 'failed') {
+    return (
+      <Tooltip
+        title="Not saved"
+        description={`${problem ?? "Your latest changes couldn't be kept in this browser."} Download your design to keep it. Choose Project to keep every layer.`}
+      >
+        <span aria-live="polite" className="flex cursor-default items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-danger">
+          <CircleAlert size={15} />
+          Not saved
+        </span>
+      </Tooltip>
+    )
+  }
+  const saved = status === 'saved'
+  // Not announced to screen readers: hearing "Saving, Saved" after every stroke would be tiring.
+  return (
+    <Tooltip title={saved ? 'Saved' : 'Saving'} description={KEPT_HERE}>
+      <span className="flex cursor-default items-center gap-1.5 whitespace-nowrap text-[13px] text-ink-3">
+        {saved && <Check size={15} />}
+        {saved ? 'Saved' : 'Saving…'}
+      </span>
+    </Tooltip>
+  )
+}
+
 interface TopBarProps {
   actions: Action[]
   documentName: string | null
+  saveStatus: SaveStatus | null
+  saveProblem: string | null
+  onRename: () => void
   undoLabel: string | null
   redoLabel: string | null
   onUndo: () => void
@@ -126,7 +159,19 @@ interface TopBarProps {
   onDownload: () => void
 }
 
-export function TopBar({ actions, documentName, undoLabel, redoLabel, onUndo, onRedo, onSearch, onDownload }: TopBarProps) {
+export function TopBar({
+  actions,
+  documentName,
+  saveStatus,
+  saveProblem,
+  onRename,
+  undoLabel,
+  redoLabel,
+  onUndo,
+  onRedo,
+  onSearch,
+  onDownload,
+}: TopBarProps) {
   const hasDocument = documentName !== null
   return (
     <header className="grid h-14 shrink-0 grid-cols-[1fr_minmax(0,28rem)_1fr] items-center gap-3 px-3">
@@ -187,7 +232,23 @@ export function TopBar({ actions, documentName, undoLabel, redoLabel, onUndo, on
       </Tooltip>
 
       <div className="flex min-w-0 items-center justify-end gap-3">
-        {documentName && <span className="hidden truncate text-[13px] text-ink-2 lg:block">{documentName}</span>}
+        {documentName && (
+          <Tooltip title="Rename design" description="Click to change your design's name. It's used in Your designs and for downloaded files." className="hidden min-w-0 lg:flex">
+            <button
+              type="button"
+              aria-label={`Design name: ${documentName}. Click to rename`}
+              onClick={onRename}
+              className="truncate rounded-md px-1.5 py-1 text-[13px] text-ink-2 transition-colors hover:bg-surface hover:text-ink"
+            >
+              {documentName}
+            </button>
+          </Tooltip>
+        )}
+        {documentName && saveStatus && (
+          <div className="hidden md:flex">
+            <SaveIndicator status={saveStatus} problem={saveProblem} />
+          </div>
+        )}
         <Button
           variant="primary"
           className="h-9 px-4"

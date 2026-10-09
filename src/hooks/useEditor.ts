@@ -3,6 +3,7 @@ import { coverRect, getContext2d } from '../editor/document.ts'
 import type { Rect } from '../editor/geometry.ts'
 import { History } from '../editor/history.ts'
 import { selectLayer, updateLayer } from '../editor/layers.ts'
+import { markPixelsChanged } from '../editor/pixelVersion.ts'
 import { copyRegion, restoreRegion, type StrokeResult } from '../editor/stroke.ts'
 import type { EditorDocument, Layer } from '../editor/types.ts'
 
@@ -48,6 +49,7 @@ export interface Editor {
   close: () => void
   change: (label: string, update: (doc: EditorDocument) => EditorDocument, options?: ChangeOptions) => void
   select: (layerId: string) => void
+  rename: (name: string) => void
   // A finished brush stroke. `grown` is the layer it was painted on, if it had to be enlarged first.
   commitStroke: (label: string, layerId: string, result: StrokeResult, grown?: Layer) => void
   // Changes pixels of a layer inside `area` (design coordinates), growing the layer if needed.
@@ -81,7 +83,10 @@ export function useEditor(): Editor {
     if (!current) return
     if (change.kind === 'pixels') {
       const layer = current.layers.find((l) => l.id === change.layerId)
-      if (layer) restoreRegion(layer.canvas, change[side], change.x, change.y)
+      if (layer) {
+        restoreRegion(layer.canvas, change[side], change.x, change.y)
+        markPixelsChanged(layer.canvas)
+      }
       setRevision((r) => r + 1)
     } else {
       setDoc({ ...current, ...change[side] })
@@ -140,9 +145,17 @@ export function useEditor(): Editor {
       if (current) setDoc(selectLayer(current, layerId))
     },
 
+    // A design's name isn't part of what undo takes back either.
+    rename(name) {
+      const current = docRef.current
+      if (current && name !== current.name) setDoc({ ...current, name })
+    },
+
     commitStroke(label, layerId, result, grown) {
       const pixels: Change = { kind: 'pixels', layerId, x: result.x, y: result.y, before: result.before, after: result.after }
       const growth = grown ? growLayer(layerId, grown) : null
+      const layer = docRef.current?.layers.find((l) => l.id === layerId)
+      if (layer) markPixelsChanged(layer.canvas)
       history.push({
         label,
         change: growth ? { kind: 'compound', changes: [growth, pixels] } : pixels,
@@ -173,6 +186,7 @@ export function useEditor(): Editor {
       ctx.save()
       draw(ctx, layer)
       ctx.restore()
+      markPixelsChanged(layer.canvas)
       const after = copyRegion(layer.canvas, local)
       const pixels: Change = { kind: 'pixels', layerId, x: local.x, y: local.y, before, after }
       history.push({

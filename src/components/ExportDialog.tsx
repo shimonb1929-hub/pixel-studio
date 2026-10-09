@@ -25,6 +25,12 @@ const FORMATS: { value: ExportFormat; label: string; description: string }[] = [
     description:
       'Makes much smaller files and is best for photos. It cannot be see-through, so empty parts turn white. A tiny bit of detail is lost.',
   },
+  {
+    value: 'project',
+    label: 'Project',
+    description:
+      'Keeps every layer, so you can open it in Pixel Studio later and keep editing, on this computer or another one. Other programs can’t open it.',
+  },
 ]
 
 // Above this many pixels, measuring the file size on every change gets slow.
@@ -39,12 +45,13 @@ function describeQuality(quality: number): string {
 
 interface ExportDialogProps {
   doc: EditorDocument
+  initialFormat?: ExportFormat
   onExport: (options: ExportOptions) => void
   onClose: () => void
 }
 
-export function ExportDialog({ doc, onExport, onClose }: ExportDialogProps) {
-  const [format, setFormat] = useState<ExportFormat>('png')
+export function ExportDialog({ doc, initialFormat = 'png', onExport, onClose }: ExportDialogProps) {
+  const [format, setFormat] = useState<ExportFormat>(initialFormat)
   const [quality, setQuality] = useState(90)
   const [baseName, setBaseName] = useState(() => stripExtension(doc.name))
   const [estimate, setEstimate] = useState<{ key: string; size: number } | null>(null)
@@ -71,14 +78,14 @@ export function ExportDialog({ doc, onExport, onClose }: ExportDialogProps) {
   return (
     <Dialog
       title="Download your design"
-      subtitle="Save it to your computer as a picture you can share or print."
+      subtitle="Save it to your computer as a picture to share or print, or as a project to keep editing later."
       submitLabel="Download"
       onSubmit={() => onExport({ format, quality, fileName })}
       onClose={onClose}
     >
       <Field
         label="File type"
-        help="How the picture is stored. PNG keeps everything perfect. JPG makes small files for photos."
+        help="How your design is stored. PNG keeps everything perfect. JPG makes small files for photos. Project keeps every layer so you can keep editing."
         note={FORMATS.find((f) => f.value === format)!.description}
       >
         <ChoiceGroup name="File type" value={format} options={FORMATS} onChange={setFormat} />
@@ -109,8 +116,12 @@ export function ExportDialog({ doc, onExport, onClose }: ExportDialogProps) {
       <Field
         label="File name"
         htmlFor="export-name"
-        help="The name of the saved file. The ending (.png or .jpg) is added for you."
-        note={`Saves as ${fileName}, usually into your Downloads folder.`}
+        help="The name of the saved file. The ending (like .png) is added for you."
+        note={
+          format === 'project'
+            ? `Saves as ${fileName}, usually into your Downloads folder. To keep editing, open it with Open… in Pixel Studio.`
+            : `Saves as ${fileName}, usually into your Downloads folder.`
+        }
       >
         <input id="export-name" data-autofocus className={inputClass} value={baseName} onChange={(e) => setBaseName(e.target.value)} />
       </Field>

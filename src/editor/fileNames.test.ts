@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { validateDocumentSize } from './document.ts'
-import { exportFileName, formatFileSize, sanitizeFileName, stripExtension } from './fileNames.ts'
+import { exportFileName, formatFileSize, nextNumberedName, sanitizeFileName, stripExtension, uniqueName } from './fileNames.ts'
 
 describe('file names', () => {
   it('strips only the last extension', () => {
@@ -17,7 +17,16 @@ describe('file names', () => {
   it('adds the right extension and never returns an empty name', () => {
     expect(exportFileName('photo', 'jpeg')).toBe('photo.jpg')
     expect(exportFileName('photo', 'png')).toBe('photo.png')
+    expect(exportFileName('Birthday card', 'project')).toBe('Birthday card.pixel')
     expect(exportFileName('   ', 'png')).toBe('image.png')
+  })
+
+  it('gives new designs names that are not taken yet', () => {
+    expect(uniqueName('Square post', [])).toBe('Square post')
+    expect(uniqueName('Square post', ['Square post', 'Square post 2'])).toBe('Square post 3')
+    expect(nextNumberedName('My design', [])).toBe('My design 1')
+    expect(nextNumberedName('My design', ['My design 3', 'My design 10x', 'Card'])).toBe('My design 4')
+    expect(nextNumberedName('My design', ['My design 1'], 4)).toBe('My design 5')
   })
 
   it('formats file sizes for people', () => {

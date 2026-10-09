@@ -7,6 +7,7 @@ import { Dialog } from './components/Dialog.tsx'
 import { ExportDialog, type ExportOptions } from './components/ExportDialog.tsx'
 import { LayersPanel } from './components/LayersPanel.tsx'
 import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocumentDialog.tsx'
+import { RenameDialog } from './components/RenameDialog.tsx'
 import { ResizeDialog } from './components/ResizeDialog.tsx'
 import { Toast, type Notice } from './components/Toast.tsx'
 import { ToolDock } from './components/ToolDock.tsx'
@@ -28,10 +29,13 @@ import {
 } from './editor/document.ts'
 import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocument } from './editor/documentOps.ts'
 import { intersectRect, type Rect } from './editor/geometry.ts'
-import { downloadBlob, exportDocument, imageFileToCanvas, openImageFile } from './editor/io.ts'
+import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
+import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
 import { activeLayer, insertLayerAboveActive, moveLayer, nextLayerName, removeLayer, updateLayer } from './editor/layers.ts'
+import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
 import { clearSelected, contentBounds, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
+import { decodeProject } from './editor/project.ts'
 import type { LayerOverride } from './editor/render.ts'
 import { invertSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
 import type { StrokeResult } from './editor/stroke.ts'
@@ -39,13 +43,14 @@ import { boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotat
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
 import type { EditorDocument, Layer, Point, ToolId, Viewport } from './editor/types.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
+import { useAutosave } from './hooks/useAutosave.ts'
 import { useEditor } from './hooks/useEditor.ts'
 import { useElementSize } from './hooks/useElementSize.ts'
 import { isTypingTarget, shortcut } from './keys.ts'
 import type { SizePreset } from './presets.ts'
 import { TOOLS } from './tools.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize'
+type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -118,15 +123,18 @@ interface CropState {
 export default function App() {
   const editor = useEditor()
   const { doc } = editor
+  const autosave = useAutosave(editor)
   const [viewport, setViewport] = useState<Viewport>({ zoom: 1, panX: 0, panY: 0 })
   const [tool, setToolState] = useState<ToolId>('brush')
   const [cursor, setCursor] = useState<Point | null>(null)
   const [dialog, setDialog] = useState<DialogId | null>(null)
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('png')
   const [notice, setNotice] = useState<Notice | null>(null)
   const [dropActive, setDropActive] = useState(false)
   const [spaceHeld, setSpaceHeld] = useState(false)
   const [altHeld, setAltHeld] = useState(false)
   const [designCount, setDesignCount] = useState(0)
+  const [newDesignName, setNewDesignName] = useState('My design 1')
   const [color, setColor] = useState('#1b1d23')
   const [recentColors, setRecentColors] = useState<string[]>([])
   const [brush, setBrush] = useState<{ settings: BrushSettings; presetId: string | null }>({
@@ -174,9 +182,12 @@ export default function App() {
     if (dx || dy) setViewport((v) => panBy(v, dx, dy))
   }, [workspace])
 
-  // Closing the tab with changes that aren't downloaded asks first.
+  // Closing the tab asks first while changes are still being saved, or if they couldn't be saved
+  // in the browser and haven't been downloaded either.
+  const unsafeToLeave =
+    autosave.status === 'unsaved' || autosave.status === 'saving' || (autosave.status === 'failed' && editor.isDirty)
   useEffect(() => {
-    if (!editor.isDirty) return
+    if (!unsafeToLeave) return
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault()
       // Older browsers and Safari only ask when this is set too.
@@ -184,7 +195,7 @@ export default function App() {
     }
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
-  }, [editor.isDirty])
+  }, [unsafeToLeave])
 
   // While the Resize tool is on, handles are ready around the selected layer (or the selected part).
   // A new layer or selection, including one brought back by undo, starts fresh handles.
@@ -252,9 +263,11 @@ export default function App() {
   }
 
   // Unfinished resizing or cropping is applied before doing anything else, so nothing gets mixed up.
-  function settle() {
-    if (transformChanged) applyTransform()
+  // Returns false if a resize couldn't be applied (it would be too big), which has been explained.
+  function settle(): boolean {
+    if (transformChanged && !applyTransform()) return false
     if (cropChanged) applyCrop()
+    return true
   }
 
   function setTool(next: ToolId) {
@@ -276,8 +289,10 @@ export default function App() {
     return fitViewport(next.width, next.height, workspace.width, workspace.height, { allowUpscale, padding: FIT_PADDING })
   }
 
-  function showDocument(next: EditorDocument) {
+  // `stored` means the design is already kept in this browser (it was opened from Your designs).
+  function showDocument(next: EditorDocument, stored = false) {
     editor.load(next)
+    autosave.start(next, stored)
     setTransformEdit(null)
     setCropEdit(null)
     setCursor(null)
@@ -285,21 +300,35 @@ export default function App() {
     setViewport(fitted(next, false))
   }
 
-  // Runs the action right away, or asks first if there are changes that would be lost.
-  function guardDiscard(action: () => void) {
-    settle()
-    if (editor.isDirty || transformChanged || cropChanged) {
+  // Before leaving the open design, its latest changes are saved in the browser. If that doesn't
+  // work and they haven't been downloaded either, it asks first.
+  async function leaveDesign(action: () => void) {
+    // Stay put rather than lose a resize that couldn't be applied.
+    if (!settle()) return
+    if ((await autosave.flush()) || !editor.isDirty) {
+      action()
+    } else {
       pendingDiscardRef.current = action
       setDialog('discard')
-    } else {
-      action()
     }
   }
 
+  // A picture becomes a new design; a project file comes back with all its layers.
   async function openFile(file: File) {
     try {
-      const next = await openImageFile(file)
-      guardDiscard(() => showDocument(next))
+      const next = await openDesignFile(file)
+      await leaveDesign(() => showDocument(next))
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
+  async function openSaved(design: SavedDesign) {
+    try {
+      const file = await loadDesign(design.id)
+      if (!file) throw new Error(`“${design.name}” isn't in this browser anymore. It may have been deleted in another tab.`)
+      const next = await decodeProject(file, design.id)
+      await leaveDesign(() => showDocument(next, true))
     } catch (e) {
       problem(errorMessage(e))
     }
@@ -309,17 +338,23 @@ export default function App() {
     try {
       const next = createBlankDocument(name, width, height, background)
       setDialog(null)
-      guardDiscard(() => {
-        showDocument(next)
-        setDesignCount((count) => count + 1)
-      })
+      void leaveDesign(() => showDocument(next))
     } catch (e) {
       problem(errorMessage(e))
     }
   }
 
-  function createFromPreset(preset: SizePreset) {
-    createDocument({ name: preset.name, width: preset.width, height: preset.height, background: 'white' })
+  // Names already used by designs kept in this browser, so a new one never looks like an old one.
+  function savedNames(): Promise<string[]> {
+    return listDesigns().then(
+      (list) => list.map((d) => d.name),
+      () => [],
+    )
+  }
+
+  // `taken` are the names of the designs on the start screen.
+  function createFromPreset(preset: SizePreset, taken: string[]) {
+    createDocument({ name: uniqueName(preset.name, taken), width: preset.width, height: preset.height, background: 'white' })
   }
 
   async function download({ format, quality, fileName }: ExportOptions) {
@@ -529,14 +564,32 @@ export default function App() {
   const commands: AppCommands & ExtraCommands = {
     newDesign: () => {
       settle()
+      // The dialog opens right away; its suggested name is corrected once the kept designs are read.
+      setNewDesignName(nextNumberedName('My design', [], designCount))
       setDialog('new')
+      void savedNames().then((names) => setNewDesignName(nextNumberedName('My design', names, designCount)))
     },
     open: () => fileInputRef.current?.click(),
     download: () => {
       settle()
-      if (current()) setDialog('export')
+      if (!current()) return
+      setExportFormat('png')
+      setDialog('export')
     },
-    close: () => guardDiscard(() => editor.close()),
+    downloadProject: () => {
+      settle()
+      if (!current()) return
+      setExportFormat('project')
+      setDialog('export')
+    },
+    renameDesign: () => {
+      if (current()) setDialog('rename')
+    },
+    close: () =>
+      void leaveDesign(() => {
+        editor.close()
+        autosave.stop()
+      }),
     // Undo waits until a stroke is finished, so it never pulls pixels out from under the brush.
     // While resizing or cropping, it first takes back the unapplied change.
     undo: () => {
@@ -858,6 +911,9 @@ export default function App() {
       <TopBar
         actions={actions}
         documentName={doc?.name ?? null}
+        saveStatus={autosave.status}
+        saveProblem={autosave.problem}
+        onRename={commands.renameDesign}
         undoLabel={transformChanged ? 'Resize changes' : cropChanged ? 'Crop frame' : editor.undoLabel}
         redoLabel={transformChanged || cropChanged ? null : editor.redoLabel}
         onUndo={commands.undo}
@@ -961,11 +1017,11 @@ export default function App() {
               <DesignInfo doc={doc} cursor={cursor} />
             </>
           ) : (
-            <WelcomeScreen onPreset={createFromPreset} onCustom={commands.newDesign} onOpen={commands.open} />
+            <WelcomeScreen onPreset={createFromPreset} onCustom={commands.newDesign} onOpen={commands.open} onOpenDesign={openSaved} />
           )}
           {dropActive && (
             <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-accent bg-accent-soft/80">
-              <p className="text-[15px] font-medium text-accent">Drop your picture to open it</p>
+              <p className="text-[15px] font-medium text-accent">Drop your picture or project to open it</p>
             </div>
           )}
         </main>
@@ -990,7 +1046,7 @@ export default function App() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={`image/*,.${EXPORT_FORMATS.project.extension}`}
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0]
@@ -1000,9 +1056,28 @@ export default function App() {
       />
 
       {dialog === 'new' && (
-        <NewDocumentDialog defaultName={`My design ${designCount + 1}`} onCreate={createDocument} onClose={() => setDialog(null)} />
+        <NewDocumentDialog
+          defaultName={newDesignName}
+          onCreate={(options) => {
+            setDesignCount((count) => count + 1)
+            createDocument(options)
+          }}
+          onClose={() => setDialog(null)}
+        />
       )}
-      {dialog === 'export' && doc && <ExportDialog doc={doc} onExport={download} onClose={() => setDialog(null)} />}
+      {dialog === 'export' && doc && (
+        <ExportDialog doc={doc} initialFormat={exportFormat} onExport={download} onClose={() => setDialog(null)} />
+      )}
+      {dialog === 'rename' && doc && (
+        <RenameDialog
+          name={doc.name}
+          onClose={() => setDialog(null)}
+          onRename={(name) => {
+            setDialog(null)
+            editor.rename(name)
+          }}
+        />
+      )}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
       {dialog === 'resize' && doc && (
         <ResizeDialog
@@ -1018,7 +1093,7 @@ export default function App() {
       {dialog === 'discard' && (
         <Dialog
           title="Throw away your changes?"
-          subtitle="Your design has changes you haven't downloaded. If you continue, they will be lost. To keep them, choose Keep editing and then Download."
+          subtitle={`${autosave.problem ?? "Your latest changes couldn't be kept in this browser."} If you continue, they will be lost. To keep them, choose Keep editing and then Download.`}
           submitLabel="Throw away changes"
           cancelLabel="Keep editing"
           danger

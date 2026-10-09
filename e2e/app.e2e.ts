@@ -164,7 +164,7 @@ test.describe('starting', () => {
 
   test('explains a file that is not a picture', async ({ page }) => {
     await page.locator('input[type=file]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') })
-    await expect(page.getByRole('alert')).toContainText('"notes.txt" is not an image file.')
+    await expect(page.getByRole('alert')).toContainText('"notes.txt" is not a picture or a Pixel Studio project.')
     await page.getByRole('button', { name: 'Dismiss' }).click()
     await expect(page.getByRole('alert')).toBeHidden()
   })
@@ -312,10 +312,10 @@ test.describe('search and menu', () => {
     await menuButton.click()
     const menu = page.getByRole('menu')
     await expect(menu).toBeVisible()
-    await menu.getByRole('menuitem', { name: /Download/ }).hover()
+    await menu.getByRole('menuitem', { name: /^Download…/ }).hover()
     await expect(page.getByRole('tooltip')).toContainText('Start a new design or open a picture first.')
     // Disabled on purpose: force the click to prove it does nothing.
-    await menu.getByRole('menuitem', { name: /Download/ }).click({ force: true })
+    await menu.getByRole('menuitem', { name: /^Download…/ }).click({ force: true })
     await expect(page.getByRole('dialog')).toHaveCount(0)
 
     await page.keyboard.press('Escape')

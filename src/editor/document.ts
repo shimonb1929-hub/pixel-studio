@@ -17,6 +17,12 @@ export function createId(prefix: string): string {
   return `${prefix}-${nextId++}`
 }
 
+// Designs are kept in the browser between visits, so their ids must never repeat.
+export function createDesignId(): string {
+  // randomUUID only exists on secure (https or localhost) pages.
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+}
+
 export function validateDocumentSize(width: number, height: number): string | null {
   if (!Number.isInteger(width) || !Number.isInteger(height)) {
     return 'Width and height must be whole numbers.'
@@ -42,7 +48,7 @@ export function getContext2d(canvas: HTMLCanvasElement): CanvasRenderingContext2
 }
 
 // Browsers can't make canvases much bigger than this on a side.
-const MAX_LAYER_SIDE = 16000
+export const MAX_LAYER_SIDE = 16000
 
 export function layerFromCanvas(name: string, canvas: HTMLCanvasElement, x = 0, y = 0): Layer {
   return { id: createId('layer'), kind: 'raster', name, canvas, x, y, visible: true, opacity: 1 }
@@ -80,7 +86,7 @@ export function coverRect(layer: Layer, rect: Rect): Layer {
 // sheet, so the eraser rubs out your drawing and never the paper or the picture underneath.
 function withDrawingLayer(name: string, base: Layer, width: number, height: number): EditorDocument {
   const drawing = createLayer('Layer 1', width, height)
-  return { id: createId('doc'), name, width, height, layers: [base, drawing], activeLayerId: drawing.id, selection: null }
+  return { id: createDesignId(), name, width, height, layers: [base, drawing], activeLayerId: drawing.id, selection: null }
 }
 
 export function createBlankDocument(

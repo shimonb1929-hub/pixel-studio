@@ -1,9 +1,12 @@
 import { FolderOpen, Plus } from 'lucide-react'
 import type { ReactNode } from 'react'
+import type { SavedDesign } from '../editor/library.ts'
+import { useSavedDesigns } from '../hooks/useSavedDesigns.ts'
 import { shortcut } from '../keys.ts'
 import { SIZE_PRESETS, type SizePreset } from '../presets.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button } from './ui.tsx'
+import { YourDesigns } from './YourDesigns.tsx'
 
 const PREVIEW_MAX = 40
 
@@ -37,19 +40,34 @@ function Tile({ label, detail, preview, onClick }: { label: string; detail: stri
 }
 
 interface WelcomeScreenProps {
-  onPreset: (preset: SizePreset) => void
+  // `taken` are the names of the designs already kept, so the new one can be told apart.
+  onPreset: (preset: SizePreset, taken: string[]) => void
   onCustom: () => void
   onOpen: () => void
+  onOpenDesign: (design: SavedDesign) => Promise<void>
 }
 
-export function WelcomeScreen({ onPreset, onCustom, onOpen }: WelcomeScreenProps) {
+export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign }: WelcomeScreenProps) {
+  const { designs, loadedAt, refresh } = useSavedDesigns()
+  // People coming back see their designs first, then the ways to start something new.
+  const returning = designs.length > 0
+
   return (
     <div className="flex h-full overflow-y-auto">
       <div className="m-auto w-full max-w-3xl px-6 py-10">
         <h1 className="text-center text-[28px] font-semibold tracking-tight text-ink">What are you making today?</h1>
-        <p className="mt-2 text-center text-[15px] text-ink-2">Pick a size to start, or open a picture from your computer.</p>
+        <p className="mt-2 text-center text-[15px] text-ink-2">
+          {returning ? 'Pick up where you left off, or start something new.' : 'Pick a size to start, or open a picture from your computer.'}
+        </p>
 
-        <div className="mt-9 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {returning && (
+          <>
+            <YourDesigns designs={designs} now={loadedAt} onOpen={onOpenDesign} onChanged={refresh} />
+            <h2 className="mt-10 text-[15px] font-semibold tracking-tight text-ink">Start something new</h2>
+          </>
+        )}
+
+        <div className={`${returning ? 'mt-3' : 'mt-9'} grid grid-cols-2 gap-3 sm:grid-cols-4`}>
           {SIZE_PRESETS.map((preset) => (
             <Tooltip
               key={preset.id}
@@ -61,7 +79,7 @@ export function WelcomeScreen({ onPreset, onCustom, onOpen }: WelcomeScreenProps
                 label={preset.name}
                 detail={`${preset.width} × ${preset.height}`}
                 preview={<ShapePreview width={preset.width} height={preset.height} />}
-                onClick={() => onPreset(preset)}
+                onClick={() => onPreset(preset, designs.map((d) => d.name))}
               />
             </Tooltip>
           ))}
@@ -93,13 +111,13 @@ export function WelcomeScreen({ onPreset, onCustom, onOpen }: WelcomeScreenProps
             tip={{
               title: 'Open a picture',
               shortcut: shortcut('mod', 'O'),
-              description: 'Pick a picture from your computer (PNG, JPG, GIF, WebP and more) to edit it.',
+              description: 'Pick a picture from your computer (PNG, JPG, GIF, WebP and more) to edit it, or a Pixel Studio project you downloaded.',
             }}
           >
             <FolderOpen size={16} />
             Open a picture…
           </Button>
-          <p className="text-xs text-ink-3">or drop a picture file anywhere on this window</p>
+          <p className="text-xs text-ink-3">or drop a picture or project file anywhere on this window</p>
         </div>
       </div>
     </div>

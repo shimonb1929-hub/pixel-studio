@@ -1,5 +1,6 @@
 import { createCanvas, createDocumentFromImage, flattenDocument, getContext2d, MAX_DOCUMENT_SIDE } from './document.ts'
 import { EXPORT_FORMATS, type ExportFormat } from './fileNames.ts'
+import { decodeProject, encodeProject, isProjectFile } from './project.ts'
 import type { EditorDocument } from './types.ts'
 
 const CANNOT_OPEN = "This file couldn't be opened. Try a PNG, JPG, GIF, WebP or BMP image."
@@ -54,9 +55,11 @@ export async function imageFileToCanvas(file: Blob): Promise<HTMLCanvasElement> 
   }
 }
 
-export async function openImageFile(file: File): Promise<EditorDocument> {
+// Opens a picture as a new design, or a project file with all its layers.
+export async function openDesignFile(file: File): Promise<EditorDocument> {
+  if (await isProjectFile(file)) return decodeProject(file)
   if (file.type && !file.type.startsWith('image/')) {
-    throw new Error(`"${file.name}" is not an image file.`)
+    throw new Error(`"${file.name}" is not a picture or a Pixel Studio project.`)
   }
   const canvas = await imageFileToCanvas(file)
   return createDocumentFromImage(file.name, canvas, canvas.width, canvas.height)
@@ -64,6 +67,7 @@ export async function openImageFile(file: File): Promise<EditorDocument> {
 
 // quality is 0–1 and only affects JPG.
 export function exportDocument(doc: EditorDocument, format: ExportFormat, quality: number): Promise<Blob> {
+  if (format === 'project') return encodeProject(doc)
   // JPG has no transparency, so see-through areas become white instead of black.
   const canvas = flattenDocument(doc, format === 'jpeg' ? '#ffffff' : undefined)
   return new Promise((resolve, reject) => {
