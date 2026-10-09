@@ -59,6 +59,8 @@ export interface CanvasViewProps {
   override: LayerOverride | null
   box: BoxEditing | null
   onFill: (point: Point) => void
+  // With the Adjust tool, pressing and holding on the design shows how it was before.
+  onCompareChange: (comparing: boolean) => void
 }
 
 interface PanDrag {
@@ -296,6 +298,8 @@ export function CanvasView(props: CanvasViewProps) {
   const moveRef = useRef<MoveDrag | null>(null)
   const selectRef = useRef<SelectDrag | null>(null)
   const boxRef = useRef<BoxDrag | null>(null)
+  // The pointer pressed on the design to compare with how it was, while adjusting.
+  const compareRef = useRef<number | null>(null)
   const hoverRef = useRef<Point | null>(null)
   const lastEndRef = useRef<{ docId: string; point: InputPoint } | null>(null)
   const antsRef = useRef(0)
@@ -616,7 +620,7 @@ export function CanvasView(props: CanvasViewProps) {
   function handlePointerDown(event: PointerEvent<HTMLCanvasElement>) {
     hoverRef.current = localPoint(event.clientX, event.clientY)
     // Ignore a second finger or button while something is already happening.
-    if (strokeRef.current || panRef.current || pickRef.current !== null || moveRef.current || selectRef.current || boxRef.current) return
+    if (strokeRef.current || panRef.current || pickRef.current !== null || moveRef.current || selectRef.current || boxRef.current || compareRef.current !== null) return
 
     const isPan = event.button === 1 || (event.button === 0 && (tool === 'hand' || spaceHeld))
     if (isPan) {
@@ -647,6 +651,10 @@ export function CanvasView(props: CanvasViewProps) {
       startBoxDrag(event, props.box)
     } else if (tool === 'fill') {
       if (usableLayer('fill')) props.onFill(documentPoint(event.clientX, event.clientY))
+    } else if (tool === 'adjust') {
+      event.currentTarget.setPointerCapture(event.pointerId)
+      compareRef.current = event.pointerId
+      props.onCompareChange(true)
     }
   }
 
@@ -748,7 +756,14 @@ export function CanvasView(props: CanvasViewProps) {
     if (moveRef.current?.pointerId === event.pointerId) finishMove()
     if (selectRef.current?.pointerId === event.pointerId) finishSelect()
     if (boxRef.current?.pointerId === event.pointerId) boxRef.current = null
+    stopComparing(event.pointerId)
     requestOverlay()
+  }
+
+  function stopComparing(pointerId: number) {
+    if (compareRef.current !== pointerId) return
+    compareRef.current = null
+    props.onCompareChange(false)
   }
 
   const pickMode = picking || tool === 'picker' || (tool === 'brush' && altHeld)
@@ -787,6 +802,7 @@ export function CanvasView(props: CanvasViewProps) {
           if (moveRef.current?.pointerId === event.pointerId) finishMove()
           if (selectRef.current?.pointerId === event.pointerId) finishSelect()
           if (boxRef.current?.pointerId === event.pointerId) boxRef.current = null
+          stopComparing(event.pointerId)
         }}
         onPointerLeave={() => {
           if (strokeRef.current || panRef.current || pickRef.current !== null || moveRef.current || selectRef.current || boxRef.current) return

@@ -1,4 +1,5 @@
 import type { Action } from './actions.ts'
+import { LOOKS } from './editor/adjust.ts'
 import { activeLayer } from './editor/layers.ts'
 import type { EditorDocument, ToolId } from './editor/types.ts'
 import { shortcut } from './keys.ts'
@@ -41,6 +42,8 @@ export interface AppCommands {
   biggerBrush: () => void
   smallerBrush: () => void
   setTool: (tool: ToolId) => void
+  // Opens Adjust with a ready-made look ready to try.
+  showLook: (lookId: string) => void
 }
 
 interface ActionState {
@@ -407,6 +410,17 @@ export function buildActions({ doc, undoLabel, redoLabel }: ActionState, c: AppC
       shortcut: '[',
       run: c.smallerBrush,
     },
+    ...LOOKS.filter((look) => look.id !== 'original').map(
+      (look): Action => ({
+        id: `look-${look.id}`,
+        group: 'Looks',
+        title: `${look.name} look`,
+        description: `${look.description} You see it first; press Apply to keep it.`,
+        keywords: [...look.keywords, 'look', 'filter', 'effect'],
+        needsDocument: true,
+        run: () => c.showLook(look.id),
+      }),
+    ),
     ...TOOLS.map(
       (t): Action => ({
         id: `tool-${t.id}`,

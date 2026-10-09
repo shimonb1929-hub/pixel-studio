@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react'
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { buildActions, type AppCommands } from './appActions.ts'
+import { AdjustPanel } from './components/AdjustPanel.tsx'
 import { CanvasView, type BoxEditing } from './components/CanvasView.tsx'
 import { ColorPanel } from './components/ColorPanel.tsx'
 import { CommandPalette } from './components/CommandPalette.tsx'
@@ -15,6 +16,8 @@ import { ToolOptions, type CropShape } from './components/ToolOptions.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { DesignInfo, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
+import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, type Adjustments } from './editor/adjust.ts'
+import { adjustArea, lookThumbnails, paintAdjusted, previewParts } from './editor/adjustSession.ts'
 import { BRUSH_PRESETS, ERASER_PRESETS, stepBrushSize, type BrushSettings } from './editor/brushes.ts'
 import { getClipboard, ownCopyCheck, setClipboard } from './editor/clipboard.ts'
 import {
@@ -66,6 +69,9 @@ const DOT_BACKGROUND = {
 const DEFAULT_BRUSH = BRUSH_PRESETS.find((p) => p.id === 'pen')!
 const DEFAULT_ERASER = ERASER_PRESETS.find((p) => p.id === 'block')!
 
+// Look pictures in the Adjust panel are drawn this big (in screen pixels, before the screen's sharpness).
+const LOOK_PICTURE_SIZE = 66
+
 const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
 
 function errorMessage(error: unknown): string {
@@ -97,6 +103,14 @@ function tidyCropBox(box: TransformBox): TransformBox {
   const width = Math.min(MAX_DOCUMENT_SIDE, Math.max(1, Math.abs(box.width)))
   const height = Math.min(MAX_DOCUMENT_SIDE, Math.max(1, Math.abs(box.height)))
   return { cx: box.cx, cy: box.cy, width, height, rotation: 0 }
+}
+
+// Why a layer can't be adjusted right now, in plain words, or null if it can.
+function adjustProblem(doc: EditorDocument, layer: Layer): string | null {
+  if (!layer.visible) return `“${layer.name}” is hidden. Click its eye in the Layers panel to show it, then adjust it.`
+  if (isBlank(layer.canvas)) return `There is nothing on “${layer.name}” to adjust yet. Pick another layer in the Layers panel, or paint something first.`
+  if (!adjustArea(doc, layer, NO_ADJUSTMENTS)) return `The selected area doesn't cover anything on “${layer.name}”. Select another part, or press ${shortcut('mod', 'D')} to adjust the whole layer.`
+  return null
 }
 
 function cropRect(box: TransformBox): Rect {
@@ -151,6 +165,9 @@ export default function App() {
   const [keepProportions, setKeepProportions] = useState(true)
   const [cropEdit, setCropEdit] = useState<CropState | null>(null)
   const [fillTolerance, setFillTolerance] = useState(0.15)
+  const [adjustments, setAdjustments] = useState<Adjustments>(NO_ADJUSTMENTS)
+  // True while pressing and holding to see how the design looked before adjusting.
+  const [comparing, setComparing] = useState(false)
   const workspaceRef = useRef<HTMLElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const strokeActiveRef = useRef(false)
@@ -226,6 +243,52 @@ export default function App() {
   const transformChanged = !!transform && !isIdentity(transform.box, transform.session.original)
   const cropChanged = !!crop && !!doc && !isIdentity(crop.box, fullFrame(doc))
 
+  // While the Adjust tool is on, the selected layer (or its selected part) shows the adjustments
+  // live. Why it can't be adjusted, if that's the case.
+  const adjustOn = tool === 'adjust'
+  const adjustBlocked = useMemo(
+    () => (adjustOn && doc && activeNow ? adjustProblem(doc, activeNow) : null),
+    // Only the layer, its pixels and the selection matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [adjustOn, activeNow, doc?.selection, editor.revision],
+  )
+  const adjustLayer = adjustOn && !adjustBlocked ? activeNow : undefined
+  const adjustChanged = !!adjustLayer && !isNeutral(adjustments)
+  const screenScale = viewport.zoom * (window.devicePixelRatio || 1)
+  // The preview may lag a moment behind a slider being dragged, so the slider itself never stutters.
+  const previewSettings = useDeferredValue(adjustments)
+  const adjustParts = useMemo(
+    // Right after Apply or Cancel the preview stops at once, never showing old settings on new pixels.
+    () => (adjustChanged && adjustLayer && doc && !isNeutral(previewSettings) ? previewParts(doc, adjustLayer, previewSettings, screenScale) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [adjustChanged, adjustLayer, doc?.selection, doc?.width, doc?.height, previewSettings, screenScale, editor.revision],
+  )
+  const lookPictures = useMemo(
+    () =>
+      doc && adjustLayer
+        ? lookThumbnails(doc, adjustLayer, LOOKS.map((look) => look.settings), LOOK_PICTURE_SIZE * (window.devicePixelRatio || 1))
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [adjustLayer, doc?.selection, editor.revision],
+  )
+
+  // Keeps the adjustments for good, at full detail.
+  function applyAdjust() {
+    const d = current()
+    const layer = d && activeLayer(d)
+    const settings = adjustments
+    setAdjustments(NO_ADJUSTMENTS)
+    setComparing(false)
+    if (!adjustChanged || !d || !layer) return
+    const area = adjustArea(d, layer, settings)
+    if (area) editor.paint(adjustmentLabel(settings), layer.id, area, (ctx, l) => paintAdjusted(ctx, l, d, settings, area))
+  }
+
+  function cancelAdjust() {
+    setAdjustments(NO_ADJUSTMENTS)
+    setComparing(false)
+  }
+
   // Keeps the new size and angle. Returns false if it couldn't (the result would be too big).
   function applyTransform(): boolean {
     if (!transform || !transformChanged) return true
@@ -267,6 +330,7 @@ export default function App() {
   function settle(): boolean {
     if (transformChanged && !applyTransform()) return false
     if (cropChanged) applyCrop()
+    if (adjustChanged) applyAdjust()
     return true
   }
 
@@ -279,6 +343,16 @@ export default function App() {
       if (tool === 'crop') {
         applyCrop()
         setCropEdit(null)
+      }
+      if (tool === 'adjust') applyAdjust()
+      // Adjusting an empty layer does nothing, so start on the top layer that has something on it.
+      if (next === 'adjust') {
+        const d = current()
+        const layer = d && activeLayer(d)
+        if (d && layer && isBlank(layer.canvas)) {
+          const filled = [...d.layers].reverse().find((l) => l.visible && !isBlank(l.canvas))
+          if (filled) editor.select(filled.id)
+        }
       }
     }
     if (next === 'brush' || next === 'eraser') lastDrawToolRef.current = next
@@ -596,10 +670,11 @@ export default function App() {
       if (strokeActiveRef.current) return
       if (transformChanged) return cancelTransform()
       if (cropChanged) return setCropEdit(null)
+      if (adjustChanged) return cancelAdjust()
       editor.undo()
     },
     redo: () => {
-      if (strokeActiveRef.current || transformChanged || cropChanged) return
+      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged) return
       editor.redo()
     },
     copy: () => {
@@ -695,11 +770,13 @@ export default function App() {
     applyPending: () => {
       if (tool === 'transform' && transformChanged) return applyTransform(), true
       if (tool === 'crop' && cropChanged) return applyCrop(), true
+      if (adjustChanged) return applyAdjust(), true
       return false
     },
     cancelPending: () => {
       if (tool === 'transform' && transformChanged) return cancelTransform(), true
       if (tool === 'crop' && cropChanged) return setCropEdit(null), true
+      if (adjustChanged) return cancelAdjust(), true
       return false
     },
     resizeDesign: () => {
@@ -734,6 +811,12 @@ export default function App() {
     biggerBrush: () => changeBrushSize(1),
     smallerBrush: () => changeBrushSize(-1),
     setTool,
+    showLook: (lookId) => {
+      const look = LOOKS.find((l) => l.id === lookId)
+      if (!current() || !look) return
+      setTool('adjust')
+      setAdjustments(look.settings)
+    },
   }
 
   const actions = buildActions({ doc, undoLabel: editor.undoLabel, redoLabel: editor.redoLabel }, commands)
@@ -880,7 +963,7 @@ export default function App() {
 
   const paintSettings = tool === 'eraser' ? eraser.settings : brush.settings
   const hintTool: ToolId = spaceHeld ? 'hand' : altHeld && tool === 'brush' ? 'picker' : tool
-  const hintExtra = doc?.selection && (hintTool === 'brush' || hintTool === 'eraser') ? 'Only the selected area changes.' : undefined
+  const hintExtra = doc?.selection && (hintTool === 'brush' || hintTool === 'eraser' || hintTool === 'adjust') ? 'Only the selected area changes.' : undefined
 
   const box: BoxEditing | null =
     tool === 'transform' && transform
@@ -904,7 +987,11 @@ export default function App() {
         : null
 
   const override: LayerOverride | null =
-    tool === 'transform' && transform && transformChanged ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) } : null
+    tool === 'transform' && transform && transformChanged
+      ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) }
+      : adjustParts && adjustLayer && !comparing
+        ? { layerId: adjustLayer.id, parts: adjustParts }
+        : null
 
   return (
     <div className="flex h-full select-none flex-col" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
@@ -914,8 +1001,8 @@ export default function App() {
         saveStatus={autosave.status}
         saveProblem={autosave.problem}
         onRename={commands.renameDesign}
-        undoLabel={transformChanged ? 'Resize changes' : cropChanged ? 'Crop frame' : editor.undoLabel}
-        redoLabel={transformChanged || cropChanged ? null : editor.redoLabel}
+        undoLabel={transformChanged ? 'Resize changes' : cropChanged ? 'Crop frame' : adjustChanged ? 'Adjustments' : editor.undoLabel}
+        redoLabel={transformChanged || cropChanged || adjustChanged ? null : editor.redoLabel}
         onUndo={commands.undo}
         onRedo={commands.redo}
         onSearch={commands.search}
@@ -967,6 +1054,15 @@ export default function App() {
           apply: applyCrop,
           reset: () => setCropEdit(null),
         }}
+        adjust={{
+          target: doc && activeNow ? (doc.selection ? `the selected part of “${activeNow.name}”` : `“${activeNow.name}”`) : null,
+          blocked: adjustBlocked,
+          changed: adjustChanged,
+          comparing,
+          onCompare: setComparing,
+          apply: applyAdjust,
+          cancel: cancelAdjust,
+        }}
         fillTolerance={fillTolerance}
         onFillToleranceChange={setFillTolerance}
       />
@@ -1005,6 +1101,7 @@ export default function App() {
                 override={override}
                 box={box}
                 onFill={handleFill}
+                onCompareChange={(on) => setComparing(on && adjustChanged)}
               />
               <ToolHint tool={hintTool} extra={hintExtra} />
               <ZoomControls
@@ -1027,7 +1124,11 @@ export default function App() {
         </main>
 
         <div className="hidden w-[272px] shrink-0 flex-col gap-2 overflow-y-auto md:flex">
-          <ColorPanel color={color} recent={recentColors} onChange={setColor} onPickFromDesign={() => setTool('picker')} />
+          {adjustOn && doc ? (
+            <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
+          ) : (
+            <ColorPanel color={color} recent={recentColors} onChange={setColor} onPickFromDesign={() => setTool('picker')} />
+          )}
           <LayersPanel
             doc={doc}
             revision={editor.revision}

@@ -1,4 +1,4 @@
-import { Brush, Crop, Eraser, Hand, Move, PaintBucket, Pipette, Scaling, SquareDashed, ZoomIn, type LucideIcon } from 'lucide-react'
+import { Brush, Crop, Eraser, Hand, Move, PaintBucket, Pipette, Scaling, SlidersHorizontal, SquareDashed, ZoomIn, type LucideIcon } from 'lucide-react'
 import type { ToolId } from './editor/types.ts'
 import { ALT_LABEL } from './keys.ts'
 
@@ -15,8 +15,8 @@ export interface ToolInfo {
   hint: string
   // Extra words people might type into search to find this tool.
   keywords: string[]
-  // The dock shows tools in groups: arranging things, drawing, and looking around.
-  group: 'arrange' | 'draw' | 'view'
+  // The dock shows tools in groups: arranging things, drawing, changing colors, and looking around.
+  group: 'arrange' | 'draw' | 'adjust' | 'view'
 }
 
 export const TOOLS: ToolInfo[] = [
@@ -113,6 +113,39 @@ export const TOOLS: ToolInfo[] = [
     hint: 'Click anywhere on your design to paint with that color.',
     keywords: ['eyedropper', 'pick color', 'sample', 'dropper', 'copy color', 'match color'],
     group: 'draw',
+  },
+  {
+    id: 'adjust',
+    name: 'Adjust',
+    label: 'Adjust',
+    key: 'A',
+    icon: SlidersHorizontal,
+    description:
+      'Change the light and colors of the selected layer, or just the selected part: ready-made looks like Black & white, and sliders for brightness, contrast, color, blur and sharpness. Nothing changes for good until you press Apply.',
+    hint: 'Pick a look or move the sliders on the right. Press and hold on your design to compare. Enter applies, Esc cancels.',
+    keywords: [
+      'adjust',
+      'brightness',
+      'lighter',
+      'darker',
+      'contrast',
+      'saturation',
+      'color strength',
+      'colorful',
+      'black and white',
+      'grayscale',
+      'sepia',
+      'warm',
+      'cool',
+      'blur',
+      'sharpen',
+      'filter',
+      'effect',
+      'look',
+      'fix photo',
+      'enhance',
+    ],
+    group: 'adjust',
   },
   {
     id: 'hand',

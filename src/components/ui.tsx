@@ -57,19 +57,23 @@ interface SliderProps {
   note?: string
   onChange: (position: number) => void
   className?: string
+  // Where "no change" sits, 0–1. Sliders that go both ways fill from the middle.
+  origin?: number
+  // How far an arrow key moves it (Shift moves ten times as far), 0–1.
+  step?: number
 }
 
 const KEY_STEP = 0.01
 
-export function Slider({ label, help, value, display, note, onChange, className = '' }: SliderProps) {
+export function Slider({ label, help, value, display, note, onChange, className = '', origin = 0, step = KEY_STEP }: SliderProps) {
   const id = useId()
   const position = Math.min(1, Math.max(0, value))
 
   // Arrow keys move 1%, or 10% with Shift; the browser's own step would be far too small.
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    const step = event.shiftKey ? KEY_STEP * 10 : KEY_STEP
-    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') onChange(Math.min(1, position + step))
-    else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') onChange(Math.max(0, position - step))
+    const amount = event.shiftKey ? step * 10 : step
+    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') onChange(Math.min(1, position + amount))
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') onChange(Math.max(0, position - amount))
     else return
     event.preventDefault()
   }
@@ -93,7 +97,7 @@ export function Slider({ label, help, value, display, note, onChange, className 
         onChange={(event) => onChange(Number(event.target.value) / 1000)}
         onKeyDown={handleKeyDown}
         className="slider"
-        style={{ '--fill': `${position * 100}%` } as CSSProperties}
+        style={{ '--from': `${Math.min(origin, position) * 100}%`, '--fill': `${Math.max(origin, position) * 100}%` } as CSSProperties}
       />
     </Tooltip>
   )

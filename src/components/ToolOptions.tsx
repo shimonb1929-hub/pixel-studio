@@ -1,4 +1,4 @@
-import { Check, Circle, Contrast, Copy, Crosshair, FlipHorizontal2, FlipVertical2, Lasso, Link, PaintBucket, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Trash2, Unlink, type LucideIcon } from 'lucide-react'
+import { Check, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Lasso, Link, PaintBucket, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Trash2, Unlink, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import {
   BRUSH_PRESETS,
@@ -339,6 +339,61 @@ function CropOptions({ controls }: { controls: CropControls }) {
   )
 }
 
+export interface AdjustControls {
+  // What will change, like “Layer 1”, or why nothing can.
+  target: string | null
+  blocked: string | null
+  changed: boolean
+  comparing: boolean
+  onCompare: (on: boolean) => void
+  apply: () => void
+  cancel: () => void
+}
+
+function AdjustOptions({ controls }: { controls: AdjustControls }) {
+  if (controls.blocked) return <Hint>{controls.blocked}</Hint>
+  const notYet = controls.changed ? undefined : 'Pick a look or move a slider first.'
+  const stopComparing = () => controls.onCompare(false)
+  return (
+    <>
+      <Readout
+        title="What changes"
+        description="Adjustments change the selected layer, or only the selected part of it. To change another layer, pick it in the Layers panel."
+      >
+        Changes {controls.target}
+      </Readout>
+      <Divider />
+      <Tooltip title="Compare" description="Press and hold to see how it looked before. You can also press and hold on your design." note={notYet}>
+        <button
+          type="button"
+          aria-label="Hold to compare"
+          aria-pressed={controls.comparing}
+          aria-disabled={!controls.changed || undefined}
+          onPointerDown={(event) => {
+            if (!controls.changed || event.button !== 0) return
+            event.currentTarget.setPointerCapture(event.pointerId)
+            controls.onCompare(true)
+          }}
+          onPointerUp={stopComparing}
+          onPointerCancel={stopComparing}
+          onLostPointerCapture={stopComparing}
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:hover:bg-transparent aria-pressed:bg-accent-soft aria-pressed:text-accent"
+        >
+          <Eye size={15} />
+          Hold to compare
+        </button>
+      </Tooltip>
+      <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" disabled={!controls.changed} onClick={controls.cancel} tip={{ title: 'Cancel', shortcut: 'Esc', description: 'Put it back the way it was.', note: notYet }}>
+        Cancel
+      </Button>
+      <Button variant="primary" className="h-8 shrink-0 px-3.5 text-[13px]" disabled={!controls.changed} onClick={controls.apply} tip={{ title: 'Apply', shortcut: 'Enter', description: 'Keep the new look. You can undo it.', note: notYet }}>
+        <Check size={15} />
+        Apply
+      </Button>
+    </>
+  )
+}
+
 function describeTolerance(tolerance: number): string {
   if (tolerance < 0.02) return 'Only exactly the same color gets filled.'
   if (tolerance < 0.25) return 'Fills very similar colors. Good for flat areas and drawings.'
@@ -359,6 +414,7 @@ interface ToolOptionsProps {
   selection: SelectionCommands
   transform: TransformControls
   crop: CropControls
+  adjust: AdjustControls
   fillTolerance: number
   onFillToleranceChange: (tolerance: number) => void
   brush: BrushSettings
@@ -403,6 +459,8 @@ export function ToolOptions(props: ToolOptionsProps) {
         <TransformOptions controls={props.transform} />
       ) : props.tool === 'crop' ? (
         <CropOptions controls={props.crop} />
+      ) : props.tool === 'adjust' ? (
+        <AdjustOptions controls={props.adjust} />
       ) : props.tool === 'fill' ? (
         <>
           <Slider

@@ -32,6 +32,19 @@ function sameAs(doc: EditorDocument, kept: Snapshot | null): boolean {
   return kept !== null && kept.doc === doc && doc.layers.every((layer, i) => pixelVersion(layer.canvas) === kept.versions[i])
 }
 
+// True if only the chosen layer differs, which on its own isn't a reason to start keeping a design.
+function onlyLayerChoiceChanged(doc: EditorDocument, kept: Snapshot): boolean {
+  const before = kept.doc
+  return (
+    doc.layers === before.layers &&
+    doc.selection === before.selection &&
+    doc.name === before.name &&
+    doc.width === before.width &&
+    doc.height === before.height &&
+    doc.layers.every((layer, i) => pixelVersion(layer.canvas) === kept.versions[i])
+  )
+}
+
 export interface Autosave {
   // Null while there is nothing to keep yet: a new design nobody has changed.
   status: SaveStatus | null
@@ -47,6 +60,10 @@ export interface Autosave {
 
 export function useAutosave(editor: Editor): Autosave {
   const [status, setStatus] = useState<SaveStatus | null>(null)
+  const statusRef = useRef(status)
+  useLayoutEffect(() => {
+    statusRef.current = status
+  })
   const [problem, setProblem] = useState<string | null>(null)
   const editorRef = useRef(editor)
   useLayoutEffect(() => {
@@ -129,10 +146,14 @@ export function useAutosave(editor: Editor): Autosave {
   // Every change to the design (or its pixels) schedules a save.
   useEffect(() => {
     const doc = current()
-    if (doc && keptRef.current && !sameAs(doc, keptRef.current)) {
-      setStatus((s) => (s === 'saving' ? s : 'unsaved'))
-      schedule()
+    if (!doc || !keptRef.current || sameAs(doc, keptRef.current)) return
+    // A design nobody has changed yet isn't kept just because another layer was picked.
+    if (statusRef.current === null && onlyLayerChoiceChanged(doc, keptRef.current)) {
+      keptRef.current = snapshot(doc)
+      return
     }
+    setStatus((s) => (s === 'saving' ? s : 'unsaved'))
+    schedule()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor.doc, editor.revision])
 

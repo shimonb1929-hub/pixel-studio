@@ -22,8 +22,12 @@ Pixel Studio should feel obvious to a 10-year-old and still be able to do real w
 - **Drawing that looks good from the first stroke.** Ready-made brushes (Pencil, Ink pen, Marker,
   Soft brush, Highlighter) each show a live sample. "Steady hand" smooths shaky lines, pen
   pressure works on drawing tablets, and one stroke never gets darker where it crosses itself.
-- **Try first, then decide.** Resizing, turning and cropping show the result live while you drag,
+- **Try first, then decide.** Resizing, turning, cropping and adjusting colors show the result live,
   with the exact size and angle. Nothing changes until you press Apply (or Enter); Esc puts it back.
+  While adjusting, press and hold on the design to compare with how it was.
+- **Looks before sliders.** Adjust starts with ready-made looks (Black & white, Old photo, Vivid,
+  Warm, Cool, Soft, Dramatic, Dreamy), each previewed on your own picture. The sliders underneath
+  (brightness, contrast, color strength, warmth, blur, sharpen) fine-tune any look.
 - **Mistakes are safe.** Every design starts as paper with a clear sheet on top, so the eraser
   only rubs out your drawing. Undo goes back up to 100 steps.
 - **Nothing is ever lost.** Every design is kept in the browser as you work, with all its layers,
@@ -49,7 +53,7 @@ Then open the address it prints (usually http://localhost:5173).
 | --- | --- |
 | `npm run dev` | Starts the program locally and reloads on every change |
 | `npm run build` | Checks the types and builds the finished site into `dist/` |
-| `npm test` | Runs the unit tests (zoom math, colors, undo history, brushes, layers, search, project files) |
+| `npm test` | Runs the unit tests (zoom math, colors, undo history, brushes, layers, search, project files, adjustments) |
 | `npm run test:e2e` | Opens the program in a real browser, on a normal and a sharp (Retina) screen, and uses every feature |
 | `npm run lint` | Checks the code for common mistakes |
 
@@ -64,6 +68,8 @@ src/
     selection.ts Selections as shapes (rectangle, oval, freehand) that add, take away or invert
     transform.ts The Resize and rotate box: handles, turning, flipping and the math behind them
     flood.ts     Finding the area the fill bucket fills
+    adjust.ts    Brightness, contrast, color strength, warmth, blur and sharpen, and the ready-made looks
+    adjustSession.ts  Which part changes, quick previews at screen size, and the full-detail result
     history.ts   Undo and redo, with memory limits and "changed since download" tracking
     project.ts   Project files: every layer and setting in one file, checked carefully when opened
     library.ts   "Your designs": designs kept in the browser (IndexedDB)
@@ -93,6 +99,13 @@ pixels as a PNG. Designs kept in the browser use the same format. Saving happens
 each change (and right away when you switch tabs or leave a design); only layers whose pixels
 changed are encoded again, so saving stays quick on poster-size designs.
 
+Adjustments are worked out on the pixels themselves (no graphics-card tricks), so they look the
+same in every browser. Previews only use as much detail as the screen shows. Blur is done on a
+smaller copy when it's strong (a blurred picture has no fine detail to lose), and sharpening
+compares each pixel with a soft copy the canvas makes by shrinking and enlarging the picture, which
+keeps a 12-megapixel photo to well under a second. Blur repeats a photo's edge pixels rather than
+pulling in see-through pixels, so blurred photos keep solid edges.
+
 ## Roadmap
 
 1. **Foundation** (done) — start from a ready-made or custom size, open a picture (button or
@@ -104,7 +117,9 @@ changed are encoded again, so saving stays quick on poster-size designs.
    take away, invert), move, copy and paste, resize, turn and flip with handles, crop with
    ready-made shapes, resize or turn the whole design, fill bucket, automatic saving in the
    browser with "Your designs" on the start screen, project files with every layer, renaming.
-4. **Adjustments and filters** — brightness, contrast, colors, blur, sharpen.
+4. **Adjustments and looks** (done) — ready-made looks with previews, brightness, contrast, color
+   strength, warmth, blur and sharpen, on a layer or just the selected part, with press-and-hold
+   to compare.
 5. **Vector shapes** — rectangles, circles, lines and a pen tool, with editable fill and outline.
 6. **Text** — text layers, fonts, sizes, paragraph settings.
 7. **Pages and layout** — multi-page documents, guides, text boxes, PDF export.
