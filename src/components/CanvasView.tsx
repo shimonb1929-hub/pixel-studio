@@ -87,6 +87,10 @@ export interface CanvasViewProps {
   selectionShape: SelectionShape
   selectionMode: SelectionMode
   onStroke: (layerId: string, result: StrokeResult, label: string, grown?: PixelLayer) => void
+  // Makes a new drawing for a brush stroke when what's picked can't be painted on.
+  onNewDrawing: () => PixelLayer | null
+  // A stroke that ended without painting anything.
+  onStrokeCancelled: () => void
   onStrokeActiveChange: (active: boolean) => void
   onPickColor: (hex: string) => void
   onMove: (session: MoveSession, dx: number, dy: number) => void
@@ -716,8 +720,11 @@ export function CanvasView(props: CanvasViewProps) {
     }
     event.currentTarget.setPointerCapture(event.pointerId)
     if (!layer || !handle) {
-      // Only a locked layer is here: dragging it explains how to unlock it.
+      // A locked layer here is picked (so it can be unlocked) but stays put; dragging it explains
+      // why. A press on empty paper picks the page, so its color can be changed.
       const locked = [...doc.layers].reverse().find((l) => l.visible && l.locked && hitsLayer(l, point))
+      const picked = locked?.id ?? ''
+      if (picked !== doc.activeLayerId) arrange.onPick(picked)
       if (locked) arrangeRef.current = { kind: 'locked', pointerId: event.pointerId, layer: locked, startClient, warned: false }
       return
     }
@@ -779,13 +786,25 @@ export function CanvasView(props: CanvasViewProps) {
   }
 
   function startStroke(event: PointerEvent<HTMLCanvasElement>) {
-    const layer = usableLayer('paint')
-    if (!layer) return
-    event.currentTarget.setPointerCapture(event.pointerId)
-    if (layer.kind !== 'raster') {
-      props.onBlocked(`"${layer.name}" is ${layer.kind === 'text' ? 'text' : 'a shape'}, so it can't be painted on. Pick a paint layer in the Layers panel, or add a new layer.`)
+    const erasing = tool === 'eraser'
+    const picked = activeLayer(doc)
+    let layer: PixelLayer | null = picked?.kind === 'raster' && !picked.locked ? picked : null
+    if (layer && !layer.visible) {
+      props.onBlocked(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then ${erasing ? 'erase' : 'paint'} again.`)
       return
     }
+    if (!layer && erasing) {
+      props.onBlocked(
+        picked?.kind === 'raster'
+          ? `"${picked.name}" is locked, so it can't be rubbed out by accident. Click its lock in the Layers panel to unlock it.`
+          : 'The eraser rubs out drawings and photos. Pick one in the Layers panel or with Arrange first.',
+      )
+      return
+    }
+    // The page, shapes, text and locked pictures aren't painted on: the stroke makes a new drawing.
+    if (!layer) layer = props.onNewDrawing()
+    if (!layer) return
+    event.currentTarget.setPointerCapture(event.pointerId)
     // A moved, pasted or resized layer may not cover the whole design yet; paint on a settled,
     // enlarged copy.
     const target = coverRect(settleLayer(layer), { x: 0, y: 0, width: doc.width, height: doc.height })
@@ -818,6 +837,7 @@ export function CanvasView(props: CanvasViewProps) {
     drawScene()
     propsRef.current.onStrokeActiveChange(false)
     if (result) propsRef.current.onStroke(stroke.session.layerId, result, stroke.label, stroke.grown)
+    else propsRef.current.onStrokeCancelled()
   }
 
   function finishPick(clientX: number, clientY: number) {
@@ -968,7 +988,7 @@ export function CanvasView(props: CanvasViewProps) {
       event.currentTarget.setPointerCapture(event.pointerId)
       textRef.current = { pointerId: event.pointerId, start: point, current: point, startClient: { x: event.clientX, y: event.clientY }, moved: false }
     } else if (tool === 'fill') {
-      if (usableLayer('fill')) props.onFill(documentPoint(event.clientX, event.clientY))
+      props.onFill(documentPoint(event.clientX, event.clientY))
     } else if (tool === 'adjust') {
       event.currentTarget.setPointerCapture(event.pointerId)
       compareRef.current = event.pointerId

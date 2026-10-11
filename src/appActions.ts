@@ -36,6 +36,8 @@ export interface AppCommands {
   layerDuplicate: () => void
   layerUp: () => void
   layerDown: () => void
+  layerToFront: () => void
+  layerToBack: () => void
   layerToggle: () => void
   layerDelete: () => void
   zoomIn: () => void
@@ -64,6 +66,7 @@ const NOTHING_SELECTED = 'Select an area first, with the Select tool.'
 export function buildActions({ doc, undoLabel, redoLabel, app }: ActionState, c: AppCommands): Action[] {
   const active = doc ? activeLayer(doc) : undefined
   const activeIndex = doc && active ? doc.layers.indexOf(active) : -1
+  const noLayerPicked = doc && !active ? 'Pick something on your design first.' : undefined
   const noSelection = doc && !doc.selection ? NOTHING_SELECTED : undefined
 
   return [
@@ -283,7 +286,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app }: ActionState, c:
       id: 'layer-new',
       group: 'Layers',
       title: 'New layer',
-      description: 'Add a clear sheet above the selected layer, so you can paint without changing what is below.',
+      description: 'Add an empty drawing above the selected layer. Painting makes one by itself when it needs to.',
       keywords: ['add layer', 'new sheet', 'transparent layer', 'layer'],
       needsDocument: true,
       run: c.layerAdd,
@@ -300,22 +303,46 @@ export function buildActions({ doc, undoLabel, redoLabel, app }: ActionState, c:
     {
       id: 'layer-up',
       group: 'Layers',
-      title: 'Move layer up',
-      description: 'Move the selected layer toward the front.',
-      keywords: ['bring forward', 'raise', 'front', 'arrange', 'order'],
+      title: 'Bring forward',
+      description: 'Move the selected thing one step toward the front, over the one above it.',
+      keywords: ['move layer up', 'raise', 'front', 'arrange', 'order', 'on top', 'over'],
+      shortcut: shortcut('mod', ']'),
       needsDocument: true,
-      disabledReason: doc && activeIndex === doc.layers.length - 1 ? 'This layer is already at the front.' : undefined,
+      disabledReason: noLayerPicked ?? (doc && activeIndex === doc.layers.length - 1 ? 'This layer is already at the front.' : undefined),
       run: c.layerUp,
     },
     {
       id: 'layer-down',
       group: 'Layers',
-      title: 'Move layer down',
-      description: 'Move the selected layer toward the back.',
-      keywords: ['send backward', 'lower', 'back', 'behind', 'arrange', 'order'],
+      title: 'Send backward',
+      description: 'Move the selected thing one step toward the back, behind the one below it.',
+      keywords: ['move layer down', 'lower', 'back', 'behind', 'arrange', 'order', 'under'],
+      shortcut: shortcut('mod', '['),
       needsDocument: true,
-      disabledReason: activeIndex === 0 ? 'This layer is already at the back.' : undefined,
+      disabledReason: noLayerPicked ?? (activeIndex === 0 ? 'This layer is already at the back.' : undefined),
       run: c.layerDown,
+    },
+    {
+      id: 'layer-front',
+      group: 'Layers',
+      title: 'Bring to front',
+      description: 'Put the selected thing in front of everything else.',
+      keywords: ['front', 'top', 'on top', 'over everything', 'arrange', 'order', 'raise'],
+      shortcut: shortcut('mod', 'shift', ']'),
+      needsDocument: true,
+      disabledReason: noLayerPicked ?? (doc && activeIndex === doc.layers.length - 1 ? 'This layer is already at the front.' : undefined),
+      run: c.layerToFront,
+    },
+    {
+      id: 'layer-back',
+      group: 'Layers',
+      title: 'Send to back',
+      description: 'Put the selected thing behind everything else (the page always stays at the very back).',
+      keywords: ['back', 'bottom', 'behind everything', 'arrange', 'order', 'lower'],
+      shortcut: shortcut('mod', 'shift', '['),
+      needsDocument: true,
+      disabledReason: noLayerPicked ?? (activeIndex === 0 ? 'This layer is already at the back.' : undefined),
+      run: c.layerToBack,
     },
     {
       id: 'layer-visibility',
@@ -333,7 +360,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app }: ActionState, c:
       description: 'Remove the selected layer and everything on it. You can undo this.',
       keywords: ['remove layer', 'delete', 'trash', 'throw away'],
       needsDocument: true,
-      disabledReason: doc && doc.layers.length <= 1 ? 'A design needs at least one layer.' : undefined,
+      disabledReason: noLayerPicked,
       run: c.layerDelete,
     },
     {

@@ -31,7 +31,11 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Everything is an object.** Pictures, photos and shapes are all things you click to pick, drag
   to move, pull a corner to resize and turn with the round handle, all with one tool (Arrange).
   Pictures keep their original pixels, so making something tiny and then big again never blurs
-  it. The paper underneath starts locked, so it never moves by accident.
+  it. Bring forward and send backward put things in front of or behind each other.
+- **A page, not a pile of sheets.** A new design is an empty page of a color (or see-through).
+  Nothing has to be set up before you start: painting makes its own drawing, and photos, shapes
+  and text each arrive as their own thing. Click an empty spot (or Page in the Layers panel) and
+  the Color panel colors the page; the fill bucket does it too.
 - **No old-fashioned tricks to learn.** The same results as the professional tools, without their
   hard ideas: drop a photo onto a shape and the shape is filled with it (no clipping masks), and a
   layer's adjustments stay changeable any time (no adjustment layers).
@@ -48,8 +52,9 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Looks before sliders.** Adjust starts with ready-made looks (Black & white, Old photo, Vivid,
   Warm, Cool, Soft, Dramatic, Dreamy), each previewed on your own picture. The sliders underneath
   (brightness, contrast, color strength, warmth, blur, sharpen) fine-tune any look.
-- **Mistakes are safe.** Every design starts as paper with a clear sheet on top, so the eraser
-  only rubs out your drawing. Undo goes back up to 100 steps.
+- **Mistakes are safe.** Painting never goes onto the page, a shape, text or a locked photo: it
+  goes on a drawing above, so the eraser only rubs out your drawing. An opened photo starts
+  locked. Undo goes back up to 100 steps, and a stroke that made a new drawing is one step.
 - **Nothing is ever lost.** Every design is kept in the browser as you work, with all its layers,
   and "Saved" at the top says so. Closing the design, the tab or the whole browser is always
   safe: it waits under "Your designs" on the start screen. Download it as a Project to keep a
@@ -126,11 +131,12 @@ src/
 e2e/             Browser tests that use the program like a person would
 ```
 
-There are two kinds of layers. A picture layer is its own off-screen canvas. Moved by whole
+Under everything is the page: just a color, or nothing for a see-through design. On it are three
+kinds of layers. A picture layer (a drawing or a photo) is its own off-screen canvas. Moved by whole
 pixels it just gets a new position; resized or turned it gets a box, and is drawn from its
 original pixels into that box, so nothing is lost however often it changes. Only painting on it
 redraws its pixels at the new size. It grows when you paint past its edge, so nothing is ever cut
-off by accident. A shape layer is a description (kind, box, fill, outline, corners, points),
+off by accident. A shape layer and a text layer are each a description (kind, box, fill, outline, corners, points),
 drawn fresh at any size; a photo inside a shape is kept whole, with how big it is and which part
 shows. Cropping and resizing the design only move layers and change their boxes, so undo, or
 resizing back, brings back everything.
@@ -154,9 +160,9 @@ downloads them again and rebuilds the font list from `scripts/fonts/list.json`.
 
 A project (`.pixel`) is the letters `PXSTUDIO`, a JSON description of the design (size, layers
 with their kind, names, positions, boxes, visibility, opacity, locks and adjustments, shapes, text
-with its font and settings, the selection), and then every picture's pixels as a PNG: each picture
-layer, and each photo inside a shape, always at full size. Older projects (versions 1 and 2) still
-open. Designs kept in the browser use the same format. Saving happens a moment after
+with its font and settings, the page color, the selection), and then every picture's pixels as a PNG: each picture
+layer, and each photo inside a shape, always at full size. Older projects (versions 1 to 3) still
+open, with their paper as a layer. Designs kept in the browser use the same format. Saving happens a moment after
 each change (and right away when you switch tabs or leave a design); only layers whose pixels
 changed are encoded again, so saving stays quick on poster-size designs.
 
@@ -189,7 +195,9 @@ pulling in see-through pixels, so blurred photos keep solid edges.
    resizes, turns and flips anything without losing quality; shapes that stay sharp and editable
    (rectangles with round corners, ovals, polygons, stars, lines and arrows) with fill and outline
    colors; add photos (menu or drag and drop); drop a photo onto a shape to fill it, then zoom and
-   slide it inside; lock and delete objects; adjustments that stay changeable.
+   slide it inside; lock and delete objects; adjustments that stay changeable; a page with its own
+   color (or see-through) instead of a background layer; painting that makes its own drawing; bring
+   forward, send backward, to front and to back.
 6. **Text** (done) — type on the design in English, Hebrew and Yiddish, with right-to-left text
    that never scrambles; quick headings, subheadings and paragraphs; 175 free fonts with live
    previews, Hebrew and Yiddish filters; size, boldness, italic, lining up, reading direction,

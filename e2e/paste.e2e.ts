@@ -47,7 +47,7 @@ test('Ctrl+C then Ctrl+V puts the copy back exactly where it came from', async (
   await page.keyboard.press('Control+v')
   await expect(page.getByRole('button', { name: 'Layer: Pasted' })).toBeVisible()
   // Hide the original, so only the pasted copy can be showing.
-  await page.getByRole('button', { name: 'Hide Layer 1' }).click()
+  await page.getByRole('button', { name: 'Hide Drawing 1' }).click()
   expectColor(await designPixel(page, size, 70, 70), [239, 68, 68])
   expectColor(await designPixel(page, size, 200, 150), [255, 255, 255])
 })

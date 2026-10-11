@@ -87,29 +87,21 @@ export function coverRect(layer: PixelLayer, rect: Rect): PixelLayer {
   return { ...layer, canvas, x: target.x, y: target.y }
 }
 
-// Every design starts like a sheet of paper with a clear sheet on top. You draw on the clear
-// sheet, so the eraser rubs out your drawing and never the paper or the picture underneath. The
-// paper starts locked, so arranging things on top never drags it along by accident.
-function withDrawingLayer(name: string, base: PixelLayer, width: number, height: number): EditorDocument {
-  const drawing = createLayer('Layer 1', width, height)
-  return { id: createDesignId(), name, width, height, layers: [{ ...base, locked: true }, drawing], activeLayerId: drawing.id, selection: null }
-}
-
+// A new design is an empty page of a color (or see-through). Things are added on top of it as you
+// go: painting makes its own drawing, so the eraser rubs out your drawing and never the page.
 export function createBlankDocument(
   name: string,
   width: number,
   height: number,
   background: BackgroundFill,
 ): EditorDocument {
-  const layer = createLayer('Background', width, height)
-  if (background !== 'transparent') {
-    const ctx = getContext2d(layer.canvas)
-    ctx.fillStyle = BACKGROUND_COLORS[background]
-    ctx.fillRect(0, 0, width, height)
-  }
-  return withDrawingLayer(name, layer, width, height)
+  const color = background === 'transparent' ? null : BACKGROUND_COLORS[background]
+  return { id: createDesignId(), name, width, height, background: color, layers: [], activeLayerId: '', selection: null }
 }
 
+// A picture opened as a design sits on a see-through page, so its own see-through parts stay that
+// way. It starts locked, so arranging things on top never drags it along by accident; painting
+// goes on a drawing above it.
 export function createDocumentFromImage(
   name: string,
   image: CanvasImageSource,
@@ -118,5 +110,5 @@ export function createDocumentFromImage(
 ): EditorDocument {
   const layer = createLayer('Picture', width, height)
   getContext2d(layer.canvas).drawImage(image, 0, 0, width, height)
-  return withDrawingLayer(name, layer, width, height)
+  return { id: createDesignId(), name, width, height, background: null, layers: [{ ...layer, locked: true }], activeLayerId: layer.id, selection: null }
 }

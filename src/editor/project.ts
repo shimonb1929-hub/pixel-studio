@@ -18,9 +18,10 @@ import type { EditorDocument, Layer, ShapeGeometry, ShapeOutline, ShapeType, Tex
 // pixels, and each photo inside a shape, in layer order.
 //
 // Version 2 added shapes, resized and turned pictures (box), locks and editable adjustments.
-// Version 3 added text. Older files still open.
+// Version 3 added text. Version 4 added the page color, and designs with nothing on the page yet.
+// Older files still open.
 
-export const PROJECT_VERSION = 3
+export const PROJECT_VERSION = 4
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -84,7 +85,9 @@ export interface ProjectManifest {
   name: string
   width: number
   height: number
-  // Which layer was selected, counted from the bottom.
+  // The page's color, or null when it's see-through. Older files had a layer for it instead.
+  background: string | null
+  // Which layer was selected, counted from the bottom; -1 when the page was picked.
   activeLayer: number
   selection: Selection | null
   // Bottom layer first.
@@ -292,18 +295,19 @@ function readSelection(value: unknown): Selection | null {
 export function validateManifest(value: unknown): ProjectManifest {
   if (!isRecord(value) || !Number.isInteger(value.version) || (value.version as number) < 1) damaged()
   if ((value.version as number) > PROJECT_VERSION) throw new ProjectError(TOO_NEW)
-  const { name, width, height, activeLayer, layers } = value
+  const { name, width, height, activeLayer, layers, background } = value
   if (typeof name !== 'string' || typeof width !== 'number' || typeof height !== 'number' || validateDocumentSize(width, height)) damaged()
-  if (!Array.isArray(layers) || layers.length < 1 || layers.length > MAX_LAYERS) damaged()
+  if (!Array.isArray(layers) || layers.length > MAX_LAYERS) damaged()
   const checked = layers.map(readLayer)
   const totalPixels = checked.reduce((sum, layer) => sum + picturePixels(layer), 0)
   if (totalPixels > MAX_TOTAL_PIXELS) throw new ProjectError('This project is too big for Pixel Studio to open.')
-  if (!isWhole(activeLayer, 0, checked.length - 1)) damaged()
+  if (!isWhole(activeLayer, -1, checked.length - 1)) damaged()
   return {
     version: value.version as number,
     name: name.slice(0, MAX_NAME_LENGTH),
     width,
     height,
+    background: background === undefined || background === null ? null : readColor(background),
     activeLayer,
     selection: readSelection(value.selection),
     layers: checked,
@@ -360,7 +364,8 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
     name: doc.name,
     width: doc.width,
     height: doc.height,
-    activeLayer: Math.max(0, layers.findIndex((layer) => layer.id === doc.activeLayerId)),
+    background: doc.background,
+    activeLayer: layers.findIndex((layer) => layer.id === doc.activeLayerId),
     selection: doc.selection,
     layers: layers.map((layer, i) => describeLayer(layer, pictures[i].map((png) => png.size))),
   }
@@ -418,8 +423,9 @@ export async function decodeProject(file: Blob, id = createDesignId()): Promise<
     name: manifest.name,
     width: manifest.width,
     height: manifest.height,
+    background: manifest.background,
     layers,
-    activeLayerId: layers[manifest.activeLayer].id,
+    activeLayerId: layers[manifest.activeLayer]?.id ?? '',
     selection: manifest.selection,
   }
 }
@@ -432,6 +438,10 @@ export async function designThumbnail(doc: EditorDocument, maxSide = 320): Promi
   const ctx = getContext2d(canvas)
   ctx.imageSmoothingQuality = 'high'
   ctx.scale(scale, scale)
+  if (doc.background) {
+    ctx.fillStyle = doc.background
+    ctx.fillRect(0, 0, doc.width, doc.height)
+  }
   for (const layer of doc.layers) {
     if (!layer.visible || layer.opacity <= 0) continue
     ctx.globalAlpha = layer.opacity

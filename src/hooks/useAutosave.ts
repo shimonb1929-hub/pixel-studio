@@ -37,6 +37,7 @@ function onlyLayerChoiceChanged(doc: EditorDocument, kept: Snapshot): boolean {
   const before = kept.doc
   return (
     doc.layers === before.layers &&
+    doc.background === before.background &&
     doc.selection === before.selection &&
     doc.name === before.name &&
     doc.width === before.width &&

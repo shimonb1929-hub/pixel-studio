@@ -1,4 +1,4 @@
-import { Check, Circle, Plus, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Lasso, Link, LockOpen, Minus, PaintBucket, Pentagon, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Unlink, type LucideIcon } from 'lucide-react'
+import { BringToFront, Check, Circle, Plus, SendToBack, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Lasso, Link, LockOpen, Minus, PaintBucket, Pentagon, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Unlink, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import {
   BRUSH_PRESETS,
@@ -239,6 +239,9 @@ export interface ArrangeBarControls {
   flip: (axis: 'horizontal' | 'vertical') => void
   rotate90: (direction: 1 | -1) => void
   center: () => void
+  // One step toward the front or the back.
+  forward: () => void
+  backward: () => void
   remove: () => void
   unlock: () => void
 }
@@ -321,7 +324,13 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
           description={part ? 'Move the selected part so it sits exactly in the middle of your design.' : 'Move it so it sits exactly in the middle of your design.'}
           onClick={controls.center}
         />
-        {!part && <BarButton icon={Trash2} label="Delete" title="Delete" description={`Remove "${target.name}" from your design. You can undo this.`} onClick={controls.remove} />}
+        {!part && (
+          <>
+            <BarButton icon={BringToFront} label="Forward" title="Bring forward" description={`Move "${target.name}" one step toward the front, over the thing above it.`} onClick={controls.forward} />
+            <BarButton icon={SendToBack} label="Backward" title="Send backward" description={`Move "${target.name}" one step toward the back, behind the thing below it.`} onClick={controls.backward} />
+            <BarButton icon={Trash2} label="Delete" title="Delete" description={`Remove "${target.name}" from your design. You can undo this.`} onClick={controls.remove} />
+          </>
+        )}
       </div>
     </>
   )

@@ -139,14 +139,29 @@ test('brush presets, size keys and Reset', async ({ page }) => {
   await expect(page.getByRole('tooltip')).toContainText('A little smoothing')
 })
 
-test('layers: add, paint, rename, reorder, duplicate, delete and undo', async ({ page }) => {
+test('painting makes its own drawing; layers can be added, renamed, reordered, duplicated and deleted', async ({ page }) => {
   const size = await newDesign(page)
   const list = page.getByRole('list', { name: 'Layer list' })
   const names = () => list.getByRole('button', { name: /^Layer: / }).allTextContents()
+  const layersPanel = page.getByRole('region', { name: 'Layers' })
 
-  await page.getByRole('button', { name: 'New layer' }).click()
-  await expect(page.getByRole('button', { name: 'Layer: Layer 2' })).toHaveAttribute('aria-pressed', 'true')
-  expect(await names()).toEqual(['Layer 2', 'Layer 1', 'Background'])
+  // A new design is an empty page; the first stroke makes a drawing, in the same undo step.
+  expect(await names()).toEqual([])
+  await drag(page, size, [
+    [50, 100],
+    [350, 100],
+  ])
+  expect(await names()).toEqual(['Drawing 1'])
+  await page.keyboard.press('Control+z')
+  expect(await names()).toEqual([])
+  expectColor(await designPixel(page, size, 200, 100), WHITE)
+  await page.keyboard.press('Control+y')
+  expect(await names()).toEqual(['Drawing 1'])
+  expectColor(await designPixel(page, size, 200, 100), INK)
+
+  await page.getByRole('button', { name: 'New layer', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Layer: Drawing 2' })).toHaveAttribute('aria-pressed', 'true')
+  expect(await names()).toEqual(['Drawing 2', 'Drawing 1'])
 
   await page.getByRole('button', { name: 'Red', exact: true }).click()
   await drag(page, size, [
@@ -154,44 +169,49 @@ test('layers: add, paint, rename, reorder, duplicate, delete and undo', async ({
     [350, 150],
   ])
 
-  await page.getByRole('button', { name: 'Layer: Layer 2' }).dblclick()
+  await page.getByRole('button', { name: 'Layer: Drawing 2' }).dblclick()
   await page.getByLabel('Layer name').fill('Sky')
   await page.getByLabel('Layer name').press('Enter')
-  expect(await names()).toEqual(['Sky', 'Layer 1', 'Background'])
+  expect(await names()).toEqual(['Sky', 'Drawing 1'])
 
-  await page.getByRole('button', { name: 'Move layer down' }).click()
-  expect(await names()).toEqual(['Layer 1', 'Sky', 'Background'])
+  await layersPanel.getByRole('button', { name: 'Send backward' }).click()
+  expect(await names()).toEqual(['Drawing 1', 'Sky'])
 
   await page.getByRole('button', { name: 'Duplicate layer' }).click()
-  expect(await names()).toEqual(['Layer 1', 'Sky copy', 'Sky', 'Background'])
+  expect(await names()).toEqual(['Drawing 1', 'Sky copy', 'Sky'])
 
   await page.getByRole('button', { name: 'Delete layer' }).click()
   await page.getByRole('button', { name: 'Delete layer' }).click()
-  expect(await names()).toEqual(['Layer 1', 'Background'])
+  expect(await names()).toEqual(['Drawing 1'])
   expectColor(await designPixel(page, size, 200, 150), WHITE)
 
   // Undo brings back the deleted layers with their paint.
   await page.keyboard.press('Control+z')
   await page.keyboard.press('Control+z')
-  expect(await names()).toEqual(['Layer 1', 'Sky copy', 'Sky', 'Background'])
+  expect(await names()).toEqual(['Drawing 1', 'Sky copy', 'Sky'])
   expectColor(await designPixel(page, size, 200, 150), [239, 68, 68])
 
   // Buttons that can't be used say why.
-  await page.getByRole('button', { name: 'Layer: Background' }).click()
-  await page.getByRole('button', { name: 'Move layer down' }).hover()
+  await page.getByRole('button', { name: 'Layer: Sky', exact: true }).click()
+  await layersPanel.getByRole('button', { name: 'Send backward' }).hover()
   await expect(page.getByRole('tooltip')).toContainText('already at the back')
 })
 
-test('painting on a hidden layer explains what to do instead', async ({ page }) => {
+test('painting on a hidden drawing explains what to do instead', async ({ page }) => {
   const size = await newDesign(page)
-  await page.getByRole('button', { name: 'Hide Layer 1' }).click()
+  await drag(page, size, [
+    [50, 100],
+    [350, 100],
+  ])
+  await page.getByRole('button', { name: 'Hide Drawing 1' }).click()
   await drag(page, size, [
     [50, 150],
     [350, 150],
   ])
-  await expect(page.getByRole('alert')).toContainText('"Layer 1" is hidden')
-  await page.getByRole('button', { name: 'Show Layer 1' }).click()
+  await expect(page.getByRole('alert')).toContainText('"Drawing 1" is hidden')
+  await page.getByRole('button', { name: 'Show Drawing 1' }).click()
   expectColor(await designPixel(page, size, 200, 150), WHITE)
+  expectColor(await designPixel(page, size, 200, 100), INK)
 })
 
 test('layer opacity fades a layer, and a whole slider drag is one undo step', async ({ page }) => {

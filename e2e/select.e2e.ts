@@ -239,7 +239,7 @@ test('copy, paste and copy to new layer', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Paste' }).click()
-  expect(await names()).toEqual(['Pasted', 'Layer 1', 'Background'])
+  expect(await names()).toEqual(['Pasted', 'Drawing 1'])
   await expect(page.getByRole('button', { name: 'Arrange tool' })).toHaveAttribute('aria-pressed', 'true')
   // The pasted copy lands where it came from; move it to prove it's separate.
   await drag(page, size, [
@@ -249,10 +249,10 @@ test('copy, paste and copy to new layer', async ({ page }) => {
   expectColor(await designPixel(page, size, 250, 150), INK)
   expectColor(await designPixel(page, size, 100, 150), INK)
 
-  await page.getByRole('button', { name: 'Layer: Layer 1' }).click()
+  await page.getByRole('button', { name: 'Layer: Drawing 1' }).click()
   await selectRect(page, size, 70, 120, 130, 180)
   await page.keyboard.press('Control+j')
-  expect(await names()).toEqual(['Pasted', 'Layer 1 copy', 'Layer 1', 'Background'])
+  expect(await names()).toEqual(['Pasted', 'Drawing 1 copy', 'Drawing 1'])
 })
 
 test('cut removes the selected part and remembers it', async ({ page }) => {
@@ -271,17 +271,21 @@ test('copying an empty area explains why nothing happened', async ({ page }) => 
   const size = await newDesign(page)
   await selectRect(page, size, 70, 120, 130, 180)
   await page.keyboard.press('Control+c')
+  await expect(page.getByRole('alert')).toContainText('Pick a drawing or photo')
+  await page.getByRole('button', { name: 'New layer', exact: true }).click()
+  await page.keyboard.press('Control+c')
   await expect(page.getByRole('alert')).toContainText('nothing in the selected area')
 })
 
 test('arranging a hidden layer explains what to do', async ({ page }) => {
   const size = await newDesign(page)
   await paintDot(page, size, 200, 150)
-  await page.getByRole('button', { name: 'Hide Layer 1' }).click()
+  await page.getByRole('button', { name: 'Hide Drawing 1' }).click()
   await page.keyboard.press('v')
-  await expect(page.getByRole('toolbar')).toContainText('“Layer 1” is hidden')
+  await expect(page.getByRole('toolbar')).toContainText('“Drawing 1” is hidden')
+  // Clicking where it is (hidden, so nothing is there) picks the page.
   await clickAt(page, size, 200, 150)
-  await expect(page.getByRole('button', { name: 'Layer: Layer 1' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Page', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
 
 test('selection and arrange settings fit on common laptop screens', async ({ page }) => {

@@ -2,14 +2,14 @@ import { useRef, useState } from 'react'
 import { coverRect, getContext2d } from '../editor/document.ts'
 import type { Rect } from '../editor/geometry.ts'
 import { History } from '../editor/history.ts'
-import { selectLayer, updatePixelLayer } from '../editor/layers.ts'
+import { insertLayerAboveActive, selectLayer, updatePixelLayer } from '../editor/layers.ts'
 import { settleLayer } from '../editor/objects.ts'
 import { markPixelsChanged } from '../editor/pixelVersion.ts'
 import { copyRegion, restoreRegion, type StrokeResult } from '../editor/stroke.ts'
 import type { EditorDocument, PixelLayer } from '../editor/types.ts'
 
 // Everything about a design except its pixels, which change in place and are kept separately.
-type DocState = Pick<EditorDocument, 'width' | 'height' | 'layers' | 'activeLayerId' | 'selection'>
+type DocState = Pick<EditorDocument, 'width' | 'height' | 'background' | 'layers' | 'activeLayerId' | 'selection'>
 
 // What one undo step remembers: pixels that changed on a layer, the design's structure, or a
 // few of those together (like growing a layer and then painting on it).
@@ -22,8 +22,8 @@ function mergeChanges(earlier: Change, later: Change): Change {
   return earlier.kind === 'structure' && later.kind === 'structure' ? { kind: 'structure', before: earlier.before, after: later.after } : later
 }
 
-function docState({ width, height, layers, activeLayerId, selection }: EditorDocument): DocState {
-  return { width, height, layers, activeLayerId, selection }
+function docState({ width, height, background, layers, activeLayerId, selection }: EditorDocument): DocState {
+  return { width, height, background, layers, activeLayerId, selection }
 }
 
 function regionBytes(region: HTMLCanvasElement): number {
@@ -53,6 +53,10 @@ export interface Editor {
   rename: (name: string) => void
   // A finished brush stroke. `grown` is the layer it was painted on, if it had to be enlarged first.
   commitStroke: (label: string, layerId: string, result: StrokeResult, grown?: PixelLayer) => void
+  // A new, empty drawing for a brush stroke that's starting, shown right away. It becomes part of
+  // the stroke's undo step, or goes away again if the stroke doesn't happen.
+  startDrawing: (layer: PixelLayer) => void
+  cancelDrawing: () => void
   // Changes pixels of a layer inside `area` (design coordinates), growing the layer if needed.
   paint: (label: string, layerId: string, area: Rect, draw: (ctx: CanvasRenderingContext2D, layer: PixelLayer) => void) => void
   undo: () => void
@@ -69,6 +73,8 @@ export function useEditor(): Editor {
   // Renaming isn't an undo step, but a new name not yet downloaded still counts as a change.
   const [renamed, setRenamed] = useState(false)
   const [, setHistoryVersion] = useState(0)
+  // The drawing a stroke in progress made, and the design from before it.
+  const pendingDrawingRef = useRef<{ layerId: string; before: DocState } | null>(null)
   const refresh = () => setHistoryVersion((v) => v + 1)
 
   function setDoc(next: EditorDocument | null) {
@@ -158,7 +164,36 @@ export function useEditor(): Editor {
       setRenamed(true)
     },
 
+    startDrawing(layer) {
+      const current = docRef.current
+      if (!current) return
+      pendingDrawingRef.current = { layerId: layer.id, before: docState(current) }
+      setDoc(insertLayerAboveActive(current, layer))
+    },
+
+    cancelDrawing() {
+      const pending = pendingDrawingRef.current
+      const current = docRef.current
+      pendingDrawingRef.current = null
+      if (pending && current) setDoc({ ...current, ...pending.before })
+    },
+
     commitStroke(label, layerId, result, grown) {
+      const pending = pendingDrawingRef.current
+      if (pending?.layerId === layerId && docRef.current) {
+        // The stroke is the new drawing's only content, so one step adds the drawing with it.
+        pendingDrawingRef.current = null
+        const layer = docRef.current.layers.find((l) => l.id === layerId)
+        if (layer?.kind === 'raster') markPixelsChanged(layer.canvas)
+        history.push({
+          label,
+          change: { kind: 'structure', before: pending.before, after: docState(docRef.current) },
+          bytes: layer?.kind === 'raster' ? regionBytes(layer.canvas) : 0,
+        })
+        setRevision((r) => r + 1)
+        refresh()
+        return
+      }
       const pixels: Change = { kind: 'pixels', layerId, x: result.x, y: result.y, before: result.before, after: result.after }
       const growth = grown ? growLayer(layerId, grown) : null
       const layer = docRef.current?.layers.find((l) => l.id === layerId)

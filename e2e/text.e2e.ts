@@ -54,7 +54,7 @@ test('click to type English; it starts where you clicked and grows to the right'
   await expect(typingBox(page)).toHaveValue('Hello')
   await page.keyboard.press('Escape')
   await expect(typingBox(page)).toHaveCount(0)
-  expect(await layerNames(page)).toEqual(['Hello', 'Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual(['Hello'])
   await expect(page.getByRole('button', { name: 'Arrange tool' })).toHaveAttribute('aria-pressed', 'true')
   expect(await undoLabel(page)).toContain('Undo add text')
   const ink = await inkBounds(page, size, 0, 50, 400, 100)
@@ -70,7 +70,7 @@ test('Hebrew starts where you clicked and grows to the left', async ({ page }) =
   await clickAt(page, size, 340, 100)
   await page.keyboard.type('שלום עולם')
   await page.keyboard.press('Escape')
-  expect(await layerNames(page)).toEqual(['שלום עולם', 'Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual(['שלום עולם'])
   const ink = await inkBounds(page, size, 0, 50, 400, 100)
   expect(ink).not.toBeNull()
   expect(ink!.right).toBeLessThanOrEqual(342)
@@ -198,7 +198,7 @@ test('click text to change it, double-click it with Arrange, and taking every le
   await page.keyboard.press('End')
   await page.keyboard.type(' world')
   await page.keyboard.press('Escape')
-  expect(await layerNames(page)).toEqual(['Hello world', 'Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual(['Hello world'])
   expect(await undoLabel(page)).toContain('Undo edit text')
 
   // With the Text tool, a click on the text edits it.
@@ -208,7 +208,7 @@ test('click text to change it, double-click it with Arrange, and taking every le
   await page.keyboard.press('Control+a')
   await page.keyboard.press('Backspace')
   await page.keyboard.press('Escape')
-  expect(await layerNames(page)).toEqual(['Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual([])
   expect(await undoLabel(page)).toContain('Undo delete text')
 
   // Clicking and typing nothing leaves nothing behind.
@@ -216,7 +216,7 @@ test('click text to change it, double-click it with Arrange, and taking every le
   await clickAt(page, size, 200, 200)
   await expect(typingBox(page)).toBeFocused()
   await page.keyboard.press('Escape')
-  expect(await layerNames(page)).toEqual(['Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual([])
 })
 
 test('the Text panel: size, boldness, font, color, lining up and reading direction', async ({ page }) => {
@@ -366,5 +366,5 @@ test('while typing, picking a font and pressing Backspace never deletes the text
   await expect(typingBox(page)).toHaveValue('Keep me')
   await page.keyboard.press('Escape')
   await expect(typingBox(page)).toHaveCount(0)
-  expect(await layerNames(page)).toEqual(['Keep me', 'Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual(['Keep me'])
 })

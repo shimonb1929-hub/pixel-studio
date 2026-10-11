@@ -124,10 +124,12 @@ test('resizing a selected part leaves the rest alone', async ({ page }) => {
   expect(await undoLabel(page)).toContain('Undo move')
 })
 
-test('Arrange explains when there is nothing to pick on the layer', async ({ page }) => {
+test('Arrange explains that the page is picked, and an empty drawing has nothing to arrange', async ({ page }) => {
   await newDesign(page)
   await page.keyboard.press('v')
-  await expect(page.getByRole('toolbar')).toContainText('There is nothing on “Layer 1” yet')
+  await expect(page.getByRole('toolbar')).toContainText('The page is picked')
+  await page.getByRole('button', { name: 'New layer', exact: true }).click()
+  await expect(page.getByRole('toolbar')).toContainText('There is nothing on “Drawing 1” yet')
 })
 
 test('crop keeps what is inside the frame, and undo brings everything back', async ({ page }) => {

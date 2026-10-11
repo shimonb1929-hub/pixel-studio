@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, CircleHelp, Copy, Eye, EyeOff, Lock, LockOpen, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, CircleHelp, Copy, Eye, EyeOff, Grid2x2, Lock, LockOpen, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { adjustmentLabel, isNeutral } from '../editor/adjust.ts'
 import { drawLayer } from '../editor/compose.ts'
@@ -124,7 +124,13 @@ interface LayersPanelProps {
   onDuplicate: () => void
   onMove: (direction: 1 | -1) => void
   onDelete: () => void
+  // The page under everything: picking it, and making it see-through or giving it a color again.
+  onPickPage: () => void
+  onSeeThrough: (seeThrough: boolean) => void
 }
+
+// The gray-and-white squares that mean "see-through".
+const SEE_THROUGH = 'repeating-conic-gradient(#e8eaee 0% 25%, #ffffff 0% 50%) 50% / 10px 10px'
 
 export function LayersPanel(props: LayersPanelProps) {
   const { doc, revision } = props
@@ -132,13 +138,15 @@ export function LayersPanel(props: LayersPanelProps) {
   const active = doc ? activeLayer(doc) : undefined
   const activeIndex = doc && active ? doc.layers.indexOf(active) : -1
   const noDesign = doc ? undefined : 'Start a new design or open a picture first.'
+  const noLayer = noDesign ?? (active ? undefined : 'Pick a layer first. The page itself always stays at the back.')
+  const pagePicked = !!doc && !active
 
   return (
     <section aria-label="Layers" className="flex min-h-48 flex-1 flex-col rounded-card border border-line bg-surface shadow-card">
       <div className="flex h-12 shrink-0 items-center justify-between pl-4 pr-2">
         <Tooltip
           title="Layers"
-          description="Layers are like clear sheets stacked on top of each other. You paint on the selected one without touching the others. The top of the list is the front of your design."
+          description="Everything on your design, from front (top of the list) to back. Each photo, shape, text and drawing is its own layer. The page is always at the bottom."
         >
           <h2 className="flex cursor-help items-center gap-1.5 text-[13px] font-semibold text-ink">
             Layers
@@ -146,7 +154,7 @@ export function LayersPanel(props: LayersPanelProps) {
           </h2>
         </Tooltip>
         <IconButton
-          tip={{ title: 'New layer', description: 'Add a clear sheet above the selected layer, so you can paint without changing what is below.' }}
+          tip={{ title: 'New layer', description: 'Add an empty drawing above the selected layer. Painting makes one by itself when it needs to, so you rarely need this.' }}
           disabledReason={noDesign}
           onClick={props.onAdd}
         >
@@ -250,6 +258,45 @@ export function LayersPanel(props: LayersPanelProps) {
               </li>
             )
           })}
+          <li className={`flex items-center gap-1 rounded-[10px] pr-1 transition-colors ${pagePicked ? 'bg-accent-soft' : 'hover:bg-subtle'}`}>
+            <Tooltip
+              title="Page"
+              description="The paper under everything. Click it, then choose its color in the Color panel. Clicking an empty spot of your design picks it too."
+              side="right"
+              className="flex min-w-0 flex-1"
+            >
+              <button
+                type="button"
+                aria-label="Page"
+                aria-pressed={pagePicked}
+                onClick={props.onPickPage}
+                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 pl-2 text-left text-[13px] text-ink"
+              >
+                <span aria-hidden className="h-10 w-10 shrink-0 rounded-md border border-line" style={{ background: doc.background ?? SEE_THROUGH }} />
+                <span className="min-w-0 flex-1 truncate">Page</span>
+              </button>
+            </Tooltip>
+            <Tooltip
+              title={doc.background === null ? 'Give the page a color' : 'See-through page'}
+              description={
+                doc.background === null
+                  ? 'The page is see-through now: a PNG download keeps it see-through. Click to make it white again.'
+                  : 'Take away the page color, so a PNG download is see-through around your things, like for a logo or a sticker.'
+              }
+            >
+              <button
+                type="button"
+                aria-label="See-through page"
+                aria-pressed={doc.background === null}
+                onClick={() => props.onSeeThrough(doc.background !== null)}
+                className={`flex h-8 w-7 items-center justify-center rounded-lg transition-colors ${
+                  doc.background === null ? 'text-accent' : 'text-ink-3 hover:bg-surface hover:text-ink'
+                }`}
+              >
+                <Grid2x2 size={14} />
+              </button>
+            </Tooltip>
+          </li>
         </ul>
       )}
 
@@ -268,28 +315,28 @@ export function LayersPanel(props: LayersPanelProps) {
         <div className="flex items-center justify-between">
           <IconButton
             tip={{ title: 'Duplicate layer', description: 'Make an exact copy of the selected layer, placed right above it.' }}
-            disabledReason={noDesign}
+            disabledReason={noLayer}
             onClick={props.onDuplicate}
           >
             <Copy size={16} />
           </IconButton>
           <IconButton
-            tip={{ title: 'Move layer up', description: 'Move the selected layer toward the front, so it covers the layer above it.' }}
-            disabledReason={noDesign ?? (doc && activeIndex === doc.layers.length - 1 ? 'This layer is already at the front.' : undefined)}
+            tip={{ title: 'Bring forward', description: 'Move the selected layer one step toward the front, so it covers the layer above it.' }}
+            disabledReason={noLayer ?? (doc && activeIndex === doc.layers.length - 1 ? 'This layer is already at the front.' : undefined)}
             onClick={() => props.onMove(1)}
           >
             <ArrowUp size={16} />
           </IconButton>
           <IconButton
-            tip={{ title: 'Move layer down', description: 'Move the selected layer toward the back, behind the layer below it.' }}
-            disabledReason={noDesign ?? (activeIndex === 0 ? 'This layer is already at the back.' : undefined)}
+            tip={{ title: 'Send backward', description: 'Move the selected layer one step toward the back, behind the layer below it.' }}
+            disabledReason={noLayer ?? (activeIndex === 0 ? 'This layer is already at the back.' : undefined)}
             onClick={() => props.onMove(-1)}
           >
             <ArrowDown size={16} />
           </IconButton>
           <IconButton
             tip={{ title: 'Delete layer', description: 'Remove the selected layer and everything on it. You can undo this.' }}
-            disabledReason={noDesign ?? (doc && doc.layers.length <= 1 ? 'A design needs at least one layer.' : undefined)}
+            disabledReason={noLayer}
             onClick={props.onDelete}
           >
             <Trash2 size={16} />

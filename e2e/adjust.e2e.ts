@@ -30,7 +30,7 @@ async function blueDesign(page: Page): Promise<Size> {
 test('a look shows first; Apply keeps it, Esc and undo take it back', async ({ page }) => {
   const size = await blueDesign(page)
   await page.getByRole('button', { name: 'Adjust tool' }).click()
-  await expect(toolbar(page)).toContainText('Changes “Layer 1”')
+  await expect(toolbar(page)).toContainText('Changes “Drawing 1”')
   await expect(toolbar(page).getByRole('button', { name: 'Apply' })).toHaveAttribute('aria-disabled', 'true')
 
   const mono = page.getByRole('radio', { name: 'Black & white' })
@@ -71,7 +71,7 @@ test('adjustments stay changeable: come back any time to change or remove them',
   expect(isGray(await designPixel(page, size, 200, 40))).toBe(true)
 
   // The layer shows that it is adjusted; clicking that opens its adjustments again.
-  const badge = page.getByRole('button', { name: 'Change adjustments of Layer 1' })
+  const badge = page.getByRole('button', { name: 'Change adjustments of Drawing 1' })
   await badge.hover()
   await expect(page.getByRole('tooltip')).toContainText('Black & white')
   await badge.click()
@@ -142,13 +142,17 @@ test('blur softens a line, and a full picture keeps solid edges', async ({ page 
   expect(middle[0], 'the line is softer').toBeGreaterThan(INK[0] + 30)
   expect(beside[0], 'and spreads out').toBeLessThan(250)
 
-  // The white paper, blurred all over, stays solid white right into its corners.
-  await page.getByRole('button', { name: 'Layer: Background' }).click()
+  // A drawing that fills the whole design, blurred all over, stays solid right into its corners.
+  await page.getByRole('button', { name: 'New layer', exact: true }).click()
+  await page.getByRole('button', { name: 'Brush tool' }).click()
+  await page.getByRole('button', { name: 'Blue', exact: true }).click()
+  await page.keyboard.press('Alt+Backspace')
+  await page.getByRole('button', { name: 'Adjust tool' }).click()
   await blur.focus()
   for (let i = 0; i < 10; i++) await blur.press('Shift+ArrowRight')
   await page.keyboard.press('Enter')
   await expect(await undoTip(page)).toContainText('Undo blur')
-  for (const [x, y] of [[1, 1], [398, 298]]) expectColor(await designPixel(page, size, x, y), WHITE, 2)
+  for (const [x, y] of [[1, 1], [398, 298]]) expectColor(await designPixel(page, size, x, y), BLUE, 2)
 })
 
 test('with a selection, only the selected part changes', async ({ page }) => {
@@ -159,7 +163,7 @@ test('with a selection, only the selected part changes', async ({ page }) => {
     [200, 300],
   ])
   await page.getByRole('button', { name: 'Adjust tool' }).click()
-  await expect(toolbar(page)).toContainText('Changes the selected part of “Layer 1”')
+  await expect(toolbar(page)).toContainText('Changes the selected part of “Drawing 1”')
   await expect(page.getByRole('status').filter({ hasText: 'Only the selected area changes.' })).toBeVisible()
   await page.getByRole('radio', { name: 'Black & white' }).click()
   await page.keyboard.press('Enter')
@@ -168,22 +172,31 @@ test('with a selection, only the selected part changes', async ({ page }) => {
   expectColor(await designPixel(page, size, 300, 150), BLUE)
 })
 
-test('Adjust starts on a layer with something on it, and explains when there is nothing', async ({ page }) => {
+test('Adjust starts on something you can see, and explains when there is nothing', async ({ page }) => {
   const size = await newDesign(page)
-  // Layer 1 is empty, so Adjust picks the white paper underneath.
+  // An empty page has nothing to adjust.
   await page.getByRole('button', { name: 'Adjust tool' }).click()
-  await expect(toolbar(page)).toContainText('Changes “Background”')
-  await expect(page.getByRole('button', { name: 'Layer: Background' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(toolbar(page)).toContainText('Pick something on your design to adjust it')
 
-  await page.getByRole('button', { name: 'Hide Background' }).click()
-  await expect(toolbar(page)).toContainText('“Background” is hidden')
+  // With the page picked, Adjust picks the top thing that has something on it.
+  await page.getByRole('button', { name: 'Brush tool' }).click()
+  await drag(page, size, [
+    [20, 150],
+    [380, 150],
+  ])
+  await page.getByRole('button', { name: 'Page', exact: true }).click()
+  await page.getByRole('button', { name: 'Adjust tool' }).click()
+  await expect(toolbar(page)).toContainText('Changes “Drawing 1”')
+
+  await page.getByRole('button', { name: 'Hide Drawing 1' }).click()
+  await expect(toolbar(page)).toContainText('“Drawing 1” is hidden')
   await expect(page.getByRole('region', { name: 'Adjust' })).toContainText('is hidden')
-  await page.getByRole('button', { name: 'Show Background' }).click()
+  await page.getByRole('button', { name: 'Show Drawing 1' }).click()
 
-  await page.getByRole('button', { name: 'Layer: Layer 1' }).click()
-  await expect(toolbar(page)).toContainText('There is nothing on “Layer 1” to adjust yet.')
-  await clickAt(page, size, 200, 150)
-  expectColor(await designPixel(page, size, 200, 150), WHITE)
+  await page.getByRole('button', { name: 'New layer', exact: true }).click()
+  await expect(toolbar(page)).toContainText('There is nothing on “Drawing 2” to adjust yet.')
+  await clickAt(page, size, 200, 100)
+  expectColor(await designPixel(page, size, 200, 100), WHITE)
 })
 
 test('search finds looks from everyday words', async ({ page }) => {

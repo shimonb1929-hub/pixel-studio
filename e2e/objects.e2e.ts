@@ -75,7 +75,7 @@ test('draw a shape, then color it, outline it and empty it', async ({ page }) =>
     [100, 100],
     [200, 180],
   ])
-  expect(await layerNames(page)).toEqual(['Rectangle 1', 'Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual(['Rectangle 1'])
   // Right away it can be moved and resized.
   await expect(page.getByRole('button', { name: 'Arrange tool' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('toolbar')).toContainText('100 × 80 px')
@@ -96,13 +96,15 @@ test('draw a shape, then color it, outline it and empty it', async ({ page }) =>
   expectColor(await designPixel(page, size, 100, 140), GREEN)
   expect(await undoLabel(page)).toContain('Undo no fill')
 
-  // Shapes can't be painted on, and say why.
+  // Painting over a shape goes on a new drawing above it; the shape stays a shape.
   await page.keyboard.press('b')
   await drag(page, size, [
     [120, 140],
     [180, 140],
   ])
-  await expect(page.getByRole('alert')).toContainText('is a shape')
+  expect(await layerNames(page)).toEqual(['Drawing 1', 'Rectangle 1'])
+  expectColor(await designPixel(page, size, 150, 140), INK)
+  expect(await undoLabel(page)).toContain('Undo brush stroke')
 })
 
 test('stars, polygons and lines with arrow heads', async ({ page }) => {
@@ -111,7 +113,7 @@ test('stars, polygons and lines with arrow heads', async ({ page }) => {
   await page.getByRole('radio', { name: 'Star' }).click()
   // A click drops a shape of a handy size.
   await clickAt(page, size, 200, 150)
-  expect(await layerNames(page)).toEqual(['Star 1', 'Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual(['Star 1'])
   await expect(page.getByRole('toolbar')).toContainText('75 × 75 px')
   expectColor(await designPixel(page, size, 200, 150), BLUE)
   expectColor(await designPixel(page, size, 165, 115), WHITE)
@@ -152,23 +154,40 @@ test('shapes stay sharp when resized, and Delete removes the picked one', async 
   expectColor(await designPixel(page, size, 330, 139), WHITE)
 
   await page.keyboard.press('Delete')
-  expect(await layerNames(page)).toEqual(['Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual([])
   expectColor(await designPixel(page, size, 330, 280), WHITE)
   await page.keyboard.press('Control+z')
-  expect(await layerNames(page)).toEqual(['Oval 1', 'Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual(['Oval 1'])
 })
 
-test('the background is locked, and any layer can be locked so it stays put', async ({ page }) => {
+test('click empty paper to pick the page and color it; the page can be see-through', async ({ page }) => {
   const size = await newDesign(page)
-  await expect(page.getByRole('button', { name: 'Unlock Background' })).toBeVisible()
-  await page.keyboard.press('v')
-  // Dragging the paper doesn't move it, and explains why.
-  await drag(page, size, [
-    [300, 250],
-    [350, 280],
-  ])
-  await expect(page.getByRole('alert')).toContainText('"Background" is locked')
+  await drawShape(page, size, 'Rectangle', [100, 100], [200, 200])
+  await clickAt(page, size, 300, 250)
+  await expect(page.getByRole('button', { name: 'Page', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('toolbar')).toContainText('The page is picked')
+  await page.getByRole('button', { name: 'Red', exact: true }).click()
+  expectColor(await designPixel(page, size, 300, 250), RED)
+  expectColor(await designPixel(page, size, 150, 150), BLUE)
+  expect(await undoLabel(page)).toContain('Undo page color')
 
+  await page.getByRole('button', { name: 'See-through page' }).click()
+  await expect(page.getByRole('button', { name: 'See-through page' })).toHaveAttribute('aria-pressed', 'true')
+  const seeThrough = await designPixel(page, size, 300, 250)
+  expect(seeThrough[0] - seeThrough[1], 'no longer red').toBeLessThan(20)
+
+  // The fill bucket on empty paper colors the page too.
+  await page.keyboard.press('g')
+  await page.getByRole('button', { name: 'Green', exact: true }).click()
+  await clickAt(page, size, 300, 250)
+  expectColor(await designPixel(page, size, 300, 250), GREEN)
+  expectColor(await designPixel(page, size, 20, 20), GREEN)
+  expect(await layerNames(page)).toEqual(['Rectangle 1'])
+})
+
+test('any layer can be locked so it stays put', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.keyboard.press('v')
   await drawShape(page, size, 'Rectangle', [100, 100], [200, 200])
   await page.getByRole('button', { name: 'Lock Rectangle 1' }).click()
   await expect(page.getByRole('toolbar')).toContainText('“Rectangle 1” is locked')
@@ -191,7 +210,7 @@ test('the background is locked, and any layer can be locked so it stays put', as
 test('a photo added to a design keeps all its detail, however it is resized', async ({ page }) => {
   const size = await newDesign(page)
   await addPhoto(page, await photo(page))
-  expect(await layerNames(page)).toEqual(['beach', 'Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual(['beach'])
   await expect(page.getByRole('button', { name: 'Arrange tool' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('toolbar')).toContainText('200 × 100 px')
   expectColor(await designPixel(page, size, 150, 150), RED)
@@ -217,7 +236,7 @@ test('drop a photo onto a shape to fill it, then zoom and slide it inside', asyn
   await drawShape(page, size, 'Oval', [100, 50], [300, 250])
   await dropPhoto(page, size, 200, 150, await photo(page))
   await expect(page.getByRole('status').filter({ hasText: 'The photo fills the shape' })).toBeVisible()
-  expect(await layerNames(page)).toEqual(['Oval 1', 'Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual(['Oval 1'])
   expect(await undoLabel(page)).toContain('Undo put photo in shape')
   // The photo covers the circle, and nothing shows outside it.
   expectColor(await designPixel(page, size, 150, 150), RED)
@@ -248,7 +267,7 @@ test('drop a photo onto a shape to fill it, then zoom and slide it inside', asyn
 test('a picture dropped next to the shapes becomes a layer of its own, where it was dropped', async ({ page }) => {
   const size = await newDesign(page)
   await dropPhoto(page, size, 150, 100, await photo(page))
-  expect(await layerNames(page)).toEqual(['beach', 'Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual(['beach'])
   expectColor(await designPixel(page, size, 100, 120), RED)
   expectColor(await designPixel(page, size, 200, 120), GREEN)
 })
@@ -281,7 +300,7 @@ test('shapes, photos in shapes and resized photos come back from a project file'
   await page.locator('input[type=file]').setInputFiles({ name: 'My design 1.pixel', mimeType: '', buffer: bytes })
 
   await expect(page.locator('header')).toContainText('My design 1')
-  expect(await layerNames(page)).toEqual(['beach', 'Oval 1', 'Rectangle 1', 'Layer 1', 'Background'])
+  expect(await layerNames(page)).toEqual(['beach', 'Oval 1', 'Rectangle 1'])
   expectColor(await designPixel(page, size, 50, 50), RED)
   expectColor(await designPixel(page, size, 150, 150), RED)
   expectColor(await designPixel(page, size, 250, 150), GREEN)
@@ -296,4 +315,54 @@ test('shapes, photos in shapes and resized photos come back from a project file'
   ])
   expectColor(await designPixel(page, size, 197, 150), RED)
   expectColor(await designPixel(page, size, 203, 150), GREEN)
+})
+
+test('bring forward and send backward, with the buttons and the keyboard', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawShape(page, size, 'Rectangle', [100, 100], [200, 200])
+  await page.getByRole('button', { name: 'Red', exact: true }).click()
+  await drawShape(page, size, 'Rectangle', [150, 150], [250, 250])
+  // The new blue one covers the red one where they overlap.
+  expectColor(await designPixel(page, size, 175, 175), BLUE)
+  expect(await layerNames(page)).toEqual(['Rectangle 2', 'Rectangle 1'])
+
+  await page.getByRole('toolbar').getByRole('button', { name: 'Send backward' }).click()
+  expect(await layerNames(page)).toEqual(['Rectangle 1', 'Rectangle 2'])
+  expectColor(await designPixel(page, size, 175, 175), RED)
+  expect(await undoLabel(page)).toContain('Undo send backward')
+
+  await page.keyboard.press('Control+]')
+  expect(await layerNames(page)).toEqual(['Rectangle 2', 'Rectangle 1'])
+  await page.keyboard.press('Control+Shift+[')
+  expect(await layerNames(page)).toEqual(['Rectangle 1', 'Rectangle 2'])
+  expect(await undoLabel(page)).toContain('Undo send to back')
+  await page.keyboard.press('Control+Shift+]')
+  expect(await layerNames(page)).toEqual(['Rectangle 2', 'Rectangle 1'])
+})
+
+test('an opened photo is locked: painting goes on a drawing above it, and the eraser leaves it alone', async ({ page }) => {
+  await page.locator('input[type=file]').setInputFiles({ name: 'beach.png', mimeType: 'image/png', buffer: await photo(page) })
+  const size = { width: 200, height: 100 }
+  await expect(page.getByRole('main').locator('canvas[aria-label]')).toHaveAttribute('aria-label', /200 by 100 pixels$/)
+  await page.keyboard.press('Control+Alt+0')
+  expect(await layerNames(page)).toEqual(['Picture'])
+  await expect(page.getByRole('button', { name: 'Unlock Picture' })).toBeVisible()
+
+  await page.keyboard.press('e')
+  await drag(page, size, [
+    [20, 50],
+    [180, 50],
+  ])
+  await expect(page.getByRole('alert')).toContainText('"Picture" is locked')
+  expectColor(await designPixel(page, size, 50, 50), RED)
+
+  await page.keyboard.press('b')
+  await drag(page, size, [
+    [20, 50],
+    [180, 50],
+  ])
+  expect(await layerNames(page)).toEqual(['Drawing 1', 'Picture'])
+  expectColor(await designPixel(page, size, 50, 50), INK)
+  await page.getByRole('button', { name: 'Hide Drawing 1' }).click()
+  expectColor(await designPixel(page, size, 50, 50), RED)
 })

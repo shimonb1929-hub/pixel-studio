@@ -39,10 +39,11 @@ import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocume
 import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
 import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
-import { activeLayer, insertLayerAboveActive, moveLayer, nextLayerName, removeLayer, replaceLayer, updateLayer, updateShape } from './editor/layers.ts'
+import { activeLayer, insertLayerAboveActive, moveLayer, moveLayerTo, nextLayerName, removeLayer, replaceLayer, updateLayer, updateShape } from './editor/layers.ts'
 import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
 import { layerAt, layerPixels } from './editor/objects.ts'
+import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
 import { decodeProject } from './editor/project.ts'
 import type { LayerOverride } from './editor/render.ts'
@@ -334,7 +335,7 @@ export default function App() {
   // live. Why it can't be adjusted, if that's the case.
   const adjustOn = tool === 'adjust'
   const adjustBlocked = useMemo(
-    () => (adjustOn && doc && activeNow ? adjustProblem(doc, activeNow) : null),
+    () => (adjustOn && doc ? (activeNow ? adjustProblem(doc, activeNow) : 'Pick something on your design to adjust it, or click it in the Layers panel.') : null),
     // Only the layer, its pixels and the selection matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [adjustOn, activeNow, doc?.selection, editor.revision],
@@ -693,7 +694,7 @@ export default function App() {
         const d = current()
         const layer = d && activeLayer(d)
         const empty = (l: Layer) => l.kind === 'raster' && isBlank(layerPixels(l).canvas)
-        if (d && layer && empty(layer)) {
+        if (d && (!layer || empty(layer))) {
           const filled = [...d.layers].reverse().find((l) => l.visible && !empty(l))
           if (filled) editor.select(filled.id)
         }
@@ -861,6 +862,35 @@ export default function App() {
     if (tool === 'brush') rememberColor(color)
   }
 
+  // A brush stroke where nothing can be painted on (the page, a shape, text, a locked picture) goes
+  // on a new drawing right above what's picked.
+  function newDrawingForStroke(): PixelLayer | null {
+    const d = current()
+    if (!d) return null
+    const layer = createLayer(nextLayerName(d.layers), d.width, d.height)
+    editor.startDrawing(layer)
+    return layer
+  }
+
+  // Paints on a new drawing above what's picked, in one undo step.
+  function paintNewDrawing(label: string, draw: (ctx: CanvasRenderingContext2D, layer: PixelLayer) => void) {
+    const d = current()
+    if (!d) return
+    const layer = createLayer(nextLayerName(d.layers), d.width, d.height)
+    const ctx = getContext2d(layer.canvas)
+    ctx.save()
+    draw(ctx, layer)
+    ctx.restore()
+    editor.change(label, (doc) => insertLayerAboveActive(doc, layer), { bytes: canvasBytes(layer.canvas) })
+  }
+
+  // The drawing or photo the selected layer is, if pixels can be painted on it right now.
+  function drawingTarget(): PixelLayer | null {
+    const d = current()
+    const layer = d ? activeLayer(d) : undefined
+    return layer?.kind === 'raster' && !layer.locked && layer.visible ? layer : null
+  }
+
   function handlePickColor(hex: string) {
     setColor(hex)
     if (tool === 'picker') setToolState(lastDrawToolRef.current)
@@ -882,8 +912,8 @@ export default function App() {
 
   function handleFill(point: Point) {
     const d = current()
-    const layer = d && activeLayer(d)
-    if (!d || !layer) return
+    if (!d) return
+    const layer = activeLayer(d)
     // Clicking a shape colors it in, and clicking text colors its letters.
     const shape = layerAt(d, point)
     if (shape?.kind === 'text') {
@@ -898,20 +928,29 @@ export default function App() {
       rememberColor(color)
       return
     }
-    if (layer.kind !== 'raster') {
-      problem(`"${layer.name}" is ${layer.kind === 'text' ? 'text' : 'a shape'}. Click it to color it in, or pick a paint layer to fill an area.`)
+    if (layer && !layer.visible) {
+      problem(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then fill again.`)
+      return
+    }
+    const target = drawingTarget()
+    // On empty paper, with no drawing picked, the bucket colors the page itself.
+    if (!target && !d.selection && sampleColor({ ...d, background: null }, point.x, point.y) === null) {
+      editor.change('Page color', (doc) => ({ ...doc, background: color }))
+      rememberColor(color)
       return
     }
     const pieces = fillArea(d, point, color, Math.round(fillTolerance * 255))
     if (!pieces) return
     const { core, rim } = pieces
     const area = { x: core.x, y: core.y, width: core.canvas.width, height: core.canvas.height }
-    editor.paint('Fill area', layer.id, area, (ctx, l) => {
+    const draw = (ctx: CanvasRenderingContext2D, l: PixelLayer) => {
       ctx.drawImage(core.canvas, core.x - l.x, core.y - l.y)
       // The rim slips underneath what's already there, so outlines keep their soft edges.
       ctx.globalCompositeOperation = 'destination-over'
       ctx.drawImage(rim.canvas, rim.x - l.x, rim.y - l.y)
-    })
+    }
+    if (target) editor.paint('Fill area', target.id, area, draw)
+    else paintNewDrawing('Fill area', draw)
     rememberColor(color)
   }
 
@@ -932,7 +971,11 @@ export default function App() {
   function usableLayer(doing: string): Layer | null {
     const d = current()
     const layer = d && activeLayer(d)
-    if (!layer) return null
+    if (!d) return null
+    if (!layer) {
+      problem(`Pick something on your design first, then ${doing}.`)
+      return null
+    }
     if (!layer.visible) {
       problem(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then ${doing} again.`)
       return null
@@ -966,7 +1009,11 @@ export default function App() {
   function selectedPiece(): Piece | null {
     const d = current()
     const layer = d && activeLayer(d)
-    if (!d || !layer) return null
+    if (!d) return null
+    if (!layer) {
+      problem('Pick a drawing or photo first (in the Layers panel or with Arrange), then copy part of it.')
+      return null
+    }
     const piece = copySelected(layer, d)
     if (!piece || isBlank(piece.canvas)) {
       problem(d.selection ? `There is nothing in the selected area on "${layer.name}".` : `"${layer.name}" is empty, so there is nothing to copy.`)
@@ -1063,8 +1110,21 @@ export default function App() {
     },
     move: (direction: 1 | -1) => {
       settle()
-      editor.change(direction > 0 ? 'Move layer up' : 'Move layer down', (d) => moveLayer(d, d.activeLayerId, direction))
+      editor.change(direction > 0 ? 'Bring forward' : 'Send backward', (d) => moveLayer(d, d.activeLayerId, direction))
     },
+    toEnd: (end: 'front' | 'back') => {
+      settle()
+      editor.change(end === 'front' ? 'Bring to front' : 'Send to back', (d) => moveLayerTo(d, d.activeLayerId, end))
+    },
+    // Picks the page, so the Color panel colors it.
+    pickPage: () => {
+      settle()
+      setPhotoMoving(false)
+      editor.select('')
+      setTool('move')
+    },
+    seeThrough: (seeThrough: boolean) =>
+      editor.change(seeThrough ? 'See-through page' : 'Page color', (d) => ({ ...d, background: seeThrough ? null : '#ffffff' })),
     rename: (layerId: string, name: string) => editor.change('Rename layer', (d) => updateLayer(d, layerId, { name })),
     opacity: (layerId: string, opacity: number) =>
       editor.change('Change layer opacity', (d) => updateLayer(d, layerId, { opacity }), { mergeKey: `opacity:${layerId}` }),
@@ -1194,11 +1254,13 @@ export default function App() {
     },
     fill: () => {
       settle()
-      const layer = paintableLayer('fill')
       const d = current()
       const area = d && editArea(d)
-      if (!d || !layer || !area) return
-      editor.paint('Fill with color', layer.id, area, (ctx, l) => fillSelected(ctx, l, d, color))
+      if (!d || !area) return
+      // On a drawing or photo, it fills there; otherwise on a new drawing.
+      const layer = drawingTarget()
+      if (layer) editor.paint('Fill with color', layer.id, area, (ctx, l) => fillSelected(ctx, l, d, color))
+      else paintNewDrawing('Fill with color', (ctx, l) => fillSelected(ctx, l, d, color))
       rememberColor(color)
     },
     deleteArea: () => {
@@ -1250,10 +1312,6 @@ export default function App() {
         problem(`"${layer.name}" is locked. Click its lock in the Layers panel to unlock it first.`)
         return
       }
-      if ((current()?.layers.length ?? 0) <= 1) {
-        problem('A design needs at least one layer.')
-        return
-      }
       layers.remove()
     },
     applyPending: () => {
@@ -1293,6 +1351,8 @@ export default function App() {
     layerDuplicate: layers.duplicate,
     layerUp: () => layers.move(1),
     layerDown: () => layers.move(-1),
+    layerToFront: () => layers.toEnd('front'),
+    layerToBack: () => layers.toEnd('back'),
     layerToggle: () => activeNow && layers.toggleVisibility(activeNow.id),
     layerDelete: layers.remove,
     zoomIn: () => doc && zoomBy(1),
@@ -1381,6 +1441,8 @@ export default function App() {
       else if (mod && (code === 'Minus' || code === 'NumpadSubtract') && hasDoc) action = c.zoomOut
       else if (mod && event.altKey && (code === 'Digit0' || code === 'Numpad0') && hasDoc) action = c.actualSize
       else if (mod && (code === 'Digit0' || code === 'Numpad0') && hasDoc) action = c.fit
+      else if (mod && code === 'BracketRight' && hasDoc) action = event.shiftKey ? c.layerToFront : c.layerUp
+      else if (mod && code === 'BracketLeft' && hasDoc) action = event.shiftKey ? c.layerToBack : c.layerDown
       else if (plain && code === 'BracketRight') action = c.biggerBrush
       else if (plain && code === 'BracketLeft') action = c.smallerBrush
       else if (plain && !event.shiftKey) {
@@ -1515,6 +1577,8 @@ export default function App() {
       keepProportions,
       onKeepProportions: setKeepProportions,
       center: commands.center,
+      forward: () => layers.move(1),
+      backward: () => layers.move(-1),
       remove: commands.deleteObject,
       unlock: () => activeNow && layers.toggleLock(activeNow.id),
       flip: () => {},
@@ -1524,7 +1588,8 @@ export default function App() {
       target: null,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
-    if (!doc || !activeNow) return { ...base, blocked: 'Click anything on your design to pick it.' }
+    if (!doc) return { ...base, blocked: 'Click anything on your design to pick it.' }
+    if (!activeNow) return { ...base, blocked: 'The page is picked: choose its color in the Color panel. Click anything on your design to pick it.' }
     if (doc.selection) {
       if (!transform) {
         const blocked =
@@ -1572,9 +1637,11 @@ export default function App() {
     ? { layer: textEdit.layer, caret: textEdit.caret, onChange: (text) => updateTextEdit((layer) => changeText(layer, { text })), onDone: finishText }
     : null
 
-  // The color the Color panel shows and changes: the text's, a shape's, or the painting color.
+  // The color the Color panel shows and changes: the text's, a shape's, the page's (when it's
+  // picked with Arrange), or the painting color.
   const textColor = textPanelOn ? (textTarget?.style.color ?? textDefaults.color) : null
-  const panelColor = textColor ?? shapeColor
+  const pageColorOn = !!doc && !activeNow && tool === 'move' && !textEdit
+  const panelColor = textColor ?? shapeColor ?? (pageColorOn ? (doc?.background ?? '#ffffff') : null)
   const onPanelColor =
     textColor !== null
       ? (hex: string) => {
@@ -1583,7 +1650,12 @@ export default function App() {
         }
       : shapeColor !== null
         ? colorShape
-        : setColor
+        : pageColorOn
+          ? (hex: string) => {
+              rememberColor(hex)
+              editor.change('Page color', (d) => ({ ...d, background: hex }), { mergeKey: 'page-color' })
+            }
+          : setColor
 
   return (
     <div className="flex h-full select-none flex-col" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
@@ -1676,6 +1748,8 @@ export default function App() {
                 selectionShape={selectionShape}
                 selectionMode={selectionMode}
                 onStroke={handleStroke}
+                onNewDrawing={newDrawingForStroke}
+                onStrokeCancelled={() => editor.cancelDrawing()}
                 onStrokeActiveChange={(activeStroke) => (strokeActiveRef.current = activeStroke)}
                 onPickColor={handlePickColor}
                 onMove={handleMove}
@@ -1781,6 +1855,8 @@ export default function App() {
             onDuplicate={layers.duplicate}
             onMove={layers.move}
             onDelete={layers.remove}
+            onPickPage={layers.pickPage}
+            onSeeThrough={layers.seeThrough}
           />
         </div>
       </div>

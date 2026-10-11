@@ -91,8 +91,9 @@ test.describe('starting', () => {
   test('one click on a size starts a design', async ({ page }) => {
     await page.getByRole('button', { name: /Square post/ }).click()
     await expect(page.getByText('1080 × 1080 px')).toBeVisible()
-    await expect(page.getByRole('region', { name: 'Layers' })).toContainText('Background')
-    await expect(page.getByRole('button', { name: 'Layer: Layer 1' })).toHaveAttribute('aria-pressed', 'true')
+    // An empty white page, picked, ready for anything.
+    await expect(page.getByRole('list', { name: 'Layer list' }).getByRole('button', { name: /^Layer: / })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Page', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.locator('header')).toContainText('Square post')
     // White background in the middle of the design.
     const box = (await page.locator('main').boundingBox())!

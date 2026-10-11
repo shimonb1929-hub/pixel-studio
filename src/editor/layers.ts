@@ -7,31 +7,41 @@ export function activeLayer(doc: EditorDocument): Layer | undefined {
   return doc.layers.find((layer) => layer.id === doc.activeLayerId)
 }
 
-// "Layer 4" when the highest numbered layer so far is "Layer 3".
+// "Drawing 4" when the highest numbered drawing so far is "Drawing 3".
 export function nextLayerName(layers: Layer[]): string {
   const highest = layers.reduce((max, layer) => {
-    const match = /^Layer (\d+)$/.exec(layer.name)
+    const match = /^Drawing (\d+)$/.exec(layer.name)
     return match ? Math.max(max, Number(match[1])) : max
   }, 0)
-  return `Layer ${highest + 1}`
+  return `Drawing ${highest + 1}`
 }
 
-// Puts a layer just above the active one and makes it active.
+// Puts a layer just above the active one (on top of everything when the page is picked) and makes
+// it active.
 export function insertLayerAboveActive(doc: EditorDocument, layer: Layer): EditorDocument {
   const index = doc.layers.findIndex((l) => l.id === doc.activeLayerId)
   const layers = [...doc.layers]
-  layers.splice(index + 1, 0, layer)
+  layers.splice(index === -1 ? layers.length : index + 1, 0, layer)
   return { ...doc, layers, activeLayerId: layer.id }
 }
 
 export function removeLayer(doc: EditorDocument, layerId: string): EditorDocument {
-  if (doc.layers.length <= 1) return doc
   const index = doc.layers.findIndex((l) => l.id === layerId)
   if (index === -1) return doc
   const layers = doc.layers.filter((l) => l.id !== layerId)
-  // The layer below takes over, or the new bottom layer if the bottom one was removed.
-  const activeLayerId = layerId === doc.activeLayerId ? layers[Math.max(0, index - 1)].id : doc.activeLayerId
+  // The layer below takes over, or the new bottom layer if the bottom one was removed, or the page.
+  const activeLayerId = layerId === doc.activeLayerId ? (layers[Math.max(0, index - 1)]?.id ?? '') : doc.activeLayerId
   return { ...doc, layers, activeLayerId }
+}
+
+// Moves a layer all the way to the front (top) or the back (bottom).
+export function moveLayerTo(doc: EditorDocument, layerId: string, end: 'front' | 'back'): EditorDocument {
+  const layer = doc.layers.find((l) => l.id === layerId)
+  if (!layer) return doc
+  const rest = doc.layers.filter((l) => l.id !== layerId)
+  const layers = end === 'front' ? [...rest, layer] : [layer, ...rest]
+  if (layers.every((l, i) => l === doc.layers[i])) return doc
+  return { ...doc, layers }
 }
 
 // direction 1 moves the layer up (toward the front), -1 moves it down.
@@ -66,6 +76,8 @@ export function replaceLayer(doc: EditorDocument, layer: Layer): EditorDocument 
   return { ...doc, layers: doc.layers.map((l) => (l.id === layer.id ? layer : l)) }
 }
 
+// Picks a layer, or the page with an empty id.
 export function selectLayer(doc: EditorDocument, layerId: string): EditorDocument {
+  if (layerId === '') return doc.activeLayerId === '' ? doc : { ...doc, activeLayerId: '' }
   return doc.layers.some((l) => l.id === layerId) ? { ...doc, activeLayerId: layerId } : doc
 }

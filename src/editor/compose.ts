@@ -40,12 +40,14 @@ export function drawLayer(ctx: CanvasRenderingContext2D, doc: EditorDocument, la
   else drawLayerContent(ctx, layer)
 }
 
-// Merges all visible layers into a single canvas, optionally over a solid color.
-export function flattenDocument(doc: EditorDocument, background?: string): HTMLCanvasElement {
+// Merges the page and all visible layers into a single canvas. A see-through page stays
+// see-through unless a color is given for it (JPG has no see-through).
+export function flattenDocument(doc: EditorDocument, seeThroughColor?: string): HTMLCanvasElement {
   const canvas = createCanvas(doc.width, doc.height)
   const ctx = getContext2d(canvas)
-  if (background) {
-    ctx.fillStyle = background
+  const page = doc.background ?? seeThroughColor
+  if (page) {
+    ctx.fillStyle = page
     ctx.fillRect(0, 0, doc.width, doc.height)
   }
   for (const layer of doc.layers) {

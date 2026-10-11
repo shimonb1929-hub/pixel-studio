@@ -27,6 +27,11 @@ export function sampleColor(doc: EditorDocument, x: number, y: number): string |
   const ctx = sampler
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.clearRect(0, 0, 1, 1)
+  if (doc.background) {
+    ctx.globalAlpha = 1
+    ctx.fillStyle = doc.background
+    ctx.fillRect(0, 0, 1, 1)
+  }
   for (const layer of doc.layers) {
     if (!layer.visible || layer.opacity <= 0) continue
     ctx.globalAlpha = layer.opacity

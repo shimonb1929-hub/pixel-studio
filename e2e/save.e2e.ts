@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { designPixel, drag, expectColor, INK, newDesign, WHITE, type Size } from './helpers.ts'
+import { designPixel, drag, expectColor, expectDesignSize, INK, newDesign, WHITE, type Size } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 const RED: [number, number, number] = [239, 68, 68]
@@ -16,7 +16,7 @@ async function closeDesign(page: Page) {
   await page.getByRole('menuitem', { name: 'Close design' }).click()
 }
 
-// An ink line across Layer 1, and a red line on a new layer above it.
+// An ink line (which makes Drawing 1), and a red line on a new layer above it.
 async function drawTwoLayers(page: Page, size: Size) {
   await drag(page, size, [
     [50, 100],
@@ -31,7 +31,7 @@ async function drawTwoLayers(page: Page, size: Size) {
 }
 
 async function expectTwoLayers(page: Page, size: Size) {
-  await expect(layerButtons(page)).toHaveText(['Layer 2', 'Layer 1', 'Background'])
+  await expect(layerButtons(page)).toHaveText(['Drawing 2', 'Drawing 1'])
   expectColor(await designPixel(page, size, 200, 100), INK)
   expectColor(await designPixel(page, size, 200, 200), RED)
   expectColor(await designPixel(page, size, 200, 150), WHITE)
@@ -55,7 +55,7 @@ test('designs are kept in the browser and come back with every layer', async ({ 
   await card.click()
   await expect(page.locator('header')).toContainText('My design 1')
   await expectTwoLayers(page, size)
-  await expect(page.getByRole('button', { name: 'Layer: Layer 2' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Layer: Drawing 2' })).toHaveAttribute('aria-pressed', 'true')
   await expect(saveStatus(page)).toHaveText('Saved')
   // Undo starts fresh for the reopened design.
   await expect(page.getByRole('button', { name: 'Undo', exact: true })).toHaveAttribute('aria-disabled', 'true')
@@ -179,8 +179,8 @@ test('a project file keeps every layer, and opens again with all of them', async
   const size = await newDesign(page)
   await drawTwoLayers(page, size)
   // Layer settings and the selection come back too.
-  await page.getByRole('button', { name: 'Hide Layer 2' }).click()
-  await page.getByRole('button', { name: 'Layer: Layer 1' }).click()
+  await page.getByRole('button', { name: 'Hide Drawing 2' }).click()
+  await page.getByRole('button', { name: 'Layer: Drawing 1' }).click()
   const opacity = page.getByLabel('Layer opacity')
   await opacity.focus()
   for (let i = 0; i < 5; i++) await opacity.press('Shift+ArrowLeft')
@@ -212,14 +212,14 @@ test('a project file keeps every layer, and opens again with all of them', async
 })
 
 async function expectLayersBack(page: Page, size: Size) {
-  await expect(layerButtons(page)).toHaveText(['Layer 2', 'Layer 1', 'Background'])
-  await expect(page.getByRole('button', { name: 'Show Layer 2' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Layer: Layer 1' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(layerButtons(page)).toHaveText(['Drawing 2', 'Drawing 1'])
+  await expect(page.getByRole('button', { name: 'Show Drawing 2' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Layer: Drawing 1' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByLabel('Layer opacity')).toHaveAttribute('aria-valuetext', '50%')
   // Hidden red line, half-faded ink line.
   expectColor(await designPixel(page, size, 200, 200), WHITE)
   expectColor(await designPixel(page, size, 200, 100), [141, 142, 145], 10)
-  await page.getByRole('button', { name: 'Show Layer 2' }).click()
+  await page.getByRole('button', { name: 'Show Drawing 2' }).click()
   expectColor(await designPixel(page, size, 200, 200), RED)
   await expect(page.getByRole('menuitem', { name: 'Deselect' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Menu' }).click()
@@ -342,4 +342,23 @@ test.describe('when the browser cannot keep designs', () => {
     await closeDesign(page)
     await expect(welcome(page)).toBeVisible()
   })
+})
+
+test('the page color is kept, and a see-through page stays see-through', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.keyboard.press('v')
+  await page.getByRole('button', { name: 'Page', exact: true }).click()
+  await page.getByRole('button', { name: 'Red', exact: true }).click()
+  expectColor(await designPixel(page, size, 200, 150), RED)
+  await expect(saveStatus(page)).toHaveText('Saved')
+  await page.reload()
+  await yourDesigns(page).getByRole('button', { name: 'Open My design 1' }).click()
+  await expectDesignSize(page, 400, 300)
+  expectColor(await designPixel(page, size, 200, 150), RED)
+
+  await page.getByRole('button', { name: 'See-through page' }).click()
+  await expect(saveStatus(page)).toHaveText('Saved')
+  await page.reload()
+  await yourDesigns(page).getByRole('button', { name: 'Open My design 1' }).click()
+  await expect(page.getByRole('button', { name: 'See-through page' })).toHaveAttribute('aria-pressed', 'true')
 })

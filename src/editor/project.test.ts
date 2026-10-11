@@ -51,6 +51,7 @@ function manifest(overrides: Partial<ProjectManifest> = {}): ProjectManifest {
     name: 'Birthday card',
     width: 400,
     height: 300,
+    background: '#ffffff',
     activeLayer: 1,
     selection: null,
     layers: [
@@ -123,9 +124,9 @@ describe('project files', () => {
       manifest({ width: 0 }),
       manifest({ height: 20001 }),
       manifest({ width: 10.5 }),
-      manifest({ layers: [] }),
       manifest({ activeLayer: 2 }),
-      manifest({ activeLayer: -1 }),
+      manifest({ activeLayer: -2 }),
+      { ...manifest(), background: 'white' },
       { ...manifest(), name: 7 },
       manifest({ layers: [pixels({ width: 0 })], activeLayer: 0 }),
       manifest({ layers: [pixels({ opacity: 2 })], activeLayer: 0 }),
@@ -183,6 +184,15 @@ describe('project files', () => {
       words({ wrap: 'yes' as unknown as boolean }),
     ]
     for (const layer of bad) expect(() => validateManifest(manifest({ layers: [layer], activeLayer: 0 })), JSON.stringify(layer)).toThrow(ProjectError)
+  })
+
+  it('keeps the page color, and designs with nothing on the page yet', async () => {
+    const empty = manifest({ layers: [], activeLayer: -1, background: null })
+    const { manifest: read } = await unpackProject(packProject(empty, []))
+    expect(read).toEqual(empty)
+    // Older files had no page color: their page is see-through, with a layer for the paper.
+    const { background: _, ...older } = manifest({ version: 3 })
+    expect(validateManifest(older).background).toBeNull()
   })
 
   it('treats an empty selection as no selection', () => {

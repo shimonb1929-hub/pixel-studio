@@ -40,6 +40,7 @@ const design = (): EditorDocument => ({
   name: 'Card',
   width: 400,
   height: 300,
+  background: '#ffffff',
   layers: [photo(), star()],
   activeLayerId: 'star',
   selection: null,

@@ -108,9 +108,11 @@ export interface EditorDocument {
   name: string
   width: number
   height: number
+  // The color of the page under everything, or null for a see-through page.
+  background: string | null
   // Bottom layer first, top layer last.
   layers: Layer[]
-  // The layer that painting and layer actions apply to.
+  // The layer that painting and layer actions apply to. Empty when the page itself is picked.
   activeLayerId: string
   // The selected area; painting and editing stay inside it. Null means nothing is selected.
   selection: Selection | null

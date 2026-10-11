@@ -143,6 +143,11 @@ export function renderScene(
     ctx.fillRect(left, top, width, height)
   }
 
+  if (doc.background) {
+    ctx.fillStyle = doc.background
+    ctx.fillRect(left, top, width, height)
+  }
+
   ctx.save()
   ctx.setTransform(width / doc.width, 0, 0, height / doc.height, left, top)
   // Smooth when shrinking; show crisp square pixels when zoomed in.
