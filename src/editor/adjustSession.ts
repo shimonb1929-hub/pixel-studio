@@ -3,7 +3,7 @@ import { createCanvas, getContext2d, layerRect } from './document.ts'
 import { intersectRect, unionRect, type Rect } from './geometry.ts'
 import type { RenderPart } from './render.ts'
 import { selectionInfo } from './selection.ts'
-import type { EditorDocument, Layer } from './types.ts'
+import type { EditorDocument, PixelLayer } from './types.ts'
 
 // Strong blur is worked out on a smaller copy and scaled back up: a blurred picture has no fine
 // detail to lose, and it's many times quicker. This much blur (in pixels) is the most done at full
@@ -24,7 +24,7 @@ function longSide(doc: EditorDocument): number {
 
 // The part of the design that changes, in design pixels: the selected part, or the whole layer
 // plus room for a blur to spread into (inside the design). Null when nothing can change.
-export function adjustArea(doc: EditorDocument, layer: Layer, a: Adjustments): Rect | null {
+export function adjustArea(doc: EditorDocument, layer: PixelLayer, a: Adjustments): Rect | null {
   const reach = adjustmentReach(a, longSide(doc))
   const own = layerRect(layer)
   const design = { x: 0, y: 0, width: doc.width, height: doc.height }
@@ -38,7 +38,7 @@ export function adjustArea(doc: EditorDocument, layer: Layer, a: Adjustments): R
 
 // The pixels an adjustment of `area` looks at. A blur near the edge of a photo repeats the edge
 // rather than pulling in see-through pixels from beyond it.
-function readArea(doc: EditorDocument, layer: Layer, area: Rect, a: Adjustments): Rect {
+function readArea(doc: EditorDocument, layer: PixelLayer, area: Rect, a: Adjustments): Rect {
   const reach = adjustmentReach(a, longSide(doc))
   const limits = unionRect(layerRect(layer), { x: 0, y: 0, width: doc.width, height: doc.height })
   return intersectRect(grow(area, reach), limits) ?? area
@@ -69,7 +69,7 @@ function process(canvas: HTMLCanvasElement, read: Rect, a: Adjustments, size: nu
 // selected part changes, soft edges included; the rest of `area` keeps the original pixels.
 export function renderAdjusted(
   doc: EditorDocument,
-  layer: Layer,
+  layer: PixelLayer,
   a: Adjustments,
   area: Rect,
   scale: number,
@@ -135,7 +135,7 @@ export function renderAdjusted(
 }
 
 // For editor.paint: replaces `area` of the layer with its adjusted pixels, at full detail.
-export function paintAdjusted(ctx: CanvasRenderingContext2D, layer: Layer, doc: EditorDocument, a: Adjustments, area: Rect): void {
+export function paintAdjusted(ctx: CanvasRenderingContext2D, layer: PixelLayer, doc: EditorDocument, a: Adjustments, area: Rect): void {
   const adjusted = renderAdjusted(doc, layer, a, area, 1)
   ctx.clearRect(area.x - layer.x, area.y - layer.y, area.width, area.height)
   ctx.drawImage(adjusted, area.x - layer.x, area.y - layer.y)
@@ -148,7 +148,7 @@ export function previewScale(area: Rect, screenScale: number): number {
 }
 
 // What to draw in place of the layer while adjustments are being tried out.
-export function previewParts(doc: EditorDocument, layer: Layer, a: Adjustments, screenScale: number): RenderPart[] {
+export function previewParts(doc: EditorDocument, layer: PixelLayer, a: Adjustments, screenScale: number): RenderPart[] {
   const area = adjustArea(doc, layer, a)
   if (!area) return [layer]
   const scale = previewScale(area, screenScale)
@@ -176,7 +176,7 @@ export function previewParts(doc: EditorDocument, layer: Layer, a: Adjustments, 
 }
 
 // Small pictures of the layer (or the selected part) with each set of adjustments, for the looks.
-export function lookThumbnails(doc: EditorDocument, layer: Layer, looks: Adjustments[], maxSide: number): HTMLCanvasElement[] | null {
+export function lookThumbnails(doc: EditorDocument, layer: PixelLayer, looks: Adjustments[], maxSide: number): HTMLCanvasElement[] | null {
   const area = adjustArea(doc, layer, looks[0])
   if (!area) return null
   const scale = Math.min(1, maxSide / Math.max(area.width, area.height))

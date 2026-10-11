@@ -8,6 +8,13 @@ Pixel Studio is Photoshop, Illustrator and InDesign in one program, in the brows
   make here, at the same quality. Do not leave out advanced features; make them easy to reach.
 - **Simple enough for a 15-year-old** who has never used a design program: plain words, good
   defaults, live previews before anything is kept, hover help on everything.
+- **New and easy, not a copy**: reach the same results as the professional tools without their
+  old-fashioned, hard-to-learn ideas (masks, channels, clipping paths, adjustment layers). Find a
+  direct way instead: a photo goes inside a shape by dropping it on the shape; adjustments stay
+  changeable on the layer itself. Layers are fine: they are simple.
+- **Everything is an object**: pictures, photos and shapes are all picked with a click, dragged to
+  move, resized from a corner and turned with the round handle (the Arrange tool). Pictures keep
+  their original pixels, so nothing gets blurry from resizing.
 
 When choosing what to build next, ask: what is the biggest gap between what a professional can make
 with Photoshop, Illustrator or InDesign and what someone can make here? The README's design

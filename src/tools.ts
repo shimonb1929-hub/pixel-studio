@@ -1,4 +1,4 @@
-import { Brush, Crop, Eraser, Hand, Move, PaintBucket, Pipette, Scaling, SlidersHorizontal, SquareDashed, ZoomIn, type LucideIcon } from 'lucide-react'
+import { Brush, Crop, Eraser, Hand, MousePointer2, PaintBucket, Pipette, Shapes, SlidersHorizontal, SquareDashed, ZoomIn, type LucideIcon } from 'lucide-react'
 import type { ToolId } from './editor/types.ts'
 import { ALT_LABEL } from './keys.ts'
 
@@ -22,14 +22,14 @@ export interface ToolInfo {
 export const TOOLS: ToolInfo[] = [
   {
     id: 'move',
-    name: 'Move',
-    label: 'Move',
+    name: 'Arrange',
+    label: 'Arrange',
     key: 'V',
-    icon: Move,
+    icon: MousePointer2,
     description:
-      'Drag to move the selected layer. If part of it is selected, only that part moves. Arrow keys move it one pixel at a time.',
-    hint: 'Drag to move the selected layer, or just the selected part. Arrow keys nudge it.',
-    keywords: ['move', 'drag', 'position', 'place', 'shift', 'nudge', 'arrange'],
+      'Click anything on your design to pick it. Drag it to move it, pull a corner to resize it, or the round handle to turn it. Pictures never lose quality, however often you resize them.',
+    hint: 'Click something to pick it. Drag to move it, pull a corner to resize, the round handle to turn. Arrow keys nudge it.',
+    keywords: ['move', 'drag', 'position', 'place', 'resize', 'scale', 'rotate', 'turn', 'flip', 'mirror', 'arrange', 'pick', 'bigger', 'smaller', 'transform', 'nudge', 'stretch'],
     group: 'arrange',
   },
   {
@@ -44,18 +44,6 @@ export const TOOLS: ToolInfo[] = [
     group: 'arrange',
   },
   {
-    id: 'transform',
-    name: 'Resize and rotate',
-    label: 'Resize',
-    key: 'T',
-    icon: Scaling,
-    description:
-      'Make things bigger or smaller, turn them, or flip them. Works on the selected layer, or just the selected part. Nothing changes for good until you press Apply.',
-    hint: 'Drag a corner to resize, the round handle to turn. Press Enter to apply, Esc to cancel.',
-    keywords: ['resize', 'scale', 'rotate', 'turn', 'flip', 'mirror', 'bigger', 'smaller', 'transform', 'stretch', 'size'],
-    group: 'arrange',
-  },
-  {
     id: 'crop',
     name: 'Crop',
     label: 'Crop',
@@ -66,6 +54,18 @@ export const TOOLS: ToolInfo[] = [
     hint: 'Drag the edges or corners to choose what to keep. Press Enter to crop, Esc to start over.',
     keywords: ['crop', 'trim', 'cut down', 'frame', 'canvas size', 'shape'],
     group: 'arrange',
+  },
+  {
+    id: 'shape',
+    name: 'Shapes',
+    label: 'Shapes',
+    key: 'U',
+    icon: Shapes,
+    description:
+      'Draw rectangles, ovals, polygons, stars, lines and arrows. They stay sharp at any size, and you can change their colors, outline and corners any time.',
+    hint: 'Drag to draw a shape, or click to drop one. Hold Shift for a perfect square or circle, or a straight line.',
+    keywords: ['shape', 'rectangle', 'square', 'circle', 'oval', 'ellipse', 'triangle', 'polygon', 'hexagon', 'star', 'line', 'arrow', 'box', 'frame', 'vector', 'badge', 'button'],
+    group: 'draw',
   },
   {
     id: 'brush',

@@ -1,5 +1,5 @@
 import { containsRect, snapRect, unionRect, type Rect } from './geometry.ts'
-import type { EditorDocument, Layer } from './types.ts'
+import type { EditorDocument, Layer, PixelLayer } from './types.ts'
 
 // Browsers refuse or silently fail on canvases much larger than this.
 export const MAX_DOCUMENT_SIDE = 10000
@@ -50,28 +50,33 @@ export function getContext2d(canvas: HTMLCanvasElement): CanvasRenderingContext2
 // Browsers can't make canvases much bigger than this on a side.
 export const MAX_LAYER_SIDE = 16000
 
-export function layerFromCanvas(name: string, canvas: HTMLCanvasElement, x = 0, y = 0): Layer {
-  return { id: createId('layer'), kind: 'raster', name, canvas, x, y, visible: true, opacity: 1 }
+export function layerFromCanvas(name: string, canvas: HTMLCanvasElement, x = 0, y = 0): PixelLayer {
+  return { id: createId('layer'), kind: 'raster', name, canvas, x, y, box: null, visible: true, opacity: 1, locked: false, adjust: null }
 }
 
-export function createLayer(name: string, width: number, height: number): Layer {
+export function createLayer(name: string, width: number, height: number): PixelLayer {
   return layerFromCanvas(name, createCanvas(width, height))
 }
 
+// An exact copy, placed in the same spot. Shapes and photos inside them never change in place,
+// so their copy can share them; pixels are copied, since painting changes them.
 export function duplicateLayer(layer: Layer): Layer {
+  const id = createId('layer')
+  const name = `${layer.name} copy`
+  if (layer.kind === 'shape') return { ...layer, id, name, locked: false }
   const canvas = createCanvas(layer.canvas.width, layer.canvas.height)
   getContext2d(canvas).drawImage(layer.canvas, 0, 0)
-  return { ...layerFromCanvas(`${layer.name} copy`, canvas, layer.x, layer.y), visible: layer.visible, opacity: layer.opacity }
+  return { ...layer, id, name, locked: false, canvas }
 }
 
-// The area a layer's pixels cover, in design coordinates.
-export function layerRect(layer: Layer): Rect {
+// The area a pixel layer's canvas covers, in design coordinates (before any resizing or turning).
+export function layerRect(layer: PixelLayer): Rect {
   return { x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height }
 }
 
 // Returns a layer whose canvas covers the given area, growing a copy of it if needed.
 // The original layer is left untouched, so undo can put it back.
-export function coverRect(layer: Layer, rect: Rect): Layer {
+export function coverRect(layer: PixelLayer, rect: Rect): PixelLayer {
   const current = layerRect(layer)
   if (containsRect(current, rect)) return layer
   let target = snapRect(unionRect(current, rect))
@@ -83,10 +88,11 @@ export function coverRect(layer: Layer, rect: Rect): Layer {
 }
 
 // Every design starts like a sheet of paper with a clear sheet on top. You draw on the clear
-// sheet, so the eraser rubs out your drawing and never the paper or the picture underneath.
-function withDrawingLayer(name: string, base: Layer, width: number, height: number): EditorDocument {
+// sheet, so the eraser rubs out your drawing and never the paper or the picture underneath. The
+// paper starts locked, so arranging things on top never drags it along by accident.
+function withDrawingLayer(name: string, base: PixelLayer, width: number, height: number): EditorDocument {
   const drawing = createLayer('Layer 1', width, height)
-  return { id: createDesignId(), name, width, height, layers: [base, drawing], activeLayerId: drawing.id, selection: null }
+  return { id: createDesignId(), name, width, height, layers: [{ ...base, locked: true }, drawing], activeLayerId: drawing.id, selection: null }
 }
 
 export function createBlankDocument(
@@ -113,20 +119,4 @@ export function createDocumentFromImage(
   const layer = createLayer('Picture', width, height)
   getContext2d(layer.canvas).drawImage(image, 0, 0, width, height)
   return withDrawingLayer(name, layer, width, height)
-}
-
-// Merges all visible layers into a single canvas, optionally over a solid color.
-export function flattenDocument(doc: EditorDocument, background?: string): HTMLCanvasElement {
-  const canvas = createCanvas(doc.width, doc.height)
-  const ctx = getContext2d(canvas)
-  if (background) {
-    ctx.fillStyle = background
-    ctx.fillRect(0, 0, doc.width, doc.height)
-  }
-  for (const layer of doc.layers) {
-    if (!layer.visible || layer.opacity <= 0) continue
-    ctx.globalAlpha = layer.opacity
-    ctx.drawImage(layer.canvas, layer.x, layer.y)
-  }
-  return canvas
 }

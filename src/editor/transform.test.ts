@@ -122,6 +122,13 @@ describe('hitHandle', () => {
     expect(hitHandle(box(), { x: 150, y: 72 }, 1, { rotate: false })).toBeNull()
   })
 
+  it('picks the nearest handle on a small box, corners first', () => {
+    const small = { cx: 105, cy: 102.5, width: 10, height: 5, rotation: 0 }
+    expect(hitHandle(small, { x: 110, y: 105 }, 1, { rotate: false })).toBe('se')
+    expect(hitHandle(small, { x: 105, y: 100 }, 1, { rotate: false })).toBe('n')
+    expect(hitHandle(small, { x: 101, y: 101 }, 1, { rotate: false })).toBe('nw')
+  })
+
   it('makes handles the same size on screen at any zoom', () => {
     expect(hitHandle(box(), { x: 204, y: 154 }, 4, { rotate: false })).toBeNull()
     expect(hitHandle(box(), { x: 204, y: 154 }, 1, { rotate: false })).toBe('se')

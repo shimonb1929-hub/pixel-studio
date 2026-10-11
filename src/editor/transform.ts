@@ -92,6 +92,19 @@ export function multiplyAffine(m1: Affine, m2: Affine): Affine {
   }
 }
 
+// The transform that undoes `m`. Boxes always have a size, so `m` can always be undone.
+export function invertAffine(m: Affine): Affine {
+  const det = m.a * m.d - m.b * m.c
+  return {
+    a: m.d / det,
+    b: -m.b / det,
+    c: -m.c / det,
+    d: m.a / det,
+    e: (m.c * m.f - m.d * m.e) / det,
+    f: (m.b * m.e - m.a * m.f) / det,
+  }
+}
+
 export function translateAffine(dx: number, dy: number): Affine {
   return { a: 1, b: 0, c: 0, d: 1, e: dx, f: dy }
 }
@@ -166,12 +179,21 @@ export function hitHandle(box: TransformBox, point: Point, zoom: number, options
     const knob = rotationKnob(box, zoom)
     if (Math.hypot(point.x - knob.x, point.y - knob.y) <= grab) return 'rotate'
   }
-  for (const [name, [sx, sy]] of Object.entries(HANDLE_SIGNS) as [Handle, [number, number]][]) {
+  // The nearest handle wins, corners first, so small boxes still resize from the handle under the pointer.
+  let nearest: Handle | null = null
+  let nearestDistance = grab
+  const handles = (Object.entries(HANDLE_SIGNS) as [Handle, [number, number]][]).sort(([, a], [, b]) => Number(a[0] === 0 || a[1] === 0) - Number(b[0] === 0 || b[1] === 0))
+  for (const [name, [sx, sy]] of handles) {
     // With a fixed shape (like a square crop), only the corners can resize.
     if (options.edges === false && (sx === 0 || sy === 0)) continue
     const p = boxPoint(box, sx, sy)
-    if (Math.hypot(point.x - p.x, point.y - p.y) <= grab) return name
+    const distance = Math.hypot(point.x - p.x, point.y - p.y)
+    if (distance <= nearestDistance && (nearest === null || distance < nearestDistance)) {
+      nearest = name
+      nearestDistance = distance
+    }
   }
+  if (nearest) return nearest
   const local = rotate(point.x - box.cx, point.y - box.cy, -box.rotation)
   if (Math.abs(local.x) <= Math.abs(box.width) / 2 && Math.abs(local.y) <= Math.abs(box.height) / 2) return 'move'
   // Just outside a corner, dragging turns the box, like in most design programs.

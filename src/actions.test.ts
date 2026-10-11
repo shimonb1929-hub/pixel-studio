@@ -43,7 +43,12 @@ describe('searchActions', () => {
 
   it('matches a single letter only at the start of a word', () => {
     expect(ids('w')).toEqual([])
-    expect(ids('d')).toEqual(['new', 'download'])
+    expect(ids('d')).toEqual(['download', 'new'])
+  })
+
+  it('puts a title that starts with what was typed first', () => {
+    const undo: Action = { id: 'undo', group: 'Edit', title: 'Undo zoom out', description: 'Take back your last change.', keywords: ['undo'], run: noop }
+    expect(searchActions([undo, ...ACTIONS], 'zoom out').map((a) => a.id)).toEqual(['zoom-out', 'undo'])
   })
 })
 

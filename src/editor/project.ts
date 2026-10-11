@@ -1,17 +1,24 @@
-import { createCanvas, createDesignId, getContext2d, layerFromCanvas, MAX_LAYER_SIDE, validateDocumentSize } from './document.ts'
+import type { Adjustments } from './adjust.ts'
+import { drawLayer } from './compose.ts'
+import { createCanvas, createDesignId, createId, getContext2d, layerFromCanvas, MAX_LAYER_SIDE, validateDocumentSize } from './document.ts'
 import { EXPORT_FORMATS } from './fileNames.ts'
 import { pixelVersion } from './pixelVersion.ts'
 import type { Selection, SelectionOp } from './selection.ts'
-import type { EditorDocument, Layer } from './types.ts'
+import type { TransformBox } from './transform.ts'
+import type { EditorDocument, Layer, ShapeGeometry, ShapeOutline, ShapeType } from './types.ts'
 
 // A project keeps everything needed to carry on editing later: the design's size, every layer
 // with its pixels, position and settings, and the selection. The same format is used for
 // project files people download and for designs kept in the browser.
 //
 // Layout: the letters "PXSTUDIO", the length of the description as 4 bytes (little-endian),
-// the description as JSON text, then each layer's pixels as a PNG, one after another.
+// the description as JSON text, then the pictures as PNGs, one after another: each pixel layer's
+// pixels, and each photo inside a shape, in layer order.
+//
+// Version 2 added shapes, resized and turned pictures (box), locks and editable adjustments.
+// Version 1 files still open.
 
-export const PROJECT_VERSION = 1
+export const PROJECT_VERSION = 2
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -21,17 +28,44 @@ const MAX_DESCRIPTION_BYTES = 64 * 1024 * 1024
 const MAX_TOTAL_PIXELS = 1_000_000_000
 const MAX_NAME_LENGTH = 200
 
-export interface ProjectLayer {
-  kind: 'raster'
+interface ProjectLayerBase {
   name: string
+  visible: boolean
+  opacity: number
+  locked: boolean
+  adjust: Adjustments | null
+}
+
+export interface ProjectPixelLayer extends ProjectLayerBase {
+  kind: 'raster'
   x: number
   y: number
   width: number
   height: number
-  visible: boolean
-  opacity: number
-  // The length of this layer's PNG, which comes right after the previous layer's.
+  box: TransformBox | null
+  // The length of this layer's PNG, which comes right after the previous picture's.
   bytes: number
+}
+
+export type ProjectFill =
+  | { kind: 'none' }
+  | { kind: 'color'; color: string }
+  | { kind: 'photo'; zoom: number; x: number; y: number; width: number; height: number; bytes: number }
+
+export interface ProjectShapeLayer extends ProjectLayerBase {
+  kind: 'shape'
+  box: TransformBox
+  geometry: ShapeGeometry
+  fill: ProjectFill
+  outline: ShapeOutline | null
+}
+
+export type ProjectLayer = ProjectPixelLayer | ProjectShapeLayer
+
+// The PNGs a layer brings along, in order.
+function pictureSizes(layer: ProjectLayer): number[] {
+  if (layer.kind === 'raster') return [layer.bytes]
+  return layer.fill.kind === 'photo' ? [layer.fill.bytes] : []
 }
 
 export interface ProjectManifest {
@@ -71,7 +105,7 @@ export async function isProjectFile(file: Blob): Promise<boolean> {
   return file.size >= HEADER_BYTES && hasMagic(file)
 }
 
-// Reads the description and finds each layer's PNG, without decoding any pixels yet.
+// Reads the description and finds each picture's PNG, without decoding any pixels yet.
 export async function unpackProject(file: Blob): Promise<{ manifest: ProjectManifest; images: Blob[] }> {
   if (file.size < HEADER_BYTES || !(await hasMagic(file))) throw new ProjectError(DAMAGED)
   const length = new DataView(await file.slice(MAGIC.length, HEADER_BYTES).arrayBuffer()).getUint32(0, true)
@@ -84,9 +118,9 @@ export async function unpackProject(file: Blob): Promise<{ manifest: ProjectMani
   }
   const manifest = validateManifest(parsed)
   let offset = HEADER_BYTES + length
-  const images = manifest.layers.map((layer) => {
-    const image = file.slice(offset, offset + layer.bytes, 'image/png')
-    offset += layer.bytes
+  const images = manifest.layers.flatMap(pictureSizes).map((bytes) => {
+    const image = file.slice(offset, offset + bytes, 'image/png')
+    offset += bytes
     return image
   })
   if (offset > file.size) throw new ProjectError(DAMAGED)
@@ -103,6 +137,108 @@ function isWhole(value: unknown, min: number, max: number): value is number {
 
 function isCoordinate(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1e7
+}
+
+function isBetween(value: unknown, min: number, max: number): value is number {
+  return typeof value === 'number' && value >= min && value <= max
+}
+
+function damaged(): never {
+  throw new ProjectError(DAMAGED)
+}
+
+function readBox(value: unknown): TransformBox {
+  if (!isRecord(value)) damaged()
+  const { cx, cy, width, height, rotation } = value
+  if (!isCoordinate(cx) || !isCoordinate(cy) || !isCoordinate(width) || !isCoordinate(height) || !isBetween(rotation, -10, 10)) damaged()
+  if (Math.abs(width) < 0.01 || Math.abs(height) < 0.01) damaged()
+  return { cx, cy, width, height, rotation }
+}
+
+const ADJUSTMENT_KEYS = ['brightness', 'contrast', 'saturation', 'warmth', 'blur', 'sharpen'] as const
+
+function readAdjust(value: unknown): Adjustments | null {
+  if (value === null || value === undefined) return null
+  if (!isRecord(value)) damaged()
+  const settings = {} as Adjustments
+  for (const key of ADJUSTMENT_KEYS) {
+    const v = value[key]
+    const min = key === 'blur' || key === 'sharpen' ? 0 : -1
+    if (!isBetween(v, min, 1)) damaged()
+    settings[key] = v
+  }
+  return settings
+}
+
+const COLOR = /^#[0-9a-f]{6}$/i
+const SHAPE_TYPES: ShapeType[] = ['rectangle', 'ellipse', 'polygon', 'star', 'line']
+
+function readColor(value: unknown): string {
+  if (typeof value !== 'string' || !COLOR.test(value)) damaged()
+  return value
+}
+
+function readGeometry(value: unknown): ShapeGeometry {
+  if (!isRecord(value) || !SHAPE_TYPES.includes(value.type as ShapeType)) damaged()
+  if (!isBetween(value.corners, 0, 1) || !isWhole(value.sides, 3, 64) || typeof value.arrow !== 'boolean') damaged()
+  return { type: value.type as ShapeType, corners: value.corners, sides: value.sides, arrow: value.arrow }
+}
+
+function readFill(value: unknown): ProjectFill {
+  if (!isRecord(value)) damaged()
+  if (value.kind === 'none') return { kind: 'none' }
+  if (value.kind === 'color') return { kind: 'color', color: readColor(value.color) }
+  if (
+    value.kind !== 'photo' ||
+    !isBetween(value.zoom, 1, 20) ||
+    !isBetween(value.x, -1, 1) ||
+    !isBetween(value.y, -1, 1) ||
+    !isWhole(value.width, 1, MAX_LAYER_SIDE) ||
+    !isWhole(value.height, 1, MAX_LAYER_SIDE) ||
+    !isWhole(value.bytes, 1, Number.MAX_SAFE_INTEGER)
+  ) {
+    damaged()
+  }
+  return { kind: 'photo', zoom: value.zoom, x: value.x, y: value.y, width: value.width, height: value.height, bytes: value.bytes }
+}
+
+function readOutline(value: unknown): ShapeOutline | null {
+  if (value === null || value === undefined) return null
+  if (!isRecord(value) || !isBetween(value.width, 0, 10000)) damaged()
+  return { color: readColor(value.color), width: value.width }
+}
+
+// Checks one layer's description. Settings missing from version 1 files get their defaults.
+function readLayer(layer: unknown): ProjectLayer {
+  if (!isRecord(layer) || typeof layer.name !== 'string' || typeof layer.visible !== 'boolean' || !isBetween(layer.opacity, 0, 1)) damaged()
+  if (layer.locked !== undefined && typeof layer.locked !== 'boolean') damaged()
+  const base: ProjectLayerBase = {
+    name: layer.name.slice(0, MAX_NAME_LENGTH),
+    visible: layer.visible,
+    opacity: layer.opacity,
+    locked: layer.locked === true,
+    adjust: readAdjust(layer.adjust),
+  }
+  if (layer.kind === 'shape') {
+    return { ...base, kind: 'shape', box: readBox(layer.box), geometry: readGeometry(layer.geometry), fill: readFill(layer.fill), outline: readOutline(layer.outline) }
+  }
+  if (
+    layer.kind !== 'raster' ||
+    !isWhole(layer.x, -1e7, 1e7) ||
+    !isWhole(layer.y, -1e7, 1e7) ||
+    !isWhole(layer.width, 1, MAX_LAYER_SIDE) ||
+    !isWhole(layer.height, 1, MAX_LAYER_SIDE) ||
+    !isWhole(layer.bytes, 1, Number.MAX_SAFE_INTEGER)
+  ) {
+    damaged()
+  }
+  const box = layer.box === null || layer.box === undefined ? null : readBox(layer.box)
+  return { ...base, kind: 'raster', x: layer.x, y: layer.y, width: layer.width, height: layer.height, box, bytes: layer.bytes }
+}
+
+function picturePixels(layer: ProjectLayer): number {
+  if (layer.kind === 'raster') return layer.width * layer.height
+  return layer.fill.kind === 'photo' ? layer.fill.width * layer.fill.height : 0
 }
 
 function readSelection(value: unknown): Selection | null {
@@ -124,45 +260,15 @@ function readSelection(value: unknown): Selection | null {
 
 // Checks everything in a project's description, so a damaged or made-up file can't break the editor.
 export function validateManifest(value: unknown): ProjectManifest {
-  if (!isRecord(value) || !Number.isInteger(value.version) || (value.version as number) < 1) throw new ProjectError(DAMAGED)
+  if (!isRecord(value) || !Number.isInteger(value.version) || (value.version as number) < 1) damaged()
   if ((value.version as number) > PROJECT_VERSION) throw new ProjectError(TOO_NEW)
   const { name, width, height, activeLayer, layers } = value
-  if (typeof name !== 'string' || typeof width !== 'number' || typeof height !== 'number' || validateDocumentSize(width, height)) {
-    throw new ProjectError(DAMAGED)
-  }
-  if (!Array.isArray(layers) || layers.length < 1 || layers.length > MAX_LAYERS) throw new ProjectError(DAMAGED)
-  let totalPixels = 0
-  const checked = layers.map((layer): ProjectLayer => {
-    if (
-      !isRecord(layer) ||
-      layer.kind !== 'raster' ||
-      typeof layer.name !== 'string' ||
-      !isWhole(layer.x, -1e7, 1e7) ||
-      !isWhole(layer.y, -1e7, 1e7) ||
-      !isWhole(layer.width, 1, MAX_LAYER_SIDE) ||
-      !isWhole(layer.height, 1, MAX_LAYER_SIDE) ||
-      typeof layer.visible !== 'boolean' ||
-      typeof layer.opacity !== 'number' ||
-      !(layer.opacity >= 0 && layer.opacity <= 1) ||
-      !isWhole(layer.bytes, 1, Number.MAX_SAFE_INTEGER)
-    ) {
-      throw new ProjectError(DAMAGED)
-    }
-    totalPixels += layer.width * layer.height
-    return {
-      kind: 'raster',
-      name: layer.name.slice(0, MAX_NAME_LENGTH),
-      x: layer.x,
-      y: layer.y,
-      width: layer.width,
-      height: layer.height,
-      visible: layer.visible,
-      opacity: layer.opacity,
-      bytes: layer.bytes,
-    }
-  })
+  if (typeof name !== 'string' || typeof width !== 'number' || typeof height !== 'number' || validateDocumentSize(width, height)) damaged()
+  if (!Array.isArray(layers) || layers.length < 1 || layers.length > MAX_LAYERS) damaged()
+  const checked = layers.map(readLayer)
+  const totalPixels = checked.reduce((sum, layer) => sum + picturePixels(layer), 0)
   if (totalPixels > MAX_TOTAL_PIXELS) throw new ProjectError('This project is too big for Pixel Studio to open.')
-  if (!isWhole(activeLayer, 0, checked.length - 1)) throw new ProjectError(DAMAGED)
+  if (!isWhole(activeLayer, 0, checked.length - 1)) damaged()
   return {
     version: value.version as number,
     name: name.slice(0, MAX_NAME_LENGTH),
@@ -174,10 +280,10 @@ export function validateManifest(value: unknown): ProjectManifest {
   }
 }
 
-// Encoding a big layer takes a moment, so each layer's PNG is kept until its pixels change.
+// Encoding a big picture takes a moment, so each PNG is kept until its pixels change.
 const encoded = new WeakMap<HTMLCanvasElement, { version: number; png: Blob }>()
 
-function layerPng(canvas: HTMLCanvasElement): Promise<Blob> {
+function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
   const version = pixelVersion(canvas)
   const cached = encoded.get(canvas)
   if (cached && cached.version === version) return Promise.resolve(cached.png)
@@ -194,10 +300,29 @@ function layerPng(canvas: HTMLCanvasElement): Promise<Blob> {
   })
 }
 
+// The pictures a layer brings along: its pixels, or the photo inside a shape.
+function layerPictures(layer: Layer): HTMLCanvasElement[] {
+  if (layer.kind === 'raster') return [layer.canvas]
+  return layer.fill.kind === 'photo' ? [layer.fill.canvas] : []
+}
+
+function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
+  const base: ProjectLayerBase = { name: layer.name, visible: layer.visible, opacity: layer.opacity, locked: layer.locked, adjust: layer.adjust }
+  if (layer.kind === 'raster') {
+    return { ...base, kind: 'raster', x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height, box: layer.box, bytes: sizes[0] }
+  }
+  const { fill } = layer
+  const savedFill: ProjectFill =
+    fill.kind === 'photo'
+      ? { kind: 'photo', zoom: fill.zoom, x: fill.x, y: fill.y, width: fill.canvas.width, height: fill.canvas.height, bytes: sizes[0] }
+      : fill
+  return { ...base, kind: 'shape', box: layer.box, geometry: layer.geometry, fill: savedFill, outline: layer.outline }
+}
+
 export async function encodeProject(doc: EditorDocument): Promise<Blob> {
   // Layers are read now, before waiting, so later changes don't end up half in the file.
   const layers = doc.layers
-  const images = await Promise.all(layers.map((layer) => layerPng(layer.canvas)))
+  const pictures = await Promise.all(layers.map((layer) => Promise.all(layerPictures(layer).map(canvasPng))))
   const manifest: ProjectManifest = {
     version: PROJECT_VERSION,
     name: doc.name,
@@ -205,43 +330,54 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
     height: doc.height,
     activeLayer: Math.max(0, layers.findIndex((layer) => layer.id === doc.activeLayerId)),
     selection: doc.selection,
-    layers: layers.map((layer, i) => ({
-      kind: 'raster',
-      name: layer.name,
-      x: layer.x,
-      y: layer.y,
-      width: layer.canvas.width,
-      height: layer.canvas.height,
-      visible: layer.visible,
-      opacity: layer.opacity,
-      bytes: images[i].size,
-    })),
+    layers: layers.map((layer, i) => describeLayer(layer, pictures[i].map((png) => png.size))),
   }
-  return packProject(manifest, images)
+  return packProject(manifest, pictures.flat())
 }
 
-async function decodeLayer(info: ProjectLayer, png: Blob): Promise<Layer> {
+async function decodePicture(png: Blob, width: number, height: number): Promise<HTMLCanvasElement> {
   let bitmap: ImageBitmap
   try {
     bitmap = await createImageBitmap(png)
   } catch {
-    throw new ProjectError(DAMAGED)
+    damaged()
   }
   try {
-    if (bitmap.width !== info.width || bitmap.height !== info.height) throw new ProjectError(DAMAGED)
-    const canvas = createCanvas(info.width, info.height)
+    if (bitmap.width !== width || bitmap.height !== height) damaged()
+    const canvas = createCanvas(width, height)
     getContext2d(canvas).drawImage(bitmap, 0, 0)
-    return { ...layerFromCanvas(info.name, canvas, info.x, info.y), visible: info.visible, opacity: info.opacity }
+    return canvas
   } finally {
     bitmap.close()
   }
+}
+
+async function decodeLayer(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
+  const { name, visible, opacity, locked, adjust } = info
+  if (info.kind === 'raster') {
+    const canvas = await decodePicture(pngs[0], info.width, info.height)
+    return { ...layerFromCanvas(name, canvas, info.x, info.y), box: info.box, visible, opacity, locked, adjust }
+  }
+  const fill =
+    info.fill.kind === 'photo'
+      ? { kind: 'photo' as const, canvas: await decodePicture(pngs[0], info.fill.width, info.fill.height), zoom: info.fill.zoom, x: info.fill.x, y: info.fill.y }
+      : info.fill
+  return { id: createId('layer'), kind: 'shape', name, visible, opacity, locked, adjust, box: info.box, geometry: info.geometry, fill, outline: info.outline }
 }
 
 // Turns a project back into a design. `id` keeps a design kept in the browser under its own
 // name; files opened from the computer get a new one, so they never replace a kept design.
 export async function decodeProject(file: Blob, id = createDesignId()): Promise<EditorDocument> {
   const { manifest, images } = await unpackProject(file)
-  const layers = await Promise.all(manifest.layers.map((info, i) => decodeLayer(info, images[i])))
+  let next = 0
+  const layers = await Promise.all(
+    manifest.layers.map((info) => {
+      const count = pictureSizes(info).length
+      const pngs = images.slice(next, next + count)
+      next += count
+      return decodeLayer(info, pngs)
+    }),
+  )
   return {
     id,
     name: manifest.name,
@@ -259,10 +395,11 @@ export function designThumbnail(doc: EditorDocument, maxSide = 320): Promise<Blo
   const canvas = createCanvas(Math.max(1, Math.round(doc.width * scale)), Math.max(1, Math.round(doc.height * scale)))
   const ctx = getContext2d(canvas)
   ctx.imageSmoothingQuality = 'high'
+  ctx.scale(scale, scale)
   for (const layer of doc.layers) {
     if (!layer.visible || layer.opacity <= 0) continue
     ctx.globalAlpha = layer.opacity
-    ctx.drawImage(layer.canvas, layer.x * scale, layer.y * scale, layer.canvas.width * scale, layer.canvas.height * scale)
+    drawLayer(ctx, doc, layer)
   }
   return new Promise((resolve, reject) =>
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Could not make a preview.'))), 'image/png'),

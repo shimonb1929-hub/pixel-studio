@@ -35,9 +35,11 @@ const WORD_SPLIT = /[^a-z0-9%]+/
 
 // Every typed word has to match the action somewhere. Matches at the start of a title word
 // count most, then the keywords, then the middle of the title or the description. Middle-of-word
-// matches need three letters, so typing one letter only finds words that start with it.
+// matches need three letters, so typing one letter only finds words that start with it. A title
+// that starts with exactly what was typed comes first ("resize design" before "Undo resize design").
 export function searchActions(actions: Action[], query: string): Action[] {
-  const words = normalize(query).split(/\s+/).filter(Boolean)
+  const typed = normalize(query).trim()
+  const words = typed.split(/\s+/).filter(Boolean)
   if (words.length === 0) return actions
 
   const matches: { action: Action; score: number; index: number }[] = []
@@ -54,6 +56,7 @@ export function searchActions(actions: Action[], query: string): Action[] {
       else if (word.length >= 3 && description.includes(word)) score += 1
       else return
     }
+    if (title.startsWith(typed)) score += 1
     matches.push({ action, score, index })
   })
 

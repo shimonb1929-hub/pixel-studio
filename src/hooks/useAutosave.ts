@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { saveDesign, StorageError } from '../editor/library.ts'
-import { pixelVersion } from '../editor/pixelVersion.ts'
+import { layerVersion } from '../editor/pixelVersion.ts'
 import { designThumbnail, encodeProject } from '../editor/project.ts'
 import type { EditorDocument } from '../editor/types.ts'
 import type { Editor } from './useEditor.ts'
@@ -25,11 +25,11 @@ interface Snapshot {
 }
 
 function snapshot(doc: EditorDocument): Snapshot {
-  return { doc, versions: doc.layers.map((layer) => pixelVersion(layer.canvas)) }
+  return { doc, versions: doc.layers.map((layer) => layerVersion(layer)) }
 }
 
 function sameAs(doc: EditorDocument, kept: Snapshot | null): boolean {
-  return kept !== null && kept.doc === doc && doc.layers.every((layer, i) => pixelVersion(layer.canvas) === kept.versions[i])
+  return kept !== null && kept.doc === doc && doc.layers.every((layer, i) => layerVersion(layer) === kept.versions[i])
 }
 
 // True if only the chosen layer differs, which on its own isn't a reason to start keeping a design.
@@ -41,7 +41,7 @@ function onlyLayerChoiceChanged(doc: EditorDocument, kept: Snapshot): boolean {
     doc.name === before.name &&
     doc.width === before.width &&
     doc.height === before.height &&
-    doc.layers.every((layer, i) => pixelVersion(layer.canvas) === kept.versions[i])
+    doc.layers.every((layer, i) => layerVersion(layer) === kept.versions[i])
   )
 }
 

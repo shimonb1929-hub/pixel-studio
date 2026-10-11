@@ -1,4 +1,5 @@
-import { createCanvas, createDocumentFromImage, flattenDocument, getContext2d, MAX_DOCUMENT_SIDE } from './document.ts'
+import { flattenDocument } from './compose.ts'
+import { createCanvas, createDocumentFromImage, getContext2d, MAX_DOCUMENT_SIDE } from './document.ts'
 import { EXPORT_FORMATS, type ExportFormat } from './fileNames.ts'
 import { decodeProject, encodeProject, isProjectFile } from './project.ts'
 import type { EditorDocument } from './types.ts'

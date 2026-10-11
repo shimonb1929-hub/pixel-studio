@@ -1,7 +1,9 @@
+import { slideLayer } from './arrange.ts'
 import { createCanvas, getContext2d, layerRect } from './document.ts'
 import { snapRect, unionRect } from './geometry.ts'
-import { activeLayer, updateLayer } from './layers.ts'
-import type { RenderPart } from './render.ts'
+import { activeLayer, replaceLayer } from './layers.ts'
+import { settleLayer } from './objects.ts'
+import type { LayerOverride } from './render.ts'
 import { selectionInfo, translateSelection } from './selection.ts'
 import type { EditorDocument } from './types.ts'
 
@@ -13,27 +15,32 @@ export interface MoveSession {
   label: string
   // True when a selected area is moving, so its outline should move along.
   movesSelection: boolean
-  // What to draw for the layer while it's dragged by dx, dy.
-  parts: (dx: number, dy: number) => RenderPart[]
+  // What to show for the layer while it's dragged by dx, dy.
+  preview: (dx: number, dy: number) => LayerOverride
   // The design after moving by whole pixels dx, dy.
   commit: (doc: EditorDocument, dx: number, dy: number) => EditorDocument
 }
 
 // Moving with nothing selected moves the whole layer, which only changes where it sits.
 // Moving with a selection lifts the selected pixels off the layer and puts them down elsewhere.
+// Shapes have no pixels to lift, so only whole shapes move.
 export function startMove(doc: EditorDocument): MoveSession | null {
-  const layer = activeLayer(doc)
-  if (!layer) return null
+  const active = activeLayer(doc)
+  if (!active) return null
 
   if (!doc.selection) {
     return {
-      layerId: layer.id,
+      layerId: active.id,
       label: 'Move layer',
       movesSelection: false,
-      parts: (dx, dy) => [{ canvas: layer.canvas, x: layer.x + dx, y: layer.y + dy }],
-      commit: (d, dx, dy) => updateLayer(d, layer.id, { x: layer.x + dx, y: layer.y + dy }),
+      preview: (dx, dy) => ({ layerId: active.id, layer: slideLayer(active, dx, dy) }),
+      commit: (d, dx, dy) => replaceLayer(d, slideLayer(active, dx, dy)),
     }
   }
+
+  if (active.kind !== 'raster') return null
+  // A resized or turned picture is settled into plain pixels first.
+  const layer = settleLayer(active)
 
   const { mask, bounds } = selectionInfo(doc.selection, doc.width, doc.height)
   if (!bounds) return null
@@ -55,10 +62,13 @@ export function startMove(doc: EditorDocument): MoveSession | null {
     layerId: layer.id,
     label: 'Move selected area',
     movesSelection: true,
-    parts: (dx, dy) => [
-      { canvas: base, x: layer.x, y: layer.y },
-      { canvas: floating, x: bounds.x + dx, y: bounds.y + dy },
-    ],
+    preview: (dx, dy) => ({
+      layerId: layer.id,
+      parts: [
+        { canvas: base, x: layer.x, y: layer.y },
+        { canvas: floating, x: bounds.x + dx, y: bounds.y + dy },
+      ],
+    }),
     commit: (d, dx, dy) => {
       const moved = { x: bounds.x + dx, y: bounds.y + dy, width: bounds.width, height: bounds.height }
       const target = snapRect(unionRect(layerRect(layer), moved))
@@ -67,7 +77,7 @@ export function startMove(doc: EditorDocument): MoveSession | null {
       const ctx = getContext2d(canvas)
       ctx.drawImage(base, layer.x - target.x, layer.y - target.y)
       ctx.drawImage(floating, moved.x - target.x, moved.y - target.y)
-      return { ...updateLayer(d, layer.id, { canvas, x: target.x, y: target.y }), selection: translateSelection(selection, dx, dy) }
+      return { ...replaceLayer(d, { ...layer, canvas, x: target.x, y: target.y }), selection: translateSelection(selection, dx, dy) }
     },
   }
 }

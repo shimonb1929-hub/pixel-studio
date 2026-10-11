@@ -25,10 +25,10 @@ async function block(page: Page, size: Size, x0: number, y0: number, x1: number,
 
 const BLACK: [number, number, number] = [27, 29, 35]
 
-test('resize from a corner, then apply with Enter', async ({ page }) => {
+test('Arrange: pull a corner to resize; it is kept when you let go', async ({ page }) => {
   const size = await newDesign(page)
   await block(page, size, 80, 120, 120, 160)
-  await page.keyboard.press('t')
+  await page.keyboard.press('v')
   await expect(page.getByRole('toolbar')).toContainText('40 × 40 px')
   // Drag the bottom-right corner out; the shape stays square.
   await drag(page, size, [
@@ -36,18 +36,41 @@ test('resize from a corner, then apply with Enter', async ({ page }) => {
     [160, 200],
   ])
   await expect(page.getByRole('toolbar')).toContainText('80 × 80 px')
-  await page.keyboard.press('Enter')
   expectColor(await designPixel(page, size, 150, 190), BLACK)
   expectColor(await designPixel(page, size, 85, 125), BLACK)
   expect(await undoLabel(page)).toContain('Undo resize')
   await page.keyboard.press('Control+z')
   expectColor(await designPixel(page, size, 150, 190), WHITE)
+  await expect(page.getByRole('toolbar')).toContainText('40 × 40 px')
+})
+
+test('resizing never loses quality: tiny, then big again, stays crisp', async ({ page }) => {
+  const size = await newDesign(page)
+  await block(page, size, 100, 100, 200, 200, 'Red')
+  await block(page, size, 200, 100, 300, 200, 'Green')
+  await page.keyboard.press('v')
+  await expect(page.getByRole('toolbar')).toContainText('200 × 100 px')
+  // Shrink it to almost nothing from its bottom-right corner, then pull it back out.
+  await drag(page, size, [
+    [300, 200],
+    [110, 105],
+  ])
+  await expect(page.getByRole('toolbar')).toContainText('10 × 5 px')
+  await drag(page, size, [
+    [110, 105],
+    [300, 200],
+  ])
+  await expect(page.getByRole('toolbar')).toContainText('200 × 100 px')
+  // The edge between the colors is as sharp as it was, not a blur.
+  expectColor(await designPixel(page, size, 197, 150), RED)
+  expectColor(await designPixel(page, size, 203, 150), GREEN)
+  expectColor(await designPixel(page, size, 102, 102), RED)
 })
 
 test('turn with the round handle; Shift turns in neat steps', async ({ page }) => {
   const size = await newDesign(page)
   await block(page, size, 100, 140, 300, 160)
-  await page.keyboard.press('t')
+  await page.keyboard.press('v')
   // The round handle sits 28 pixels above the top edge.
   await page.keyboard.down('Shift')
   await drag(page, size, [
@@ -56,26 +79,25 @@ test('turn with the round handle; Shift turns in neat steps', async ({ page }) =
   ])
   await page.keyboard.up('Shift')
   await expect(page.getByRole('toolbar')).toContainText('90°')
-  await page.getByRole('button', { name: 'Apply' }).click()
   expectColor(await designPixel(page, size, 200, 230), BLACK)
   expectColor(await designPixel(page, size, 280, 150), WHITE)
   expect(await undoLabel(page)).toContain('Undo rotate')
 })
 
-test('flip, and Esc cancels an unapplied change', async ({ page }) => {
+test('flip and quarter turns happen at once, and undo takes them back', async ({ page }) => {
   const size = await newDesign(page)
   await block(page, size, 80, 130, 120, 170, 'Red')
   await block(page, size, 180, 130, 220, 170, 'Green')
-  await page.keyboard.press('t')
+  await page.keyboard.press('v')
   await page.getByRole('button', { name: 'Flip left to right' }).click()
-  await page.keyboard.press('Enter')
   expectColor(await designPixel(page, size, 100, 150), GREEN)
   expectColor(await designPixel(page, size, 200, 150), RED)
+  expect(await undoLabel(page)).toContain('Undo flip left to right')
 
   await page.getByRole('button', { name: 'Turn right' }).click()
   await expect(page.getByRole('toolbar')).toContainText('90°')
-  // Esc takes back the change that isn't applied yet.
-  await page.keyboard.press('Escape')
+  expectColor(await designPixel(page, size, 150, 100), GREEN)
+  await page.keyboard.press('Control+z')
   await expect(page.getByRole('toolbar')).toContainText('0°')
   expectColor(await designPixel(page, size, 100, 150), GREEN)
 })
@@ -89,13 +111,12 @@ test('resizing a selected part leaves the rest alone', async ({ page }) => {
     [60, 110],
     [140, 190],
   ])
-  await page.keyboard.press('t')
+  await page.keyboard.press('v')
   await expect(page.getByRole('toolbar')).toContainText('80 × 80 px')
   await drag(page, size, [
     [100, 150],
     [100, 60],
   ])
-  // Switching tools applies the change.
   await page.keyboard.press('b')
   expectColor(await designPixel(page, size, 100, 60), RED)
   expectColor(await designPixel(page, size, 100, 150), WHITE)
@@ -103,10 +124,10 @@ test('resizing a selected part leaves the rest alone', async ({ page }) => {
   expect(await undoLabel(page)).toContain('Undo move')
 })
 
-test('the Resize tool explains when there is nothing to resize', async ({ page }) => {
+test('Arrange explains when there is nothing to pick on the layer', async ({ page }) => {
   await newDesign(page)
-  await page.keyboard.press('t')
-  await expect(page.getByRole('toolbar')).toContainText('There is nothing on this layer to resize yet')
+  await page.keyboard.press('v')
+  await expect(page.getByRole('toolbar')).toContainText('There is nothing on “Layer 1” yet')
 })
 
 test('crop keeps what is inside the frame, and undo brings everything back', async ({ page }) => {
@@ -192,6 +213,19 @@ test('resize the whole design', async ({ page }) => {
   await expectDesignSize(page, 200, 150)
   await page.keyboard.press('Control+Alt+0')
   expectColor(await designPixel(page, { width: 200, height: 150 }, 110, 85), RED)
+
+  // Back to the old size, every edge is as crisp as before: nothing was thrown away.
+  await page.keyboard.press('Control+k')
+  await page.getByRole('combobox').fill('resize design')
+  await page.getByRole('combobox').press('Enter')
+  await dialog.getByLabel('New width in pixels').fill('400')
+  await dialog.getByRole('button', { name: 'Resize' }).click()
+  await expectDesignSize(page, 400, 300)
+  await page.keyboard.press('Control+Alt+0')
+  expectColor(await designPixel(page, size, 201, 151), RED)
+  expectColor(await designPixel(page, size, 239, 189), RED)
+  expectColor(await designPixel(page, size, 199, 149), WHITE)
+  expectColor(await designPixel(page, size, 241, 191), WHITE)
 })
 
 test('turn and flip the whole design', async ({ page }) => {
@@ -246,12 +280,12 @@ test('the fill bucket stays inside the selection', async ({ page }) => {
   expectColor(await designPixel(page, size, 300, 150), WHITE)
 })
 
-test('resize, crop and fill settings fit on common laptop screens', async ({ page }) => {
+test('arrange, crop, shape and fill settings fit on common laptop screens', async ({ page }) => {
   const size = await newDesign(page)
   await block(page, size, 80, 120, 120, 160)
   for (const width of [1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 760 })
-    for (const tool of ['Resize and rotate tool', 'Crop tool', 'Fill bucket tool']) {
+    for (const tool of ['Arrange tool', 'Crop tool', 'Shapes tool', 'Fill bucket tool']) {
       await page.getByRole('button', { name: tool }).click()
       const { scroll, client } = await page.getByRole('toolbar').evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }))
       expect(scroll, `${tool} settings at ${width}px wide`).toBeLessThanOrEqual(client)

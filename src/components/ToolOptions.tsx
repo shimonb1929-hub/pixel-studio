@@ -1,4 +1,4 @@
-import { Check, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Lasso, Link, PaintBucket, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Trash2, Unlink, type LucideIcon } from 'lucide-react'
+import { Check, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Lasso, Link, LockOpen, Minus, PaintBucket, Pentagon, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Unlink, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import {
   BRUSH_PRESETS,
@@ -13,7 +13,7 @@ import {
   type BrushSettings,
 } from '../editor/brushes.ts'
 import type { SelectionMode, SelectionShape } from '../editor/selection.ts'
-import type { ToolId } from '../editor/types.ts'
+import type { ShapeType, ToolId } from '../editor/types.ts'
 import { ALT_LABEL } from '../keys.ts'
 import { toolInfo } from '../tools.ts'
 import { StrokePreview } from './StrokePreview.tsx'
@@ -226,19 +226,20 @@ function SelectOptions({
   )
 }
 
-export interface TransformControls {
-  // False when there's nothing on the layer to resize.
-  active: boolean
-  changed: boolean
-  width: number
-  height: number
-  angle: number
+export interface ArrangeBarControls {
+  // What the handles are on: a whole object or the selected part. Null when nothing can be arranged.
+  target: { kind: 'object' | 'part'; name: string; width: number; height: number; angle: number } | null
+  // Why nothing can be arranged, in plain words.
+  blocked: string | null
+  // The selected layer is locked; the bar offers to unlock it.
+  locked: boolean
   keepProportions: boolean
   onKeepProportions: (keep: boolean) => void
   flip: (axis: 'horizontal' | 'vertical') => void
   rotate90: (direction: 1 | -1) => void
-  apply: () => void
-  cancel: () => void
+  center: () => void
+  remove: () => void
+  unlock: () => void
 }
 
 export type CropShape = 'free' | 'original' | 'square' | 'portrait' | 'wide'
@@ -261,18 +262,29 @@ function Readout({ title, description, children }: { title: string; description:
   )
 }
 
-function TransformOptions({ controls }: { controls: TransformControls }) {
-  if (!controls.active) {
-    return <Hint>There is nothing on this layer to resize yet. Paint something first, or pick another layer in the Layers panel.</Hint>
+function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
+  const { target } = controls
+  if (!target) {
+    return (
+      <>
+        <Hint>{controls.blocked ?? 'Click anything on your design to pick it.'}</Hint>
+        {controls.locked && (
+          <Button variant="secondary" className="h-8 shrink-0 px-3 text-[13px]" onClick={controls.unlock} tip={{ title: 'Unlock', description: 'Let this layer be picked and moved again.' }}>
+            <LockOpen size={15} />
+            Unlock
+          </Button>
+        )}
+      </>
+    )
   }
-  const notYet = controls.changed ? undefined : 'Drag a handle first.'
+  const part = target.kind === 'part'
   return (
     <>
-      <Readout title="Size" description="How big it will be, in pixels.">
-        {Math.round(Math.abs(controls.width))} × {Math.round(Math.abs(controls.height))} px
+      <Readout title="Size" description={part ? 'How big the selected part is, in pixels.' : `How big "${target.name}" is on your design, in pixels.`}>
+        {Math.round(Math.abs(target.width))} × {Math.round(Math.abs(target.height))} px
       </Readout>
       <Readout title="Angle" description="How far it is turned. Hold Shift while turning to go in neat 15° steps.">
-        {controls.angle}°
+        {target.angle}°
       </Readout>
       <Divider />
       <div className="flex shrink-0 items-center">
@@ -284,7 +296,7 @@ function TransformOptions({ controls }: { controls: TransformControls }) {
       </div>
       <Tooltip
         title="Keep shape"
-        description="When on, dragging a corner keeps the same shape, so nothing gets squashed or stretched. Hold Shift while dragging to do the opposite."
+        description="When on, dragging a corner keeps the same shape, so nothing gets squashed or stretched. Hold Shift while dragging to do the opposite. The side handles always stretch."
       >
         <button
           type="button"
@@ -296,20 +308,31 @@ function TransformOptions({ controls }: { controls: TransformControls }) {
           }`}
         >
           {controls.keepProportions ? <Link size={15} /> : <Unlink size={15} />}
-          Keep shape
+          <span className="hidden xl:inline">Keep shape</span>
         </button>
       </Tooltip>
       <Divider />
-      <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" disabled={!controls.changed} onClick={controls.cancel} tip={{ title: 'Cancel', shortcut: 'Esc', description: 'Put it back the way it was.', note: notYet }}>
-        Cancel
-      </Button>
-      <Button variant="primary" className="h-8 shrink-0 px-3.5 text-[13px]" disabled={!controls.changed} onClick={controls.apply} tip={{ title: 'Apply', shortcut: 'Enter', description: 'Keep the new size and angle.', note: notYet }}>
-        <Check size={15} />
-        Apply
-      </Button>
+      <div className="flex shrink-0 items-center">
+        <BarButton
+          icon={Crosshair}
+          label="Center"
+          title="Center on design"
+          description={part ? 'Move the selected part so it sits exactly in the middle of your design.' : 'Move it so it sits exactly in the middle of your design.'}
+          onClick={controls.center}
+        />
+        {!part && <BarButton icon={Trash2} label="Delete" title="Delete" description={`Remove "${target.name}" from your design. You can undo this.`} onClick={controls.remove} />}
+      </div>
     </>
   )
 }
+
+const SHAPE_TYPES: Choice<ShapeType>[] = [
+  { value: 'rectangle', label: 'Rectangle', icon: Square, description: 'Rectangles and squares. Round their corners in the Shape panel.' },
+  { value: 'ellipse', label: 'Oval', icon: Circle, description: 'Ovals and circles. Hold Shift while drawing for a perfect circle.' },
+  { value: 'polygon', label: 'Polygon', icon: Pentagon, description: 'Triangles, hexagons and more. Choose the number of sides in the Shape panel.' },
+  { value: 'star', label: 'Star', icon: Star, description: 'Stars with as many points as you like.' },
+  { value: 'line', label: 'Line', icon: Minus, description: 'Straight lines, with an arrow head if you like. Hold Shift to keep them straight.' },
+]
 
 const CROP_SHAPES: Choice<CropShape>[] = [
   { value: 'free', label: 'Free', icon: Scan, description: 'Any shape you like.' },
@@ -412,8 +435,10 @@ interface ToolOptionsProps {
   onSelectionShapeChange: (shape: SelectionShape) => void
   onSelectionModeChange: (mode: SelectionMode) => void
   selection: SelectionCommands
-  transform: TransformControls
+  arrange: ArrangeBarControls
   crop: CropControls
+  shapeType: ShapeType
+  onShapeTypeChange: (type: ShapeType) => void
   adjust: AdjustControls
   fillTolerance: number
   onFillToleranceChange: (tolerance: number) => void
@@ -455,8 +480,13 @@ export function ToolOptions(props: ToolOptionsProps) {
           onShapeChange={props.onSelectionShapeChange}
           onModeChange={props.onSelectionModeChange}
         />
-      ) : props.tool === 'transform' ? (
-        <TransformOptions controls={props.transform} />
+      ) : props.tool === 'move' ? (
+        <ArrangeOptions controls={props.arrange} />
+      ) : props.tool === 'shape' ? (
+        <>
+          <Segmented label="Shape to draw" value={props.shapeType} choices={SHAPE_TYPES} onChange={props.onShapeTypeChange} />
+          <Hint>Drag on your design to draw, or click to drop one. Its colors come from the Color panel.</Hint>
+        </>
       ) : props.tool === 'crop' ? (
         <CropOptions controls={props.crop} />
       ) : props.tool === 'adjust' ? (
@@ -473,23 +503,6 @@ export function ToolOptions(props: ToolOptionsProps) {
             onChange={(position) => props.onFillToleranceChange(Math.round(position * 100) / 100)}
           />
           <Hint>Click inside an area to fill it with your color. It looks at everything you can see, and paints on the selected layer.</Hint>
-        </>
-      ) : props.tool === 'move' ? (
-        <>
-          <Hint>
-            Drag to move the selected layer{props.selection.hasSelection ? ', or just the selected part' : ''}. Arrow keys nudge it 1 pixel; with Shift, 10 pixels.
-          </Hint>
-          <BarButton
-            icon={Crosshair}
-            label="Center"
-            title="Center on design"
-            description={
-              props.selection.hasSelection
-                ? 'Move the selected part so it sits exactly in the middle of your design.'
-                : 'Move the selected layer so what is on it sits exactly in the middle of your design.'
-            }
-            onClick={props.selection.center}
-          />
         </>
       ) : (
         <Hint>{info.description}</Hint>

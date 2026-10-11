@@ -1,5 +1,35 @@
 import { describe, expect, it } from 'vitest'
-import { isProjectFile, packProject, PROJECT_VERSION, ProjectError, unpackProject, validateManifest, type ProjectManifest } from './project.ts'
+import { isProjectFile, packProject, PROJECT_VERSION, ProjectError, unpackProject, validateManifest, type ProjectLayer, type ProjectManifest } from './project.ts'
+
+const pixels = (patch: Partial<Extract<ProjectLayer, { kind: 'raster' }>> = {}): ProjectLayer => ({
+  kind: 'raster',
+  name: 'Background',
+  x: 0,
+  y: 0,
+  width: 400,
+  height: 300,
+  box: null,
+  visible: true,
+  opacity: 1,
+  locked: false,
+  adjust: null,
+  bytes: 3,
+  ...patch,
+})
+
+const shape = (patch: Partial<Extract<ProjectLayer, { kind: 'shape' }>> = {}): ProjectLayer => ({
+  kind: 'shape',
+  name: 'Star',
+  box: { cx: 100, cy: 80, width: 120, height: -90, rotation: 0.3 },
+  geometry: { type: 'star', corners: 0, sides: 5, arrow: false },
+  fill: { kind: 'color', color: '#ff8800' },
+  outline: { color: '#1b1d23', width: 4 },
+  visible: true,
+  opacity: 0.8,
+  locked: false,
+  adjust: { brightness: 0.2, contrast: 0, saturation: -1, warmth: 0, blur: 0.1, sharpen: 0 },
+  ...patch,
+})
 
 function manifest(overrides: Partial<ProjectManifest> = {}): ProjectManifest {
   return {
@@ -10,8 +40,8 @@ function manifest(overrides: Partial<ProjectManifest> = {}): ProjectManifest {
     activeLayer: 1,
     selection: null,
     layers: [
-      { kind: 'raster', name: 'Background', x: 0, y: 0, width: 400, height: 300, visible: true, opacity: 1, bytes: 3 },
-      { kind: 'raster', name: 'Layer 1', x: -20, y: 10, width: 50, height: 60, visible: false, opacity: 0.5, bytes: 2 },
+      pixels({ locked: true }),
+      pixels({ name: 'Layer 1', x: -20, y: 10, width: 50, height: 60, visible: false, opacity: 0.5, bytes: 2, box: { cx: 5, cy: 40, width: -100, height: 120, rotation: 1 } }),
     ],
     ...overrides,
   }
@@ -83,10 +113,17 @@ describe('project files', () => {
       manifest({ activeLayer: 2 }),
       manifest({ activeLayer: -1 }),
       { ...manifest(), name: 7 },
-      manifest({ layers: [{ ...manifest().layers[0], width: 0 }] , activeLayer: 0 }),
-      manifest({ layers: [{ ...manifest().layers[0], opacity: 2 }], activeLayer: 0 }),
-      manifest({ layers: [{ ...manifest().layers[0], bytes: 0 }], activeLayer: 0 }),
-      manifest({ layers: [{ ...manifest().layers[0], kind: 'text' as 'raster' }], activeLayer: 0 }),
+      manifest({ layers: [pixels({ width: 0 })], activeLayer: 0 }),
+      manifest({ layers: [pixels({ opacity: 2 })], activeLayer: 0 }),
+      manifest({ layers: [pixels({ bytes: 0 })], activeLayer: 0 }),
+      manifest({ layers: [{ ...pixels(), kind: 'text' } as unknown as ProjectLayer], activeLayer: 0 }),
+      manifest({ layers: [pixels({ box: { cx: 0, cy: 0, width: 0, height: 10, rotation: 0 } })], activeLayer: 0 }),
+      manifest({ layers: [pixels({ adjust: { brightness: 3, contrast: 0, saturation: 0, warmth: 0, blur: 0, sharpen: 0 } })], activeLayer: 0 }),
+      manifest({ layers: [shape({ geometry: { type: 'blob' as 'star', corners: 0, sides: 5, arrow: false } })], activeLayer: 0 }),
+      manifest({ layers: [shape({ geometry: { type: 'polygon', corners: 0, sides: 2, arrow: false } })], activeLayer: 0 }),
+      manifest({ layers: [shape({ fill: { kind: 'color', color: 'red' } })], activeLayer: 0 }),
+      manifest({ layers: [shape({ fill: { kind: 'photo', zoom: 0.5, x: 0, y: 0, width: 10, height: 10, bytes: 4 } })], activeLayer: 0 }),
+      manifest({ layers: [shape({ outline: { color: '#000000', width: -1 } })], activeLayer: 0 }),
       { ...manifest(), selection: { ops: [{ kind: 'polygon', subtract: false, points: [{ x: 'a', y: 1 }] }] } },
       { ...manifest(), selection: { ops: [{ kind: 'star' }] } },
     ]
@@ -94,8 +131,22 @@ describe('project files', () => {
   })
 
   it('refuses projects too big to open', () => {
-    const huge = { kind: 'raster' as const, name: 'Huge', x: 0, y: 0, width: 16000, height: 16000, visible: true, opacity: 1, bytes: 1 }
+    const huge = pixels({ name: 'Huge', width: 16000, height: 16000, bytes: 1 })
     expect(() => validateManifest(manifest({ layers: [huge, huge, huge, huge], activeLayer: 0 }))).toThrow(/too big/)
+  })
+
+  it('opens version 1 projects, which had no locks, boxes or adjustments', () => {
+    const old = { ...manifest(), version: 1, layers: [{ kind: 'raster', name: 'Old', x: 0, y: 0, width: 4, height: 4, visible: true, opacity: 1, bytes: 9 }], activeLayer: 0 }
+    expect(validateManifest(old).layers[0]).toEqual(pixels({ name: 'Old', width: 4, height: 4, bytes: 9 }))
+  })
+
+  it('keeps shapes, and finds the photo inside a shape among the pictures', async () => {
+    const withPhoto = shape({ name: 'Frame', fill: { kind: 'photo', zoom: 1.5, x: -0.5, y: 0.25, width: 30, height: 20, bytes: 2 } })
+    const original = manifest({ layers: [pixels(), shape(), withPhoto, pixels({ name: 'Top', bytes: 1 })], activeLayer: 1 })
+    const file = packProject(original, [new Blob([new Uint8Array([1, 2, 3])]), new Blob([new Uint8Array([7, 8])]), new Blob([new Uint8Array([9])])])
+    const { manifest: read, images } = await unpackProject(file)
+    expect(read).toEqual(original)
+    expect(await Promise.all(images.map(bytes))).toEqual([[1, 2, 3], [7, 8], [9]])
   })
 
   it('treats an empty selection as no selection', () => {

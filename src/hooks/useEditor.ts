@@ -2,10 +2,11 @@ import { useRef, useState } from 'react'
 import { coverRect, getContext2d } from '../editor/document.ts'
 import type { Rect } from '../editor/geometry.ts'
 import { History } from '../editor/history.ts'
-import { selectLayer, updateLayer } from '../editor/layers.ts'
+import { selectLayer, updatePixelLayer } from '../editor/layers.ts'
+import { settleLayer } from '../editor/objects.ts'
 import { markPixelsChanged } from '../editor/pixelVersion.ts'
 import { copyRegion, restoreRegion, type StrokeResult } from '../editor/stroke.ts'
-import type { EditorDocument, Layer } from '../editor/types.ts'
+import type { EditorDocument, PixelLayer } from '../editor/types.ts'
 
 // Everything about a design except its pixels, which change in place and are kept separately.
 type DocState = Pick<EditorDocument, 'width' | 'height' | 'layers' | 'activeLayerId' | 'selection'>
@@ -51,9 +52,9 @@ export interface Editor {
   select: (layerId: string) => void
   rename: (name: string) => void
   // A finished brush stroke. `grown` is the layer it was painted on, if it had to be enlarged first.
-  commitStroke: (label: string, layerId: string, result: StrokeResult, grown?: Layer) => void
+  commitStroke: (label: string, layerId: string, result: StrokeResult, grown?: PixelLayer) => void
   // Changes pixels of a layer inside `area` (design coordinates), growing the layer if needed.
-  paint: (label: string, layerId: string, area: Rect, draw: (ctx: CanvasRenderingContext2D, layer: Layer) => void) => void
+  paint: (label: string, layerId: string, area: Rect, draw: (ctx: CanvasRenderingContext2D, layer: PixelLayer) => void) => void
   undo: () => void
   redo: () => void
   markSaved: () => void
@@ -85,7 +86,7 @@ export function useEditor(): Editor {
     if (!current) return
     if (change.kind === 'pixels') {
       const layer = current.layers.find((l) => l.id === change.layerId)
-      if (layer) {
+      if (layer?.kind === 'raster') {
         restoreRegion(layer.canvas, change[side], change.x, change.y)
         markPixelsChanged(layer.canvas)
       }
@@ -95,12 +96,12 @@ export function useEditor(): Editor {
     }
   }
 
-  // Swaps a layer for its enlarged copy and returns the undo step for it, if it changed.
-  function growLayer(layerId: string, grown: Layer): Change | null {
+  // Swaps a layer for its enlarged (or settled) copy and returns the undo step for it, if it changed.
+  function growLayer(layerId: string, grown: PixelLayer): Change | null {
     const current = docRef.current
     const layer = current?.layers.find((l) => l.id === layerId)
     if (!current || !layer || layer === grown) return null
-    const next = updateLayer(current, layerId, { canvas: grown.canvas, x: grown.x, y: grown.y })
+    const next = updatePixelLayer(current, layerId, { canvas: grown.canvas, x: grown.x, y: grown.y, box: grown.box })
     setDoc(next)
     return { kind: 'structure', before: docState(current), after: docState(next) }
   }
@@ -161,7 +162,7 @@ export function useEditor(): Editor {
       const pixels: Change = { kind: 'pixels', layerId, x: result.x, y: result.y, before: result.before, after: result.after }
       const growth = grown ? growLayer(layerId, grown) : null
       const layer = docRef.current?.layers.find((l) => l.id === layerId)
-      if (layer) markPixelsChanged(layer.canvas)
+      if (layer?.kind === 'raster') markPixelsChanged(layer.canvas)
       history.push({
         label,
         change: growth ? { kind: 'compound', changes: [growth, pixels] } : pixels,
@@ -174,8 +175,9 @@ export function useEditor(): Editor {
     paint(label, layerId, area, draw) {
       const current = docRef.current
       const original = current?.layers.find((l) => l.id === layerId)
-      if (!current || !original) return
-      const layer = coverRect(original, area)
+      if (!current || original?.kind !== 'raster') return
+      // A resized or turned layer is settled into plain pixels first, in the same undo step.
+      const layer = coverRect(settleLayer(original), area)
       const growth = growLayer(layerId, layer)
       // Only the part of the layer inside the area can change, so only that part is kept for undo.
       const local = {

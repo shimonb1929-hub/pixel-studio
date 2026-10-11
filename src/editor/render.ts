@@ -1,5 +1,9 @@
+import { isNeutral } from './adjust.ts'
+import { previewParts } from './adjustSession.ts'
+import { drawLayerContent, layerPixels } from './objects.ts'
+import { layerVersion } from './pixelVersion.ts'
 import type { Affine } from './transform.ts'
-import type { EditorDocument, Viewport } from './types.ts'
+import type { EditorDocument, Layer, Viewport } from './types.ts'
 
 export const WORKSPACE_COLOR = '#e7e9ee'
 
@@ -59,10 +63,38 @@ export interface RenderPart {
   transform?: Affine
 }
 
-// Shown in place of a layer while it's being painted on or moved.
-export interface LayerOverride {
-  layerId: string
-  parts: RenderPart[]
+// Shown in place of a layer while it's being painted on, moved, resized or adjusted: either
+// pictures to draw, or a changed copy of the layer.
+export type LayerOverride = { layerId: string; parts: RenderPart[] } | { layerId: string; layer: Layer }
+
+// Adjusted layers are shown with just the detail the screen needs, worked out again only when the
+// layer, its pixels, the zoom or the design's size change.
+const adjustedParts = new WeakMap<Layer, { key: string; parts: RenderPart[] }>()
+
+function adjustedOnScreen(doc: EditorDocument, layer: Layer, screenScale: number): RenderPart[] | null {
+  if (!layer.adjust || isNeutral(layer.adjust)) return null
+  const key = `${doc.width}x${doc.height}:${screenScale.toFixed(3)}:${layerVersion(layer)}`
+  const cached = adjustedParts.get(layer)
+  if (cached && cached.key === key) return cached.parts
+  const parts = previewParts({ ...doc, selection: null }, layerPixels(layer), layer.adjust, screenScale)
+  adjustedParts.set(layer, { key, parts })
+  return parts
+}
+
+function drawParts(ctx: CanvasRenderingContext2D, parts: RenderPart[]) {
+  for (const part of parts) {
+    if (!part.transform) {
+      ctx.drawImage(part.canvas, part.x, part.y)
+      continue
+    }
+    const { a, b, c, d, e, f } = part.transform
+    ctx.save()
+    ctx.transform(a, b, c, d, e, f)
+    // Turned or resized pictures always need smoothing, whatever the zoom.
+    ctx.imageSmoothingEnabled = true
+    ctx.drawImage(part.canvas, 0, 0)
+    ctx.restore()
+  }
 }
 
 export function renderScene(
@@ -116,23 +148,24 @@ export function renderScene(
   // Smooth when shrinking; show crisp square pixels when zoomed in.
   ctx.imageSmoothingEnabled = width < doc.width
   ctx.imageSmoothingQuality = 'high'
-  for (const layer of doc.layers) {
-    if (!layer.visible || layer.opacity <= 0) continue
-    ctx.globalAlpha = layer.opacity
-    const parts = override?.layerId === layer.id ? override.parts : [layer]
-    for (const part of parts) {
-      if (!('transform' in part) || !part.transform) {
-        ctx.drawImage(part.canvas, part.x, part.y)
+  const screenScale = width / doc.width
+  for (const original of doc.layers) {
+    let layer = original
+    if (override?.layerId === original.id) {
+      if ('parts' in override) {
+        if (original.visible && original.opacity > 0) {
+          ctx.globalAlpha = original.opacity
+          drawParts(ctx, override.parts)
+        }
         continue
       }
-      const { a, b, c, d, e, f } = part.transform
-      ctx.save()
-      ctx.transform(a, b, c, d, e, f)
-      // Turned or resized pictures always need smoothing, whatever the zoom.
-      ctx.imageSmoothingEnabled = true
-      ctx.drawImage(part.canvas, 0, 0)
-      ctx.restore()
+      layer = override.layer
     }
+    if (!layer.visible || layer.opacity <= 0) continue
+    ctx.globalAlpha = layer.opacity
+    const adjusted = adjustedOnScreen(doc, layer, screenScale)
+    if (adjusted) drawParts(ctx, adjusted)
+    else drawLayerContent(ctx, layer)
   }
   ctx.restore()
 

@@ -17,9 +17,9 @@ const QUICK_SIZES = [25, 50, 200]
 function describeResize(width: number, height: number, newWidth: number, newHeight: number): string {
   if (newWidth === width && newHeight === height) return 'This is the size it is now.'
   if (newWidth > width || newHeight > height) {
-    return 'Making a design bigger can make it look a little soft, because new pixels have to be filled in between the old ones.'
+    return 'Shapes stay sharp at any size. Photos only have the detail they came with, so made much bigger than that they can look a little soft.'
   }
-  return 'Making a design smaller keeps it sharp, but very small details may disappear.'
+  return 'Making a design smaller keeps it sharp. Every picture keeps all its pixels, so you can make it big again later without losing anything.'
 }
 
 export function ResizeDialog({ width, height, onResize, onClose }: ResizeDialogProps) {

@@ -47,10 +47,43 @@ test('a look shows first; Apply keeps it, Esc and undo take it back', async ({ p
   await expectPixel(page, size, 200, 150, isGray, 'black and white again')
   await page.keyboard.press('Enter')
   await expect(await undoTip(page)).toContainText('Undo black & white look')
-  await expect(page.getByRole('radio', { name: 'Original' })).toHaveAttribute('aria-checked', 'true')
+  // The layer keeps the look as a setting, so the panel still shows it.
+  await expect(mono).toHaveAttribute('aria-checked', 'true')
+  await expect(toolbar(page).getByRole('button', { name: 'Apply' })).toHaveAttribute('aria-disabled', 'true')
   expect(isGray(await designPixel(page, size, 200, 150))).toBe(true)
   await page.keyboard.press('Control+z')
   await expectPixel(page, size, 200, 150, isColor(BLUE), 'undo brings blue back')
+  await expect(page.getByRole('radio', { name: 'Original' })).toHaveAttribute('aria-checked', 'true')
+})
+
+test('adjustments stay changeable: come back any time to change or remove them', async ({ page }) => {
+  const size = await blueDesign(page)
+  await page.getByRole('button', { name: 'Adjust tool' }).click()
+  await page.getByRole('radio', { name: 'Black & white' }).click()
+  await page.keyboard.press('Enter')
+  await page.getByRole('button', { name: 'Brush tool' }).click()
+  // Painting on top later still gets the look, because it is a setting of the layer.
+  await page.getByRole('button', { name: 'Red', exact: true }).click()
+  await drag(page, size, [
+    [20, 40],
+    [380, 40],
+  ])
+  expect(isGray(await designPixel(page, size, 200, 40))).toBe(true)
+
+  // The layer shows that it is adjusted; clicking that opens its adjustments again.
+  const badge = page.getByRole('button', { name: 'Change adjustments of Layer 1' })
+  await badge.hover()
+  await expect(page.getByRole('tooltip')).toContainText('Black & white')
+  await badge.click()
+  await expect(page.getByRole('button', { name: 'Adjust tool' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('radio', { name: 'Black & white' })).toHaveAttribute('aria-checked', 'true')
+
+  await page.getByRole('radio', { name: 'Original' }).click()
+  await page.keyboard.press('Enter')
+  await expect(await undoTip(page)).toContainText('Undo remove adjustments')
+  await expectPixel(page, size, 200, 150, isColor(BLUE), 'the blue is back')
+  await expectPixel(page, size, 200, 40, (rgba) => rgba[0] > 200 && rgba[1] < 120, 'and the red line is red')
+  await expect(badge).toHaveCount(0)
 })
 
 test('press and hold to compare with how it was', async ({ page }) => {

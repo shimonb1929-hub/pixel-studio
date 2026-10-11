@@ -1,5 +1,7 @@
-import { ArrowDown, ArrowUp, CircleHelp, Copy, Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, CircleHelp, Copy, Eye, EyeOff, Lock, LockOpen, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { adjustmentLabel, isNeutral } from '../editor/adjust.ts'
+import { drawLayer } from '../editor/compose.ts'
 import { activeLayer } from '../editor/layers.ts'
 import type { EditorDocument, Layer } from '../editor/types.ts'
 import { Tooltip, type TipContent } from './Tooltip.tsx'
@@ -8,7 +10,8 @@ import { Slider } from './ui.tsx'
 const THUMB_SIZE = 40
 
 // A tiny picture of the design's frame with this layer in it, where it sits.
-function LayerThumbnail({ layer, revision, docWidth, docHeight }: { layer: Layer; revision: number; docWidth: number; docHeight: number }) {
+function LayerThumbnail({ layer, revision, doc }: { layer: Layer; revision: number; doc: EditorDocument }) {
+  const { width: docWidth, height: docHeight } = doc
   const ref = useRef<HTMLCanvasElement>(null)
 
   useLayoutEffect(() => {
@@ -36,8 +39,11 @@ function LayerThumbnail({ layer, revision, docWidth, docHeight }: { layer: Layer
     ctx.rect(x, y, w, h)
     ctx.clip()
     ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(layer.canvas, x + layer.x * scale, y + layer.y * scale, layer.canvas.width * scale, layer.canvas.height * scale)
+    ctx.setTransform(scale, 0, 0, scale, x, y)
+    drawLayer(ctx, doc, layer)
     ctx.restore()
+    // Only this layer, its pixels and the design's size matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layer, revision, docWidth, docHeight])
 
   return <canvas ref={ref} aria-hidden className="shrink-0 rounded-md border border-line bg-subtle" style={{ width: THUMB_SIZE, height: THUMB_SIZE }} />
@@ -105,6 +111,9 @@ interface LayersPanelProps {
   revision: number
   onSelect: (layerId: string) => void
   onToggleVisibility: (layerId: string) => void
+  onToggleLock: (layerId: string) => void
+  // Opens Adjust for a layer, to change its adjustments.
+  onEditAdjust: (layerId: string) => void
   onRename: (layerId: string, name: string) => void
   onOpacity: (layerId: string, opacity: number) => void
   onAdd: () => void
@@ -154,7 +163,7 @@ export function LayersPanel(props: LayersPanelProps) {
               >
                 {renamingId === layer.id ? (
                   <div className="flex min-w-0 flex-1 items-center gap-2.5 py-1.5 pl-2">
-                    <LayerThumbnail layer={layer} revision={revision} docWidth={doc.width} docHeight={doc.height} />
+                    <LayerThumbnail layer={layer} revision={revision} doc={doc} />
                     <RenameInput layer={layer} onRename={(name) => props.onRename(layer.id, name)} onDone={() => setRenamingId(null)} />
                   </div>
                 ) : (
@@ -176,11 +185,46 @@ export function LayersPanel(props: LayersPanelProps) {
                       onDoubleClick={() => setRenamingId(layer.id)}
                       className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 pl-2 text-left text-[13px] text-ink"
                     >
-                      <LayerThumbnail layer={layer} revision={revision} docWidth={doc.width} docHeight={doc.height} />
+                      <LayerThumbnail layer={layer} revision={revision} doc={doc} />
                       <span className="min-w-0 flex-1 truncate">{layer.name}</span>
                     </button>
                   </Tooltip>
                 )}
+                {layer.adjust && !isNeutral(layer.adjust) && (
+                  <Tooltip
+                    title={`Adjusted: ${adjustmentLabel(layer.adjust).replace(/ look$/, '')}`}
+                    description="This layer's colors are adjusted, and you can still change that. Click to open Adjust."
+                  >
+                    <button
+                      type="button"
+                      aria-label={`Change adjustments of ${layer.name}`}
+                      onClick={() => props.onEditAdjust(layer.id)}
+                      className="flex h-8 w-7 items-center justify-center rounded-lg text-accent transition-colors hover:bg-surface"
+                    >
+                      <SlidersHorizontal size={14} />
+                    </button>
+                  </Tooltip>
+                )}
+                <Tooltip
+                  title={layer.locked ? 'Unlock layer' : 'Lock layer'}
+                  description={
+                    layer.locked
+                      ? "Locked, so it can't be picked or moved on the design by accident. You can still paint on it. Click to unlock it."
+                      : "Lock it, so it can't be picked or moved on the design by accident. Handy for backgrounds."
+                  }
+                >
+                  <button
+                    type="button"
+                    aria-label={layer.locked ? `Unlock ${layer.name}` : `Lock ${layer.name}`}
+                    aria-pressed={layer.locked}
+                    onClick={() => props.onToggleLock(layer.id)}
+                    className={`flex h-8 w-7 items-center justify-center rounded-lg transition-colors hover:bg-surface hover:text-ink ${
+                      layer.locked ? 'text-ink-2' : 'text-ink-3 opacity-0 focus-visible:opacity-100 group-hover:opacity-100'
+                    }`}
+                  >
+                    {layer.locked ? <Lock size={14} /> : <LockOpen size={14} />}
+                  </button>
+                </Tooltip>
                 <Tooltip
                   title={layer.visible ? 'Hide layer' : 'Show layer'}
                   description="Hidden layers stay in your design, but you can't see them and they are left out when you download."

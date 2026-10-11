@@ -1,3 +1,5 @@
+import type { Layer } from './types.ts'
+
 // Painting and undo change a layer's pixels in place, so the canvas alone can't tell whether its
 // pixels changed. Every in-place change bumps the canvas's version, which lets saving skip
 // layers that are the same as last time.
@@ -9,4 +11,9 @@ export function markPixelsChanged(canvas: HTMLCanvasElement): void {
 
 export function pixelVersion(canvas: HTMLCanvasElement): number {
   return versions.get(canvas) ?? 0
+}
+
+// Only pixel layers change in place; every other kind gets a new object when it changes.
+export function layerVersion(layer: Layer): number {
+  return layer.kind === 'raster' ? pixelVersion(layer.canvas) : 0
 }

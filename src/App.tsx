@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { buildActions, type AppCommands } from './appActions.ts'
 import { AdjustPanel } from './components/AdjustPanel.tsx'
-import { CanvasView, type BoxEditing } from './components/CanvasView.tsx'
+import { CanvasView, type ArrangeControls, type BoxEditing, type ShapeDrawing } from './components/CanvasView.tsx'
 import { ColorPanel } from './components/ColorPanel.tsx'
 import { CommandPalette } from './components/CommandPalette.tsx'
 import { Dialog } from './components/Dialog.tsx'
@@ -10,20 +10,23 @@ import { LayersPanel } from './components/LayersPanel.tsx'
 import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocumentDialog.tsx'
 import { RenameDialog } from './components/RenameDialog.tsx'
 import { ResizeDialog } from './components/ResizeDialog.tsx'
+import { ShapePanel, type ColorTarget } from './components/ShapePanel.tsx'
 import { Toast, type Notice } from './components/Toast.tsx'
 import { ToolDock } from './components/ToolDock.tsx'
-import { ToolOptions, type CropShape } from './components/ToolOptions.tsx'
+import { ToolOptions, type ArrangeBarControls, type CropShape } from './components/ToolOptions.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { DesignInfo, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
-import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, type Adjustments } from './editor/adjust.ts'
+import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, type Adjustments } from './editor/adjust.ts'
 import { adjustArea, lookThumbnails, paintAdjusted, previewParts } from './editor/adjustSession.ts'
+import { arrangeBox, placeInBox } from './editor/arrange.ts'
 import { BRUSH_PRESETS, ERASER_PRESETS, stepBrushSize, type BrushSettings } from './editor/brushes.ts'
 import { getClipboard, ownCopyCheck, setClipboard } from './editor/clipboard.ts'
 import {
   createBlankDocument,
   createCanvas,
   createDocumentFromImage,
+  createId,
   createLayer,
   duplicateLayer,
   getContext2d,
@@ -31,20 +34,22 @@ import {
   MAX_DOCUMENT_SIDE,
 } from './editor/document.ts'
 import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocument } from './editor/documentOps.ts'
-import { intersectRect, type Rect } from './editor/geometry.ts'
+import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
 import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
-import { activeLayer, insertLayerAboveActive, moveLayer, nextLayerName, removeLayer, updateLayer } from './editor/layers.ts'
+import { activeLayer, insertLayerAboveActive, moveLayer, nextLayerName, removeLayer, replaceLayer, updateLayer, updateShape } from './editor/layers.ts'
 import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
-import { clearSelected, contentBounds, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
+import { layerAt, layerPixels } from './editor/objects.ts'
+import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
 import { decodeProject } from './editor/project.ts'
 import type { LayerOverride } from './editor/render.ts'
 import { invertSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
 import type { StrokeResult } from './editor/stroke.ts'
-import { boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
+import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
-import type { EditorDocument, Layer, Point, ToolId, Viewport } from './editor/types.ts'
+import type { EditorDocument, Layer, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, ShapeOutline, ShapeType, ToolId, Viewport } from './editor/types.ts'
+import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
 import { useEditor } from './hooks/useEditor.ts'
@@ -109,9 +114,49 @@ function tidyCropBox(box: TransformBox): TransformBox {
 // Why a layer can't be adjusted right now, in plain words, or null if it can.
 function adjustProblem(doc: EditorDocument, layer: Layer): string | null {
   if (!layer.visible) return `“${layer.name}” is hidden. Click its eye in the Layers panel to show it, then adjust it.`
-  if (isBlank(layer.canvas)) return `There is nothing on “${layer.name}” to adjust yet. Pick another layer in the Layers panel, or paint something first.`
-  if (!adjustArea(doc, layer, NO_ADJUSTMENTS)) return `The selected area doesn't cover anything on “${layer.name}”. Select another part, or press ${shortcut('mod', 'D')} to adjust the whole layer.`
+  if (layer.kind === 'raster' && isBlank(layerPixels(layer).canvas)) {
+    return `There is nothing on “${layer.name}” to adjust yet. Pick another layer in the Layers panel, or paint something first.`
+  }
+  if (doc.selection && layer.kind === 'shape') {
+    return `Shapes are adjusted as a whole. Press ${shortcut('mod', 'D')} to clear the selection, then adjust “${layer.name}”.`
+  }
+  if (!adjustArea(doc, layerPixels(layer), NO_ADJUSTMENTS)) {
+    return `The selected area doesn't cover anything on “${layer.name}”. Select another part, or press ${shortcut('mod', 'D')} to adjust the whole layer.`
+  }
   return null
+}
+
+const SHAPE_NAMES: Record<ShapeType, string> = { rectangle: 'Rectangle', ellipse: 'Oval', polygon: 'Polygon', star: 'Star', line: 'Line' }
+
+// How the next shape will look. Lines use `line` for their color and thickness.
+interface ShapeDefaults {
+  geometry: ShapeGeometry
+  fill: string | null
+  outline: ShapeOutline | null
+  line: ShapeOutline
+}
+
+const DEFAULT_SHAPES: ShapeDefaults = {
+  geometry: { type: 'rectangle', corners: 0, sides: 6, arrow: false },
+  fill: '#3b5bfd',
+  outline: null,
+  line: { color: '#1b1d23', width: 8 },
+}
+
+const NEW_OUTLINE_WIDTH = 4
+
+// Pictures added to a design fit inside this much of it.
+const PLACE_FIT = 0.8
+
+// The picture's box when added to a design: its real size, or shrunk to fit, centered on `at`.
+function placementBox(canvas: HTMLCanvasElement, doc: EditorDocument, at: Point): TransformBox {
+  const scale = Math.min(1, (doc.width * PLACE_FIT) / canvas.width, (doc.height * PLACE_FIT) / canvas.height)
+  return { cx: Math.round(at.x), cy: Math.round(at.y), width: canvas.width * scale, height: canvas.height * scale, rotation: 0 }
+}
+
+function nameFromFile(file: File): string {
+  const dot = file.name.lastIndexOf('.')
+  return (dot > 0 ? file.name.slice(0, dot) : file.name).trim() || 'Photo'
 }
 
 function cropRect(box: TransformBox): Rect {
@@ -172,11 +217,19 @@ export default function App() {
   const [keepProportions, setKeepProportions] = useState(true)
   const [cropEdit, setCropEdit] = useState<CropState | null>(null)
   const [fillTolerance, setFillTolerance] = useState(0.15)
-  const [adjustments, setAdjustments] = useState<Adjustments>(NO_ADJUSTMENTS)
+  // Adjustments being tried on one layer (and selection); they start over when either changes.
+  const [adjustEdit, setAdjustEdit] = useState<{ layer: Layer; selection: Selection | null; settings: Adjustments } | null>(null)
+  const [shapeDefaults, setShapeDefaults] = useState<ShapeDefaults>(DEFAULT_SHAPES)
+  // Which part of a shape the Color panel colors.
+  const [colorTarget, setColorTarget] = useState<ColorTarget>('fill')
+  // While on, dragging on the selected shape slides the photo inside it.
+  const [photoMoving, setPhotoMoving] = useState(false)
   // True while pressing and holding to see how the design looked before adjusting.
   const [comparing, setComparing] = useState(false)
   const workspaceRef = useRef<HTMLElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // What the next picked file is for: opening a design, adding a photo, or filling a shape (its id).
+  const fileModeRef = useRef<'open' | 'place' | { shape: string }>('open')
   const strokeActiveRef = useRef(false)
   const pendingDiscardRef = useRef<(() => void) | null>(null)
   // After picking a color, go back to the drawing tool you came from.
@@ -221,10 +274,10 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', warn)
   }, [unsafeToLeave])
 
-  // While the Resize tool is on, handles are ready around the selected layer (or the selected part).
+  // With Arrange and a selection, handles are ready around the selected part of the layer.
   // A new layer or selection, including one brought back by undo, starts fresh handles.
   const activeNow = doc ? activeLayer(doc) : undefined
-  const transformOn = tool === 'transform'
+  const transformOn = tool === 'move' && !!doc?.selection
   const session = useMemo(
     () => (transformOn && doc ? startTransform(doc) : null),
     // Only the layer and the selection matter; other changes to the design keep the same handles.
@@ -260,46 +313,165 @@ export default function App() {
     [adjustOn, activeNow, doc?.selection, editor.revision],
   )
   const adjustLayer = adjustOn && !adjustBlocked ? activeNow : undefined
-  const adjustChanged = !!adjustLayer && !isNeutral(adjustments)
+  // A whole layer keeps its adjustments as a setting that can be changed again; a selected part is
+  // changed in its pixels.
+  const adjustWhole = !doc?.selection
+  const storedAdjust = adjustWhole && adjustLayer?.adjust ? adjustLayer.adjust : NO_ADJUSTMENTS
+  const adjustments =
+    adjustEdit && adjustEdit.layer === adjustLayer && adjustEdit.selection === (doc?.selection ?? null) ? adjustEdit.settings : storedAdjust
+  const adjustChanged = !!adjustLayer && !sameAdjustments(adjustments, storedAdjust)
+  const setAdjustments = (settings: Adjustments) => {
+    const d = current()
+    const layer = d && activeLayer(d)
+    if (d && layer) setAdjustEdit({ layer, selection: d.selection, settings })
+  }
   const screenScale = viewport.zoom * (window.devicePixelRatio || 1)
   // The preview may lag a moment behind a slider being dragged, so the slider itself never stutters.
   const previewSettings = useDeferredValue(adjustments)
-  const adjustParts = useMemo(
+  const adjustPreview = useMemo((): LayerOverride | null => {
     // Right after Apply or Cancel the preview stops at once, never showing old settings on new pixels.
-    () => (adjustChanged && adjustLayer && doc && !isNeutral(previewSettings) ? previewParts(doc, adjustLayer, previewSettings, screenScale) : null),
+    if (!adjustChanged || !adjustLayer || !doc) return null
+    if (adjustWhole) return { layerId: adjustLayer.id, layer: { ...adjustLayer, adjust: isNeutral(previewSettings) ? null : previewSettings } }
+    if (isNeutral(previewSettings)) return null
+    return { layerId: adjustLayer.id, parts: previewParts(doc, layerPixels(adjustLayer), previewSettings, screenScale) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [adjustChanged, adjustLayer, doc?.selection, doc?.width, doc?.height, previewSettings, screenScale, editor.revision],
-  )
+  }, [adjustChanged, adjustLayer, adjustWhole, doc?.selection, doc?.width, doc?.height, previewSettings, screenScale, editor.revision])
   const lookPictures = useMemo(
     () =>
       doc && adjustLayer
-        ? lookThumbnails(doc, adjustLayer, LOOKS.map((look) => look.settings), LOOK_PICTURE_SIZE * (window.devicePixelRatio || 1))
+        ? lookThumbnails(doc, layerPixels(adjustLayer), LOOKS.map((look) => look.settings), LOOK_PICTURE_SIZE * (window.devicePixelRatio || 1))
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [adjustLayer, doc?.selection, editor.revision],
   )
 
-  // Keeps the adjustments for good, at full detail.
+  // Keeps the adjustments: as the layer's setting, or (for a selected part) in its pixels.
   function applyAdjust() {
     const d = current()
     const layer = d && activeLayer(d)
     const settings = adjustments
-    setAdjustments(NO_ADJUSTMENTS)
+    setAdjustEdit(null)
     setComparing(false)
     if (!adjustChanged || !d || !layer) return
-    const area = adjustArea(d, layer, settings)
+    if (!d.selection) {
+      editor.change(isNeutral(settings) ? 'Remove adjustments' : adjustmentLabel(settings), (doc) =>
+        updateLayer(doc, layer.id, { adjust: isNeutral(settings) ? null : settings }),
+      )
+      return
+    }
+    if (layer.kind !== 'raster') return
+    const area = adjustArea(d, layerPixels(layer), settings)
     if (area) editor.paint(adjustmentLabel(settings), layer.id, area, (ctx, l) => paintAdjusted(ctx, l, d, settings, area))
   }
 
   function cancelAdjust() {
-    setAdjustments(NO_ADJUSTMENTS)
+    setAdjustEdit(null)
     setComparing(false)
   }
 
-  // Keeps the new size and angle. Returns false if it couldn't (the result would be too big).
-  function applyTransform(): boolean {
-    if (!transform || !transformChanged) return true
-    const { session, box } = transform
+  // Shapes: with Arrange or Shapes, the selected shape's look is changed in the Shape panel, and
+  // the Color panel colors it. With Shapes and no shape selected, they set how new shapes look.
+  const editingShape = (tool === 'move' || tool === 'shape') && activeNow?.kind === 'shape' ? activeNow : null
+  const shapePanelOn = !!doc && (editingShape !== null || tool === 'shape')
+  const photoMoveOn = photoMoving && tool === 'move' && editingShape?.fill.kind === 'photo'
+
+  function newShape(box: TransformBox, names: string[]): ShapeLayer {
+    const { geometry, fill, outline, line } = shapeDefaults
+    const isLine = geometry.type === 'line'
+    return {
+      id: createId('layer'),
+      kind: 'shape',
+      name: nextNumberedName(SHAPE_NAMES[geometry.type], names),
+      visible: true,
+      opacity: 1,
+      locked: false,
+      adjust: null,
+      box,
+      geometry,
+      fill: !isLine && fill ? { kind: 'color', color: fill } : { kind: 'none' },
+      outline: isLine ? line : outline,
+    }
+  }
+
+  function drawNewShape(box: TransformBox) {
+    settle()
+    const d = current()
+    if (!d) return
+    const shape = newShape(box, d.layers.map((l) => l.name))
+    editor.change(`Draw ${SHAPE_NAMES[shape.geometry.type].toLowerCase()}`, (doc) => ({ ...insertLayerAboveActive(doc, shape), selection: null }))
+    // Back to Arrange, with handles on the new shape, ready to place and color it.
+    setToolState('move')
+  }
+
+  // Changes the selected shape, or how new shapes look when none is selected.
+  function changeShape(label: string, patch: (shape: ShapeLayer) => Partial<ShapeLayer>, defaults: (d: ShapeDefaults) => ShapeDefaults, mergeKey?: string) {
+    const d = current()
+    const layer = d && activeLayer(d)
+    if (layer?.kind === 'shape' && (tool === 'move' || tool === 'shape')) {
+      editor.change(label, (doc) => updateShape(doc, layer.id, patch(layer)), { mergeKey: mergeKey && `${mergeKey}:${layer.id}` })
+    } else {
+      setShapeDefaults(defaults)
+    }
+  }
+
+  const shapeShown: ShapeLayer | null = shapePanelOn ? (editingShape ?? newShape({ cx: 0, cy: 0, width: 1, height: 1, rotation: 0 }, [])) : null
+  const shapeIsLine = shapeShown?.geometry.type === 'line'
+  const shapeTarget: ColorTarget = shapeIsLine ? 'outline' : colorTarget
+  // The color the Color panel shows while coloring a shape.
+  const shapeColor: string | null = !shapeShown
+    ? null
+    : shapeTarget === 'outline'
+      ? (shapeShown.outline?.color ?? '#1b1d23')
+      : shapeShown.fill.kind === 'color'
+        ? shapeShown.fill.color
+        : color
+
+  function colorShape(hex: string) {
+    rememberColor(hex)
+    if (shapeTarget === 'outline') {
+      changeShape(
+        shapeIsLine ? 'Line color' : 'Outline color',
+        (s) => ({ outline: { color: hex, width: s.outline?.width || NEW_OUTLINE_WIDTH } }),
+        (d) => (shapeIsLine ? { ...d, line: { ...d.line, color: hex } } : { ...d, outline: { color: hex, width: d.outline?.width || NEW_OUTLINE_WIDTH } }),
+        'shape-outline-color',
+      )
+    } else {
+      changeShape('Fill color', () => ({ fill: { kind: 'color', color: hex } }), (d) => ({ ...d, fill: hex }), 'shape-fill-color')
+    }
+  }
+
+  function changeGeometry(patch: Partial<ShapeGeometry>) {
+    const label = 'corners' in patch ? 'Round corners' : 'sides' in patch ? 'Change sides' : 'arrow' in patch ? 'Arrow head' : 'Change shape'
+    changeShape(label, (s) => ({ geometry: { ...s.geometry, ...patch } }), (d) => ({ ...d, geometry: { ...d.geometry, ...patch } }), `shape-${Object.keys(patch)[0]}`)
+  }
+
+  function changeOutlineWidth(width: number) {
+    changeShape(
+      shapeIsLine ? 'Line thickness' : 'Outline width',
+      (s) => ({ outline: width > 0 || shapeIsLine ? { color: s.outline?.color ?? '#1b1d23', width } : null }),
+      (d) => (shapeIsLine ? { ...d, line: { ...d.line, width } } : { ...d, outline: width > 0 ? { color: d.outline?.color ?? '#1b1d23', width } : null }),
+      'shape-outline-width',
+    )
+  }
+
+  function setPhotoFill(patch: Partial<Extract<ShapeFill, { kind: 'photo' }>>, label: string) {
+    const layer = editingShape
+    if (layer?.fill.kind !== 'photo') return
+    const fill = layer.fill
+    editor.change(label, (d) => updateShape(d, layer.id, { fill: { ...fill, ...patch } }), { mergeKey: `shape-photo-${Object.keys(patch).join()}:${layer.id}` })
+  }
+
+  // Places a layer in a new box: resizing and turning never lose any of a picture's quality.
+  function placeLayer(layerId: string, box: TransformBox, label: string) {
+    const layer = current()?.layers.find((l) => l.id === layerId)
+    if (!layer) return
+    editor.change(label, (d) => replaceLayer(d, placeInBox(layer, box)), { bytes: layer.kind === 'raster' && !layer.box ? canvasBytes(layer.canvas) : 0 })
+  }
+
+  // Keeps the selected part's new size and angle. Returns false if it couldn't (too big).
+  function applyTransform(box = transform?.box): boolean {
+    if (!transform || !box || isIdentity(box, transform.session.original)) return true
+    const { session } = transform
     let tooBig = false
     editor.change(
       describeChange(box, session.original),
@@ -343,9 +515,10 @@ export default function App() {
 
   function setTool(next: ToolId) {
     if (next !== tool) {
-      if (tool === 'transform') {
+      if (tool === 'move') {
         if (!applyTransform()) return
         setTransformEdit(null)
+        setPhotoMoving(false)
       }
       if (tool === 'crop') {
         applyCrop()
@@ -356,8 +529,9 @@ export default function App() {
       if (next === 'adjust') {
         const d = current()
         const layer = d && activeLayer(d)
-        if (d && layer && isBlank(layer.canvas)) {
-          const filled = [...d.layers].reverse().find((l) => l.visible && !isBlank(l.canvas))
+        const empty = (l: Layer) => l.kind === 'raster' && isBlank(layerPixels(l).canvas)
+        if (d && layer && empty(layer)) {
+          const filled = [...d.layers].reverse().find((l) => l.visible && !empty(l))
           if (filled) editor.select(filled.id)
         }
       }
@@ -392,6 +566,71 @@ export default function App() {
       pendingDiscardRef.current = action
       setDialog('discard')
     }
+  }
+
+  // Adds a picture to the open design as a layer of its own, keeping its original pixels.
+  async function placePhoto(file: File, at?: Point) {
+    try {
+      const canvas = await imageFileToCanvas(file)
+      settle()
+      const d = current()
+      if (!d) return
+      const box = placementBox(canvas, d, at ?? { x: d.width / 2, y: d.height / 2 })
+      const layer: PixelLayer = { ...layerFromCanvas(nameFromFile(file), canvas), box }
+      editor.change('Add photo', (doc) => ({ ...insertLayerAboveActive(doc, layer), selection: null }), { bytes: canvasBytes(canvas) })
+      setTool('move')
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
+  // Puts a picture inside a shape, filling it.
+  async function photoIntoShape(file: File, layerId: string) {
+    try {
+      const canvas = await imageFileToCanvas(file)
+      settle()
+      editor.change('Put photo in shape', (d) => updateShape(d, layerId, { fill: { kind: 'photo', canvas, zoom: 1, x: 0, y: 0 } }), { bytes: canvasBytes(canvas) })
+      editor.select(layerId)
+      setTool('move')
+      inform('The photo fills the shape. Use Photo size and Move photo in the Shape panel to show the part you want.')
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
+  // A picture dropped on the design goes inside the shape under it, or onto a layer of its own.
+  async function dropFile(file: File, clientX: number, clientY: number) {
+    const d = current()
+    const rect = workspaceRef.current?.getBoundingClientRect()
+    if (!d || !rect || (await isProjectDrop(file))) {
+      void openFile(file)
+      return
+    }
+    const point = screenToDocument(viewport, clientX - rect.left, clientY - rect.top)
+    const under = layerAt(d, point)
+    if (under?.kind === 'shape' && under.geometry.type !== 'line') void photoIntoShape(file, under.id)
+    else void placePhoto(file, point)
+  }
+
+  async function isProjectDrop(file: File): Promise<boolean> {
+    return file.name.toLowerCase().endsWith(`.${EXPORT_FORMATS.project.extension}`) || !file.type.startsWith('image/')
+  }
+
+  // Opens the computer's file picker for one of the jobs a picked file can have.
+  function pickFile(mode: 'open' | 'place' | { shape: string }) {
+    const input = fileInputRef.current
+    if (!input) return
+    fileModeRef.current = mode
+    input.accept = mode === 'open' ? `image/*,.${EXPORT_FORMATS.project.extension}` : 'image/*'
+    input.click()
+  }
+
+  function handlePickedFile(file: File) {
+    const mode = fileModeRef.current
+    fileModeRef.current = 'open'
+    if (mode === 'open') void openFile(file)
+    else if (mode === 'place') void placePhoto(file)
+    else void photoIntoShape(file, mode.shape)
   }
 
   // A picture becomes a new design; a project file comes back with all its layers.
@@ -454,7 +693,7 @@ export default function App() {
     setRecentColors((recent) => [used, ...recent.filter((c) => c !== used)].slice(0, MAX_RECENT_COLORS))
   }
 
-  function handleStroke(layerId: string, result: StrokeResult, label: string, grown?: Layer) {
+  function handleStroke(layerId: string, result: StrokeResult, label: string, grown?: PixelLayer) {
     editor.commitStroke(label, layerId, result, grown)
     if (tool === 'brush') rememberColor(color)
   }
@@ -466,7 +705,12 @@ export default function App() {
 
   function handleMove(session: MoveSession, dx: number, dy: number) {
     const layer = current()?.layers.find((l) => l.id === session.layerId)
-    editor.change(session.label, (d) => session.commit(d, dx, dy), { bytes: session.movesSelection && layer ? canvasBytes(layer.canvas) : 0 })
+    editor.change(session.label, (d) => session.commit(d, dx, dy), { bytes: session.movesSelection && layer ? layerBytes(layer) : 0 })
+  }
+
+  // Memory a layer's pixels take, for the undo history.
+  function layerBytes(layer: Layer): number {
+    return layer.kind === 'raster' ? canvasBytes(layer.canvas) : 0
   }
 
   function handleSelect(selection: Selection | null, label: string) {
@@ -477,6 +721,18 @@ export default function App() {
     const d = current()
     const layer = d && activeLayer(d)
     if (!d || !layer) return
+    // Clicking a shape colors it in.
+    const shape = layerAt(d, point)
+    if (shape?.kind === 'shape' && shape.geometry.type !== 'line') {
+      editor.select(shape.id)
+      editor.change('Fill shape', (doc) => updateShape(doc, shape.id, { fill: { kind: 'color', color } }))
+      rememberColor(color)
+      return
+    }
+    if (layer.kind !== 'raster') {
+      problem(`"${layer.name}" is a shape. Click inside a shape to color it in, or pick a paint layer to fill an area.`)
+      return
+    }
     const pieces = fillArea(d, point, color, Math.round(fillTolerance * 255))
     if (!pieces) return
     const { core, rim } = pieces
@@ -510,6 +766,16 @@ export default function App() {
     if (!layer) return null
     if (!layer.visible) {
       problem(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then ${doing} again.`)
+      return null
+    }
+    return layer
+  }
+
+  // The selected layer, if its pixels can be changed; shapes are changed as a whole instead.
+  function paintableLayer(doing: string): PixelLayer | null {
+    const layer = usableLayer(doing)
+    if (layer && layer.kind !== 'raster') {
+      problem(`"${layer.name}" is a shape, so you can't ${doing} part of it. Change it with Arrange and the Shape panel, or pick a paint layer.`)
       return null
     }
     return layer
@@ -577,9 +843,13 @@ export default function App() {
     const layer = usableLayer('move it')
     const d = current()
     if (!layer || !d) return
+    if (d.selection && layer.kind !== 'raster') {
+      problem('Only pictures and paint can be moved part by part. To move the whole shape, clear the selection first.')
+      return
+    }
     editor.change(d.selection ? 'Move selected area' : 'Move layer', (doc) => startMove(doc)?.commit(doc, dx, dy) ?? doc, {
       mergeKey,
-      bytes: d.selection ? canvasBytes(layer.canvas) : 0,
+      bytes: d.selection ? layerBytes(layer) : 0,
     })
   }
 
@@ -596,6 +866,7 @@ export default function App() {
   const layers = {
     select: (layerId: string) => {
       settle()
+      setPhotoMoving(false)
       editor.select(layerId)
     },
     add: () => {
@@ -610,12 +881,12 @@ export default function App() {
           const layer = activeLayer(d)
           return layer ? insertLayerAboveActive(d, duplicateLayer(layer)) : d
         },
-        { bytes: activeNow ? canvasBytes(activeNow.canvas) : 0 },
+        { bytes: activeNow ? layerBytes(activeNow) : 0 },
       )
     },
     remove: () => {
       settle()
-      editor.change('Delete layer', (d) => removeLayer(d, d.activeLayerId), { bytes: activeNow ? canvasBytes(activeNow.canvas) : 0 })
+      editor.change('Delete layer', (d) => removeLayer(d, d.activeLayerId), { bytes: activeNow ? layerBytes(activeNow) : 0 })
     },
     move: (direction: 1 | -1) => {
       settle()
@@ -629,6 +900,15 @@ export default function App() {
       const layer = current()?.layers.find((l) => l.id === layerId)
       if (layer) editor.change(layer.visible ? 'Hide layer' : 'Show layer', (d) => updateLayer(d, layerId, { visible: !layer.visible }))
     },
+    toggleLock: (layerId: string) => {
+      const layer = current()?.layers.find((l) => l.id === layerId)
+      if (layer) editor.change(layer.locked ? 'Unlock layer' : 'Lock layer', (d) => updateLayer(d, layerId, { locked: !layer.locked }))
+    },
+    editAdjust: (layerId: string) => {
+      settle()
+      editor.select(layerId)
+      setTool('adjust')
+    },
   }
 
   const pasteHint = `Press ${shortcut('mod', 'V')} to paste it as a new layer.`
@@ -637,6 +917,7 @@ export default function App() {
     nudge: (dx: number, dy: number) => void
     pasteFile: (file: File) => void
     openFile: (file: File) => void
+    deleteObject: () => void
     hasSelection: () => boolean
     // Enter and Esc while resizing or cropping.
     applyPending: () => boolean
@@ -651,7 +932,10 @@ export default function App() {
       setDialog('new')
       void savedNames().then((names) => setNewDesignName(nextNumberedName('My design', names, designCount)))
     },
-    open: () => fileInputRef.current?.click(),
+    open: () => pickFile('open'),
+    addPhoto: () => {
+      if (current()) pickFile('place')
+    },
     download: () => {
       settle()
       if (!current()) return
@@ -700,7 +984,7 @@ export default function App() {
         problem('Select an area first, with the Select tool.')
         return
       }
-      const layer = usableLayer('cut')
+      const layer = paintableLayer('cut')
       const area = editArea(d)
       const piece = layer && selectedPiece()
       if (!layer || !piece || !area) return
@@ -730,7 +1014,7 @@ export default function App() {
     },
     fill: () => {
       settle()
-      const layer = usableLayer('fill')
+      const layer = paintableLayer('fill')
       const d = current()
       const area = d && editArea(d)
       if (!d || !layer || !area) return
@@ -744,7 +1028,7 @@ export default function App() {
         problem('Select an area first, with the Select tool. To remove a whole layer, use Delete layer.')
         return
       }
-      const layer = usableLayer('delete')
+      const layer = paintableLayer('delete')
       const area = editArea(d)
       if (layer && area) editor.paint('Delete selected area', layer.id, area, (ctx, l) => clearSelected(ctx, l, d))
     },
@@ -765,7 +1049,8 @@ export default function App() {
       const layer = usableLayer('center it')
       const d = current()
       if (!d || !layer) return
-      const bounds = d.selection ? selectionInfo(d.selection, d.width, d.height).bounds : contentBounds(layer)
+      const box = arrangeBox(layer)
+      const bounds = d.selection ? selectionInfo(d.selection, d.width, d.height).bounds : box && polygonBounds(boxCorners(box))
       if (!bounds) {
         problem(`"${layer.name}" is empty, so there is nothing to center.`)
         return
@@ -777,14 +1062,28 @@ export default function App() {
     },
     nudge: (dx, dy) => moveBy(dx, dy, 'nudge'),
     hasSelection: () => !!current()?.selection,
+    deleteObject: () => {
+      const layer = usableLayer('delete it')
+      if (!layer) return
+      if (layer.locked) {
+        problem(`"${layer.name}" is locked. Click its lock in the Layers panel to unlock it first.`)
+        return
+      }
+      if ((current()?.layers.length ?? 0) <= 1) {
+        problem('A design needs at least one layer.')
+        return
+      }
+      layers.remove()
+    },
     applyPending: () => {
-      if (tool === 'transform' && transformChanged) return applyTransform(), true
+      if (transformChanged) return applyTransform(), true
       if (tool === 'crop' && cropChanged) return applyCrop(), true
       if (adjustChanged) return applyAdjust(), true
       return false
     },
     cancelPending: () => {
-      if (tool === 'transform' && transformChanged) return cancelTransform(), true
+      if (transformChanged) return cancelTransform(), true
+      if (photoMoving) return setPhotoMoving(false), true
       if (tool === 'crop' && cropChanged) return setCropEdit(null), true
       if (adjustChanged) return cancelAdjust(), true
       return false
@@ -870,6 +1169,7 @@ export default function App() {
       if (mod && code === 'KeyK') action = c.search
       else if (plain && event.key === '/') action = c.search
       else if (mod && event.altKey && code === 'KeyN') action = c.newDesign
+      else if (mod && event.shiftKey && code === 'KeyO' && hasDoc) action = c.addPhoto
       else if (mod && !event.shiftKey && code === 'KeyO') action = c.open
       // Always stop the browser's own "save page" window; it would save this program, not the design.
       else if (mod && code === 'KeyS') action = c.download
@@ -883,6 +1183,7 @@ export default function App() {
       else if (mod && code === 'KeyJ' && hasDoc) action = c.toNewLayer
       else if (event.altKey && !mod && code === 'Backspace' && hasDoc) action = c.fill
       else if (plain && (code === 'Delete' || code === 'Backspace') && c.hasSelection()) action = c.deleteArea
+      else if (plain && (code === 'Delete' || code === 'Backspace') && hasDoc && currentTool === 'move') action = c.deleteObject
       else if (code === 'Escape' && c.hasSelection()) action = c.deselect
       else if (!mod && !event.altKey && ARROWS[event.key] && hasDoc && currentTool === 'move') {
         const step = event.shiftKey ? 10 : 1
@@ -965,7 +1266,7 @@ export default function App() {
     event.preventDefault()
     setDropActive(false)
     const file = event.dataTransfer.files[0]
-    if (file) void openFile(file)
+    if (file) void dropFile(file, event.clientX, event.clientY)
   }
 
   function changeCropShape(shape: CropShape) {
@@ -982,17 +1283,24 @@ export default function App() {
 
   const paintSettings = tool === 'eraser' ? eraser.settings : brush.settings
   const hintTool: ToolId = spaceHeld ? 'hand' : altHeld && tool === 'brush' ? 'picker' : tool
-  const hintExtra = doc?.selection && (hintTool === 'brush' || hintTool === 'eraser' || hintTool === 'adjust') ? 'Only the selected area changes.' : undefined
+  const hintExtra =
+    doc?.selection && (hintTool === 'brush' || hintTool === 'eraser' || hintTool === 'adjust')
+      ? 'Only the selected area changes.'
+      : doc?.selection && hintTool === 'move'
+        ? 'The selected part moves.'
+        : photoMoveOn
+          ? 'Drag on the shape to slide its photo.'
+          : undefined
 
   const box: BoxEditing | null =
-    tool === 'transform' && transform
+    tool === 'move' && transform
       ? {
           kind: 'transform',
           value: transform.box,
           keepProportions,
           edges: true,
           onChange: setTransformBox,
-          onApply: applyTransform,
+          onRelease: (final) => applyTransform(final),
         }
       : tool === 'crop' && crop
         ? {
@@ -1001,16 +1309,73 @@ export default function App() {
             keepProportions: crop.shape !== 'free',
             edges: crop.shape === 'free',
             onChange: (next) => setCrop(tidyCropBox(next), crop.shape),
-            onApply: applyCrop,
           }
         : null
 
   const override: LayerOverride | null =
-    tool === 'transform' && transform && transformChanged
+    tool === 'move' && transform && transformChanged
       ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) }
-      : adjustParts && adjustLayer && !comparing
-        ? { layerId: adjustLayer.id, parts: adjustParts }
+      : adjustPreview && !comparing
+        ? adjustPreview
         : null
+
+  // The Arrange bar: the selected part, or the selected object, or why nothing can be arranged.
+  const arrangeBar = ((): ArrangeBarControls => {
+    const base = {
+      keepProportions,
+      onKeepProportions: setKeepProportions,
+      center: commands.center,
+      remove: commands.deleteObject,
+      unlock: () => activeNow && layers.toggleLock(activeNow.id),
+      flip: () => {},
+      rotate90: () => {},
+      locked: false,
+      blocked: null,
+      target: null,
+    }
+    const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
+    if (!doc || !activeNow) return { ...base, blocked: 'Click anything on your design to pick it.' }
+    if (doc.selection) {
+      if (!transform) {
+        const blocked =
+          activeNow.kind === 'shape'
+            ? `Shapes move as a whole. Press ${shortcut('mod', 'D')} to clear the selection, then drag the shape.`
+            : `There is nothing in the selected area on “${activeNow.name}”.`
+        return { ...base, blocked }
+      }
+      const part = transform.box
+      return {
+        ...base,
+        target: { kind: 'part', name: activeNow.name, width: part.width, height: part.height, angle: degrees(part) },
+        flip: (axis) => applyTransform(flipBox(part, axis)),
+        rotate90: (direction) => applyTransform(rotateBox90(part, direction)),
+      }
+    }
+    if (!activeNow.visible) return { ...base, blocked: `“${activeNow.name}” is hidden. Click its eye in the Layers panel to show it.` }
+    if (activeNow.locked) return { ...base, locked: true, blocked: `“${activeNow.name}” is locked, so it doesn't move by accident.` }
+    const objectBox = arrangeBox(activeNow)
+    if (!objectBox) return { ...base, blocked: `There is nothing on “${activeNow.name}” yet. Paint something, or click something else on your design to pick it.` }
+    return {
+      ...base,
+      target: { kind: 'object', name: activeNow.name, width: objectBox.width, height: objectBox.height, angle: degrees(objectBox) },
+      flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? 'Flip left to right' : 'Flip upside down'),
+      rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? 'Turn right' : 'Turn left'),
+    }
+  })()
+
+  const arrangeControls: ArrangeControls | null =
+    tool === 'move' && doc && !doc.selection
+      ? {
+          keepProportions,
+          onPick: (layerId) => {
+            setPhotoMoving(false)
+            editor.select(layerId)
+          },
+          onPlace: placeLayer,
+        }
+      : null
+
+  const shapeDrawing: ShapeDrawing | null = tool === 'shape' && doc ? { draft: (b) => newShape(b, []), onDraw: drawNewShape } : null
 
   return (
     <div className="flex h-full select-none flex-col" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
@@ -1051,19 +1416,9 @@ export default function App() {
           toNewLayer: commands.toNewLayer,
           center: commands.center,
         }}
-        transform={{
-          active: !!transform,
-          changed: transformChanged,
-          width: transform?.box.width ?? 0,
-          height: transform?.box.height ?? 0,
-          angle: Math.round((normalizeAngle(transform?.box.rotation ?? 0) * 180) / Math.PI),
-          keepProportions,
-          onKeepProportions: setKeepProportions,
-          flip: (axis) => transform && setTransformBox(flipBox(transform.box, axis)),
-          rotate90: (direction) => transform && setTransformBox(rotateBox90(transform.box, direction)),
-          apply: applyTransform,
-          cancel: cancelTransform,
-        }}
+        arrange={arrangeBar}
+        shapeType={shapeDefaults.geometry.type}
+        onShapeTypeChange={(type) => setShapeDefaults((d) => ({ ...d, geometry: { ...d.geometry, type } }))}
         crop={{
           width: crop ? cropRect(crop.box).width : 0,
           height: crop ? cropRect(crop.box).height : 0,
@@ -1121,6 +1476,13 @@ export default function App() {
                 box={box}
                 onFill={handleFill}
                 onCompareChange={(on) => setComparing(on && adjustChanged)}
+                arrange={arrangeControls}
+                shapes={shapeDrawing}
+                photoMove={
+                  photoMoveOn
+                    ? { onMove: (_id, x, y) => setPhotoFill({ x, y }, 'Move photo') }
+                    : null
+                }
               />
               <ToolHint tool={hintTool} extra={hintExtra} />
               <ZoomControls
@@ -1137,7 +1499,9 @@ export default function App() {
           )}
           {dropActive && (
             <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-accent bg-accent-soft/80">
-              <p className="text-[15px] font-medium text-accent">Drop your picture or project to open it</p>
+              <p className="text-[15px] font-medium text-accent">
+                {doc ? 'Drop a picture to add it, or drop it onto a shape to fill the shape' : 'Drop your picture or project to open it'}
+              </p>
             </div>
           )}
         </main>
@@ -1146,13 +1510,47 @@ export default function App() {
           {adjustOn && doc ? (
             <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
           ) : (
-            <ColorPanel color={color} recent={recentColors} onChange={setColor} onPickFromDesign={() => setTool('picker')} />
+            <ColorPanel
+              color={shapeColor ?? color}
+              recent={recentColors}
+              onChange={shapeColor !== null ? colorShape : setColor}
+              onPickFromDesign={() => setTool('picker')}
+            />
+          )}
+          {shapeShown && !adjustOn && (
+            <ShapePanel
+              title={editingShape ? editingShape.name : 'New shapes'}
+              editing={editingShape !== null}
+              geometry={shapeShown.geometry}
+              fill={shapeShown.fill}
+              outline={shapeShown.outline}
+              colorTarget={shapeTarget}
+              onColorTarget={setColorTarget}
+              onGeometry={changeGeometry}
+              onNoFill={() => changeShape('No fill', () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null }))}
+              onNoOutline={() => changeShape('No outline', () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
+              onOutlineWidth={changeOutlineWidth}
+              onChoosePhoto={editingShape ? () => pickFile({ shape: editingShape.id }) : undefined}
+              photo={
+                editingShape?.fill.kind === 'photo'
+                  ? {
+                      zoom: editingShape.fill.zoom,
+                      moving: photoMoving,
+                      onZoom: (zoom) => setPhotoFill({ zoom }, 'Photo size'),
+                      onToggleMove: () => setPhotoMoving(!photoMoving),
+                      onRemove: () => editor.change('Remove photo', (d) => updateShape(d, editingShape.id, { fill: { kind: 'color', color: DEFAULT_SHAPES.fill! } })),
+                    }
+                  : null
+              }
+            />
           )}
           <LayersPanel
             doc={doc}
             revision={editor.revision}
             onSelect={layers.select}
             onToggleVisibility={layers.toggleVisibility}
+            onToggleLock={layers.toggleLock}
+            onEditAdjust={layers.editAdjust}
             onRename={layers.rename}
             onOpacity={layers.opacity}
             onAdd={layers.add}
@@ -1171,7 +1569,7 @@ export default function App() {
         onChange={(event) => {
           const file = event.target.files?.[0]
           event.target.value = ''
-          if (file) void openFile(file)
+          if (file) handlePickedFile(file)
         }}
       />
 

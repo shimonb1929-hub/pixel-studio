@@ -8,6 +8,7 @@ import { TOOLS } from './tools.ts'
 export interface AppCommands {
   newDesign: () => void
   open: () => void
+  addPhoto: () => void
   download: () => void
   downloadProject: () => void
   renameDesign: () => void
@@ -81,6 +82,17 @@ export function buildActions({ doc, undoLabel, redoLabel, app }: ActionState, c:
       keywords: ['open', 'photo', 'picture', 'image', 'upload', 'import', 'load', 'file', 'project', 'continue'],
       shortcut: shortcut('mod', 'O'),
       run: c.open,
+    },
+    {
+      id: 'add-photo',
+      group: 'Design',
+      title: 'Add a photo…',
+      description:
+        'Put a picture from your computer into this design, on a layer of its own. It keeps all its quality, however often you resize it. Dropping a picture onto a shape fills the shape with it.',
+      keywords: ['add photo', 'add picture', 'insert', 'place', 'import', 'image', 'photo', 'picture', 'logo'],
+      shortcut: shortcut('mod', 'shift', 'O'),
+      needsDocument: true,
+      run: c.addPhoto,
     },
     {
       id: 'download',

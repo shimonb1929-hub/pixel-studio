@@ -1,9 +1,12 @@
 import { hexToRgb } from './color.ts'
-import { createCanvas, flattenDocument, getContext2d } from './document.ts'
+import { flattenDocument } from './compose.ts'
+import { createCanvas, getContext2d } from './document.ts'
 import { floodRegion, growRegion } from './flood.ts'
 import type { Rect } from './geometry.ts'
 import { selectionInfo } from './selection.ts'
-import type { EditorDocument, Layer } from './types.ts'
+import { layerPixels } from './objects.ts'
+import { pixelVersion } from './pixelVersion.ts'
+import type { EditorDocument, Layer, PixelLayer } from './types.ts'
 
 // A piece of a layer, placed somewhere in the design.
 export interface Piece {
@@ -14,7 +17,9 @@ export interface Piece {
 
 // The selected part of a layer, or the whole layer when nothing is selected.
 // Null if the selection is empty.
-export function copySelected(layer: Layer, doc: EditorDocument): Piece | null {
+export function copySelected(source: Layer, doc: EditorDocument): Piece | null {
+  // Shapes and resized pictures are copied as the pixels you see.
+  const layer = layerPixels(source)
   if (!doc.selection) {
     const canvas = createCanvas(layer.canvas.width, layer.canvas.height)
     getContext2d(canvas).drawImage(layer.canvas, 0, 0)
@@ -38,13 +43,13 @@ export function editArea(doc: EditorDocument): Rect | null {
 
 // Painters for editor.paint: `ctx` belongs to the layer's canvas, in the layer's own coordinates.
 
-export function clearSelected(ctx: CanvasRenderingContext2D, layer: Layer, doc: EditorDocument): void {
+export function clearSelected(ctx: CanvasRenderingContext2D, layer: PixelLayer, doc: EditorDocument): void {
   ctx.globalCompositeOperation = 'destination-out'
   if (doc.selection) ctx.drawImage(selectionInfo(doc.selection, doc.width, doc.height).mask, -layer.x, -layer.y)
   else ctx.fillRect(-layer.x, -layer.y, doc.width, doc.height)
 }
 
-export function fillSelected(ctx: CanvasRenderingContext2D, layer: Layer, doc: EditorDocument, color: string): void {
+export function fillSelected(ctx: CanvasRenderingContext2D, layer: PixelLayer, doc: EditorDocument, color: string): void {
   if (!doc.selection) {
     ctx.fillStyle = color
     ctx.fillRect(-layer.x, -layer.y, doc.width, doc.height)
@@ -73,8 +78,24 @@ export function isBlank(canvas: HTMLCanvasElement): boolean {
   return true
 }
 
+// Finding what's drawn means reading every pixel, so the answer is kept until the pixels change.
+const boundsCache = new WeakMap<HTMLCanvasElement, { version: number; x: number; y: number; bounds: Rect | null }>()
+
+// Like contentBounds, remembered until the layer's pixels change or it moves.
+export function cachedContentBounds(layer: PixelLayer): Rect | null {
+  const version = pixelVersion(layer.canvas)
+  const cached = boundsCache.get(layer.canvas)
+  if (cached && cached.version === version) {
+    const { bounds } = cached
+    return bounds && { ...bounds, x: bounds.x + layer.x - cached.x, y: bounds.y + layer.y - cached.y }
+  }
+  const bounds = contentBounds(layer)
+  boundsCache.set(layer.canvas, { version, x: layer.x, y: layer.y, bounds })
+  return bounds
+}
+
 // The smallest rectangle around a layer's visible pixels, in design coordinates. Null if blank.
-export function contentBounds(layer: Layer): Rect | null {
+export function contentBounds(layer: PixelLayer): Rect | null {
   const { width, height } = layer.canvas
   const probe = createCanvas(width, height)
   const ctx = probe.getContext('2d', { willReadFrequently: true })!

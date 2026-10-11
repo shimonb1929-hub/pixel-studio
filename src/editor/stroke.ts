@@ -2,7 +2,7 @@ import type { BrushSettings } from './brushes.ts'
 import { hexToRgb, type Rgb } from './color.ts'
 import { createCanvas, getContext2d } from './document.ts'
 import { clampRect, unionRect, type Rect } from './geometry.ts'
-import type { Layer, Point } from './types.ts'
+import type { PixelLayer, Point } from './types.ts'
 
 export interface InputPoint extends Point {
   // 0–1. A mouse always reports 1; a drawing tablet reports how hard you press.
@@ -151,7 +151,7 @@ export class StrokeSession {
   // Where the preview sits in the design (the same place as the layer).
   readonly x: number
   readonly y: number
-  private readonly layer: Layer
+  private readonly layer: PixelLayer
   private readonly settings: BrushSettings
   private readonly mode: StrokeMode
   private readonly mask: StrokeMask | null
@@ -165,7 +165,7 @@ export class StrokeSession {
   private target: InputPoint | null = null
   private total: Rect | null = null
 
-  constructor(layer: Layer, settings: BrushSettings, color: string, mode: StrokeMode, mask: StrokeMask | null = null) {
+  constructor(layer: PixelLayer, settings: BrushSettings, color: string, mode: StrokeMode, mask: StrokeMask | null = null) {
     this.layerId = layer.id
     this.layer = layer
     this.settings = settings

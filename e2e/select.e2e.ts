@@ -149,23 +149,23 @@ test('dragging inside a selection moves its outline', async ({ page }) => {
   expectColor(await designPixel(page, size, 120, 150), WHITE)
 })
 
-test('the Move tool moves a layer, and nothing is lost off the edge', async ({ page }) => {
+test('Arrange moves a layer, and nothing is lost off the edge', async ({ page }) => {
   const size = await newDesign(page)
   await paintDot(page, size, 50, 150)
   expectColor(await designPixel(page, size, 50, 150), INK)
   await page.keyboard.press('v')
   // Far past the right edge, then all the way back.
   await drag(page, size, [
-    [200, 150],
-    [650, 150],
+    [50, 150],
+    [500, 150],
   ])
   expectColor(await designPixel(page, size, 50, 150), WHITE)
   await drag(page, size, [
-    [600, 150],
-    [150, 150],
+    [500, 150],
+    [50, 150],
   ])
   expectColor(await designPixel(page, size, 50, 150), INK)
-  expect(await undoLabel(page)).toContain('Undo move layer')
+  expect(await undoLabel(page)).toContain('Undo move')
 })
 
 test('moving a selected area moves only that part', async ({ page }) => {
@@ -210,21 +210,23 @@ test('Center puts things in the middle of the design', async ({ page }) => {
 
 test('painting a moved layer still reaches every part of the design', async ({ page }) => {
   const size = await newDesign(page)
+  await paintDot(page, size, 100, 150)
   await page.keyboard.press('v')
   await drag(page, size, [
-    [200, 150],
-    [350, 150],
+    [100, 150],
+    [250, 150],
   ])
   await page.keyboard.press('b')
   await drag(page, size, [
     [20, 150],
-    [100, 150],
+    [80, 150],
   ])
   expectColor(await designPixel(page, size, 50, 150), INK)
-  // Painting and making room for it count as one step.
+  expectColor(await designPixel(page, size, 250, 150), INK)
   await page.keyboard.press('Control+z')
   expectColor(await designPixel(page, size, 50, 150), WHITE)
-  expect(await undoLabel(page)).toContain('Undo move layer')
+  expectColor(await designPixel(page, size, 250, 150), INK)
+  expect(await undoLabel(page)).toContain('Undo move')
 })
 
 test('copy, paste and copy to new layer', async ({ page }) => {
@@ -238,7 +240,7 @@ test('copy, paste and copy to new layer', async ({ page }) => {
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Paste' }).click()
   expect(await names()).toEqual(['Pasted', 'Layer 1', 'Background'])
-  await expect(page.getByRole('button', { name: 'Move tool' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Arrange tool' })).toHaveAttribute('aria-pressed', 'true')
   // The pasted copy lands where it came from; move it to prove it's separate.
   await drag(page, size, [
     [100, 150],
@@ -272,22 +274,21 @@ test('copying an empty area explains why nothing happened', async ({ page }) => 
   await expect(page.getByRole('alert')).toContainText('nothing in the selected area')
 })
 
-test('moving a hidden layer explains what to do', async ({ page }) => {
+test('arranging a hidden layer explains what to do', async ({ page }) => {
   const size = await newDesign(page)
+  await paintDot(page, size, 200, 150)
   await page.getByRole('button', { name: 'Hide Layer 1' }).click()
   await page.keyboard.press('v')
-  await drag(page, size, [
-    [200, 150],
-    [250, 150],
-  ])
-  await expect(page.getByRole('alert')).toContainText('"Layer 1" is hidden')
+  await expect(page.getByRole('toolbar')).toContainText('“Layer 1” is hidden')
+  await clickAt(page, size, 200, 150)
+  await expect(page.getByRole('button', { name: 'Layer: Layer 1' })).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('selection and move settings fit on common laptop screens', async ({ page }) => {
+test('selection and arrange settings fit on common laptop screens', async ({ page }) => {
   await page.getByRole('button', { name: /Square post/ }).click()
   for (const width of [1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 760 })
-    for (const tool of ['Select tool', 'Move tool']) {
+    for (const tool of ['Select tool', 'Arrange tool']) {
       await page.getByRole('button', { name: tool }).click()
       const { scroll, client } = await page.getByRole('toolbar').evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }))
       expect(scroll, `${tool} settings at ${width}px wide`).toBeLessThanOrEqual(client)

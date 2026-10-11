@@ -1,4 +1,4 @@
-import type { EditorDocument, Layer } from './types.ts'
+import type { EditorDocument, Layer, PixelLayer, ShapeLayer } from './types.ts'
 
 // Small, pure steps for changing the layer stack. Each returns a new document and leaves the
 // old one untouched, which is what makes undo simple.
@@ -44,8 +44,26 @@ export function moveLayer(doc: EditorDocument, layerId: string, direction: 1 | -
   return { ...doc, layers }
 }
 
-export function updateLayer(doc: EditorDocument, layerId: string, patch: Partial<Omit<Layer, 'id'>>): EditorDocument {
+// Settings every kind of layer has.
+type CommonPatch = Partial<Pick<Layer, 'name' | 'visible' | 'opacity' | 'locked' | 'adjust'>>
+
+export function updateLayer(doc: EditorDocument, layerId: string, patch: CommonPatch): EditorDocument {
   return { ...doc, layers: doc.layers.map((l) => (l.id === layerId ? { ...l, ...patch } : l)) }
+}
+
+// Changes a pixel layer; other kinds are left alone.
+export function updatePixelLayer(doc: EditorDocument, layerId: string, patch: Partial<Omit<PixelLayer, 'id' | 'kind'>>): EditorDocument {
+  return { ...doc, layers: doc.layers.map((l) => (l.id === layerId && l.kind === 'raster' ? { ...l, ...patch } : l)) }
+}
+
+// Changes a shape; other kinds are left alone.
+export function updateShape(doc: EditorDocument, layerId: string, patch: Partial<Omit<ShapeLayer, 'id' | 'kind'>>): EditorDocument {
+  return { ...doc, layers: doc.layers.map((l) => (l.id === layerId && l.kind === 'shape' ? { ...l, ...patch } : l)) }
+}
+
+// Puts a changed copy of a layer in place of the one with the same id.
+export function replaceLayer(doc: EditorDocument, layer: Layer): EditorDocument {
+  return { ...doc, layers: doc.layers.map((l) => (l.id === layer.id ? layer : l)) }
 }
 
 export function selectLayer(doc: EditorDocument, layerId: string): EditorDocument {
