@@ -1,3 +1,4 @@
+import { textInBox } from '../text/textLayer.ts'
 import { createCanvas, getContext2d } from './document.ts'
 import { cachedContentBounds } from './pixels.ts'
 import { applyAffine, boxFromRect, boxMatrix, type TransformBox } from './transform.ts'
@@ -9,7 +10,7 @@ import type { Layer, PixelLayer } from './types.ts'
 // The box the handles show for a layer: around what's drawn on a plain pixel layer, or the box a
 // resized picture or a shape sits in. Null when there's nothing on the layer.
 export function arrangeBox(layer: Layer): TransformBox | null {
-  if (layer.kind === 'shape' || layer.box) return layer.box
+  if (layer.kind !== 'raster' || layer.box) return layer.box
   const bounds = cachedContentBounds(layer)
   return bounds && boxFromRect(bounds)
 }
@@ -36,6 +37,7 @@ function onlySlid(layer: PixelLayer, box: TransformBox): { dx: number; dy: numbe
 
 // How the layer looks in a new box, for showing while handles are dragged. Nothing is copied.
 export function previewInBox(layer: Layer, box: TransformBox): Layer {
+  if (layer.kind === 'text') return textInBox(layer, box)
   if (layer.kind === 'shape' || layer.box) return { ...layer, box }
   const slid = onlySlid(layer, box)
   if (slid) return { ...layer, x: layer.x + slid.dx, y: layer.y + slid.dy }
@@ -45,6 +47,7 @@ export function previewInBox(layer: Layer, box: TransformBox): Layer {
 // The layer placed in a new box for good. A plain pixel layer is first trimmed to what's drawn on
 // it, so from then on its handles hug the drawing.
 export function placeInBox(layer: Layer, box: TransformBox): Layer {
+  if (layer.kind === 'text') return textInBox(layer, box)
   if (layer.kind === 'shape' || layer.box) return { ...layer, box }
   const slid = onlySlid(layer, box)
   if (slid) return { ...layer, x: layer.x + slid.dx, y: layer.y + slid.dy }

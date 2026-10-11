@@ -1,3 +1,4 @@
+import { loadDesignFonts } from '../text/textLayer.ts'
 import { flattenDocument } from './compose.ts'
 import { createCanvas, createDocumentFromImage, getContext2d, MAX_DOCUMENT_SIDE } from './document.ts'
 import { EXPORT_FORMATS, type ExportFormat } from './fileNames.ts'
@@ -67,8 +68,9 @@ export async function openDesignFile(file: File): Promise<EditorDocument> {
 }
 
 // quality is 0–1 and only affects JPG.
-export function exportDocument(doc: EditorDocument, format: ExportFormat, quality: number): Promise<Blob> {
+export async function exportDocument(doc: EditorDocument, format: ExportFormat, quality: number): Promise<Blob> {
   if (format === 'project') return encodeProject(doc)
+  await loadDesignFonts(doc)
   // JPG has no transparency, so see-through areas become white instead of black.
   const canvas = flattenDocument(doc, format === 'jpeg' ? '#ffffff' : undefined)
   return new Promise((resolve, reject) => {

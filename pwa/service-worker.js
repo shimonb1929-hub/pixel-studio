@@ -3,6 +3,8 @@
 const VERSION = '__VERSION__'
 const FILES = __FILES__
 const CACHE = `pixel-studio-${VERSION}`
+// Fonts are kept the first time they're used, in a store of their own that stays across versions.
+const FONT_CACHE = 'ps-fonts-1'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -26,6 +28,22 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return
+
+  if (new URL(request.url).pathname.includes('/fonts/')) {
+    event.respondWith(
+      caches.open(FONT_CACHE).then((cache) =>
+        cache.match(request).then(
+          (kept) =>
+            kept ??
+            fetch(request).then((response) => {
+              if (response.ok) cache.put(request, response.clone())
+              return response
+            }),
+        ),
+      ),
+    )
+    return
+  }
 
   // The page itself: the newest version when online, the kept copy when not.
   if (request.mode === 'navigate') {

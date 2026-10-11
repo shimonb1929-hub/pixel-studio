@@ -1,7 +1,7 @@
 import { rgbToHex } from './color.ts'
 import { adjustedLayer } from './compose.ts'
 import { createCanvas } from './document.ts'
-import { drawShape } from './objects.ts'
+import { drawLayerContent } from './objects.ts'
 import { applyAffine, boxMatrix, invertAffine } from './transform.ts'
 import type { EditorDocument } from './types.ts'
 
@@ -34,10 +34,10 @@ export function sampleColor(doc: EditorDocument, x: number, y: number): string |
     const adjusted = adjustedLayer(doc, layer)
     if (adjusted) {
       samplePixel(ctx, adjusted.canvas, px - adjusted.x, py - adjusted.y)
-    } else if (layer.kind === 'shape') {
+    } else if (layer.kind !== 'raster') {
       ctx.save()
       ctx.translate(-px, -py)
-      drawShape(ctx, layer)
+      drawLayerContent(ctx, layer)
       ctx.restore()
     } else if (layer.box) {
       const local = applyAffine(invertAffine(boxMatrix(layer.box, layer.canvas.width, layer.canvas.height)), { x: px + 0.5, y: py + 0.5 })

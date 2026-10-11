@@ -1,4 +1,4 @@
-import { Brush, Crop, Eraser, Hand, MousePointer2, PaintBucket, Pipette, Shapes, SlidersHorizontal, SquareDashed, ZoomIn, type LucideIcon } from 'lucide-react'
+import { Brush, Crop, Eraser, Hand, MousePointer2, PaintBucket, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
 import type { ToolId } from './editor/types.ts'
 import { ALT_LABEL } from './keys.ts'
 
@@ -65,6 +65,18 @@ export const TOOLS: ToolInfo[] = [
       'Draw rectangles, ovals, polygons, stars, lines and arrows. They stay sharp at any size, and you can change their colors, outline and corners any time.',
     hint: 'Drag to draw a shape, or click to drop one. Hold Shift for a perfect square or circle, or a straight line.',
     keywords: ['shape', 'rectangle', 'square', 'circle', 'oval', 'ellipse', 'triangle', 'polygon', 'hexagon', 'star', 'line', 'arrow', 'box', 'frame', 'vector', 'badge', 'button'],
+    group: 'draw',
+  },
+  {
+    id: 'text',
+    name: 'Text',
+    label: 'Text',
+    key: 'T',
+    icon: Type,
+    description:
+      'Write words on your design, in English, Hebrew or Yiddish. Click where the text should start, or drag a box for a paragraph. Hebrew and Yiddish read right to left by themselves.',
+    hint: 'Click where your text starts, or drag a box for a paragraph. Click text to change it. Esc when you are done.',
+    keywords: ['text', 'type', 'write', 'words', 'letters', 'font', 'title', 'heading', 'headline', 'caption', 'quote', 'paragraph', 'hebrew', 'yiddish', 'right to left', 'rtl', 'typography'],
     group: 'draw',
   },
   {

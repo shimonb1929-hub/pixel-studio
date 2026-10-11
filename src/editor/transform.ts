@@ -173,7 +173,11 @@ export function rotateBox90(box: TransformBox, direction: 1 | -1): TransformBox 
 
 // Which handle (if any) is under a design point. Sizes are in screen pixels, turned into design
 // pixels with the zoom, so handles are just as easy to grab at any zoom.
-export function hitHandle(box: TransformBox, point: Point, zoom: number, options: { rotate: boolean; edges?: boolean }): Handle | null {
+// Which handles a box has on its sides: all four, none (only corners), or just left and right
+// (text, whose height always fits its lines).
+export type EdgeHandles = boolean | 'sides'
+
+export function hitHandle(box: TransformBox, point: Point, zoom: number, options: { rotate: boolean; edges?: EdgeHandles }): Handle | null {
   const grab = 9 / zoom
   if (options.rotate) {
     const knob = rotationKnob(box, zoom)
@@ -186,6 +190,7 @@ export function hitHandle(box: TransformBox, point: Point, zoom: number, options
   for (const [name, [sx, sy]] of handles) {
     // With a fixed shape (like a square crop), only the corners can resize.
     if (options.edges === false && (sx === 0 || sy === 0)) continue
+    if (options.edges === 'sides' && sx === 0) continue
     const p = boxPoint(box, sx, sy)
     const distance = Math.hypot(point.x - p.x, point.y - p.y)
     if (distance <= nearestDistance && (nearest === null || distance < nearestDistance)) {

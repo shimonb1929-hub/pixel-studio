@@ -5,7 +5,9 @@ import { EXPORT_FORMATS } from './fileNames.ts'
 import { pixelVersion } from './pixelVersion.ts'
 import type { Selection, SelectionOp } from './selection.ts'
 import type { TransformBox } from './transform.ts'
-import type { EditorDocument, Layer, ShapeGeometry, ShapeOutline, ShapeType } from './types.ts'
+import type { TextAlign, TextDirection } from '../text/layout.ts'
+import { loadDesignFonts } from '../text/textLayer.ts'
+import type { EditorDocument, Layer, ShapeGeometry, ShapeOutline, ShapeType, TextStyle } from './types.ts'
 
 // A project keeps everything needed to carry on editing later: the design's size, every layer
 // with its pixels, position and settings, and the selection. The same format is used for
@@ -16,9 +18,9 @@ import type { EditorDocument, Layer, ShapeGeometry, ShapeOutline, ShapeType } fr
 // pixels, and each photo inside a shape, in layer order.
 //
 // Version 2 added shapes, resized and turned pictures (box), locks and editable adjustments.
-// Version 1 files still open.
+// Version 3 added text. Older files still open.
 
-export const PROJECT_VERSION = 2
+export const PROJECT_VERSION = 3
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -60,11 +62,20 @@ export interface ProjectShapeLayer extends ProjectLayerBase {
   outline: ShapeOutline | null
 }
 
-export type ProjectLayer = ProjectPixelLayer | ProjectShapeLayer
+export interface ProjectTextLayer extends ProjectLayerBase {
+  kind: 'text'
+  box: TransformBox
+  text: string
+  style: TextStyle
+  wrap: boolean
+}
+
+export type ProjectLayer = ProjectPixelLayer | ProjectShapeLayer | ProjectTextLayer
 
 // The PNGs a layer brings along, in order.
 function pictureSizes(layer: ProjectLayer): number[] {
   if (layer.kind === 'raster') return [layer.bytes]
+  if (layer.kind === 'text') return []
   return layer.fill.kind === 'photo' ? [layer.fill.bytes] : []
 }
 
@@ -208,6 +219,20 @@ function readOutline(value: unknown): ShapeOutline | null {
   return { color: readColor(value.color), width: value.width }
 }
 
+const TEXT_ALIGNS: TextAlign[] = ['auto', 'left', 'center', 'right', 'justify']
+const TEXT_DIRECTIONS: TextDirection[] = ['auto', 'rtl', 'ltr']
+const MAX_TEXT_LENGTH = 1_000_000
+
+function readTextStyle(value: unknown): TextStyle {
+  if (!isRecord(value)) damaged()
+  const { font, size, weight, italic, color, align, direction, letterSpacing, lineHeight } = value
+  if (typeof font !== 'string' || font.length === 0 || font.length > 100) damaged()
+  if (!isBetween(size, 0.1, 100000) || !isBetween(weight, 1, 1000) || typeof italic !== 'boolean') damaged()
+  if (!TEXT_ALIGNS.includes(align as TextAlign) || !TEXT_DIRECTIONS.includes(direction as TextDirection)) damaged()
+  if (!isBetween(letterSpacing, -1, 5) || !isBetween(lineHeight, 0.3, 10)) damaged()
+  return { font, size, weight, italic, color: readColor(color), align: align as TextAlign, direction: direction as TextDirection, letterSpacing, lineHeight }
+}
+
 // Checks one layer's description. Settings missing from version 1 files get their defaults.
 function readLayer(layer: unknown): ProjectLayer {
   if (!isRecord(layer) || typeof layer.name !== 'string' || typeof layer.visible !== 'boolean' || !isBetween(layer.opacity, 0, 1)) damaged()
@@ -221,6 +246,10 @@ function readLayer(layer: unknown): ProjectLayer {
   }
   if (layer.kind === 'shape') {
     return { ...base, kind: 'shape', box: readBox(layer.box), geometry: readGeometry(layer.geometry), fill: readFill(layer.fill), outline: readOutline(layer.outline) }
+  }
+  if (layer.kind === 'text') {
+    if (typeof layer.text !== 'string' || layer.text.length > MAX_TEXT_LENGTH || typeof layer.wrap !== 'boolean') damaged()
+    return { ...base, kind: 'text', box: readBox(layer.box), text: layer.text, style: readTextStyle(layer.style), wrap: layer.wrap }
   }
   if (
     layer.kind !== 'raster' ||
@@ -238,6 +267,7 @@ function readLayer(layer: unknown): ProjectLayer {
 
 function picturePixels(layer: ProjectLayer): number {
   if (layer.kind === 'raster') return layer.width * layer.height
+  if (layer.kind === 'text') return 0
   return layer.fill.kind === 'photo' ? layer.fill.width * layer.fill.height : 0
 }
 
@@ -303,6 +333,7 @@ function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
 // The pictures a layer brings along: its pixels, or the photo inside a shape.
 function layerPictures(layer: Layer): HTMLCanvasElement[] {
   if (layer.kind === 'raster') return [layer.canvas]
+  if (layer.kind === 'text') return []
   return layer.fill.kind === 'photo' ? [layer.fill.canvas] : []
 }
 
@@ -311,6 +342,7 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
   if (layer.kind === 'raster') {
     return { ...base, kind: 'raster', x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height, box: layer.box, bytes: sizes[0] }
   }
+  if (layer.kind === 'text') return { ...base, kind: 'text', box: layer.box, text: layer.text, style: layer.style, wrap: layer.wrap }
   const { fill } = layer
   const savedFill: ProjectFill =
     fill.kind === 'photo'
@@ -358,6 +390,9 @@ async function decodeLayer(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
     const canvas = await decodePicture(pngs[0], info.width, info.height)
     return { ...layerFromCanvas(name, canvas, info.x, info.y), box: info.box, visible, opacity, locked, adjust }
   }
+  if (info.kind === 'text') {
+    return { id: createId('layer'), kind: 'text', name, visible, opacity, locked, adjust, box: info.box, text: info.text, style: info.style, wrap: info.wrap }
+  }
   const fill =
     info.fill.kind === 'photo'
       ? { kind: 'photo' as const, canvas: await decodePicture(pngs[0], info.fill.width, info.fill.height), zoom: info.fill.zoom, x: info.fill.x, y: info.fill.y }
@@ -390,7 +425,8 @@ export async function decodeProject(file: Blob, id = createDesignId()): Promise<
 }
 
 // A small picture of the whole design, for the list of designs on the start screen.
-export function designThumbnail(doc: EditorDocument, maxSide = 320): Promise<Blob> {
+export async function designThumbnail(doc: EditorDocument, maxSide = 320): Promise<Blob> {
+  await loadDesignFonts(doc)
   const scale = Math.min(1, maxSide / Math.max(doc.width, doc.height))
   const canvas = createCanvas(Math.max(1, Math.round(doc.width * scale)), Math.max(1, Math.round(doc.height * scale)))
   const ctx = getContext2d(canvas)

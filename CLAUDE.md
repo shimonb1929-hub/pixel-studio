@@ -12,6 +12,9 @@ Pixel Studio is Photoshop, Illustrator and InDesign in one program, in the brows
   old-fashioned, hard-to-learn ideas (masks, channels, clipping paths, adjustment layers). Find a
   direct way instead: a photo goes inside a shape by dropping it on the shape; adjustments stay
   changeable on the layer itself. Layers are fine: they are simple.
+- **English, Hebrew and Yiddish are all first-class**: right-to-left text must always work perfectly
+  (typing, wrapping, numbers and punctuation inside it, fonts that have the letters). The text
+  browser test checks that finished text matches what was shown while typing; keep it passing.
 - **Everything is an object**: pictures, photos and shapes are all picked with a click, dragged to
   move, resized from a corner and turned with the round handle (the Arrange tool). Pictures keep
   their original pixels, so nothing gets blurry from resizing.

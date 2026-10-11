@@ -1,3 +1,4 @@
+import type { TextAlign, TextDirection } from '../text/layout.ts'
 import type { Adjustments } from './adjust.ts'
 import type { Selection } from './selection.ts'
 import type { TransformBox } from './transform.ts'
@@ -70,8 +71,37 @@ export interface ShapeLayer extends LayerBase {
   outline: ShapeOutline | null
 }
 
+export interface TextStyle {
+  // A font's id from the font library.
+  font: string
+  // In design pixels.
+  size: number
+  weight: number
+  italic: boolean
+  color: string
+  // 'auto' lines each paragraph up the way it reads: right for Hebrew and Yiddish, left for English.
+  align: TextAlign
+  // 'auto' lets each paragraph's first letter decide which way it reads.
+  direction: TextDirection
+  // Extra space between letters, as a share of the size (0.1 is a tenth of the size).
+  letterSpacing: number
+  // Distance between lines, as a multiple of the size.
+  lineHeight: number
+}
+
+// Text that stays editable and sharp at any size.
+export interface TextLayer extends LayerBase {
+  kind: 'text'
+  // Where the text sits. Its size always fits the text; with `wrap`, the width is where lines wrap.
+  box: TransformBox
+  text: string
+  style: TextStyle
+  // A paragraph box wraps its lines to its width; otherwise lines only break where Enter was pressed.
+  wrap: boolean
+}
+
 // One object in the design. Bottom layer first.
-export type Layer = PixelLayer | ShapeLayer
+export type Layer = PixelLayer | ShapeLayer | TextLayer
 
 export interface EditorDocument {
   id: string
@@ -94,4 +124,4 @@ export interface Viewport {
   panY: number
 }
 
-export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'brush' | 'eraser' | 'fill' | 'picker' | 'adjust' | 'hand' | 'zoom'
+export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'text' | 'brush' | 'eraser' | 'fill' | 'picker' | 'adjust' | 'hand' | 'zoom'

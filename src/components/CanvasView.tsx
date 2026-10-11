@@ -18,9 +18,24 @@ import {
   type SelectionShape,
 } from '../editor/selection.ts'
 import { StrokeSession, type InputPoint, type StrokeResult } from '../editor/stroke.ts'
-import { boxCorners, boxPoint, describeChange, dragHandle, HANDLE_SIGNS, hitHandle, isIdentity, rotationKnob, type Handle, type TransformBox } from '../editor/transform.ts'
+import {
+  boxCorners,
+  boxPoint,
+  describeChange,
+  dragHandle,
+  HANDLE_SIGNS,
+  hitHandle,
+  isIdentity,
+  rotationKnob,
+  type EdgeHandles,
+  type Handle,
+  type TransformBox,
+} from '../editor/transform.ts'
 import type { EditorDocument, Layer, PixelLayer, Point, ShapeLayer, ToolId, Viewport } from '../editor/types.ts'
 import { nextZoomLevel, panBy, screenToDocument, zoomAtPoint } from '../editor/viewport.ts'
+import { useFontsVersion } from '../hooks/useFontsVersion.ts'
+import { textIndexAt } from '../text/textLayer.ts'
+import { TextEditBox, type TextEditing } from './TextEditBox.tsx'
 
 // A box with handles being edited on the canvas: around the selected part of a layer, or the crop frame.
 export interface BoxEditing {
@@ -40,6 +55,13 @@ export interface ArrangeControls {
   keepProportions: boolean
   onPick: (layerId: string) => void
   onPlace: (layerId: string, box: TransformBox, label: string) => void
+}
+
+// The Text tool: a click starts text where the first line begins, a drag makes a paragraph box,
+// and clicking existing text puts the cursor there.
+export interface TextTool {
+  onNew: (point: Point, area: { x: number; y: number; width: number; height: number } | null) => void
+  onEdit: (layerId: string, caret: number) => void
 }
 
 // Drawing new shapes with the Shapes tool: `draft` dresses a box in the current shape settings.
@@ -80,6 +102,11 @@ export interface CanvasViewProps {
   shapes: ShapeDrawing | null
   // While "Move photo" is on, dragging on the selected shape slides the photo inside it.
   photoMove: { onMove: (layerId: string, x: number, y: number) => void } | null
+  textTool: TextTool | null
+  // Text being typed right now.
+  textEditing: TextEditing | null
+  // Double-clicking text with Arrange starts typing in it.
+  onEditText: (layerId: string, caret: number) => void
 }
 
 interface PanDrag {
@@ -134,6 +161,14 @@ interface PhotoDrag {
   start: Point
   x: number
   y: number
+  moved: boolean
+}
+
+interface TextDrag {
+  pointerId: number
+  start: Point
+  current: Point
+  startClient: Point
   moved: boolean
 }
 
@@ -281,7 +316,7 @@ function toScreen(p: Point, viewport: Viewport): Point {
 }
 
 // The Arrange handles or the crop frame.
-function drawBox(ctx: CanvasRenderingContext2D, box: Pick<BoxEditing, 'kind' | 'value' | 'edges'>, viewport: Viewport, width: number, height: number) {
+function drawBox(ctx: CanvasRenderingContext2D, box: Pick<BoxEditing, 'kind' | 'value'> & { edges: EdgeHandles }, viewport: Viewport, width: number, height: number) {
   const corners = boxCorners(box.value).map((p) => toScreen(p, viewport))
   const outline = () => {
     ctx.beginPath()
@@ -337,6 +372,7 @@ function drawBox(ctx: CanvasRenderingContext2D, box: Pick<BoxEditing, 'kind' | '
 
   for (const [sx, sy] of Object.values(HANDLE_SIGNS)) {
     if (!box.edges && (sx === 0 || sy === 0)) continue
+    if (box.edges === 'sides' && sx === 0) continue
     const p = toScreen(boxPoint(box.value, sx, sy), viewport)
     ctx.fillStyle = '#ffffff'
     ctx.strokeStyle = '#3366ff'
@@ -346,6 +382,29 @@ function drawBox(ctx: CanvasRenderingContext2D, box: Pick<BoxEditing, 'kind' | '
     ctx.fill()
     ctx.stroke()
   }
+}
+
+// Text only has handles on its left and right sides: its height always fits its lines.
+function edgesOf(layer: Layer | undefined): EdgeHandles {
+  return layer?.kind === 'text' ? 'sides' : true
+}
+
+// The rectangle a Text tool drag makes, in design coordinates.
+function textDragRect(drag: TextDrag) {
+  return rectFromCorners(drag.start, drag.current)
+}
+
+// A dashed outline around a box, for text being typed and the paragraph box being dragged out.
+function drawDashedBox(ctx: CanvasRenderingContext2D, box: TransformBox, viewport: Viewport) {
+  const corners = boxCorners(box).map((p) => toScreen(p, viewport))
+  ctx.beginPath()
+  corners.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
+  ctx.closePath()
+  ctx.lineWidth = 1
+  ctx.setLineDash([4, 3])
+  ctx.strokeStyle = '#3366ff'
+  ctx.stroke()
+  ctx.setLineDash([])
 }
 
 // The shape being drawn with the Select tool, as a polygon in design coordinates.
@@ -373,6 +432,7 @@ export function CanvasView(props: CanvasViewProps) {
   const arrangeRef = useRef<ArrangeDrag | null>(null)
   const shapeRef = useRef<ShapeDrag | null>(null)
   const photoRef = useRef<PhotoDrag | null>(null)
+  const textRef = useRef<TextDrag | null>(null)
   // The object a click would pick right now, outlined while the pointer is over it.
   const hoverLayerRef = useRef<Layer | null>(null)
   const hoverRef = useRef<Point | null>(null)
@@ -398,7 +458,8 @@ export function CanvasView(props: CanvasViewProps) {
       compareRef.current !== null ||
       arrangeRef.current ||
       shapeRef.current ||
-      photoRef.current
+      photoRef.current ||
+      textRef.current
     )
 
   // The box the Arrange handles show around the selected object, if it can be arranged.
@@ -406,7 +467,7 @@ export function CanvasView(props: CanvasViewProps) {
     const drag = arrangeRef.current
     if (drag?.kind === 'object') return drag.box
     const layer = activeLayer(p.doc)
-    if (!p.arrange || !layer || !layer.visible || layer.locked) return null
+    if (!p.arrange || !layer || !layer.visible || layer.locked || p.textEditing?.layer.id === layer.id) return null
     return arrangeBox(layer)
   }
 
@@ -497,7 +558,13 @@ export function CanvasView(props: CanvasViewProps) {
         if (box) drawHoverOutline(ctx, box, p.viewport)
       }
       const box = activeBox(p)
-      if (box) drawBox(ctx, { kind: 'transform', value: box, edges: true }, p.viewport, p.width, p.height)
+      if (box) drawBox(ctx, { kind: 'transform', value: box, edges: edgesOf(activeLayer(p.doc)) }, p.viewport, p.width, p.height)
+    }
+    if (p.textEditing) drawDashedBox(ctx, p.textEditing.layer.box, p.viewport)
+    const textDrag = textRef.current
+    if (textDrag?.moved) {
+      const rect = textDragRect(textDrag)
+      drawDashedBox(ctx, { cx: rect.x + rect.width / 2, cy: rect.y + rect.height / 2, width: rect.width, height: rect.height, rotation: 0 }, p.viewport)
     }
     const shape = shapeRef.current
     if (p.shapes && shape?.moved) {
@@ -533,13 +600,15 @@ export function CanvasView(props: CanvasViewProps) {
     propsRef.current = props
   })
 
+  // Text is drawn again once its font arrives.
+  const fontsVersion = useFontsVersion()
   useLayoutEffect(() => {
     drawScene()
-  }, [doc, revision, viewport, width, height, props.override])
+  }, [doc, revision, viewport, width, height, props.override, fontsVersion])
 
   useLayoutEffect(() => {
     drawOverlay()
-  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box])
+  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box, props.textEditing])
 
   // The dashed outline keeps moving while something is selected, so it's easy to spot.
   useEffect(() => {
@@ -637,7 +706,7 @@ export function CanvasView(props: CanvasViewProps) {
     let handle: Handle | null = null
     const box = activeBox(props)
     if (active && box) {
-      handle = hitHandle(box, point, viewport.zoom, { rotate: true })
+      handle = hitHandle(box, point, viewport.zoom, { rotate: true, edges: edgesOf(active) })
       if (handle) layer = active
     }
     if (!layer) {
@@ -689,12 +758,32 @@ export function CanvasView(props: CanvasViewProps) {
     requestOverlay()
   }
 
+  function finishText() {
+    const drag = textRef.current
+    textRef.current = null
+    const p = propsRef.current
+    if (!drag || !p.textTool) return
+    requestOverlay()
+    if (drag.moved) {
+      const rect = textDragRect(drag)
+      // A box too narrow to hold a letter is taken as a click.
+      if (rect.width * p.viewport.zoom >= 12) {
+        p.textTool.onNew(drag.start, rect)
+        return
+      }
+    }
+    // Clicking text puts the cursor there; clicking anywhere else starts new text.
+    const hit = layerAt(p.doc, drag.start, 2 / p.viewport.zoom)
+    if (hit?.kind === 'text') p.textTool.onEdit(hit.id, textIndexAt(hit, drag.start))
+    else p.textTool.onNew(drag.start, null)
+  }
+
   function startStroke(event: PointerEvent<HTMLCanvasElement>) {
     const layer = usableLayer('paint')
     if (!layer) return
     event.currentTarget.setPointerCapture(event.pointerId)
     if (layer.kind !== 'raster') {
-      props.onBlocked(`"${layer.name}" is a shape, so it can't be painted on. Pick a paint layer in the Layers panel, or add a new layer.`)
+      props.onBlocked(`"${layer.name}" is ${layer.kind === 'text' ? 'text' : 'a shape'}, so it can't be painted on. Pick a paint layer in the Layers panel, or add a new layer.`)
       return
     }
     // A moved, pasted or resized layer may not cover the whole design yet; paint on a settled,
@@ -842,6 +931,11 @@ export function CanvasView(props: CanvasViewProps) {
       return
     }
     if (event.button !== 0) return
+    // A press on the design while typing finishes the text.
+    if (props.textEditing) {
+      props.textEditing.onDone()
+      return
+    }
 
     if (tool === 'zoom') {
       const { x, y } = hoverRef.current
@@ -869,6 +963,10 @@ export function CanvasView(props: CanvasViewProps) {
       const point = documentPoint(event.clientX, event.clientY)
       event.currentTarget.setPointerCapture(event.pointerId)
       shapeRef.current = { pointerId: event.pointerId, start: point, current: point, constrain: event.shiftKey, moved: false, startClient: { x: event.clientX, y: event.clientY } }
+    } else if (tool === 'text' && props.textTool) {
+      const point = documentPoint(event.clientX, event.clientY)
+      event.currentTarget.setPointerCapture(event.pointerId)
+      textRef.current = { pointerId: event.pointerId, start: point, current: point, startClient: { x: event.clientX, y: event.clientY }, moved: false }
     } else if (tool === 'fill') {
       if (usableLayer('fill')) props.onFill(documentPoint(event.clientX, event.clientY))
     } else if (tool === 'adjust') {
@@ -957,6 +1055,14 @@ export function CanvasView(props: CanvasViewProps) {
       return
     }
 
+    const textDrag = textRef.current
+    if (textDrag && textDrag.pointerId === event.pointerId) {
+      textDrag.current = point
+      if (!textDrag.moved && Math.hypot(event.clientX - textDrag.startClient.x, event.clientY - textDrag.startClient.y) >= CLICK_DISTANCE) textDrag.moved = true
+      requestOverlay()
+      return
+    }
+
     const shape = shapeRef.current
     if (shape && shape.pointerId === event.pointerId) {
       shape.current = point
@@ -969,7 +1075,7 @@ export function CanvasView(props: CanvasViewProps) {
     // With Arrange, the pointer shows what a press would do, and outlines what it would pick.
     if (tool === 'move' && props.arrange && !doc.selection) {
       const box = activeBox(props)
-      const handle = box ? hitHandle(box, point, viewport.zoom, { rotate: true }) : null
+      const handle = box ? hitHandle(box, point, viewport.zoom, { rotate: true, edges: edgesOf(activeLayer(doc)) }) : null
       if (handle !== boxHover) setBoxHover(handle)
       const hovered = handle ? null : layerAt(doc, point, 3 / viewport.zoom)
       if (hovered !== hoverLayerRef.current) {
@@ -1065,6 +1171,10 @@ export function CanvasView(props: CanvasViewProps) {
       if (cancelled) photoRef.current = null
       finishPhotoMove()
     }
+    if (textRef.current?.pointerId === event.pointerId) {
+      if (cancelled) textRef.current = null
+      else finishText()
+    }
     stopComparing(event.pointerId)
     requestOverlay()
   }
@@ -1092,6 +1202,7 @@ export function CanvasView(props: CanvasViewProps) {
       return tool === 'crop' ? 'crosshair' : 'move'
     }
     if (tool === 'move' || (tool === 'select' && overSelection)) return 'move'
+    if (tool === 'text') return 'text'
     if (pickMode || tool === 'select' || tool === 'fill' || tool === 'shape') return 'crosshair'
     if (outlineVisible) return 'none'
     return painting ? 'crosshair' : 'default'
@@ -1118,7 +1229,15 @@ export function CanvasView(props: CanvasViewProps) {
           if (arrangeRef.current?.pointerId === event.pointerId) finishArrange()
           if (shapeRef.current?.pointerId === event.pointerId) finishShape()
           if (photoRef.current?.pointerId === event.pointerId) finishPhotoMove()
+          if (textRef.current?.pointerId === event.pointerId) textRef.current = null
           stopComparing(event.pointerId)
+        }}
+        onDoubleClick={(event) => {
+          // Double-clicking text with Arrange starts typing in it, with the cursor where you clicked.
+          if (tool !== 'move' || doc.selection || props.textEditing) return
+          const point = documentPoint(event.clientX, event.clientY)
+          const hit = layerAt(doc, point, 2 / viewport.zoom)
+          if (hit?.kind === 'text') props.onEditText(hit.id, textIndexAt(hit, point))
         }}
         onPointerLeave={() => {
           if (busy()) return
@@ -1131,6 +1250,7 @@ export function CanvasView(props: CanvasViewProps) {
         onMouseDown={(event) => event.button === 1 && event.preventDefault()}
         onAuxClick={(event) => event.preventDefault()}
       />
+      {props.textEditing && <TextEditBox key={props.textEditing.layer.id} editing={props.textEditing} viewport={viewport} />}
     </>
   )
 }

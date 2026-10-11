@@ -3,12 +3,14 @@ import { LOOKS } from './editor/adjust.ts'
 import { activeLayer } from './editor/layers.ts'
 import type { EditorDocument, ToolId } from './editor/types.ts'
 import { shortcut } from './keys.ts'
+import { TEXT_KINDS, type TextKind } from './text/presets.ts'
 import { TOOLS } from './tools.ts'
 
 export interface AppCommands {
   newDesign: () => void
   open: () => void
   addPhoto: () => void
+  addText: (kind: TextKind) => void
   download: () => void
   downloadProject: () => void
   renameDesign: () => void
@@ -94,6 +96,15 @@ export function buildActions({ doc, undoLabel, redoLabel, app }: ActionState, c:
       needsDocument: true,
       run: c.addPhoto,
     },
+    ...(['heading', 'subheading', 'body'] as const).map((kind) => ({
+      id: `add-${kind}`,
+      group: 'Design' as const,
+      title: `Add ${TEXT_KINDS[kind].name.toLowerCase()}`,
+      description: `${TEXT_KINDS[kind].description} Type in English, Hebrew or Yiddish; Hebrew and Yiddish read right to left by themselves.`,
+      keywords: ['text', 'type', 'write', 'words', 'letters', 'font', 'title', kind, kind === 'body' ? 'paragraph' : 'headline', 'hebrew', 'yiddish', 'caption'],
+      needsDocument: true,
+      run: () => c.addText(kind),
+    })),
     {
       id: 'download',
       group: 'Design',

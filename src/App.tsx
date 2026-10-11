@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { buildActions, type AppCommands } from './appActions.ts'
 import { AdjustPanel } from './components/AdjustPanel.tsx'
-import { CanvasView, type ArrangeControls, type BoxEditing, type ShapeDrawing } from './components/CanvasView.tsx'
+import { CanvasView, type ArrangeControls, type BoxEditing, type ShapeDrawing, type TextTool } from './components/CanvasView.tsx'
 import { ColorPanel } from './components/ColorPanel.tsx'
 import { CommandPalette } from './components/CommandPalette.tsx'
 import { Dialog } from './components/Dialog.tsx'
@@ -11,6 +11,8 @@ import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocu
 import { RenameDialog } from './components/RenameDialog.tsx'
 import { ResizeDialog } from './components/ResizeDialog.tsx'
 import { ShapePanel, type ColorTarget } from './components/ShapePanel.tsx'
+import type { TextEditing } from './components/TextEditBox.tsx'
+import { TextPanel } from './components/TextPanel.tsx'
 import { Toast, type Notice } from './components/Toast.tsx'
 import { ToolDock } from './components/ToolDock.tsx'
 import { ToolOptions, type ArrangeBarControls, type CropShape } from './components/ToolOptions.tsx'
@@ -48,7 +50,7 @@ import { invertSelection, selectAll, selectionInfo, type Selection, type Selecti
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
-import type { EditorDocument, Layer, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, ShapeOutline, ShapeType, ToolId, Viewport } from './editor/types.ts'
+import type { EditorDocument, Layer, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
 import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
@@ -57,6 +59,10 @@ import { useInstallApp } from './hooks/useInstallApp.ts'
 import { useElementSize } from './hooks/useElementSize.ts'
 import { isTypingTarget, shortcut } from './keys.ts'
 import type { SizePreset } from './presets.ts'
+import { DEFAULT_FONT, loadFont, nearestWeight, onFontsLoaded } from './text/fonts.ts'
+import { hasRtlLetters, resolveAlign } from './text/layout.ts'
+import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './text/presets.ts'
+import { changeText, fitText, newTextBox, textLayout, textName } from './text/textLayer.ts'
 import { TOOLS } from './tools.ts'
 
 type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename'
@@ -117,7 +123,7 @@ function adjustProblem(doc: EditorDocument, layer: Layer): string | null {
   if (layer.kind === 'raster' && isBlank(layerPixels(layer).canvas)) {
     return `There is nothing on “${layer.name}” to adjust yet. Pick another layer in the Layers panel, or paint something first.`
   }
-  if (doc.selection && layer.kind === 'shape') {
+  if (doc.selection && layer.kind !== 'raster') {
     return `Shapes are adjusted as a whole. Press ${shortcut('mod', 'D')} to clear the selection, then adjust “${layer.name}”.`
   }
   if (!adjustArea(doc, layerPixels(layer), NO_ADJUSTMENTS)) {
@@ -168,6 +174,22 @@ function cropRect(box: TransformBox): Rect {
 // What browsers hand an installed app when files are opened with it.
 interface LaunchQueue {
   setConsumer: (consumer: (params: { files?: (FileSystemHandle | FileSystemFileHandle)[] }) => void) => void
+}
+
+interface TextEditState {
+  layer: TextLayer
+  isNew: boolean
+  caret: number | 'all'
+  // The text as it was before typing started.
+  original: TextLayer | null
+}
+
+type TextDefaults = Omit<TextStyle, 'size'> & { size: number | null }
+
+// True if typing changed nothing worth an undo step.
+function sameText(a: TextLayer, b: TextLayer): boolean {
+  const round = (box: TransformBox) => [box.cx, box.cy, box.width, box.height, box.rotation].map((n) => n.toFixed(3)).join()
+  return a.text === b.text && a.wrap === b.wrap && JSON.stringify(a.style) === JSON.stringify(b.style) && round(a.box) === round(b.box)
 }
 
 interface TransformState {
@@ -226,6 +248,11 @@ export default function App() {
   const [photoMoving, setPhotoMoving] = useState(false)
   // True while pressing and holding to see how the design looked before adjusting.
   const [comparing, setComparing] = useState(false)
+  // Text being typed: new text (not in the design until it has words) or text already there.
+  const [textEdit, setTextEditState] = useState<TextEditState | null>(null)
+  const textEditRef = useRef<TextEditState | null>(null)
+  // How the next new text looks. Its size fits the design unless one was chosen.
+  const [textDefaults, setTextDefaults] = useState<TextDefaults>({ ...DEFAULT_TEXT_STYLE, size: null })
   const workspaceRef = useRef<HTMLElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // What the next picked file is for: opening a design, adding a photo, or filling a shape (its id).
@@ -468,6 +495,140 @@ export default function App() {
     editor.change(label, (d) => replaceLayer(d, placeInBox(layer, box)), { bytes: layer.kind === 'raster' && !layer.box ? canvasBytes(layer.canvas) : 0 })
   }
 
+  // Text: typed right on the design. The Text panel changes the text being typed, or the text
+  // picked with Arrange or the Text tool, or (with nothing picked) how new text looks.
+  const pickedText = !textEdit && (tool === 'move' || tool === 'text') && activeNow?.kind === 'text' ? activeNow : null
+  const textTarget: TextLayer | null = textEdit?.layer ?? pickedText
+  const textPanelOn = !!doc && (textTarget !== null || tool === 'text')
+
+  function setTextEdit(next: TextEditState | null) {
+    textEditRef.current = next
+    setTextEditState(next)
+  }
+
+  function updateTextEdit(change: (layer: TextLayer) => TextLayer) {
+    const edit = textEditRef.current
+    if (edit) setTextEdit({ ...edit, layer: change(edit.layer) })
+  }
+
+  // A font that loads while typing changes the letters' widths, so the box is fitted again.
+  useEffect(() => onFontsLoaded(() => updateTextEdit(fitText)), [])
+
+  function newTextStyle(d: EditorDocument, kind?: TextKind): TextStyle {
+    const info = kind && TEXT_KINDS[kind]
+    return {
+      ...textDefaults,
+      size: info ? textSizeFor(d.width, d.height, info.size) : (textDefaults.size ?? textSizeFor(d.width, d.height, 0.08)),
+      weight: info ? nearestWeight(textDefaults.font, info.weight) : textDefaults.weight,
+      lineHeight: info ? info.lineHeight : textDefaults.lineHeight,
+      align: info ? info.align : textDefaults.align,
+    }
+  }
+
+  function textObject(style: TextStyle, box: TransformBox, text: string, wrap: boolean): TextLayer {
+    return { id: createId('layer'), kind: 'text', name: textName(text), visible: true, opacity: 1, locked: false, adjust: null, box, text, style, wrap }
+  }
+
+  // New text where the Text tool clicked (the first line starts there) or in a dragged box.
+  function newTextAt(point: Point, area: Rect | null) {
+    settle()
+    const d = current()
+    if (!d) return
+    const style = newTextStyle(d)
+    const line = style.size * style.lineHeight
+    const layer = area
+      ? textObject(style, { cx: area.x + area.width / 2, cy: area.y + line / 2, width: area.width, height: line, rotation: 0 }, '', true)
+      : textObject(style, newTextBox(point, style), '', false)
+    setTextEdit({ layer: fitText(layer), isNew: true, caret: 0, original: null })
+  }
+
+  // A ready-made heading, subheading or paragraph in the middle of the design, its words picked so
+  // typing replaces them.
+  function addText(kind: TextKind) {
+    setTool('text')
+    const d = current()
+    if (!d) return
+    const style = newTextStyle(d, kind)
+    const center = { x: d.width / 2, y: d.height / 2 }
+    const wrap = kind === 'body'
+    const box = wrap ? { cx: center.x, cy: center.y, width: Math.round(d.width * 0.6), height: style.size * style.lineHeight, rotation: 0 } : newTextBox(center, style)
+    const fitted = fitText(textObject(style, box, TEXT_KINDS[kind].sample, wrap))
+    setTextEdit({ layer: { ...fitted, box: { ...fitted.box, cx: center.x, cy: center.y } }, isNew: true, caret: 'all', original: null })
+    void loadFont(style, TEXT_KINDS[kind].sample)
+  }
+
+  // Starts typing in text already on the design, with the cursor at `caret`.
+  function editText(layerId: string, caret: number | 'all') {
+    settle()
+    const layer = current()?.layers.find((l) => l.id === layerId)
+    if (layer?.kind !== 'text') return
+    if (!layer.visible) {
+      problem(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then change it.`)
+      return
+    }
+    editor.select(layerId)
+    setTextEdit({ layer, isNew: false, caret, original: layer })
+  }
+
+  // Keeps what was typed: new text joins the design (with handles ready to place it), changed text
+  // is updated, and text with every letter taken out is removed.
+  function finishText() {
+    const edit = textEditRef.current
+    if (!edit) return
+    setTextEdit(null)
+    const { layer, original } = edit
+    const empty = !layer.text.trim()
+    // Names follow the words, unless the text was given a name of its own.
+    const autoNamed = !original || original.name === textName(original.text)
+    const named = { ...layer, name: autoNamed ? textName(layer.text) : original.name }
+    if (edit.isNew) {
+      if (empty) return
+      editor.change('Add text', (d) => ({ ...insertLayerAboveActive(d, named), selection: null }))
+      setToolState('move')
+      return
+    }
+    if (empty) editor.change('Delete text', (d) => removeLayer(d, layer.id))
+    else if (!original || !sameText(layer, original) || named.name !== original.name) editor.change('Edit text', (d) => replaceLayer(d, named))
+  }
+
+  function changeTextStyle(patch: Partial<TextStyle>, label: string, mergeKey?: string) {
+    if (textEditRef.current) {
+      updateTextEdit((layer) => changeText(layer, { style: patch }))
+      return
+    }
+    const d = current()
+    const layer = d && activeLayer(d)
+    if (layer?.kind === 'text' && (tool === 'move' || tool === 'text')) {
+      editor.change(label, (doc) => replaceLayer(doc, changeText(layer, { style: patch })), { mergeKey: mergeKey && `${mergeKey}:${layer.id}` })
+    } else {
+      setTextDefaults((t) => ({ ...t, ...patch }))
+    }
+  }
+
+  // A new font is loaded before it's used, so the text's box fits its real letters.
+  async function changeFont(id: string) {
+    const target = textEditRef.current?.layer ?? pickedText
+    const base = target?.style ?? { ...textDefaults, size: 16 }
+    const weight = nearestWeight(id, base.weight)
+    await loadFont({ ...base, font: id, weight }, target?.text || 'Aא')
+    changeTextStyle({ font: id, weight }, 'Change font')
+  }
+
+  function changeWrap(wrap: boolean) {
+    const label = wrap ? 'Wrap text in a box' : 'Fit box to text'
+    if (textEditRef.current) {
+      updateTextEdit((layer) => changeText(layer, { wrap }))
+      return
+    }
+    if (pickedText) editor.change(label, (d) => replaceLayer(d, changeText(pickedText, { wrap })))
+  }
+
+  // The font the program starts with is ready before anyone types.
+  const hasDoc = !!doc
+  useEffect(() => {
+    if (hasDoc) void loadFont({ ...DEFAULT_TEXT_STYLE, font: DEFAULT_FONT }, 'Aaא')
+  }, [hasDoc])
+
   // Keeps the selected part's new size and angle. Returns false if it couldn't (too big).
   function applyTransform(box = transform?.box): boolean {
     if (!transform || !box || isIdentity(box, transform.session.original)) return true
@@ -507,6 +668,7 @@ export default function App() {
   // Unfinished resizing or cropping is applied before doing anything else, so nothing gets mixed up.
   // Returns false if a resize couldn't be applied (it would be too big), which has been explained.
   function settle(): boolean {
+    finishText()
     if (transformChanged && !applyTransform()) return false
     if (cropChanged) applyCrop()
     if (adjustChanged) applyAdjust()
@@ -514,6 +676,7 @@ export default function App() {
   }
 
   function setTool(next: ToolId) {
+    finishText()
     if (next !== tool) {
       if (tool === 'move') {
         if (!applyTransform()) return
@@ -721,8 +884,14 @@ export default function App() {
     const d = current()
     const layer = d && activeLayer(d)
     if (!d || !layer) return
-    // Clicking a shape colors it in.
+    // Clicking a shape colors it in, and clicking text colors its letters.
     const shape = layerAt(d, point)
+    if (shape?.kind === 'text') {
+      editor.select(shape.id)
+      editor.change('Color text', (doc) => replaceLayer(doc, { ...shape, style: { ...shape.style, color } }))
+      rememberColor(color)
+      return
+    }
     if (shape?.kind === 'shape' && shape.geometry.type !== 'line') {
       editor.select(shape.id)
       editor.change('Fill shape', (doc) => updateShape(doc, shape.id, { fill: { kind: 'color', color } }))
@@ -730,7 +899,7 @@ export default function App() {
       return
     }
     if (layer.kind !== 'raster') {
-      problem(`"${layer.name}" is a shape. Click inside a shape to color it in, or pick a paint layer to fill an area.`)
+      problem(`"${layer.name}" is ${layer.kind === 'text' ? 'text' : 'a shape'}. Click it to color it in, or pick a paint layer to fill an area.`)
       return
     }
     const pieces = fillArea(d, point, color, Math.round(fillTolerance * 255))
@@ -775,7 +944,11 @@ export default function App() {
   function paintableLayer(doing: string): PixelLayer | null {
     const layer = usableLayer(doing)
     if (layer && layer.kind !== 'raster') {
-      problem(`"${layer.name}" is a shape, so you can't ${doing} part of it. Change it with Arrange and the Shape panel, or pick a paint layer.`)
+      problem(
+        layer.kind === 'text'
+          ? `"${layer.name}" is text, so you can't ${doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.`
+          : `"${layer.name}" is a shape, so you can't ${doing} part of it. Change it with Arrange and the Shape panel, or pick a paint layer.`,
+      )
       return null
     }
     return layer
@@ -844,7 +1017,7 @@ export default function App() {
     const d = current()
     if (!layer || !d) return
     if (d.selection && layer.kind !== 'raster') {
-      problem('Only pictures and paint can be moved part by part. To move the whole shape, clear the selection first.')
+      problem('Only pictures and paint can be moved part by part. To move the whole thing, clear the selection first.')
       return
     }
     editor.change(d.selection ? 'Move selected area' : 'Move layer', (doc) => startMove(doc)?.commit(doc, dx, dy) ?? doc, {
@@ -919,6 +1092,8 @@ export default function App() {
     openFile: (file: File) => void
     deleteObject: () => void
     hasSelection: () => boolean
+    // True while text is being typed, even if the typing box isn't focused (say, after picking a font).
+    isTyping: () => boolean
     // Enter and Esc while resizing or cropping.
     applyPending: () => boolean
     cancelPending: () => boolean
@@ -935,6 +1110,9 @@ export default function App() {
     open: () => pickFile('open'),
     addPhoto: () => {
       if (current()) pickFile('place')
+    },
+    addText: (kind) => {
+      if (current()) addText(kind)
     },
     download: () => {
       settle()
@@ -961,6 +1139,7 @@ export default function App() {
     // While resizing or cropping, it first takes back the unapplied change.
     undo: () => {
       if (strokeActiveRef.current) return
+      finishText()
       if (transformChanged) return cancelTransform()
       if (cropChanged) return setCropEdit(null)
       if (adjustChanged) return cancelAdjust()
@@ -968,6 +1147,7 @@ export default function App() {
     },
     redo: () => {
       if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged) return
+      finishText()
       editor.redo()
     },
     copy: () => {
@@ -1062,6 +1242,7 @@ export default function App() {
     },
     nudge: (dx, dy) => moveBy(dx, dy, 'nudge'),
     hasSelection: () => !!current()?.selection,
+    isTyping: () => textEditRef.current !== null,
     deleteObject: () => {
       const layer = usableLayer('delete it')
       if (!layer) return
@@ -1077,11 +1258,13 @@ export default function App() {
     },
     applyPending: () => {
       if (transformChanged) return applyTransform(), true
+      if (pickedText && tool === 'move' && !doc?.selection) return editText(pickedText.id, 'all'), true
       if (tool === 'crop' && cropChanged) return applyCrop(), true
       if (adjustChanged) return applyAdjust(), true
       return false
     },
     cancelPending: () => {
+      if (textEditRef.current) return finishText(), true
       if (transformChanged) return cancelTransform(), true
       if (photoMoving) return setPhotoMoving(false), true
       if (tool === 'crop' && cropChanged) return setCropEdit(null), true
@@ -1145,8 +1328,9 @@ export default function App() {
       const { hasDoc, dialogOpen, tool: currentTool } = stateRef.current
       if (event.key === 'Alt') {
         setAltHeld(true)
-        // Stops some browsers from jumping to their own menu bar when Alt is let go.
-        if (hasDoc && !dialogOpen) event.preventDefault()
+        // Stops some browsers from jumping to their own menu bar when Alt is let go (but never
+        // while typing, where Alt can switch keyboard languages or make letters).
+        if (hasDoc && !dialogOpen && !isTypingTarget(event.target)) event.preventDefault()
       }
       if (dialogOpen || isTypingTarget(event.target)) return
       const c = commandsRef.current
@@ -1164,6 +1348,10 @@ export default function App() {
       // Enter and Esc finish or undo an unapplied resize or crop.
       if (plain && event.key === 'Enter' && c.applyPending()) return event.preventDefault()
       if (event.key === 'Escape' && c.cancelPending()) return event.preventDefault()
+
+      // Keys that change objects never act on the text being typed, even when the typing box lost
+      // focus to a panel.
+      if (c.isTyping() && (code === 'Delete' || code === 'Backspace' || ARROWS[event.key])) return
 
       let action: (() => unknown) | undefined
       if (mod && code === 'KeyK') action = c.search
@@ -1313,7 +1501,9 @@ export default function App() {
         : null
 
   const override: LayerOverride | null =
-    tool === 'move' && transform && transformChanged
+    textEdit && !textEdit.isNew
+      ? { layerId: textEdit.layer.id, layer: { ...textEdit.layer, visible: false } }
+      : tool === 'move' && transform && transformChanged
       ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) }
       : adjustPreview && !comparing
         ? adjustPreview
@@ -1338,8 +1528,8 @@ export default function App() {
     if (doc.selection) {
       if (!transform) {
         const blocked =
-          activeNow.kind === 'shape'
-            ? `Shapes move as a whole. Press ${shortcut('mod', 'D')} to clear the selection, then drag the shape.`
+          activeNow.kind !== 'raster'
+            ? `${activeNow.kind === 'text' ? 'Text' : 'Shapes'} moves as a whole. Press ${shortcut('mod', 'D')} to clear the selection, then drag it.`
             : `There is nothing in the selected area on “${activeNow.name}”.`
         return { ...base, blocked }
       }
@@ -1376,6 +1566,24 @@ export default function App() {
       : null
 
   const shapeDrawing: ShapeDrawing | null = tool === 'shape' && doc ? { draft: (b) => newShape(b, []), onDraw: drawNewShape } : null
+
+  const textTool: TextTool | null = tool === 'text' && doc ? { onNew: newTextAt, onEdit: editText } : null
+  const textEditing: TextEditing | null = textEdit
+    ? { layer: textEdit.layer, caret: textEdit.caret, onChange: (text) => updateTextEdit((layer) => changeText(layer, { text })), onDone: finishText }
+    : null
+
+  // The color the Color panel shows and changes: the text's, a shape's, or the painting color.
+  const textColor = textPanelOn ? (textTarget?.style.color ?? textDefaults.color) : null
+  const panelColor = textColor ?? shapeColor
+  const onPanelColor =
+    textColor !== null
+      ? (hex: string) => {
+          rememberColor(hex)
+          changeTextStyle({ color: hex }, 'Text color', 'text-color')
+        }
+      : shapeColor !== null
+        ? colorShape
+        : setColor
 
   return (
     <div className="flex h-full select-none flex-col" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
@@ -1419,6 +1627,7 @@ export default function App() {
         arrange={arrangeBar}
         shapeType={shapeDefaults.geometry.type}
         onShapeTypeChange={(type) => setShapeDefaults((d) => ({ ...d, geometry: { ...d.geometry, type } }))}
+        onAddText={commands.addText}
         crop={{
           width: crop ? cropRect(crop.box).width : 0,
           height: crop ? cropRect(crop.box).height : 0,
@@ -1483,6 +1692,9 @@ export default function App() {
                     ? { onMove: (_id, x, y) => setPhotoFill({ x, y }, 'Move photo') }
                     : null
                 }
+                textTool={textTool}
+                textEditing={textEditing}
+                onEditText={editText}
               />
               <ToolHint tool={hintTool} extra={hintExtra} />
               <ZoomControls
@@ -1511,10 +1723,22 @@ export default function App() {
             <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
           ) : (
             <ColorPanel
-              color={shapeColor ?? color}
+              color={panelColor ?? color}
               recent={recentColors}
-              onChange={shapeColor !== null ? colorShape : setColor}
+              onChange={onPanelColor}
               onPickFromDesign={() => setTool('picker')}
+            />
+          )}
+          {textPanelOn && !adjustOn && doc && (
+            <TextPanel
+              title={textTarget ? textTarget.name || 'Text' : 'New text'}
+              style={textTarget?.style ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
+              wrap={textTarget?.wrap ?? false}
+              hasRtl={!!textTarget && hasRtlLetters(textTarget.text)}
+              resolvedAlign={textTarget ? resolveAlign(textTarget.style.align, textLayout(textTarget).direction) : 'left'}
+              onFont={(id) => void changeFont(id)}
+              onStyle={changeTextStyle}
+              onWrap={changeWrap}
             />
           )}
           {shapeShown && !adjustOn && (

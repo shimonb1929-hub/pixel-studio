@@ -1,17 +1,19 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { createHash } from 'node:crypto'
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { defineConfig, type Plugin } from 'vite'
 
 // Writes the offline helper (sw.js) with a list of every file of this build, so the installed
-// app opens without internet. Only for the finished site, never while developing.
+// app opens without internet. Only for the finished site, never while developing. Fonts (in
+// public/fonts) aren't on the list: there are too many to fetch up front, so each one is kept
+// the first time it's used.
 function offlineHelper(): Plugin {
   return {
     name: 'pixel-studio-offline',
     apply: 'build',
     generateBundle(_, bundle) {
-      const publicFiles = readdirSync('public').filter((name) => !name.startsWith('_'))
+      const publicFiles = readdirSync('public').filter((name) => !name.startsWith('_') && statSync(`public/${name}`).isFile())
       const files = [...Object.keys(bundle), ...publicFiles].sort()
       const template = readFileSync('pwa/service-worker.js', 'utf8')
       // Built files have their version in their name, but files from public/ keep theirs, so their

@@ -31,6 +31,20 @@ const shape = (patch: Partial<Extract<ProjectLayer, { kind: 'shape' }>> = {}): P
   ...patch,
 })
 
+const words = (patch: Partial<Extract<ProjectLayer, { kind: 'text' }>> = {}): ProjectLayer => ({
+  kind: 'text',
+  name: 'שבת שלום',
+  box: { cx: 200, cy: 100, width: 180, height: 58, rotation: 0 },
+  text: 'שבת שלום\nShabbat 2024',
+  style: { font: 'frank-ruhl-libre', size: 24, weight: 700, italic: false, color: '#c4320a', align: 'auto', direction: 'auto', letterSpacing: 0.05, lineHeight: 1.2 },
+  wrap: false,
+  visible: true,
+  opacity: 1,
+  locked: false,
+  adjust: null,
+  ...patch,
+})
+
 function manifest(overrides: Partial<ProjectManifest> = {}): ProjectManifest {
   return {
     version: PROJECT_VERSION,
@@ -147,6 +161,28 @@ describe('project files', () => {
     const { manifest: read, images } = await unpackProject(file)
     expect(read).toEqual(original)
     expect(await Promise.all(images.map(bytes))).toEqual([[1, 2, 3], [7, 8], [9]])
+  })
+
+  it('keeps text, which brings no pictures along', async () => {
+    const original = manifest({ layers: [pixels(), words(), words({ name: 'Box', wrap: true, style: { ...(words() as Extract<ProjectLayer, { kind: 'text' }>).style, direction: 'rtl', align: 'justify' } })], activeLayer: 1 })
+    const file = packProject(original, [new Blob([new Uint8Array([1, 2, 3])])])
+    const { manifest: read, images } = await unpackProject(file)
+    expect(read).toEqual(original)
+    expect(images).toHaveLength(1)
+  })
+
+  it('refuses text settings that cannot be right', () => {
+    const style = (words() as Extract<ProjectLayer, { kind: 'text' }>).style
+    const bad = [
+      words({ text: 7 as unknown as string }),
+      words({ style: { ...style, size: 0 } }),
+      words({ style: { ...style, align: 'middle' as 'center' } }),
+      words({ style: { ...style, direction: 'up' as 'rtl' } }),
+      words({ style: { ...style, color: 'blue' } }),
+      words({ style: { ...style, font: '' } }),
+      words({ wrap: 'yes' as unknown as boolean }),
+    ]
+    for (const layer of bad) expect(() => validateManifest(manifest({ layers: [layer], activeLayer: 0 })), JSON.stringify(layer)).toThrow(ProjectError)
   })
 
   it('treats an empty selection as no selection', () => {

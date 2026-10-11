@@ -280,12 +280,12 @@ test('the fill bucket stays inside the selection', async ({ page }) => {
   expectColor(await designPixel(page, size, 300, 150), WHITE)
 })
 
-test('arrange, crop, shape and fill settings fit on common laptop screens', async ({ page }) => {
+test('arrange, crop, shape, text and fill settings fit on common laptop screens', async ({ page }) => {
   const size = await newDesign(page)
   await block(page, size, 80, 120, 120, 160)
   for (const width of [1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 760 })
-    for (const tool of ['Arrange tool', 'Crop tool', 'Shapes tool', 'Fill bucket tool']) {
+    for (const tool of ['Arrange tool', 'Crop tool', 'Shapes tool', 'Text tool', 'Fill bucket tool']) {
       await page.getByRole('button', { name: tool }).click()
       const { scroll, client } = await page.getByRole('toolbar').evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }))
       expect(scroll, `${tool} settings at ${width}px wide`).toBeLessThanOrEqual(client)

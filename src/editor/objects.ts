@@ -1,7 +1,9 @@
+import { fontsVersion } from '../text/fonts.ts'
+import { drawText, textReach } from '../text/textLayer.ts'
 import { createCanvas, getContext2d, MAX_LAYER_SIDE } from './document.ts'
 import { polygonBounds, snapRect, type Rect } from './geometry.ts'
 import { applyAffine, boxCorners, boxMatrix, invertAffine, type TransformBox } from './transform.ts'
-import type { EditorDocument, Layer, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer } from './types.ts'
+import type { EditorDocument, Layer, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, TextLayer } from './types.ts'
 
 // What every kind of layer can do: be drawn, be measured, be picked on the design, and be turned
 // into plain pixels for the tools that work on pixels.
@@ -12,6 +14,10 @@ export function isPixelLayer(layer: Layer | null | undefined): layer is PixelLay
 
 export function isShapeLayer(layer: Layer | null | undefined): layer is ShapeLayer {
   return layer?.kind === 'shape'
+}
+
+export function isTextLayer(layer: Layer | null | undefined): layer is TextLayer {
+  return layer?.kind === 'text'
 }
 
 // How far a shape's outline (and an arrow head) reaches past its box.
@@ -25,7 +31,7 @@ export function layerBounds(layer: Layer): Rect {
   if (layer.kind === 'raster' && !layer.box) return { x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height }
   const box = layer.box!
   const bounds = polygonBounds(boxCorners(box))!
-  const reach = layer.kind === 'shape' ? shapeReach(layer) : 0
+  const reach = layer.kind === 'shape' ? shapeReach(layer) : layer.kind === 'text' ? textReach(layer) : 0
   return snapRect({ x: bounds.x - reach, y: bounds.y - reach, width: bounds.width + 2 * reach, height: bounds.height + 2 * reach })
 }
 
@@ -136,6 +142,10 @@ export function drawLayerContent(ctx: CanvasRenderingContext2D, layer: Layer): v
     drawShape(ctx, layer)
     return
   }
+  if (layer.kind === 'text') {
+    drawText(ctx, layer)
+    return
+  }
   if (!layer.box) {
     ctx.drawImage(layer.canvas, layer.x, layer.y)
     return
@@ -174,19 +184,20 @@ export function settleLayer(layer: PixelLayer): PixelLayer {
   return { ...layer, ...toPixels(layer), box: null }
 }
 
-// Shapes and settled copies never change in place, so each is worked out once.
-const pixelCopies = new WeakMap<Layer, PixelLayer>()
+// Shapes, text and settled copies never change in place, so each is worked out once (text again
+// when a font arrives).
+const pixelCopies = new WeakMap<Layer, { version: number; copy: PixelLayer }>()
 
 // Any layer as plain pixels that sit straight in the design, for the tools that work on pixels.
 // Plain pixel layers come back as they are (not copied).
 export function layerPixels(layer: Layer): PixelLayer {
   if (layer.kind === 'raster' && !layer.box) return layer
-  let copy = pixelCopies.get(layer)
-  if (!copy) {
-    const { canvas, x, y } = toPixels(layer)
-    copy = { id: layer.id, kind: 'raster', name: layer.name, visible: layer.visible, opacity: layer.opacity, locked: layer.locked, adjust: layer.adjust, canvas, x, y, box: null }
-    pixelCopies.set(layer, copy)
-  }
+  const version = layer.kind === 'text' ? fontsVersion() : 0
+  const cached = pixelCopies.get(layer)
+  if (cached && cached.version === version) return cached.copy
+  const { canvas, x, y } = toPixels(layer)
+  const copy: PixelLayer = { id: layer.id, kind: 'raster', name: layer.name, visible: layer.visible, opacity: layer.opacity, locked: layer.locked, adjust: layer.adjust, canvas, x, y, box: null }
+  pixelCopies.set(layer, { version, copy })
   return copy
 }
 
@@ -200,6 +211,15 @@ function probeContext(): CanvasRenderingContext2D {
 // True if a design point is on something visible on the layer. `slack` (design pixels) makes thin
 // outlines easier to hit.
 export function hitsLayer(layer: Layer, point: Point, slack = 0): boolean {
+  if (layer.kind === 'text') {
+    // Anywhere in the text's box, so words are easy to click even between letters.
+    const { box } = layer
+    const dx = point.x - box.cx
+    const dy = point.y - box.cy
+    const cos = Math.cos(-box.rotation)
+    const sin = Math.sin(-box.rotation)
+    return Math.abs(dx * cos - dy * sin) <= Math.abs(box.width) / 2 + slack && Math.abs(dx * sin + dy * cos) <= Math.abs(box.height) / 2 + slack
+  }
   const ctx = probeContext()
   if (layer.kind === 'shape') {
     const { box, geometry, fill, outline } = layer

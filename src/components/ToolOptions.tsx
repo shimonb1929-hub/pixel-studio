@@ -1,4 +1,4 @@
-import { Check, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Lasso, Link, LockOpen, Minus, PaintBucket, Pentagon, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Unlink, type LucideIcon } from 'lucide-react'
+import { Check, Circle, Plus, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Lasso, Link, LockOpen, Minus, PaintBucket, Pentagon, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Unlink, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import {
   BRUSH_PRESETS,
@@ -15,6 +15,7 @@ import {
 import type { SelectionMode, SelectionShape } from '../editor/selection.ts'
 import type { ShapeType, ToolId } from '../editor/types.ts'
 import { ALT_LABEL } from '../keys.ts'
+import { TEXT_KINDS, type TextKind } from '../text/presets.ts'
 import { toolInfo } from '../tools.ts'
 import { StrokePreview } from './StrokePreview.tsx'
 import { Tooltip } from './Tooltip.tsx'
@@ -439,6 +440,7 @@ interface ToolOptionsProps {
   crop: CropControls
   shapeType: ShapeType
   onShapeTypeChange: (type: ShapeType) => void
+  onAddText: (kind: TextKind) => void
   adjust: AdjustControls
   fillTolerance: number
   onFillToleranceChange: (tolerance: number) => void
@@ -486,6 +488,24 @@ export function ToolOptions(props: ToolOptionsProps) {
         <>
           <Segmented label="Shape to draw" value={props.shapeType} choices={SHAPE_TYPES} onChange={props.onShapeTypeChange} />
           <Hint>Drag on your design to draw, or click to drop one. Its colors come from the Color panel.</Hint>
+        </>
+      ) : props.tool === 'text' ? (
+        <>
+          <div className="flex shrink-0 gap-1.5">
+            {(Object.keys(TEXT_KINDS) as TextKind[]).map((kind) => (
+              <Button
+                key={kind}
+                variant="secondary"
+                className="h-8 shrink-0 px-3 text-[13px]"
+                onClick={() => props.onAddText(kind)}
+                tip={{ title: `Add ${TEXT_KINDS[kind].name.toLowerCase()}`, description: `${TEXT_KINDS[kind].description} It starts in the middle; just type to replace the words.` }}
+              >
+                <Plus size={15} />
+                {TEXT_KINDS[kind].name}
+              </Button>
+            ))}
+          </div>
+          <Hint>Or click where your text should start, or drag a box for a paragraph. Hebrew and Yiddish go right to left by themselves.</Hint>
         </>
       ) : props.tool === 'crop' ? (
         <CropOptions controls={props.crop} />

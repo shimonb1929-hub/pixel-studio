@@ -6,11 +6,14 @@ import { activeLayer } from '../editor/layers.ts'
 import type { EditorDocument, Layer } from '../editor/types.ts'
 import { Tooltip, type TipContent } from './Tooltip.tsx'
 import { Slider } from './ui.tsx'
+import { useFontsVersion } from '../hooks/useFontsVersion.ts'
 
 const THUMB_SIZE = 40
 
 // A tiny picture of the design's frame with this layer in it, where it sits.
 function LayerThumbnail({ layer, revision, doc }: { layer: Layer; revision: number; doc: EditorDocument }) {
+  // Text is drawn again once its font arrives.
+  const fonts = useFontsVersion()
   const { width: docWidth, height: docHeight } = doc
   const ref = useRef<HTMLCanvasElement>(null)
 
@@ -44,7 +47,7 @@ function LayerThumbnail({ layer, revision, doc }: { layer: Layer; revision: numb
     ctx.restore()
     // Only this layer, its pixels and the design's size matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layer, revision, docWidth, docHeight])
+  }, [layer, revision, docWidth, docHeight, fonts])
 
   return <canvas ref={ref} aria-hidden className="shrink-0 rounded-md border border-line bg-subtle" style={{ width: THUMB_SIZE, height: THUMB_SIZE }} />
 }
@@ -72,6 +75,7 @@ function RenameInput({ layer, onRename, onDone }: { layer: Layer; onRename: (nam
     <input
       ref={inputRef}
       aria-label="Layer name"
+      dir="auto"
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => finish(true)}
@@ -186,7 +190,9 @@ export function LayersPanel(props: LayersPanelProps) {
                       className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 pl-2 text-left text-[13px] text-ink"
                     >
                       <LayerThumbnail layer={layer} revision={revision} doc={doc} />
-                      <span className="min-w-0 flex-1 truncate">{layer.name}</span>
+                      <span dir="auto" className="min-w-0 flex-1 truncate text-left">
+                        {layer.name}
+                      </span>
                     </button>
                   </Tooltip>
                 )}

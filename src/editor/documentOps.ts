@@ -34,12 +34,13 @@ function redraw(
   return { ...layer, canvas, x: placed.x, y: placed.y }
 }
 
-// A layer with a new box, keeping a shape's outline in step with how much it grew.
-function withBox(layer: Layer, box: TransformBox, outlineScale = 1): Layer {
+// A layer with a new box, keeping a shape's outline and text's letters in step with how much it grew.
+function withBox(layer: Layer, box: TransformBox, scale = 1): Layer {
   if (layer.kind === 'shape') {
-    const outline = layer.outline && { ...layer.outline, width: layer.outline.width * outlineScale }
+    const outline = layer.outline && { ...layer.outline, width: layer.outline.width * scale }
     return { ...layer, box, outline }
   }
+  if (layer.kind === 'text') return { ...layer, box, style: { ...layer.style, size: layer.style.size * scale } }
   return { ...layer, box }
 }
 
@@ -60,7 +61,8 @@ export function resizeDocument(doc: EditorDocument, width: number, height: numbe
     // A turned box can't be squashed unevenly without slanting it, so it keeps its shape.
     const straight = Math.abs(Math.sin(box.rotation)) < 1e-9
     const sideways = Math.abs(Math.cos(box.rotation)) < 1e-9
-    const [fw, fh] = straight ? [sx, sy] : sideways ? [sy, sx] : [even, even]
+    // Text grows evenly, so its letters keep their shape.
+    const [fw, fh] = layer.kind === 'text' ? [even, even] : straight ? [sx, sy] : sideways ? [sy, sx] : [even, even]
     return withBox(layer, { ...box, cx: box.cx * sx, cy: box.cy * sy, width: box.width * fw, height: box.height * fh }, even)
   })
   return { ...doc, width, height, layers, selection: null }

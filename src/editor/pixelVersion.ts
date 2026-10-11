@@ -1,3 +1,4 @@
+import { fontsVersion } from '../text/fonts.ts'
 import type { Layer } from './types.ts'
 
 // Painting and undo change a layer's pixels in place, so the canvas alone can't tell whether its
@@ -13,7 +14,9 @@ export function pixelVersion(canvas: HTMLCanvasElement): number {
   return versions.get(canvas) ?? 0
 }
 
-// Only pixel layers change in place; every other kind gets a new object when it changes.
+// Only pixel layers change in place; every other kind gets a new object when it changes. Text also
+// looks different once its font arrives.
 export function layerVersion(layer: Layer): number {
-  return layer.kind === 'raster' ? pixelVersion(layer.canvas) : 0
+  if (layer.kind === 'raster') return pixelVersion(layer.canvas)
+  return layer.kind === 'text' ? fontsVersion() : 0
 }

@@ -58,12 +58,12 @@ export function createLayer(name: string, width: number, height: number): PixelL
   return layerFromCanvas(name, createCanvas(width, height))
 }
 
-// An exact copy, placed in the same spot. Shapes and photos inside them never change in place,
+// An exact copy, placed in the same spot. Shapes, text and photos inside shapes never change in place,
 // so their copy can share them; pixels are copied, since painting changes them.
 export function duplicateLayer(layer: Layer): Layer {
   const id = createId('layer')
   const name = `${layer.name} copy`
-  if (layer.kind === 'shape') return { ...layer, id, name, locked: false }
+  if (layer.kind !== 'raster') return { ...layer, id, name, locked: false }
   const canvas = createCanvas(layer.canvas.width, layer.canvas.height)
   getContext2d(canvas).drawImage(layer.canvas, 0, 0)
   return { ...layer, id, name, locked: false, canvas }

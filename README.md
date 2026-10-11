@@ -35,6 +35,12 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **No old-fashioned tricks to learn.** The same results as the professional tools, without their
   hard ideas: drop a photo onto a shape and the shape is filled with it (no clipping masks), and a
   layer's adjustments stay changeable any time (no adjustment layers).
+- **English, Hebrew and Yiddish, all first-class.** Type right on the design. Hebrew and Yiddish
+  read right to left by themselves; numbers, English words and punctuation inside them land where
+  a reader expects, even where lines wrap. What you see while typing is exactly what you get. 175
+  free fonts come built in, 62 of them with Hebrew letters and 19 with every Yiddish letter and
+  vowel point; fonts made only for English still show Hebrew in a matching Hebrew font, never as
+  boxes.
 - **Try first, then decide.** Cropping and adjusting colors show the result live. Nothing changes
   until you press Apply (or Enter); Esc puts it back. While adjusting, press and hold on the design
   to compare with how it was. Arranging shows the exact size and angle while you drag, and Undo
@@ -67,7 +73,7 @@ Then open the address it prints (usually http://localhost:5173).
 | --- | --- |
 | `npm run dev` | Starts the program locally and reloads on every change |
 | `npm run build` | Checks the types and builds the finished site into `dist/` |
-| `npm test` | Runs the unit tests (zoom math, colors, undo history, brushes, layers, search, project files, adjustments, boxes) |
+| `npm test` | Runs the unit tests (zoom math, colors, undo history, brushes, layers, search, project files, adjustments, boxes, text layout and reading order) |
 | `npm run test:e2e` | Opens the program in a real browser, on a normal and a sharp (Retina) screen, and uses every feature |
 | `npm run lint` | Checks the code for common mistakes |
 
@@ -106,6 +112,11 @@ src/
     brushes.ts   The ready-made brushes and erasers
     color.ts     Color codes and the color picker math
     ...          The document, zoom math, drawing to screen, opening and downloading files
+  text/
+    layout.ts    Lines, wrapping, lining up and reading direction (with bidi-js for the Unicode rules)
+    textLayer.ts Text objects: measured with the real fonts, drawn, and kept fitted to their box
+    fonts.ts     The built-in fonts: loaded only when used, with Hebrew stand-ins for English-only fonts
+    fontCatalog.ts  The font list, made by scripts/fonts/fetch.mjs
   components/    The screens: top bar, tool settings, canvas, color, layers, dialogs, search, tips
   hooks/         The editor state (document, layers, undo), automatic saving and element sizes
   actions.ts     Every action, described once in plain words; the menu, search and tips read it
@@ -127,10 +138,25 @@ resizing back, brings back everything.
 A brush stroke paints onto a separate stroke canvas and is shown on a preview of the layer while
 you draw; when you let go, the changed area is copied into the layer and kept for undo.
 
+Text is typed into a real browser text box laid exactly over the design (same font, size, spacing,
+turn and zoom), so the cursor, selecting, copying and every keyboard, including Hebrew and Yiddish,
+work as they do everywhere. When typing ends, the text is drawn on the design with the same layout:
+the reading direction of every letter is worked out for the whole paragraph by the Unicode rules
+for mixing directions, the paragraph is cut into lines, and each line is drawn as pieces that each
+read one way. The baseline is measured from the browser itself, so nothing moves by even a pixel.
+A browser test types mixed Hebrew, Yiddish, English, numbers and punctuation and checks that the
+finished text matches what was on screen while typing.
+
+The fonts are free fonts from Google Fonts (through Fontsource), under the SIL Open Font License or
+the Apache License; each one's license is next to it in `public/fonts/<font>/LICENSE`. They're
+loaded only when a design uses them and kept for offline use after that. `node scripts/fonts/fetch.mjs`
+downloads them again and rebuilds the font list from `scripts/fonts/list.json`.
+
 A project (`.pixel`) is the letters `PXSTUDIO`, a JSON description of the design (size, layers
-with their kind, names, positions, boxes, visibility, opacity, locks and adjustments, shapes, the
-selection), and then every picture's pixels as a PNG: each picture layer, and each photo inside a
-shape, always at full size. Older projects (version 1) still open. Designs kept in the browser use the same format. Saving happens a moment after
+with their kind, names, positions, boxes, visibility, opacity, locks and adjustments, shapes, text
+with its font and settings, the selection), and then every picture's pixels as a PNG: each picture
+layer, and each photo inside a shape, always at full size. Older projects (versions 1 and 2) still
+open. Designs kept in the browser use the same format. Saving happens a moment after
 each change (and right away when you switch tabs or leave a design); only layers whose pixels
 changed are encoded again, so saving stays quick on poster-size designs.
 
@@ -164,14 +190,19 @@ pulling in see-through pixels, so blurred photos keep solid edges.
    (rectangles with round corners, ovals, polygons, stars, lines and arrows) with fill and outline
    colors; add photos (menu or drag and drop); drop a photo onto a shape to fill it, then zoom and
    slide it inside; lock and delete objects; adjustments that stay changeable.
-6. **Shapes and the pen** (Illustrator) — a pen for curves with editable points; gradient fills;
+6. **Text** (done) — type on the design in English, Hebrew and Yiddish, with right-to-left text
+   that never scrambles; quick headings, subheadings and paragraphs; 175 free fonts with live
+   previews, Hebrew and Yiddish filters; size, boldness, italic, lining up, reading direction,
+   letter and line spacing; boxes that wrap their lines; text resizes, turns and saves like any
+   object.
+7. **Shapes and the pen** (Illustrator) — a pen for curves with editable points; gradient fills;
    outline dashes and ends; combine shapes (join, cut out, overlap); align, distribute and snapping
    guides; SVG export.
-7. **Text** (all three) — text layers, fonts, size, spacing, alignment, paragraphs, text in a
-   box and along a path, text effects.
-8. **Pages and print** (InDesign) — multi-page documents, master pages, margins, columns and
+8. **More text** — different fonts and colors inside one text, text along a path, text effects
+   (outline, shadow, fill with a photo), your own font files, lists and columns.
+9. **Pages and print** (InDesign) — multi-page documents, master pages, margins, columns and
    guides, text that flows from box to box, print-ready PDF with bleed.
-9. **Pro layers and photo tools** (Photoshop) — blend modes, groups, effects (shadow, glow,
+10. **Pro layers and photo tools** (Photoshop) — blend modes, groups, effects (shadow, glow,
    outline), curves and levels, clone and heal, select by color and select subject, and an easy
    way to fade or hide parts of a layer (with a brush, never a mask to learn).
-10. **Ready to sell** — accounts, saving to the cloud, payments and a free trial.
+11. **Ready to sell** — accounts, saving to the cloud, payments and a free trial.
