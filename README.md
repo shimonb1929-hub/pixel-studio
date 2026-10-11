@@ -68,9 +68,8 @@ Before the first `npm run test:e2e` on a new computer, run `npx playwright insta
 ## Putting it online
 
 The finished site is plain files (`npm run build` puts them in `dist/`), so any static host works.
-Cloudflare Pages is the recommended one: connect it to this GitHub repository with the build
-command `npm run build` and the output folder `dist`. Every push to `main` updates the live site,
-and every other branch gets its own preview address. `public/_headers` tells the host which files
+The live site runs on Railway, which builds and publishes `main` on every push. Cloudflare Pages
+or Netlify work too: build command `npm run build`, output folder `dist`. `public/_headers` tells the host which files
 may be kept long and which must always be checked for updates; `.node-version` picks Node 22.
 
 Once online, Chrome and Edge offer to install Pixel Studio as an app (also from Menu → Install as

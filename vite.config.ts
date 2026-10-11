@@ -13,8 +13,13 @@ function offlineHelper(): Plugin {
     generateBundle(_, bundle) {
       const publicFiles = readdirSync('public').filter((name) => !name.startsWith('_'))
       const files = [...Object.keys(bundle), ...publicFiles].sort()
-      const version = createHash('sha256').update(files.join('\n')).digest('hex').slice(0, 12)
-      const source = readFileSync('pwa/service-worker.js', 'utf8')
+      const template = readFileSync('pwa/service-worker.js', 'utf8')
+      // Built files have their version in their name, but files from public/ keep theirs, so their
+      // contents count too: a new icon or app description must reach installed apps as well.
+      const hash = createHash('sha256').update(files.join('\n')).update(template)
+      for (const name of publicFiles) hash.update(readFileSync(`public/${name}`))
+      const version = hash.digest('hex').slice(0, 12)
+      const source = template
         .replace('__VERSION__', version)
         .replace('__FILES__', JSON.stringify(files))
       this.emitFile({ type: 'asset', fileName: 'sw.js', source })

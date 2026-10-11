@@ -295,6 +295,16 @@ test.describe('when the browser cannot keep designs', () => {
     await page.reload()
   })
 
+  test('a new name alone still counts as a change worth asking about', async ({ page }) => {
+    await newDesign(page)
+    await page.getByRole('button', { name: /Design name: My design 1/ }).click()
+    await page.getByRole('dialog', { name: 'Rename design' }).getByLabel('Name').fill('Birthday card')
+    await page.keyboard.press('Enter')
+    await expect(saveStatus(page)).toHaveText('Not saved')
+    await closeDesign(page)
+    await expect(page.getByRole('dialog', { name: 'Throw away your changes?' })).toBeVisible()
+  })
+
   test('it says so, closing asks first, and downloading counts as saved', async ({ page }) => {
     const size = await newDesign(page)
     await drag(page, size, [

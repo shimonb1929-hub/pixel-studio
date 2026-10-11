@@ -65,6 +65,8 @@ export function useEditor(): Editor {
   const [history] = useState(() => new History<Change>(mergeChanges))
   // Handlers can run several changes in a row before React re-renders, so they read this.
   const docRef = useRef<EditorDocument | null>(null)
+  // Renaming isn't an undo step, but a new name not yet downloaded still counts as a change.
+  const [renamed, setRenamed] = useState(false)
   const [, setHistoryVersion] = useState(0)
   const refresh = () => setHistoryVersion((v) => v + 1)
 
@@ -109,10 +111,11 @@ export function useEditor(): Editor {
     revision,
     undoLabel: history.undoLabel,
     redoLabel: history.redoLabel,
-    isDirty: doc !== null && history.isDirty,
+    isDirty: doc !== null && (history.isDirty || renamed),
 
     load(next) {
       history.clear()
+      setRenamed(false)
       setDoc(next)
       setRevision((r) => r + 1)
       refresh()
@@ -120,6 +123,7 @@ export function useEditor(): Editor {
 
     close() {
       history.clear()
+      setRenamed(false)
       setDoc(null)
       refresh()
     },
@@ -148,7 +152,9 @@ export function useEditor(): Editor {
     // A design's name isn't part of what undo takes back either.
     rename(name) {
       const current = docRef.current
-      if (current && name !== current.name) setDoc({ ...current, name })
+      if (!current || name === current.name) return
+      setDoc({ ...current, name })
+      setRenamed(true)
     },
 
     commitStroke(label, layerId, result, grown) {
@@ -212,6 +218,7 @@ export function useEditor(): Editor {
 
     markSaved() {
       history.markSaved()
+      setRenamed(false)
       refresh()
     },
   }

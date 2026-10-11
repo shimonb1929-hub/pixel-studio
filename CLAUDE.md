@@ -17,5 +17,7 @@ principles and roadmap describe the plan.
 
 - Do not send screenshots or images unless asked. Check visual work yourself, then report in words.
 - Keep moving: when a stage is done, commit, push and say what is next.
+- The live site runs on Railway and deploys from `main`. Push finished, fully tested stages straight
+  to `main` (the owner asked for this); never push half-done work there.
 - Before pushing, run `npm test`, `npm run lint`, `npm run build` and `npx playwright test`
   (do not edit files while the browser tests run: the dev server reloads the page).
