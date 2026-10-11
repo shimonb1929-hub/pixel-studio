@@ -48,6 +48,7 @@ import type { EditorDocument, Layer, Point, ToolId, Viewport } from './editor/ty
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
 import { useEditor } from './hooks/useEditor.ts'
+import { useInstallApp } from './hooks/useInstallApp.ts'
 import { useElementSize } from './hooks/useElementSize.ts'
 import { isTypingTarget, shortcut } from './keys.ts'
 import type { SizePreset } from './presets.ts'
@@ -119,6 +120,11 @@ function cropRect(box: TransformBox): Rect {
   return { x, y, width: Math.round(box.width), height: Math.round(box.height) }
 }
 
+// What browsers hand an installed app when files are opened with it.
+interface LaunchQueue {
+  setConsumer: (consumer: (params: { files?: (FileSystemHandle | FileSystemFileHandle)[] }) => void) => void
+}
+
 interface TransformState {
   session: TransformSession
   box: TransformBox
@@ -138,6 +144,7 @@ export default function App() {
   const editor = useEditor()
   const { doc } = editor
   const autosave = useAutosave(editor)
+  const app = useInstallApp()
   const [viewport, setViewport] = useState<Viewport>({ zoom: 1, panX: 0, panY: 0 })
   const [tool, setToolState] = useState<ToolId>('brush')
   const [cursor, setCursor] = useState<Point | null>(null)
@@ -629,6 +636,7 @@ export default function App() {
   type ExtraCommands = {
     nudge: (dx: number, dy: number) => void
     pasteFile: (file: File) => void
+    openFile: (file: File) => void
     hasSelection: () => boolean
     // Enter and Esc while resizing or cropping.
     applyPending: () => boolean
@@ -659,6 +667,7 @@ export default function App() {
     renameDesign: () => {
       if (current()) setDialog('rename')
     },
+    installApp: () => void app.install(),
     close: () =>
       void leaveDesign(() => {
         editor.close()
@@ -706,6 +715,7 @@ export default function App() {
       else problem(`Nothing to paste yet. Copy part of your design first, or copy a picture in another program and press ${shortcut('mod', 'V')}.`)
     },
     pasteFile: (file) => void pasteFile(file),
+    openFile: (file) => void openFile(file),
     selectAll: () => {
       settle()
       if (current()) setSelection('Select all', (d) => selectAll(d.width, d.height))
@@ -819,7 +829,7 @@ export default function App() {
     },
   }
 
-  const actions = buildActions({ doc, undoLabel: editor.undoLabel, redoLabel: editor.redoLabel }, commands)
+  const actions = buildActions({ doc, undoLabel: editor.undoLabel, redoLabel: editor.redoLabel, app }, commands)
 
   // Keyboard and paste handlers live in effects, so they read the latest commands through refs.
   // A layout effect updates them together with the screen, so a key pressed right after a drag
@@ -928,6 +938,15 @@ export default function App() {
       window.removeEventListener('paste', onPaste)
       window.removeEventListener('blur', reset)
     }
+  }, [])
+
+  // The installed app can open pictures and projects double-clicked on the computer.
+  useEffect(() => {
+    const queue = (window as { launchQueue?: LaunchQueue }).launchQueue
+    queue?.setConsumer((params) => {
+      const handle = params.files?.[0]
+      if (handle && 'getFile' in handle) void handle.getFile().then((file) => commandsRef.current.openFile(file))
+    })
   }, [])
 
   function handleDragOver(event: DragEvent) {

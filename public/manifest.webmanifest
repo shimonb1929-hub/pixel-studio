@@ -1,0 +1,30 @@
+{
+  "name": "Pixel Studio",
+  "short_name": "Pixel Studio",
+  "description": "Design anything: photos, drawings, posters and more.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef0f4",
+  "theme_color": "#eef0f4",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "application/x-pixel-studio": [".pixel"],
+        "image/png": [".png"],
+        "image/jpeg": [".jpg", ".jpeg"],
+        "image/webp": [".webp"],
+        "image/gif": [".gif"]
+      }
+    }
+  ],
+  "launch_handler": { "client_mode": "focus-existing" }
+}

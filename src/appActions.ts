@@ -11,6 +11,7 @@ export interface AppCommands {
   download: () => void
   downloadProject: () => void
   renameDesign: () => void
+  installApp: () => void
   close: () => void
   undo: () => void
   redo: () => void
@@ -50,13 +51,14 @@ interface ActionState {
   doc: EditorDocument | null
   undoLabel: string | null
   redoLabel: string | null
+  app: { installed: boolean; canInstall: boolean }
 }
 
 const NOTHING_SELECTED = 'Select an area first, with the Select tool.'
 
 // Everything a person can do, in plain words. The menu, the search box and the hover tips all
 // come from this one list.
-export function buildActions({ doc, undoLabel, redoLabel }: ActionState, c: AppCommands): Action[] {
+export function buildActions({ doc, undoLabel, redoLabel, app }: ActionState, c: AppCommands): Action[] {
   const active = doc ? activeLayer(doc) : undefined
   const activeIndex = doc && active ? doc.layers.indexOf(active) : -1
   const noSelection = doc && !doc.selection ? NOTHING_SELECTED : undefined
@@ -108,6 +110,20 @@ export function buildActions({ doc, undoLabel, redoLabel }: ActionState, c: AppC
       keywords: ['rename', 'name', 'title', 'call', 'label'],
       needsDocument: true,
       run: c.renameDesign,
+    },
+    {
+      id: 'install',
+      group: 'Design',
+      title: 'Install as an app',
+      description:
+        'Add Pixel Studio to this computer, so it opens in its own window from your desktop or Start menu, like any other program, and works without internet.',
+      keywords: ['install', 'app', 'desktop', 'program', 'offline', 'start menu', 'dock', 'shortcut', 'application'],
+      disabledReason: app.installed
+        ? 'Pixel Studio is already installed. Open it from your desktop, Start menu or dock.'
+        : app.canInstall
+          ? undefined
+          : "This browser can't install it from here. In Chrome or Edge, click the install button at the right end of the address bar.",
+      run: c.installApp,
     },
     {
       id: 'close',

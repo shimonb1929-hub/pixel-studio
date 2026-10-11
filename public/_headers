@@ -1,0 +1,8 @@
+# Read by Cloudflare Pages and Netlify. The offline helper and the app description must always be
+# checked for a newer version; built files have their version in their name, so they never change.
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

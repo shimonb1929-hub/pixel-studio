@@ -65,6 +65,19 @@ Then open the address it prints (usually http://localhost:5173).
 
 Before the first `npm run test:e2e` on a new computer, run `npx playwright install chromium` once.
 
+## Putting it online
+
+The finished site is plain files (`npm run build` puts them in `dist/`), so any static host works.
+Cloudflare Pages is the recommended one: connect it to this GitHub repository with the build
+command `npm run build` and the output folder `dist`. Every push to `main` updates the live site,
+and every other branch gets its own preview address. `public/_headers` tells the host which files
+may be kept long and which must always be checked for updates; `.node-version` picks Node 22.
+
+Once online, Chrome and Edge offer to install Pixel Studio as an app (also from Menu → Install as
+an app). The installed app opens in its own window, works without internet (`pwa/service-worker.js`
+keeps every file of the current version), and opens pictures and `.pixel` projects double-clicked
+on the computer.
+
 ## How the code is organized
 
 ```
