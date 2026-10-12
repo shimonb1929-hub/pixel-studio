@@ -200,3 +200,21 @@ describe('project files', () => {
     expect(validateManifest({ ...manifest(), selection: undefined }).selection).toBeNull()
   })
 })
+
+describe('effects in projects', () => {
+  it('keeps effects and blend modes', () => {
+    const effects = {
+      shadow: { color: '#000000', opacity: 0.4, blur: 20, distance: 10, angle: 90 },
+      glow: null,
+      outline: { color: '#ffffff', width: 8 },
+    }
+    const read = validateManifest(manifest({ activeLayer: 0, layers: [shape({ effects, blend: 'multiply' })] }))
+    expect(read.layers[0].effects).toEqual(effects)
+    expect(read.layers[0].blend).toBe('multiply')
+  })
+
+  it('refuses made-up effects and blend modes', () => {
+    expect(() => validateManifest(manifest({ activeLayer: 0, layers: [shape({ blend: 'sparkle' as never })] }))).toThrow(ProjectError)
+    expect(() => validateManifest(manifest({ activeLayer: 0, layers: [shape({ effects: { shadow: null, glow: { color: 'red', opacity: 1, size: 3 }, outline: null } })] }))).toThrow(ProjectError)
+  })
+})

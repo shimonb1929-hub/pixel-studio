@@ -1,5 +1,6 @@
 import type { TextAlign, TextDirection } from '../text/layout.ts'
 import type { Adjustments } from './adjust.ts'
+import type { BlendMode, LayerEffects } from './effects.ts'
 import type { Selection } from './selection.ts'
 import type { TransformBox } from './transform.ts'
 
@@ -19,6 +20,11 @@ interface LayerBase {
   // Adjustments that stay editable: they show on top of the layer without changing what's on it,
   // so they can be changed again or removed at any time.
   adjust: Adjustments | null
+  // A shadow, glow or outline around what's on the layer. Like adjustments, they never change what's
+  // on it, so they can be changed again or taken off at any time. Missing means none.
+  effects?: LayerEffects | null
+  // How the layer mixes with what's below it. Missing means normal.
+  blend?: BlendMode
 }
 
 // A layer of pixels: a photo, a painting, a pasted picture.

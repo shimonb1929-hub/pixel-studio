@@ -1,8 +1,10 @@
 import { isNeutral } from './adjust.ts'
 import { previewParts } from './adjustSession.ts'
-import { drawLayerContent, layerPixels } from './objects.ts'
+import { drawWithEffects } from './effects.ts'
+import { polygonBounds, unionRect, type Rect } from './geometry.ts'
+import { drawLayerContent, layerBounds, layerPixels } from './objects.ts'
 import { layerVersion } from './pixelVersion.ts'
-import type { Affine } from './transform.ts'
+import { applyAffine, type Affine } from './transform.ts'
 import type { EditorDocument, Layer, Viewport } from './types.ts'
 
 export const WORKSPACE_COLOR = '#e7e9ee'
@@ -81,6 +83,40 @@ function adjustedOnScreen(doc: EditorDocument, layer: Layer, screenScale: number
   return parts
 }
 
+// The area pictures cover, in design pixels.
+function partsBounds(parts: RenderPart[]): Rect {
+  let bounds: Rect | null = null
+  for (const part of parts) {
+    const w = part.canvas.width
+    const h = part.canvas.height
+    if (!part.transform) {
+      bounds = unionRect(bounds, { x: part.x, y: part.y, width: w, height: h })
+      continue
+    }
+    const corners = [
+      { x: 0, y: 0 },
+      { x: w, y: 0 },
+      { x: 0, y: h },
+      { x: w, y: h },
+    ].map((p) => applyAffine(part.transform!, p))
+    bounds = unionRect(bounds, polygonBounds(corners)!)
+  }
+  return bounds ?? { x: 0, y: 0, width: 0, height: 0 }
+}
+
+// The design's layers, put together on their own, at screen size.
+let pageBuffer: HTMLCanvasElement | null = null
+function pageCanvas(width: number, height: number): HTMLCanvasElement {
+  if (!pageBuffer) pageBuffer = document.createElement('canvas')
+  if (pageBuffer.width !== width || pageBuffer.height !== height) {
+    pageBuffer.width = width
+    pageBuffer.height = height
+  } else {
+    pageBuffer.getContext('2d')!.clearRect(0, 0, width, height)
+  }
+  return pageBuffer
+}
+
 function drawParts(ctx: CanvasRenderingContext2D, parts: RenderPart[]) {
   for (const part of parts) {
     if (!part.transform) {
@@ -148,31 +184,38 @@ export function renderScene(
     ctx.fillRect(left, top, width, height)
   }
 
-  ctx.save()
-  ctx.setTransform(width / doc.width, 0, 0, height / doc.height, left, top)
+  // Layers that mix with what's below need something real below them: on a see-through page they
+  // are put together on their own first, so they never mix with the gray-and-white squares.
+  const mixing = !doc.background && doc.layers.some((l) => l.visible && l.blend && l.blend !== 'normal')
+  const page = mixing ? pageCanvas(width, height) : null
+  const target = page ? page.getContext('2d')! : ctx
+  target.save()
+  target.setTransform(width / doc.width, 0, 0, height / doc.height, page ? 0 : left, page ? 0 : top)
   // Smooth when shrinking; show crisp square pixels when zoomed in.
-  ctx.imageSmoothingEnabled = width < doc.width
-  ctx.imageSmoothingQuality = 'high'
+  target.imageSmoothingEnabled = width < doc.width
+  target.imageSmoothingQuality = 'high'
   const screenScale = width / doc.width
   for (const original of doc.layers) {
     let layer = original
     if (override?.layerId === original.id) {
       if ('parts' in override) {
         if (original.visible && original.opacity > 0) {
-          ctx.globalAlpha = original.opacity
-          drawParts(ctx, override.parts)
+          target.globalAlpha = original.opacity
+          const parts = override.parts
+          drawWithEffects(target, original.effects, original.blend, partsBounds(parts), (c) => drawParts(c, parts), parts, 0)
         }
         continue
       }
       layer = override.layer
     }
     if (!layer.visible || layer.opacity <= 0) continue
-    ctx.globalAlpha = layer.opacity
+    target.globalAlpha = layer.opacity
     const adjusted = adjustedOnScreen(doc, layer, screenScale)
-    if (adjusted) drawParts(ctx, adjusted)
-    else drawLayerContent(ctx, layer)
+    if (adjusted) drawWithEffects(target, layer.effects, layer.blend, partsBounds(adjusted), (c) => drawParts(c, adjusted), adjusted, 0)
+    else drawWithEffects(target, layer.effects, layer.blend, layerBounds(layer), (c) => drawLayerContent(c, layer), layer, layerVersion(layer))
   }
-  ctx.restore()
+  target.restore()
+  if (page) ctx.drawImage(page, left, top)
 
   ctx.strokeStyle = 'rgba(16, 24, 40, 0.10)'
   ctx.lineWidth = 1

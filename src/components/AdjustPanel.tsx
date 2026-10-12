@@ -33,7 +33,7 @@ const PREVIEW_WIDTH = 66
 const PREVIEW_HEIGHT = 50
 
 // A look's small picture, fitted into its tile over gray-and-white squares.
-function LookPreview({ source }: { source: HTMLCanvasElement | undefined }) {
+export function LookPreview({ source }: { source: HTMLCanvasElement | undefined }) {
   const ref = useRef<HTMLCanvasElement>(null)
 
   useLayoutEffect(() => {

@@ -55,7 +55,7 @@ export function moveLayer(doc: EditorDocument, layerId: string, direction: 1 | -
 }
 
 // Settings every kind of layer has.
-type CommonPatch = Partial<Pick<Layer, 'name' | 'visible' | 'opacity' | 'locked' | 'adjust'>>
+type CommonPatch = Partial<Pick<Layer, 'name' | 'visible' | 'opacity' | 'locked' | 'adjust' | 'effects' | 'blend'>>
 
 export function updateLayer(doc: EditorDocument, layerId: string, patch: CommonPatch): EditorDocument {
   return { ...doc, layers: doc.layers.map((l) => (l.id === layerId ? { ...l, ...patch } : l)) }

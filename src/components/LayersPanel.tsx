@@ -43,7 +43,7 @@ function LayerThumbnail({ layer, revision, doc }: { layer: Layer; revision: numb
     ctx.clip()
     ctx.imageSmoothingQuality = 'high'
     ctx.setTransform(scale, 0, 0, scale, x, y)
-    drawLayer(ctx, doc, layer)
+    drawLayer(ctx, doc, layer, { blend: false })
     ctx.restore()
     // Only this layer, its pixels and the design's size matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps

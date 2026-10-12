@@ -19,6 +19,9 @@ import { ToolOptions, type ArrangeBarControls, type CropShape } from './componen
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { DesignInfo, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
+import { EffectsPanel } from './components/EffectsPanel.tsx'
+import { effectThumbnails } from './editor/compose.ts'
+import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
 import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, type Adjustments } from './editor/adjust.ts'
 import { adjustArea, lookThumbnails, paintAdjusted, previewParts } from './editor/adjustSession.ts'
 import { arrangeBox, placeInBox } from './editor/arrange.ts'
@@ -245,6 +248,8 @@ export default function App() {
   const [shapeDefaults, setShapeDefaults] = useState<ShapeDefaults>(DEFAULT_SHAPES)
   // Which part of a shape the Color panel colors.
   const [colorTarget, setColorTarget] = useState<ColorTarget>('fill')
+  // Which effect's color the Color panel colors, while one is picked in the Effects panel.
+  const [effectColor, setEffectColor] = useState<{ layerId: string; kind: EffectKind } | null>(null)
   // While on, dragging on the selected shape slides the photo inside it.
   const [photoMoving, setPhotoMoving] = useState(false)
   // True while pressing and holding to see how the design looked before adjusting.
@@ -494,6 +499,40 @@ export default function App() {
     const layer = current()?.layers.find((l) => l.id === layerId)
     if (!layer) return
     editor.change(label, (d) => replaceLayer(d, placeInBox(layer, box)), { bytes: layer.kind === 'raster' && !layer.box ? canvasBytes(layer.canvas) : 0 })
+  }
+
+  // Effects: the picked object's shadow, glow and outline, and how it mixes with what's below.
+  const effectsLayer = doc && !adjustOn && !textEdit && (tool === 'move' || tool === 'shape' || tool === 'text') ? activeNow : undefined
+  const unit = doc ? effectUnit(doc.width, doc.height) : 1
+  const effectPictures = useMemo(
+    () =>
+      doc && effectsLayer
+        ? effectThumbnails(doc, effectsLayer, EFFECT_LOOKS.map((look) => look.effects(unit)), LOOK_PICTURE_SIZE * (window.devicePixelRatio || 1), 66 / 50)
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [effectsLayer, editor.revision, doc?.background, unit],
+  )
+  const effectTarget = effectsLayer && effectColor?.layerId === effectsLayer.id && effectsLayer.effects?.[effectColor.kind] ? effectColor.kind : null
+
+  function changeEffects(effects: LayerEffects, label: string, slider?: string) {
+    const layer = effectsLayer
+    if (!layer) return
+    editor.change(label, (d) => updateLayer(d, layer.id, { effects: hasEffects(effects) ? effects : null }), { mergeKey: slider && `effects-${slider}:${layer.id}` })
+  }
+
+  function changeBlend(mode: BlendMode) {
+    const layer = effectsLayer
+    if (!layer) return
+    editor.change(mode === 'normal' ? 'Mix normally' : `Mix: ${blendInfo(mode).name}`, (d) => updateLayer(d, layer.id, { blend: mode === 'normal' ? undefined : mode }))
+  }
+
+  function colorEffect(hex: string) {
+    const layer = effectsLayer
+    const kind = effectTarget
+    const effect = kind && layer?.effects?.[kind]
+    if (!layer || !kind || !effect) return
+    rememberColor(hex)
+    changeEffects({ ...layer.effects!, [kind]: { ...effect, color: hex } }, `${kind[0].toUpperCase()}${kind.slice(1)} color`, `${kind}-color`)
   }
 
   // Text: typed right on the design. The Text panel changes the text being typed, or the text
@@ -1651,9 +1690,12 @@ export default function App() {
   // picked with Arrange), or the painting color.
   const textColor = textPanelOn ? (textTarget?.style.color ?? textDefaults.color) : null
   const pageColorOn = !!doc && !activeNow && tool === 'move' && !textEdit
-  const panelColor = textColor ?? shapeColor ?? (pageColorOn ? (doc?.background ?? '#ffffff') : null)
+  const effectColorShown = effectTarget ? (effectsLayer?.effects?.[effectTarget]?.color ?? null) : null
+  const panelColor = effectColorShown ?? textColor ?? shapeColor ?? (pageColorOn ? (doc?.background ?? '#ffffff') : null)
   const onPanelColor =
-    textColor !== null
+    effectColorShown !== null
+      ? colorEffect
+      : textColor !== null
       ? (hex: string) => {
           rememberColor(hex)
           changeTextStyle({ color: hex }, 'Text color', 'text-color')
@@ -1833,7 +1875,10 @@ export default function App() {
               fill={shapeShown.fill}
               outline={shapeShown.outline}
               colorTarget={shapeTarget}
-              onColorTarget={setColorTarget}
+              onColorTarget={(target) => {
+                setEffectColor(null)
+                setColorTarget(target)
+              }}
               onGeometry={changeGeometry}
               onNoFill={() => changeShape('No fill', () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null }))}
               onNoOutline={() => changeShape('No outline', () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
@@ -1850,6 +1895,24 @@ export default function App() {
                     }
                   : null
               }
+            />
+          )}
+          {effectsLayer && (
+            <EffectsPanel
+              title={effectsLayer.name}
+              effects={effectsLayer.effects ?? null}
+              blend={effectsLayer.blend ?? 'normal'}
+              unit={unit}
+              thumbnails={effectPictures}
+              colorTarget={effectTarget}
+              onColorTarget={(kind) => setEffectColor(kind && { layerId: effectsLayer.id, kind })}
+              onLook={(look) => {
+                setEffectColor(null)
+                const effects = look.effects(unit)
+                changeEffects(effects, effectsLabel(effects, unit))
+              }}
+              onChange={changeEffects}
+              onBlend={changeBlend}
             />
           )}
           <LayersPanel

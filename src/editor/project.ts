@@ -1,5 +1,6 @@
 import type { Adjustments } from './adjust.ts'
 import { drawLayer } from './compose.ts'
+import { BLEND_MODES, hasEffects, type BlendMode, type LayerEffects } from './effects.ts'
 import { createCanvas, createDesignId, createId, getContext2d, layerFromCanvas, MAX_LAYER_SIDE, validateDocumentSize } from './document.ts'
 import { EXPORT_FORMATS } from './fileNames.ts'
 import { pixelVersion } from './pixelVersion.ts'
@@ -19,9 +20,10 @@ import type { EditorDocument, Layer, ShapeGeometry, ShapeOutline, ShapeType, Tex
 //
 // Version 2 added shapes, resized and turned pictures (box), locks and editable adjustments.
 // Version 3 added text. Version 4 added the page color, and designs with nothing on the page yet.
+// Version 5 added effects (shadow, glow, outline) and blend modes.
 // Older files still open.
 
-export const PROJECT_VERSION = 4
+export const PROJECT_VERSION = 5
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -37,6 +39,8 @@ interface ProjectLayerBase {
   opacity: number
   locked: boolean
   adjust: Adjustments | null
+  effects?: LayerEffects | null
+  blend?: BlendMode
 }
 
 export interface ProjectPixelLayer extends ProjectLayerBase {
@@ -184,6 +188,35 @@ function readAdjust(value: unknown): Adjustments | null {
   return settings
 }
 
+const MAX_EFFECT_SIZE = 100000
+
+function readEffects(value: unknown): LayerEffects | null {
+  if (value === null || value === undefined) return null
+  if (!isRecord(value)) damaged()
+  const { shadow, glow, outline } = value
+  const effects: LayerEffects = { shadow: null, glow: null, outline: null }
+  if (shadow !== null && shadow !== undefined) {
+    if (!isRecord(shadow) || !isBetween(shadow.opacity, 0, 1) || !isBetween(shadow.blur, 0, MAX_EFFECT_SIZE)) damaged()
+    if (!isBetween(shadow.distance, 0, MAX_EFFECT_SIZE) || !isBetween(shadow.angle, -360, 360)) damaged()
+    effects.shadow = { color: readColor(shadow.color), opacity: shadow.opacity, blur: shadow.blur, distance: shadow.distance, angle: shadow.angle }
+  }
+  if (glow !== null && glow !== undefined) {
+    if (!isRecord(glow) || !isBetween(glow.opacity, 0, 1) || !isBetween(glow.size, 0, MAX_EFFECT_SIZE)) damaged()
+    effects.glow = { color: readColor(glow.color), opacity: glow.opacity, size: glow.size }
+  }
+  if (outline !== null && outline !== undefined) {
+    if (!isRecord(outline) || !isBetween(outline.width, 0, MAX_EFFECT_SIZE)) damaged()
+    effects.outline = { color: readColor(outline.color), width: outline.width }
+  }
+  return hasEffects(effects) ? effects : null
+}
+
+function readBlend(value: unknown): BlendMode | undefined {
+  if (value === undefined || value === 'normal') return undefined
+  if (!BLEND_MODES.some((b) => b.mode === value)) damaged()
+  return value as BlendMode
+}
+
 const COLOR = /^#[0-9a-f]{6}$/i
 const SHAPE_TYPES: ShapeType[] = ['rectangle', 'ellipse', 'polygon', 'star', 'line']
 
@@ -247,6 +280,10 @@ function readLayer(layer: unknown): ProjectLayer {
     locked: layer.locked === true,
     adjust: readAdjust(layer.adjust),
   }
+  const effects = readEffects(layer.effects)
+  if (effects) base.effects = effects
+  const blend = readBlend(layer.blend)
+  if (blend) base.blend = blend
   if (layer.kind === 'shape') {
     return { ...base, kind: 'shape', box: readBox(layer.box), geometry: readGeometry(layer.geometry), fill: readFill(layer.fill), outline: readOutline(layer.outline) }
   }
@@ -342,7 +379,15 @@ function layerPictures(layer: Layer): HTMLCanvasElement[] {
 }
 
 function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
-  const base: ProjectLayerBase = { name: layer.name, visible: layer.visible, opacity: layer.opacity, locked: layer.locked, adjust: layer.adjust }
+  const base: ProjectLayerBase = {
+    name: layer.name,
+    visible: layer.visible,
+    opacity: layer.opacity,
+    locked: layer.locked,
+    adjust: layer.adjust,
+    effects: hasEffects(layer.effects) ? layer.effects : null,
+    blend: layer.blend && layer.blend !== 'normal' ? layer.blend : undefined,
+  }
   if (layer.kind === 'raster') {
     return { ...base, kind: 'raster', x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height, box: layer.box, bytes: sizes[0] }
   }
@@ -391,18 +436,21 @@ async function decodePicture(png: Blob, width: number, height: number): Promise<
 
 async function decodeLayer(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
   const { name, visible, opacity, locked, adjust } = info
+  const extras: Pick<Layer, 'effects' | 'blend'> = {}
+  if (info.effects) extras.effects = info.effects
+  if (info.blend) extras.blend = info.blend
   if (info.kind === 'raster') {
     const canvas = await decodePicture(pngs[0], info.width, info.height)
-    return { ...layerFromCanvas(name, canvas, info.x, info.y), box: info.box, visible, opacity, locked, adjust }
+    return { ...layerFromCanvas(name, canvas, info.x, info.y), box: info.box, visible, opacity, locked, adjust, ...extras }
   }
   if (info.kind === 'text') {
-    return { id: createId('layer'), kind: 'text', name, visible, opacity, locked, adjust, box: info.box, text: info.text, style: info.style, wrap: info.wrap }
+    return { id: createId('layer'), kind: 'text', name, visible, opacity, locked, adjust, ...extras, box: info.box, text: info.text, style: info.style, wrap: info.wrap }
   }
   const fill =
     info.fill.kind === 'photo'
       ? { kind: 'photo' as const, canvas: await decodePicture(pngs[0], info.fill.width, info.fill.height), zoom: info.fill.zoom, x: info.fill.x, y: info.fill.y }
       : info.fill
-  return { id: createId('layer'), kind: 'shape', name, visible, opacity, locked, adjust, box: info.box, geometry: info.geometry, fill, outline: info.outline }
+  return { id: createId('layer'), kind: 'shape', name, visible, opacity, locked, adjust, ...extras, box: info.box, geometry: info.geometry, fill, outline: info.outline }
 }
 
 // Turns a project back into a design. `id` keeps a design kept in the browser under its own
