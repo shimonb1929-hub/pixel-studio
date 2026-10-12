@@ -99,3 +99,12 @@ test('a layer can mix with what is below it, and it all comes back from a projec
   await expect(effectsPanel(page).getByLabel("Mix with what's below")).toHaveValue('multiply')
   await expect(effectsPanel(page).getByRole('radio', { name: 'Soft shadow' })).toHaveAttribute('aria-checked', 'true')
 })
+
+test('effects are also under the Adjust sliders', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawRectangle(page, size, [100, 100], [200, 180])
+  await page.keyboard.press('a')
+  await expect(page.getByRole('region', { name: 'Adjust' })).toBeVisible()
+  await effectsPanel(page).getByRole('radio', { name: 'Bold shadow' }).click()
+  expect(darkness(await designPixel(page, size, 202, 182))).toBeGreaterThan(180)
+})
