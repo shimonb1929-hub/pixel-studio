@@ -60,7 +60,8 @@ import {
 } from './editor/layers.ts'
 import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
-import { layerAt, layerPixels } from './editor/objects.ts'
+import { layerAt, layerBounds, layerPixels } from './editor/objects.ts'
+import { healRegion } from './editor/heal.ts'
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
@@ -103,6 +104,9 @@ const DEFAULT_ERASER = ERASER_PRESETS.find((p) => p.id === 'block')!
 
 // Look pictures in the Adjust panel are drawn this big (in screen pixels, before the screen's sharpness).
 const LOOK_PICTURE_SIZE = 66
+// How much of the picture around a fix it may copy from, in design pixels.
+const HEAL_MIN_MARGIN = 48
+const HEAL_MAX_MARGIN = 400
 
 const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
 
@@ -276,6 +280,7 @@ export default function App() {
   const [keepProportions, setKeepProportions] = useState(true)
   const [cropEdit, setCropEdit] = useState<CropState | null>(null)
   const [fillTolerance, setFillTolerance] = useState(0.15)
+  const [healSize, setHealSize] = useState(40)
   // Adjustments being tried on one layer (and selection); they start over when either changes.
   const [adjustEdit, setAdjustEdit] = useState<{ layer: Layer; selection: Selection | null; settings: Adjustments } | null>(null)
   const [shapeDefaults, setShapeDefaults] = useState<ShapeDefaults>(DEFAULT_SHAPES)
@@ -1092,6 +1097,22 @@ export default function App() {
     if (tool === 'brush') rememberColor(color)
   }
 
+  // Fix spots: what was brushed over is filled in from around it, using the picture nearby.
+  function healArea(layerId: string, marks: { canvas: HTMLCanvasElement; x: number; y: number }) {
+    const layer = current()?.layers.find((l) => l.id === layerId)
+    if (layer?.kind !== 'raster') return
+    const side = Math.max(marks.canvas.width, marks.canvas.height)
+    const margin = Math.min(HEAL_MAX_MARGIN, Math.max(HEAL_MIN_MARGIN, side * 1.5))
+    const area = intersectRect(layerBounds(layer), {
+      x: Math.floor(marks.x - margin),
+      y: Math.floor(marks.y - margin),
+      width: Math.ceil(marks.canvas.width + margin * 2),
+      height: Math.ceil(marks.canvas.height + margin * 2),
+    })
+    if (!area) return
+    editor.paint('Fix spots', layerId, area, (ctx, l) => healRegion(ctx, l, area, marks))
+  }
+
   // A brush stroke where nothing can be painted on (the page, a shape, text, a locked picture) goes
   // on a new drawing right above what's picked.
   function newDrawingForStroke(): PixelLayer | null {
@@ -1190,6 +1211,7 @@ export default function App() {
       settings: { ...state.settings, size: stepBrushSize(state.settings.size, direction) },
     })
     if (tool === 'eraser') setEraser(update)
+    else if (tool === 'heal') setHealSize((size) => stepBrushSize(size, direction))
     else setBrush(update)
   }
 
@@ -1816,7 +1838,7 @@ export default function App() {
     setCrop(box, shape)
   }
 
-  const paintSettings = tool === 'eraser' ? eraser.settings : brush.settings
+  const paintSettings = tool === 'eraser' ? eraser.settings : tool === 'heal' ? { ...brush.settings, size: healSize } : brush.settings
   const hintTool: ToolId = spaceHeld ? 'hand' : altHeld && tool === 'brush' ? 'picker' : tool
   const hintExtra =
     doc?.selection && (hintTool === 'brush' || hintTool === 'eraser' || hintTool === 'adjust')
@@ -2048,6 +2070,8 @@ export default function App() {
         }}
         fillTolerance={fillTolerance}
         onFillToleranceChange={setFillTolerance}
+        healSize={healSize}
+        onHealSizeChange={setHealSize}
       />
 
       <div className="flex min-h-0 flex-1 gap-2 px-2 pb-2">
@@ -2076,6 +2100,7 @@ export default function App() {
                 selectionShape={selectionShape}
                 selectionMode={selectionMode}
                 onStroke={handleStroke}
+                onHeal={healArea}
                 onNewDrawing={newDrawingForStroke}
                 onStrokeCancelled={() => editor.cancelDrawing()}
                 onStrokeActiveChange={(activeStroke) => (strokeActiveRef.current = activeStroke)}

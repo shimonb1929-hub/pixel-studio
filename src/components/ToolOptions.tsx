@@ -687,6 +687,8 @@ interface ToolOptionsProps {
   adjust: AdjustControls
   fillTolerance: number
   onFillToleranceChange: (tolerance: number) => void
+  healSize: number
+  onHealSizeChange: (size: number) => void
   brush: BrushSettings
   brushPresetId: string | null
   eraser: BrushSettings
@@ -766,6 +768,18 @@ export function ToolOptions(props: ToolOptionsProps) {
             onChange={(position) => props.onFillToleranceChange(Math.round(position * 100) / 100)}
           />
           <Hint>Click inside an area to fill it with your color. It looks at everything you can see, and paints on the selected layer.</Hint>
+        </>
+      ) : props.tool === 'heal' ? (
+        <>
+          <Slider
+            className="w-40 shrink-0"
+            label="Size"
+            help="How wide the brush is. A little bigger than the spot works best."
+            value={sizeToSlider(props.healSize)}
+            display={`${props.healSize} px`}
+            onChange={(position) => props.onHealSizeChange(sliderToSize(position))}
+          />
+          <Hint>Brush over a spot, a scratch or a small thing. When you let go, it is filled in from what is around it. Undo brings it back.</Hint>
         </>
       ) : (
         <Hint>{info.description}</Hint>

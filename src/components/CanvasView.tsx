@@ -99,6 +99,8 @@ export interface CanvasViewProps {
   selectionShape: SelectionShape
   selectionMode: SelectionMode
   onStroke: (layerId: string, result: StrokeResult, label: string, grown?: PixelLayer) => void
+  // With Fix spots: the area brushed over on a picture, to be filled in from around it.
+  onHeal: (layerId: string, marks: { canvas: HTMLCanvasElement; x: number; y: number }) => void
   // Makes a new drawing for a brush stroke when what's picked can't be painted on.
   onNewDrawing: () => PixelLayer | null
   // A stroke that ended without painting anything.
@@ -241,6 +243,8 @@ const WHEEL_ZOOM_SPEED = 0.01
 const WHEEL_ZOOM_MAX_STEP = 25
 // Below this on-screen radius the brush outline is too small to see, so a crosshair shows instead.
 const MIN_OUTLINE_RADIUS = 3
+// What Fix spots paints while marking what to fill in.
+const HEAL_MARK_COLOR = '#ff2d55'
 const PICKER_RING_RADIUS = 30
 const PICKER_RING_WIDTH = 12
 // A press that moves less than this many screen pixels is a click, not a drag. Fingers and pens
@@ -519,7 +523,7 @@ export function CanvasView(props: CanvasViewProps) {
   const sceneRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const propsRef = useRef(props)
-  const strokeRef = useRef<{ session: StrokeSession; pointerId: number; label: string; grown?: PixelLayer } | null>(null)
+  const strokeRef = useRef<{ session: StrokeSession; pointerId: number; label: string; grown?: PixelLayer; heal?: string } | null>(null)
   const panRef = useRef<PanDrag | null>(null)
   const pickRef = useRef<number | null>(null)
   const moveRef = useRef<MoveDrag | null>(null)
@@ -715,7 +719,7 @@ export function CanvasView(props: CanvasViewProps) {
     if (pickRef.current !== null || p.tool === 'picker' || (p.tool === 'brush' && p.altHeld)) {
       const point = screenToDocument(p.viewport, hover.x, hover.y)
       drawPickerRing(ctx, hover.x, hover.y, sampleColor(p.doc, point.x, point.y), p.color)
-    } else if (p.tool === 'brush' || p.tool === 'eraser') {
+    } else if (p.tool === 'brush' || p.tool === 'eraser' || p.tool === 'heal') {
       const radius = (p.brush.size / 2) * p.viewport.zoom
       if (radius >= MIN_OUTLINE_RADIUS) drawBrushOutline(ctx, hover.x, hover.y, radius)
     }
@@ -988,6 +992,25 @@ export function CanvasView(props: CanvasViewProps) {
     else p.textTool.onNew(drag.start, null)
   }
 
+  // Fix spots marks what to fill in on the topmost picture under the pointer, locked or not.
+  function startHealStroke(event: PointerEvent<HTMLCanvasElement>) {
+    const point = documentPoint(event.clientX, event.clientY)
+    const layer = [...doc.layers].reverse().find((l): l is PixelLayer => l.kind === 'raster' && l.visible && l.opacity > 0 && hitsLayer(l, point))
+    if (!layer) {
+      props.onBlocked('Fix spots works on photos and drawings. Brush over a spot on a picture.')
+      return
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const target = settleLayer(layer)
+    const marker = { size: brush.size, softness: 0, opacity: 0.45, flow: 1, smoothing: 0.2, pressure: false, blend: 'normal' as const }
+    const session = new StrokeSession(target, marker, HEAL_MARK_COLOR, 'paint')
+    session.begin({ ...point, pressure: 1 })
+    strokeRef.current = { session, pointerId: event.pointerId, label: 'Fix spots', heal: layer.id }
+    props.onStrokeActiveChange(true)
+    session.flush()
+    requestScene()
+  }
+
   function startStroke(event: PointerEvent<HTMLCanvasElement>) {
     const erasing = tool === 'eraser'
     const picked = activeLayer(doc)
@@ -1034,6 +1057,13 @@ export function CanvasView(props: CanvasViewProps) {
     const stroke = strokeRef.current
     if (!stroke) return
     strokeRef.current = null
+    if (stroke.heal) {
+      const marks = stroke.session.finishMarks()
+      drawScene()
+      propsRef.current.onStrokeActiveChange(false)
+      if (marks) propsRef.current.onHeal(stroke.heal, marks)
+      return
+    }
     const result = stroke.session.finish()
     const end = stroke.session.endPoint
     if (end) lastEndRef.current = { docId: propsRef.current.doc.id, point: { ...end, pressure: 1 } }
@@ -1170,6 +1200,8 @@ export function CanvasView(props: CanvasViewProps) {
       setPicking(true)
     } else if (tool === 'brush' || tool === 'eraser') {
       startStroke(event)
+    } else if (tool === 'heal') {
+      startHealStroke(event)
     } else if (tool === 'move' && props.arrange && !doc.selection) {
       startArrange(event, props.arrange)
     } else if (tool === 'move') {
@@ -1418,7 +1450,7 @@ export function CanvasView(props: CanvasViewProps) {
   }
 
   const pickMode = picking || tool === 'picker' || (tool === 'brush' && altHeld)
-  const painting = tool === 'brush' || tool === 'eraser'
+  const painting = tool === 'brush' || tool === 'eraser' || tool === 'heal'
   const outlineVisible = painting && (brush.size / 2) * viewport.zoom >= MIN_OUTLINE_RADIUS
   // The pointer's shape tells you what will happen when you press.
   function pickCursor(): string {

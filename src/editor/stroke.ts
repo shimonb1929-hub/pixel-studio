@@ -259,14 +259,7 @@ export class StrokeSession {
 
   // Ends the stroke and writes it into the layer. Null if it never touched the layer.
   finish(): StrokeResult | null {
-    // Let a smoothed line catch up with where the pointer stopped, so it ends in the right place.
-    if (this.smoothed && this.target) {
-      for (let i = 0; i < 40 && Math.hypot(this.target.x - this.smoothed.x, this.target.y - this.smoothed.y) > 0.5; i++) {
-        this.followTarget()
-      }
-      this.painter.lineTo(this.target)
-    }
-    this.flush()
+    this.catchUp()
     if (!this.total) return null
 
     const { x, y } = this.total
@@ -274,6 +267,25 @@ export class StrokeSession {
     const after = copyRegion(this.preview, this.total)
     restoreRegion(this.layer.canvas, after, x, y)
     return { x, y, before, after }
+  }
+
+  // Ends the stroke without changing the layer, for marking an area: where the stroke went, at
+  // full strength, and where that sits in the design. Null if it never touched the layer.
+  finishMarks(): { canvas: HTMLCanvasElement; x: number; y: number } | null {
+    this.catchUp()
+    if (!this.total) return null
+    return { canvas: copyRegion(this.stroke, this.total), x: this.total.x + this.x, y: this.total.y + this.y }
+  }
+
+  // Lets a smoothed line catch up with where the pointer stopped, so it ends in the right place.
+  private catchUp(): void {
+    if (this.smoothed && this.target) {
+      for (let i = 0; i < 40 && Math.hypot(this.target.x - this.smoothed.x, this.target.y - this.smoothed.y) > 0.5; i++) {
+        this.followTarget()
+      }
+      this.painter.lineTo(this.target)
+    }
+    this.flush()
   }
 
   private local(point: InputPoint): InputPoint {

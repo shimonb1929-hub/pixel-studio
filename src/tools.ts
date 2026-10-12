@@ -1,4 +1,4 @@
-import { Brush, Crop, Eraser, Hand, MousePointer2, PaintBucket, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
+import { Bandage, Brush, Crop, Eraser, Hand, MousePointer2, PaintBucket, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
 import type { ToolId } from './editor/types.ts'
 import { ALT_LABEL } from './keys.ts'
 
@@ -157,6 +157,18 @@ export const TOOLS: ToolInfo[] = [
       'fix photo',
       'enhance',
     ],
+    group: 'adjust',
+  },
+  {
+    id: 'heal',
+    name: 'Fix spots',
+    label: 'Fix',
+    key: 'J',
+    icon: Bandage,
+    description:
+      'Brush over a spot, a scratch or a small thing you want gone, and it is filled in from what is around it, as if it was never there.',
+    hint: 'Brush over what you want gone. When you let go, it is filled in from what is around it.',
+    keywords: ['fix', 'heal', 'healing', 'spot', 'blemish', 'scratch', 'dust', 'remove object', 'clone', 'repair', 'clean up', 'content aware', 'retouch', 'erase thing'],
     group: 'adjust',
   },
   {
