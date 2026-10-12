@@ -32,6 +32,10 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   to move, pull a corner to resize and turn with the round handle, all with one tool (Arrange).
   Pictures keep their original pixels, so making something tiny and then big again never blurs
   it. Bring forward and send backward put things in front of or behind each other.
+- **Lining up happens by itself.** While you drag something, it clicks into line with the page's
+  middle and edges and with other things' edges and middles, and into even gaps between things;
+  thin pink guides show what lined up. Hold Alt to place it freely. A click or a tap never moves
+  anything by accident.
 - **A page, not a pile of sheets.** A new design is an empty page of a color (or see-through).
   Nothing has to be set up before you start: painting makes its own drawing, and photos, shapes
   and text each arrive as their own thing. Click an empty spot (or Page in the Layers panel) and
@@ -197,7 +201,7 @@ pulling in see-through pixels, so blurred photos keep solid edges.
    colors; add photos (menu or drag and drop); drop a photo onto a shape to fill it, then zoom and
    slide it inside; lock and delete objects; adjustments that stay changeable; a page with its own
    color (or see-through) instead of a background layer; painting that makes its own drawing; bring
-   forward, send backward, to front and to back.
+   forward, send backward, to front and to back; lining up and even gaps by themselves while dragging.
 6. **Text** (done) — type on the design in English, Hebrew and Yiddish, with right-to-left text
    that never scrambles; quick headings, subheadings and paragraphs; 175 free fonts with live
    previews, Hebrew and Yiddish filters; size, boldness, italic, lining up, reading direction,

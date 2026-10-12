@@ -28,7 +28,7 @@ export const TOOLS: ToolInfo[] = [
     icon: MousePointer2,
     description:
       'Click anything on your design to pick it. Drag it to move it, pull a corner to resize it, or the round handle to turn it. Pictures never lose quality, however often you resize them.',
-    hint: 'Click something to pick it. Drag to move it, pull a corner to resize, the round handle to turn. Arrow keys nudge it.',
+    hint: 'Click something to pick it. Drag to move it: it lines up with the page and other things by itself (hold Alt to move freely). Pull a corner to resize, the round handle to turn.',
     keywords: ['move', 'drag', 'position', 'place', 'resize', 'scale', 'rotate', 'turn', 'flip', 'mirror', 'arrange', 'pick', 'bigger', 'smaller', 'transform', 'nudge', 'stretch'],
     group: 'arrange',
   },
@@ -63,7 +63,7 @@ export const TOOLS: ToolInfo[] = [
     icon: Shapes,
     description:
       'Draw rectangles, ovals, polygons, stars, lines and arrows. They stay sharp at any size, and you can change their colors, outline and corners any time.',
-    hint: 'Drag to draw a shape, or click to drop one. Hold Shift for a perfect square or circle, or a straight line.',
+    hint: 'Drag to draw a shape, or click empty paper to drop one. Click a shape to pick it. Hold Shift for a perfect square or circle, or a straight line.',
     keywords: ['shape', 'rectangle', 'square', 'circle', 'oval', 'ellipse', 'triangle', 'polygon', 'hexagon', 'star', 'line', 'arrow', 'box', 'frame', 'vector', 'badge', 'button'],
     group: 'draw',
   },

@@ -1630,7 +1630,17 @@ export default function App() {
         }
       : null
 
-  const shapeDrawing: ShapeDrawing | null = tool === 'shape' && doc ? { draft: (b) => newShape(b, []), onDraw: drawNewShape } : null
+  const shapeDrawing: ShapeDrawing | null =
+    tool === 'shape' && doc
+      ? {
+          draft: (b) => newShape(b, []),
+          onDraw: drawNewShape,
+          onPick: (layerId) => {
+            editor.select(layerId)
+            setTool('move')
+          },
+        }
+      : null
 
   const textTool: TextTool | null = tool === 'text' && doc ? { onNew: newTextAt, onEdit: editText } : null
   const textEditing: TextEditing | null = textEdit

@@ -366,3 +366,79 @@ test('an opened photo is locked: painting goes on a drawing above it, and the er
   await page.getByRole('button', { name: 'Hide Drawing 1' }).click()
   expectColor(await designPixel(page, size, 50, 50), RED)
 })
+
+// One pixel of the layer with handles and guides, at a design point (at 100%).
+function overlayPixel(page: Page, size: Size, x: number, y: number): Promise<number[]> {
+  return page.evaluate(
+    ([w, h, px, py]) => {
+      const main = document.querySelector('main')!
+      const canvas = main.querySelector('canvas[aria-label]') as HTMLCanvasElement
+      const dpr = devicePixelRatio
+      const left = Math.round(((main.clientWidth - w) / 2) * dpr)
+      const top = Math.round(((main.clientHeight - h) / 2) * dpr)
+      return Array.from(canvas.getContext('2d')!.getImageData(left + Math.floor(px * dpr), top + Math.floor(py * dpr), 1, 1).data)
+    },
+    [size.width, size.height, x, y],
+  )
+}
+
+test('dragging lines things up with the page and each other, with guides; Alt moves freely', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawShape(page, size, 'Rectangle', [20, 20], [60, 60])
+  // Drag so its middle lands 3 pixels right of the page's middle: it clicks into place.
+  const start = await screenPoint(page, size, 40, 40)
+  const near = await screenPoint(page, size, 203, 120)
+  await page.mouse.move(start.x, start.y)
+  await page.mouse.down()
+  await page.mouse.move(near.x, near.y, { steps: 10 })
+  // While dragging, a guide line runs down the middle of the page.
+  const guide = await overlayPixel(page, size, 200, 280)
+  expect(guide[0] - guide[2], 'a pink guide').toBeGreaterThan(80)
+  await page.mouse.up()
+  expectColor(await designPixel(page, size, 181, 120), BLUE)
+  expectColor(await designPixel(page, size, 179, 120), WHITE)
+  expectColor(await designPixel(page, size, 219, 120), BLUE)
+
+  // With Alt held, it goes exactly where it's dropped.
+  await page.keyboard.down('Alt')
+  await drag(page, size, [
+    [200, 120],
+    [203, 220],
+  ])
+  await page.keyboard.up('Alt')
+  // Three pixels right of the middle, not pulled back to it.
+  expectColor(await designPixel(page, size, 182, 220), WHITE)
+  expectColor(await designPixel(page, size, 184, 220), BLUE)
+  expectColor(await designPixel(page, size, 222, 220), BLUE)
+  expectColor(await designPixel(page, size, 224, 220), WHITE)
+})
+
+test('dragging between two things evens out the gaps', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawShape(page, size, 'Rectangle', [20, 100], [70, 150])
+  await drawShape(page, size, 'Rectangle', [230, 100], [280, 150])
+  await drawShape(page, size, 'Rectangle', [20, 220], [70, 270])
+  // Halfway between them leaves 55 on each side: x 125 to 175. Dropped 4 pixels off, it clicks in.
+  await drag(page, size, [
+    [45, 245],
+    [154, 128],
+  ])
+  expectColor(await designPixel(page, size, 126, 125), BLUE)
+  expectColor(await designPixel(page, size, 124, 125), WHITE)
+  expectColor(await designPixel(page, size, 174, 125), BLUE)
+  expectColor(await designPixel(page, size, 176, 125), WHITE)
+})
+
+test('with the Shapes tool, clicking a shape picks it instead of adding another', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawShape(page, size, 'Rectangle', [100, 100], [200, 200])
+  await page.keyboard.press('u')
+  await clickAt(page, size, 150, 150)
+  expect(await layerNames(page)).toEqual(['Rectangle 1'])
+  await expect(page.getByRole('button', { name: 'Arrange tool' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('toolbar')).toContainText('100 × 100 px')
+  // Clicking empty paper still drops a new one.
+  await page.keyboard.press('u')
+  await clickAt(page, size, 300, 60)
+  expect(await layerNames(page)).toEqual(['Rectangle 2', 'Rectangle 1'])
+})

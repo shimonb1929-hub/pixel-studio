@@ -2,12 +2,13 @@ import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type Point
 import { arrangeBox, previewInBox } from '../editor/arrange.ts'
 import type { BrushSettings } from '../editor/brushes.ts'
 import { coverRect } from '../editor/document.ts'
-import { ellipsePolygon, rectFromCorners, rectPolygon, squareFromCorners } from '../editor/geometry.ts'
+import { ellipsePolygon, polygonBounds, rectFromCorners, rectPolygon, squareFromCorners, type Rect } from '../editor/geometry.ts'
 import { activeLayer } from '../editor/layers.ts'
 import { drawShape, hitsLayer, layerAt, photoPlacement, settleLayer } from '../editor/objects.ts'
 import { startMove, type MoveSession } from '../editor/move.ts'
 import { renderScene, type LayerOverride } from '../editor/render.ts'
 import { sampleColor } from '../editor/sample.ts'
+import { snapMove, type SnapResult } from '../editor/snap.ts'
 import {
   combineSelection,
   isPointSelected,
@@ -68,6 +69,8 @@ export interface TextTool {
 export interface ShapeDrawing {
   draft: (box: TransformBox) => ShapeLayer
   onDraw: (box: TransformBox) => void
+  // A click on a shape or text that's already there picks it instead of dropping a new shape.
+  onPick: (layerId: string) => void
 }
 
 export interface CanvasViewProps {
@@ -154,8 +157,28 @@ interface BoxDrag {
 }
 
 // Dragging a whole object with the Arrange tool, or pressing where only a locked layer is.
+// What a moved object can line up with: its own outline when the drag started, and everything else.
+interface SnapTargets {
+  moving: Rect
+  others: Rect[]
+  // Pictures move by whole pixels, so they stay sharp.
+  whole: boolean
+}
+
 type ArrangeDrag =
-  | { kind: 'object'; pointerId: number; layer: Layer; handle: Handle; start: Point; startBox: TransformBox; box: TransformBox; startClient: Point; moved: boolean }
+  | {
+      kind: 'object'
+      pointerId: number
+      layer: Layer
+      handle: Handle
+      start: Point
+      startBox: TransformBox
+      box: TransformBox
+      startClient: Point
+      moved: boolean
+      snap: SnapTargets | null
+      lined: SnapResult | null
+    }
   | { kind: 'locked'; pointerId: number; layer: Layer; startClient: Point; warned: boolean }
 
 // Sliding a photo inside its shape.
@@ -206,8 +229,17 @@ const WHEEL_ZOOM_MAX_STEP = 25
 const MIN_OUTLINE_RADIUS = 3
 const PICKER_RING_RADIUS = 30
 const PICKER_RING_WIDTH = 12
-// A press that moves less than this many screen pixels is a click, not a drag.
-const CLICK_DISTANCE = 3
+// A press that moves less than this many screen pixels is a click, not a drag. Fingers and pens
+// wobble more than a mouse, so a tap never moves anything by accident.
+const CLICK_DISTANCE = 4
+
+function clickSlop(event: { pointerType: string }): number {
+  return event.pointerType === 'touch' ? 10 : event.pointerType === 'pen' ? 6 : CLICK_DISTANCE
+}
+
+// How close (in screen pixels) an edge or middle has to come to another to click into line.
+const SNAP_DISTANCE = 6
+const GUIDE_COLOR = '#e8457a'
 const ANTS_DASH = 4
 const ANTS_INTERVAL_MS = 90
 
@@ -393,6 +425,54 @@ function edgesOf(layer: Layer | undefined): EdgeHandles {
   return layer?.kind === 'text' ? 'sides' : true
 }
 
+// The lines that show what a moved object lined up with, and the even gaps it made.
+function drawGuides(ctx: CanvasRenderingContext2D, lined: SnapResult, viewport: Viewport) {
+  ctx.save()
+  ctx.strokeStyle = GUIDE_COLOR
+  ctx.fillStyle = GUIDE_COLOR
+  ctx.lineWidth = 1
+  for (const guide of lined.guides) {
+    const a = toScreen(guide.axis === 'x' ? { x: guide.at, y: guide.from } : { x: guide.from, y: guide.at }, viewport)
+    const b = toScreen(guide.axis === 'x' ? { x: guide.at, y: guide.to } : { x: guide.to, y: guide.at }, viewport)
+    ctx.beginPath()
+    ctx.moveTo(Math.round(a.x) + 0.5, Math.round(a.y) + 0.5)
+    ctx.lineTo(Math.round(b.x) + 0.5, Math.round(b.y) + 0.5)
+    ctx.stroke()
+  }
+  ctx.font = '600 10px Inter, system-ui, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  for (const spacing of lined.spacing) {
+    for (const gap of spacing.gaps) {
+      const at = (n: number) => toScreen(spacing.axis === 'x' ? { x: n, y: spacing.across } : { x: spacing.across, y: n }, viewport)
+      const a = at(gap.start)
+      const b = at(gap.end)
+      ctx.beginPath()
+      ctx.moveTo(a.x, a.y)
+      ctx.lineTo(b.x, b.y)
+      // Little end marks, across the gap.
+      const [tx, ty] = spacing.axis === 'x' ? [0, 4] : [4, 0]
+      ctx.moveTo(a.x - tx, a.y - ty)
+      ctx.lineTo(a.x + tx, a.y + ty)
+      ctx.moveTo(b.x - tx, b.y - ty)
+      ctx.lineTo(b.x + tx, b.y + ty)
+      ctx.stroke()
+      // The size of the gap, in a small label.
+      const label = String(Math.round(gap.end - gap.start))
+      const mx = (a.x + b.x) / 2
+      const my = (a.y + b.y) / 2
+      const w = ctx.measureText(label).width + 8
+      ctx.beginPath()
+      ctx.roundRect(mx - w / 2, my - 7, w, 14, 4)
+      ctx.fill()
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(label, mx, my + 0.5)
+      ctx.fillStyle = GUIDE_COLOR
+    }
+  }
+  ctx.restore()
+}
+
 // The rectangle a Text tool drag makes, in design coordinates.
 function textDragRect(drag: TextDrag) {
   return rectFromCorners(drag.start, drag.current)
@@ -564,6 +644,8 @@ export function CanvasView(props: CanvasViewProps) {
       const box = activeBox(p)
       if (box) drawBox(ctx, { kind: 'transform', value: box, edges: edgesOf(activeLayer(p.doc)) }, p.viewport, p.width, p.height)
     }
+    const arranging = arrangeRef.current
+    if (arranging?.kind === 'object' && arranging.moved && arranging.lined) drawGuides(ctx, arranging.lined, p.viewport)
     if (p.textEditing) drawDashedBox(ctx, p.textEditing.layer.box, p.viewport)
     const textDrag = textRef.current
     if (textDrag?.moved) {
@@ -730,7 +812,17 @@ export function CanvasView(props: CanvasViewProps) {
     }
     const startBox = arrangeBox(layer)
     if (!startBox) return
-    arrangeRef.current = { kind: 'object', pointerId: event.pointerId, layer, handle, start: point, startBox, box: startBox, startClient, moved: false }
+    // A moved object can line up with the page and everything else you can see.
+    let snap: SnapTargets | null = null
+    if (handle === 'move') {
+      const others = doc.layers
+        .filter((l) => l.id !== layer.id && l.visible && l.opacity > 0)
+        .map((l) => arrangeBox(l))
+        .filter((b): b is TransformBox => b !== null)
+        .map((b) => polygonBounds(boxCorners(b))!)
+      snap = { moving: polygonBounds(boxCorners(startBox))!, others, whole: layer.kind === 'raster' }
+    }
+    arrangeRef.current = { kind: 'object', pointerId: event.pointerId, layer, handle, start: point, startBox, box: startBox, startClient, moved: false, snap, lined: null }
     requestOverlay()
   }
 
@@ -757,6 +849,12 @@ export function CanvasView(props: CanvasViewProps) {
     if (drag.moved) {
       box = shapeDragBox(drag, line, draft.outline?.width ?? 1)
     } else {
+      const hit = layerAt(p.doc, drag.start, 3 / p.viewport.zoom)
+      if (hit && hit.kind !== 'raster') {
+        shapes.onPick(hit.id)
+        requestOverlay()
+        return
+      }
       // A click drops a shape of a handy size, centered where you clicked.
       const size = Math.max(8, Math.round(Math.min(p.doc.width, p.doc.height) * 0.25))
       box = { cx: drag.start.x, cy: drag.start.y, width: line ? size * 1.4 : size, height: line ? Math.max(1, draft.outline?.width ?? 1) : size, rotation: 0 }
@@ -1027,7 +1125,7 @@ export function CanvasView(props: CanvasViewProps) {
 
     const arrange = arrangeRef.current
     if (arrange && arrange.pointerId === event.pointerId) {
-      const far = Math.hypot(event.clientX - arrange.startClient.x, event.clientY - arrange.startClient.y) >= CLICK_DISTANCE
+      const far = Math.hypot(event.clientX - arrange.startClient.x, event.clientY - arrange.startClient.y) >= clickSlop(event)
       if (arrange.kind === 'locked') {
         if (far && !arrange.warned) {
           arrange.warned = true
@@ -1041,9 +1139,18 @@ export function CanvasView(props: CanvasViewProps) {
       }
       if (!arrange.moved) return
       if (arrange.handle === 'move') {
-        // Moves go by whole pixels, so nothing ends up blurry.
-        const dx = Math.round(point.x - arrange.start.x)
-        const dy = Math.round(point.y - arrange.start.y)
+        // Moves line up with the page and other things when close (Alt moves freely), and go by
+        // whole pixels otherwise, so nothing ends up blurry.
+        let dx = Math.round(point.x - arrange.start.x)
+        let dy = Math.round(point.y - arrange.start.y)
+        arrange.lined = null
+        if (arrange.snap && !event.altKey) {
+          const page = { x: 0, y: 0, width: doc.width, height: doc.height }
+          const lined = snapMove(arrange.snap.moving, point.x - arrange.start.x, point.y - arrange.start.y, arrange.snap.others, page, SNAP_DISTANCE / viewport.zoom, arrange.snap.whole)
+          dx = lined.dx
+          dy = lined.dy
+          arrange.lined = lined
+        }
         arrange.box = { ...arrange.startBox, cx: arrange.startBox.cx + dx, cy: arrange.startBox.cy + dy }
       } else {
         const keepProportions = (props.arrange?.keepProportions ?? true) !== event.shiftKey
@@ -1078,7 +1185,7 @@ export function CanvasView(props: CanvasViewProps) {
     const textDrag = textRef.current
     if (textDrag && textDrag.pointerId === event.pointerId) {
       textDrag.current = point
-      if (!textDrag.moved && Math.hypot(event.clientX - textDrag.startClient.x, event.clientY - textDrag.startClient.y) >= CLICK_DISTANCE) textDrag.moved = true
+      if (!textDrag.moved && Math.hypot(event.clientX - textDrag.startClient.x, event.clientY - textDrag.startClient.y) >= clickSlop(event)) textDrag.moved = true
       requestOverlay()
       return
     }
@@ -1087,7 +1194,7 @@ export function CanvasView(props: CanvasViewProps) {
     if (shape && shape.pointerId === event.pointerId) {
       shape.current = point
       shape.constrain = event.shiftKey
-      if (!shape.moved && Math.hypot(event.clientX - shape.startClient.x, event.clientY - shape.startClient.y) >= CLICK_DISTANCE) shape.moved = true
+      if (!shape.moved && Math.hypot(event.clientX - shape.startClient.x, event.clientY - shape.startClient.y) >= clickSlop(event)) shape.moved = true
       requestOverlay()
       return
     }
@@ -1107,7 +1214,7 @@ export function CanvasView(props: CanvasViewProps) {
 
     const boxDrag = boxRef.current
     if (boxDrag && boxDrag.pointerId === event.pointerId && props.box) {
-      if (!boxDrag.moved && Math.hypot(event.clientX - boxDrag.startClient.x, event.clientY - boxDrag.startClient.y) >= CLICK_DISTANCE) boxDrag.moved = true
+      if (!boxDrag.moved && Math.hypot(event.clientX - boxDrag.startClient.x, event.clientY - boxDrag.startClient.y) >= clickSlop(event)) boxDrag.moved = true
       if (boxDrag.moved) {
         const keepProportions = props.box.keepProportions !== event.shiftKey
         boxDrag.box = dragHandle(boxDrag.startBox, boxDrag.handle, boxDrag.start, point, { keepProportions, snapAngle: event.shiftKey })
@@ -1130,7 +1237,7 @@ export function CanvasView(props: CanvasViewProps) {
       } else {
         drag.current = point
         drag.constrain = event.shiftKey
-        if (!drag.moved && Math.hypot(event.clientX - drag.startClient.x, event.clientY - drag.startClient.y) >= CLICK_DISTANCE) drag.moved = true
+        if (!drag.moved && Math.hypot(event.clientX - drag.startClient.x, event.clientY - drag.startClient.y) >= clickSlop(event)) drag.moved = true
         if (drag.shape === 'freehand') {
           const last = drag.points[drag.points.length - 1]
           if (Math.hypot(point.x - last.x, point.y - last.y) * propsRef.current.viewport.zoom >= 2) drag.points.push(point)
