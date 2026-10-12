@@ -7,7 +7,14 @@ export interface SegmentPoint {
   inside: boolean
 }
 
-export type SegmentRequest = {
+export type SegmentRequest =
+  | {
+      type: 'prepare'
+      id: number
+      key: string
+      image: { data: Uint8ClampedArray; width: number; height: number } | null
+    }
+  | {
   type: 'segment'
   id: number
   // Stands for the picture; the picture itself is only sent when the worker doesn't have it yet.
@@ -16,9 +23,10 @@ export type SegmentRequest = {
   points: SegmentPoint[]
   // A box around the thing, as left, top, right, bottom.
   box?: [number, number, number, number]
-}
+    }
 
 export type SegmentResponse =
   | { type: 'progress'; loaded: number; total: number }
   | { type: 'mask'; id: number; mask: Uint8Array; width: number; height: number }
+  | { type: 'prepared'; id: number }
   | { type: 'error'; id: number; message: string }

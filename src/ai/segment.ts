@@ -15,7 +15,7 @@ export const AI_PICTURE_SIDE = 1024
 let worker: Worker | null = null
 let nextId = 1
 let workerKey: string | null = null
-const pending = new Map<number, { resolve: (found: FoundMask) => void; reject: (error: Error) => void }>()
+const pending = new Map<number, { resolve: (found: FoundMask | null) => void; reject: (error: Error) => void }>()
 const progressListeners = new Set<(share: number) => void>()
 
 function getWorker(): Worker {
@@ -31,6 +31,7 @@ function getWorker(): Worker {
     pending.delete(message.id)
     if (!waiting) return
     if (message.type === 'mask') waiting.resolve({ mask: message.mask, width: message.width, height: message.height })
+    else if (message.type === 'prepared') waiting.resolve(null)
     else {
       workerKey = null
       waiting.reject(new Error(message.message))
@@ -52,20 +53,32 @@ export function onAiProgress(listener: (share: number) => void): () => void {
   return () => progressListeners.delete(listener)
 }
 
+function send(request: SegmentRequest): Promise<FoundMask | null> {
+  const w = getWorker()
+  return new Promise((resolve, reject) => {
+    pending.set(request.id, { resolve, reject })
+    w.postMessage(request, request.image ? [request.image.data.buffer] : [])
+  })
+}
+
+function pictureFor(key: string, picture: () => ImageData): SegmentRequest['image'] {
+  if (workerKey === key) return null
+  const data = picture()
+  workerKey = key
+  return { data: data.data, width: data.width, height: data.height }
+}
+
+// Gets the AI and the picture ready ahead of time (when the magic selection is chosen), so the
+// first click is quick.
+export function prepareThing(key: string, picture: () => ImageData): Promise<void> {
+  if (workerKey === key) return Promise.resolve()
+  return send({ type: 'prepare', id: nextId++, key, image: pictureFor(key, picture) }).then(() => undefined)
+}
+
 // Finds the thing at the given points in a picture. `key` stands for the picture: the same key
 // means the same picture, so it isn't sent or worked out again.
-export function findThing(key: string, picture: () => ImageData, points: SegmentPoint[], box?: [number, number, number, number]): Promise<FoundMask> {
-  const w = getWorker()
-  const id = nextId++
-  let image: SegmentRequest['image'] = null
-  if (workerKey !== key) {
-    const data = picture()
-    image = { data: data.data, width: data.width, height: data.height }
-    workerKey = key
-  }
-  const request: SegmentRequest = { type: 'segment', id, key, image, points, box }
-  return new Promise((resolve, reject) => {
-    pending.set(id, { resolve, reject })
-    w.postMessage(request, image ? [image.data.buffer] : [])
-  })
+export async function findThing(key: string, picture: () => ImageData, points: SegmentPoint[], box?: [number, number, number, number]): Promise<FoundMask> {
+  const found = await send({ type: 'segment', id: nextId++, key, image: pictureFor(key, picture), points, box })
+  if (!found) throw new Error('Nothing came back.')
+  return found
 }

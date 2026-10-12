@@ -11,8 +11,15 @@ const MODEL = 'Xenova/slimsam-77-uniform'
 env.allowLocalModels = false
 
 let loading: Promise<{ model: SamModel; processor: SamProcessor }> | null = null
+interface Prepared {
+  model: SamModel
+  processor: SamProcessor
+  image: RawImage
+  embeddings: Record<string, Tensor>
+}
+
 // The picture last worked out, so more clicks on the same picture are quick.
-let kept: { key: string; image: RawImage; embeddings: Record<string, Tensor> } | null = null
+let kept: { key: string; ready: Promise<Prepared> } | null = null
 
 function post(message: SegmentResponse) {
   self.postMessage(message)
@@ -47,11 +54,14 @@ function load() {
   return loading
 }
 
-async function segment(request: Extract<SegmentRequest, { type: 'segment' }>) {
-  const { model, processor } = await load()
-  if (!kept || kept.key !== request.key) {
-    if (!request.image) throw new Error('missing picture')
-    const { data, width, height } = request.image
+// Works the picture out once, so clicks on it are quick. A click that comes while it's still being
+// worked out waits for the same work instead of starting it again.
+function prepare(key: string, picture: SegmentRequest['image']) {
+  if (kept?.key === key) return kept.ready
+  const ready = (async () => {
+    const { model, processor } = await load()
+    if (!picture) throw new Error('missing picture')
+    const { data, width, height } = picture
     // The model wants red, green and blue only; see-through parts count as white.
     const rgb = new Uint8ClampedArray(width * height * 3)
     for (let i = 0; i < width * height; i++) {
@@ -60,9 +70,17 @@ async function segment(request: Extract<SegmentRequest, { type: 'segment' }>) {
     }
     const image = new RawImage(rgb, width, height, 3)
     const inputs = await processor(image)
-    kept = { key: request.key, image, embeddings: await model.get_image_embeddings(inputs) }
-  }
-  const { image, embeddings } = kept
+    return { model, processor, image, embeddings: await model.get_image_embeddings(inputs) }
+  })()
+  kept = { key, ready }
+  ready.catch(() => {
+    if (kept?.ready === ready) kept = null
+  })
+  return ready
+}
+
+async function segment(request: Extract<SegmentRequest, { type: 'segment' }>) {
+  const { model, processor, image, embeddings } = await prepare(request.key, request.image)
   const points = request.points.map((p) => [p.x, p.y])
   const labels = request.points.map((p) => (p.inside ? 1 : 0))
   // With only a box, a "padding" point stands in, which the model ignores.
@@ -98,7 +116,12 @@ async function segment(request: Extract<SegmentRequest, { type: 'segment' }>) {
 
 self.onmessage = (event: MessageEvent<SegmentRequest>) => {
   const request = event.data
-  if (request.type === 'segment') {
+  if (request.type === 'prepare') {
+    prepare(request.key, request.image).then(
+      () => post({ type: 'prepared', id: request.id }),
+      (error: unknown) => post({ type: 'error', id: request.id, message: String(error) }),
+    )
+  } else if (request.type === 'segment') {
     segment(request).catch((error: unknown) => post({ type: 'error', id: request.id, message: String(error) }))
   }
 }

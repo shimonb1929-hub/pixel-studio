@@ -64,7 +64,7 @@ import { layerAt, layerBounds, layerPixels } from './editor/objects.ts'
 import { healRegion } from './editor/heal.ts'
 import { layerVersion } from './editor/pixelVersion.ts'
 import { combineFound, maskToOps } from './ai/maskSelection.ts'
-import { AI_PICTURE_SIDE, findThing, onAiProgress } from './ai/segment.ts'
+import { AI_PICTURE_SIDE, findThing, onAiProgress, prepareThing } from './ai/segment.ts'
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
@@ -108,6 +108,21 @@ const DEFAULT_ERASER = ERASER_PRESETS.find((p) => p.id === 'block')!
 // Look pictures in the Adjust panel are drawn this big (in screen pixels, before the screen's sharpness).
 const LOOK_PICTURE_SIZE = 66
 
+// Everything that shows on a design, small enough for the AI, and a key that stands for it.
+function aiPicture(d: EditorDocument) {
+  const scale = Math.min(1, AI_PICTURE_SIDE / Math.max(d.width, d.height))
+  const width = Math.max(1, Math.round(d.width * scale))
+  const height = Math.max(1, Math.round(d.height * scale))
+  const picture = () => {
+    const small = createCanvas(width, height)
+    const ctx = small.getContext('2d', { willReadFrequently: true })!
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(flattenDocument(d), 0, 0, width, height)
+    return ctx.getImageData(0, 0, width, height)
+  }
+  return { key: pictureKey(d, width, height), width, height, picture }
+}
+
 // Stands for everything that shows on a design, so the AI can tell when it's still the same picture.
 const layerListIds = new WeakMap<Layer[], number>()
 let nextLayerListId = 1
@@ -118,6 +133,8 @@ function pictureKey(d: EditorDocument, width: number, height: number): string {
 }
 // How much of the picture around a fix it may copy from, in design pixels.
 const HEAL_MIN_MARGIN = 48
+// How long the design must stay the same before the magic selection gets it ready.
+const MAGIC_PREPARE_DELAY_MS = 600
 const HEAL_MAX_MARGIN = 400
 
 const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
@@ -1271,20 +1288,31 @@ export default function App() {
     })
   }
 
+  // While the magic selection is chosen, the AI gets the design ready ahead of time, a moment after
+  // it last changed, so clicks are quick.
+  const magicOn = tool === 'select' && selectionShape === 'magic' && !!doc
+  useEffect(() => {
+    if (!magicOn) return
+    const timer = window.setTimeout(() => {
+      const d = current()
+      if (!d) return
+      const { key, picture } = aiPicture(d)
+      const stop = onAiProgress((share) =>
+        setNotice({ message: `Getting the magic selection ready. This happens only the first time: ${Math.round(share * 100)}%`, tone: 'info' }),
+      )
+      prepareThing(key, picture)
+        .catch(() => {})
+        .finally(stop)
+    }, MAGIC_PREPARE_DELAY_MS)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [magicOn, editor.revision])
+
   // Magic selection: AI finds the thing that was clicked (or boxed) in everything that shows.
   async function magicSelect(target: { point: Point } | { box: Rect }, mode: SelectionMode) {
     const d = current()
     if (!d) return
-    const scale = Math.min(1, AI_PICTURE_SIDE / Math.max(d.width, d.height))
-    const width = Math.max(1, Math.round(d.width * scale))
-    const height = Math.max(1, Math.round(d.height * scale))
-    const picture = () => {
-      const small = createCanvas(width, height)
-      const ctx = small.getContext('2d', { willReadFrequently: true })!
-      ctx.imageSmoothingQuality = 'high'
-      ctx.drawImage(flattenDocument(d), 0, 0, width, height)
-      return ctx.getImageData(0, 0, width, height)
-    }
+    const { key, width, height, picture } = aiPicture(d)
     const sx = width / d.width
     const sy = height / d.height
     const points = 'point' in target ? [{ x: target.point.x * sx, y: target.point.y * sy, inside: true }] : []
@@ -1295,7 +1323,7 @@ export default function App() {
       setNotice({ message: `Getting the magic selection ready. This happens only the first time: ${Math.round(share * 100)}%`, tone: 'info' }),
     )
     try {
-      const found = await findThing(pictureKey(d, width, height), picture, points, box)
+      const found = await findThing(key, picture, points, box)
       const ops = maskToOps(found.mask, found.width, found.height, d.width / found.width, d.height / found.height)
       if (ops.length === 0) {
         problem('Nothing was found there. Click right on the thing you want, or drag a box around it.')
