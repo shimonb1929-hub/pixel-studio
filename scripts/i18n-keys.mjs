@@ -4,7 +4,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-const CALL = /\b(?:t|msg)\(\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g
+const CALL = /\b(?:t|tParts|msg)\(\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g
 
 function unescape(text) {
   return text.replace(/\\(u\{?[0-9a-fA-F]+\}?|.)/g, (_, c) =>

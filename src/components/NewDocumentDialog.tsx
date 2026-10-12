@@ -90,7 +90,7 @@ export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumen
           </option>
           {SIZE_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name} ({p.width} × {p.height})
+              {p.name} ({'\u2066'}{p.width} × {p.height}{'\u2069'})
             </option>
           ))}
         </select>

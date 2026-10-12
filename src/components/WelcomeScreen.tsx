@@ -34,7 +34,7 @@ function Tile({ label, detail, preview, onClick }: { label: string; detail: stri
       {preview}
       <span>
         <span className="block text-sm font-medium text-ink">{label}</span>
-        <span className="mt-0.5 block text-xs tabular-nums text-ink-3">{detail}</span>
+        <span dir="auto" className="mt-0.5 block text-xs tabular-nums text-ink-3">{detail}</span>
       </span>
     </button>
   )

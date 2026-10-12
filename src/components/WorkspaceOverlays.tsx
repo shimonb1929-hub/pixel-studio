@@ -115,13 +115,13 @@ export function DesignInfo({ doc, cursor }: { doc: EditorDocument; cursor: Point
         title={t("Design size")}
         description={t("How big your design really is, in pixels. Pixels are the tiny colored squares every digital picture is made of.")}
       >
-        <span className="cursor-default">
+        <span dir="ltr" className="cursor-default">
           {doc.width} × {doc.height} px
         </span>
       </Tooltip>
       <span className="h-3.5 w-px bg-line" />
       <Tooltip side="top" title={t("Pointer position")} description={t("Where your pointer is on the design, counted in pixels from the top-left corner.")}>
-        <span className="w-24 cursor-default whitespace-pre">
+        <span dir="ltr" className="w-24 cursor-default whitespace-pre">
           {inside ? `X ${Math.floor(cursor.x)}   Y ${Math.floor(cursor.y)}` : 'X –   Y –'}
         </span>
       </Tooltip>

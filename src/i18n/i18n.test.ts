@@ -6,7 +6,7 @@ import { live, msg, setLanguage, t } from './i18n.ts'
 const SOURCES = import.meta.glob<string>(['../**/*.{ts,tsx}', '!../**/*.test.{ts,tsx}'], { query: '?raw', import: 'default', eager: true })
 const LISTS = import.meta.glob<Record<string, string>>('./messages/*.json', { import: 'default', eager: true })
 
-const CALL = /\b(?:t|msg)\(\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g
+const CALL = /\b(?:t|tParts|msg)\(\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g
 
 function unescape(text: string): string {
   return text.replace(/\\(u\{?[0-9a-fA-F]+\}?|.)/g, (_, c: string) =>

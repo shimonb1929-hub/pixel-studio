@@ -25,7 +25,7 @@ const HELP: Record<AdjustmentKey, string> = live({
 })
 
 const GROUPS: { title: string; keys: AdjustmentKey[] }[] = live([
-  { title: msg('Light'), keys: ['brightness', 'contrast'] },
+  { title: msg('Lighting'), keys: ['brightness', 'contrast'] },
   { title: msg('Color'), keys: ['saturation', 'warmth'] },
   { title: msg('Detail'), keys: ['blur', 'sharpen'] },
 ])

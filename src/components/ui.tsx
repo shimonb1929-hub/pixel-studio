@@ -82,7 +82,7 @@ export function Slider({ label, help, value, display, note, onChange, className 
     <Tooltip side="bottom" title={label} description={help} note={note} noteTone="info" keepOpenOnPress className={`flex flex-col gap-1 ${className}`}>
       <span className="flex items-center justify-between gap-2 text-[11px] font-medium text-ink-2">
         <label htmlFor={id}>{label}</label>
-        <span aria-hidden className="tabular-nums text-ink">
+        <span aria-hidden dir="auto" className="tabular-nums text-ink">
           {display}
         </span>
       </span>

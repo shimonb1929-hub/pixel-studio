@@ -397,7 +397,7 @@ export interface CropControls {
 function Readout({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
     <Tooltip title={title} description={description}>
-      <span className="shrink-0 cursor-default whitespace-nowrap rounded-lg bg-subtle px-2.5 py-1.5 text-[12px] font-medium tabular-nums text-ink">{children}</span>
+      <span dir="auto" className="shrink-0 cursor-default whitespace-nowrap rounded-lg bg-subtle px-2.5 py-1.5 text-[12px] font-medium tabular-nums text-ink">{children}</span>
     </Tooltip>
   )
 }
