@@ -1,5 +1,50 @@
-import { BringToFront, Check, Circle, Plus, SendToBack, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Lasso, Link, LockOpen, Minus, PaintBucket, Pentagon, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Unlink, type LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalSpaceBetween,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalSpaceBetween,
+  BringToFront,
+  Check,
+  ChevronDown,
+  Circle,
+  Contrast,
+  Copy,
+  Crosshair,
+  Eye,
+  FlipHorizontal2,
+  FlipVertical2,
+  Group,
+  Lasso,
+  LayoutGrid,
+  Link,
+  LockOpen,
+  Minus,
+  PaintBucket,
+  Pentagon,
+  Plus,
+  RectangleHorizontal,
+  RectangleVertical,
+  RotateCcw,
+  RotateCw,
+  Scan,
+  SendToBack,
+  Square,
+  SquareDashed,
+  SquareMinus,
+  SquarePlus,
+  SquareSlash,
+  Star,
+  Trash2,
+  Ungroup,
+  Unlink,
+  type LucideIcon,
+} from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import {
   BRUSH_PRESETS,
   describeOpacity,
@@ -12,6 +57,7 @@ import {
   sliderToSize,
   type BrushSettings,
 } from '../editor/brushes.ts'
+import type { LineUpEdge } from '../editor/organize.ts'
 import type { SelectionMode, SelectionShape } from '../editor/selection.ts'
 import type { ShapeType, ToolId } from '../editor/types.ts'
 import { ALT_LABEL } from '../keys.ts'
@@ -228,12 +274,15 @@ function SelectOptions({
 }
 
 export interface ArrangeBarControls {
-  // What the handles are on: a whole object or the selected part. Null when nothing can be arranged.
-  target: { kind: 'object' | 'part'; name: string; width: number; height: number; angle: number } | null
+  // What the handles are on: a whole object, the selected part, several things picked together,
+  // or one thing kept together. Null when nothing can be arranged.
+  target: { kind: 'object' | 'part' | 'many' | 'group'; name: string; width: number; height: number; angle: number } | null
   // Why nothing can be arranged, in plain words.
   blocked: string | null
   // The selected layer is locked; the bar offers to unlock it.
   locked: boolean
+  // Something picked is kept together, so it can be taken apart.
+  kept: boolean
   keepProportions: boolean
   onKeepProportions: (keep: boolean) => void
   flip: (axis: 'horizontal' | 'vertical') => void
@@ -244,6 +293,11 @@ export interface ArrangeBarControls {
   backward: () => void
   remove: () => void
   unlock: () => void
+  keepTogether: () => void
+  takeApart: () => void
+  tidyUp: () => void
+  lineUp: (edge: LineUpEdge) => void
+  spreadOut: (axis: 'x' | 'y') => void
 }
 
 export type CropShape = 'free' | 'original' | 'square' | 'portrait' | 'wide'
@@ -266,6 +320,153 @@ function Readout({ title, description, children }: { title: string; description:
   )
 }
 
+const LINE_UPS: { edge: LineUpEdge; label: string; icon: LucideIcon }[] = [
+  { edge: 'left', label: 'Left edges', icon: AlignStartVertical },
+  { edge: 'center', label: 'Centers', icon: AlignCenterVertical },
+  { edge: 'right', label: 'Right edges', icon: AlignEndVertical },
+  { edge: 'top', label: 'Tops', icon: AlignStartHorizontal },
+  { edge: 'middle', label: 'Middles', icon: AlignCenterHorizontal },
+  { edge: 'bottom', label: 'Bottoms', icon: AlignEndHorizontal },
+]
+
+// Lining up, as a small menu of pictures: with each other for several things, with the page for one.
+function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineUp: (edge: LineUpEdge) => void; onSpread: (axis: 'x' | 'y') => void }) {
+  const [open, setOpen] = useState(false)
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // The bar scrolls sideways, so the menu floats above the page instead of inside the bar.
+  useLayoutEffect(() => {
+    if (!open) return
+    const anchor = buttonRef.current?.getBoundingClientRect()
+    const menu = menuRef.current?.getBoundingClientRect()
+    if (!anchor || !menu) return
+    setPosition({ left: Math.min(Math.max(8, anchor.left), window.innerWidth - menu.width - 8), top: anchor.bottom + 6 })
+  }, [open])
+
+  // Once it's in place (and can take focus), the first choice is ready for the keyboard.
+  useEffect(() => {
+    if (open && position) menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+  }, [open, position])
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!menuRef.current?.contains(target) && !buttonRef.current?.contains(target)) setOpen(false)
+    }
+    // Esc closes just the menu, before anything else hears it (it would let go of what's picked).
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      setOpen(false)
+      buttonRef.current?.focus()
+    }
+    const close = () => setOpen(false)
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [open])
+
+  function choose(run: () => void) {
+    setOpen(false)
+    setPosition(null)
+    run()
+  }
+
+  const item = 'flex flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[11px] font-medium text-ink-2 outline-none hover:bg-subtle hover:text-ink focus-visible:bg-subtle focus-visible:text-ink'
+  return (
+    <>
+      <Tooltip
+        title="Line up"
+        description={several ? 'Line the picked things up with each other by an edge or the middle, or space them evenly.' : 'Move it to an edge or the middle of the page.'}
+      >
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label="Line up"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => {
+            setPosition(null)
+            setOpen(!open)
+          }}
+          className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${open ? 'bg-subtle text-ink' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
+        >
+          <AlignStartVertical size={15} />
+          <span className="hidden xl:inline">Line up</span>
+          <ChevronDown size={13} />
+        </button>
+      </Tooltip>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label="Line up"
+            onKeyDown={(event) => {
+              // Arrow keys move between the choices.
+              const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])
+              const index = items.indexOf(document.activeElement as HTMLElement)
+              const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
+              if (step === 0) return
+              event.preventDefault()
+              event.stopPropagation()
+              items[(index + step + items.length) % items.length]?.focus()
+            }}
+            className="fixed z-40 w-60 rounded-xl border border-line bg-surface p-2 shadow-float"
+            style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
+          >
+            <p className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{several ? 'Line up their' : 'Move to the page’s'}</p>
+            <div className="grid grid-cols-3 gap-1">
+              {LINE_UPS.map(({ edge, label, icon: Icon }) => {
+                const words = several ? label : PAGE_PLACES[edge]
+                return (
+                  <button key={edge} type="button" role="menuitem" aria-label={several ? `Line up ${label.toLowerCase()}` : `Move to ${words.toLowerCase()}`} onClick={() => choose(() => onLineUp(edge))} className={item}>
+                    <Icon size={18} />
+                    {words}
+                  </button>
+                )
+              })}
+            </div>
+            {several && (
+              <>
+                <p className="px-1 pb-1.5 pt-2.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">Even gaps</p>
+                <div className="grid grid-cols-2 gap-1">
+                  <button type="button" role="menuitem" aria-label="Space evenly across" onClick={() => choose(() => onSpread('x'))} className={item}>
+                    <AlignHorizontalSpaceBetween size={18} />
+                    Across
+                  </button>
+                  <button type="button" role="menuitem" aria-label="Space evenly down" onClick={() => choose(() => onSpread('y'))} className={item}>
+                    <AlignVerticalSpaceBetween size={18} />
+                    Down
+                  </button>
+                </div>
+              </>
+            )}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
+
+const PAGE_PLACES: Record<LineUpEdge, string> = {
+  left: 'Left edge',
+  center: 'Center',
+  right: 'Right edge',
+  top: 'Top',
+  middle: 'Middle',
+  bottom: 'Bottom',
+}
+
 function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
   const { target } = controls
   if (!target) {
@@ -282,53 +483,86 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
     )
   }
   const part = target.kind === 'part'
+  const several = target.kind === 'many' || target.kind === 'group'
+  const it = several ? 'them' : 'it'
   return (
     <>
-      <Readout title="Size" description={part ? 'How big the selected part is, in pixels.' : `How big "${target.name}" is on your design, in pixels.`}>
+      {several && (
+        <Readout
+          title={target.kind === 'group' ? `${target.name} (kept together)` : target.name}
+          description={
+            target.kind === 'group'
+              ? 'These are kept together, so they are picked and moved as one. Double-click a part on your design to change just it.'
+              : 'They move, resize and turn together. Hold Shift and click to add or take away one. Click empty paper to let go.'
+          }
+        >
+          <span dir="auto">{target.name}</span>
+        </Readout>
+      )}
+      <Readout title="Size" description={part ? 'How big the selected part is, in pixels.' : several ? 'How big the frame around them is, in pixels.' : `How big "${target.name}" is on your design, in pixels.`}>
         {Math.round(Math.abs(target.width))} × {Math.round(Math.abs(target.height))} px
       </Readout>
-      <Readout title="Angle" description="How far it is turned. Hold Shift while turning to go in neat 15° steps.">
-        {target.angle}°
-      </Readout>
+      {!several && (
+        <Readout title="Angle" description="How far it is turned. Hold Shift while turning to go in neat 15° steps.">
+          {target.angle}°
+        </Readout>
+      )}
       <Divider />
+      {several && (
+        <>
+          <div className="flex shrink-0 items-center">
+            {controls.kept ? (
+              <BarButton icon={Ungroup} label="Take apart" title="Take apart" description="Let the parts be picked and moved on their own again." onClick={controls.takeApart} />
+            ) : (
+              <BarButton icon={Group} label="Keep together" title="Keep together" description="Make them one thing: from now on, a click on any part picks them all. Double-click a part to change just it." onClick={controls.keepTogether} />
+            )}
+            {target.kind === 'many' && <BarButton icon={LayoutGrid} label="Tidy up" title="Tidy up" description="Put them in a neat row or column, with even gaps, lined up through their middles." onClick={controls.tidyUp} />}
+            {target.kind === 'many' && <LineUpMenu several onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
+          </div>
+          <Divider />
+        </>
+      )}
       <div className="flex shrink-0 items-center">
         {/* The icon names describe the mirror line: a vertical line flips left to right. */}
-        <BarButton icon={FlipVertical2} label="Mirror" title="Flip left to right" description="Mirror it, so the left side becomes the right side." onClick={() => controls.flip('horizontal')} />
-        <BarButton icon={FlipHorizontal2} label="Upside down" title="Flip upside down" description="Mirror it top to bottom, so the top becomes the bottom." onClick={() => controls.flip('vertical')} />
-        <BarButton icon={RotateCcw} label="Left" title="Turn left" description="Turn it a quarter turn to the left." onClick={() => controls.rotate90(-1)} />
-        <BarButton icon={RotateCw} label="Right" title="Turn right" description="Turn it a quarter turn to the right." onClick={() => controls.rotate90(1)} />
+        <BarButton icon={FlipVertical2} label="Mirror" title="Flip left to right" description={`Mirror ${it}, so the left side becomes the right side.`} onClick={() => controls.flip('horizontal')} />
+        <BarButton icon={FlipHorizontal2} label="Upside down" title="Flip upside down" description={`Mirror ${it} top to bottom, so the top becomes the bottom.`} onClick={() => controls.flip('vertical')} />
+        <BarButton icon={RotateCcw} label="Left" title="Turn left" description={`Turn ${it} a quarter turn to the left.`} onClick={() => controls.rotate90(-1)} />
+        <BarButton icon={RotateCw} label="Right" title="Turn right" description={`Turn ${it} a quarter turn to the right.`} onClick={() => controls.rotate90(1)} />
       </div>
-      <Tooltip
-        title="Keep shape"
-        description="When on, dragging a corner keeps the same shape, so nothing gets squashed or stretched. Hold Shift while dragging to do the opposite. The side handles always stretch."
-      >
-        <button
-          type="button"
-          aria-pressed={controls.keepProportions}
-          aria-label="Keep shape"
-          onClick={() => controls.onKeepProportions(!controls.keepProportions)}
-          className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
-            controls.keepProportions ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
-          }`}
+      {!several && (
+        <Tooltip
+          title="Keep shape"
+          description="When on, dragging a corner keeps the same shape, so nothing gets squashed or stretched. Hold Shift while dragging to do the opposite. The side handles always stretch."
         >
-          {controls.keepProportions ? <Link size={15} /> : <Unlink size={15} />}
-          <span className="hidden xl:inline">Keep shape</span>
-        </button>
-      </Tooltip>
+          <button
+            type="button"
+            aria-pressed={controls.keepProportions}
+            aria-label="Keep shape"
+            onClick={() => controls.onKeepProportions(!controls.keepProportions)}
+            className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
+              controls.keepProportions ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
+            }`}
+          >
+            {controls.keepProportions ? <Link size={15} /> : <Unlink size={15} />}
+            <span className="hidden xl:inline">Keep shape</span>
+          </button>
+        </Tooltip>
+      )}
       <Divider />
       <div className="flex shrink-0 items-center">
         <BarButton
           icon={Crosshair}
           label="Center"
           title="Center on design"
-          description={part ? 'Move the selected part so it sits exactly in the middle of your design.' : 'Move it so it sits exactly in the middle of your design.'}
+          description={part ? 'Move the selected part so it sits exactly in the middle of your design.' : `Move ${it} so ${several ? 'they sit' : 'it sits'} exactly in the middle of your design.`}
           onClick={controls.center}
         />
+        {!part && target.kind !== 'many' && <LineUpMenu several={false} onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
         {!part && (
           <>
-            <BarButton icon={BringToFront} label="Forward" title="Bring forward" description={`Move "${target.name}" one step toward the front, over the thing above it.`} onClick={controls.forward} />
-            <BarButton icon={SendToBack} label="Backward" title="Send backward" description={`Move "${target.name}" one step toward the back, behind the thing below it.`} onClick={controls.backward} />
-            <BarButton icon={Trash2} label="Delete" title="Delete" description={`Remove "${target.name}" from your design. You can undo this.`} onClick={controls.remove} />
+            <BarButton icon={BringToFront} label="Forward" title="Bring forward" description={several ? 'Move them one step toward the front.' : `Move "${target.name}" one step toward the front, over the thing above it.`} onClick={controls.forward} />
+            <BarButton icon={SendToBack} label="Backward" title="Send backward" description={several ? 'Move them one step toward the back.' : `Move "${target.name}" one step toward the back, behind the thing below it.`} onClick={controls.backward} />
+            <BarButton icon={Trash2} label="Delete" title="Delete" description={several ? 'Remove them from your design. You can undo this.' : `Remove "${target.name}" from your design. You can undo this.`} onClick={controls.remove} />
           </>
         )}
       </div>

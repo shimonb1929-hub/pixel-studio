@@ -1,7 +1,8 @@
 import { textInBox } from '../text/textLayer.ts'
 import { createCanvas, getContext2d } from './document.ts'
 import { cachedContentBounds } from './pixels.ts'
-import { applyAffine, boxFromRect, boxMatrix, type TransformBox } from './transform.ts'
+import { polygonBounds, unionRect } from './geometry.ts'
+import { applyAffine, boxCorners, boxFromRect, boxMatrix, normalizeAngle, type TransformBox } from './transform.ts'
 import type { Layer, PixelLayer } from './types.ts'
 
 // Arranging objects: where their handles go, and placing them in a new box. Moving, resizing and
@@ -62,4 +63,65 @@ export function placeInBox(layer: Layer, box: TransformBox): Layer {
 export function slideLayer(layer: Layer, dx: number, dy: number): Layer {
   if (layer.kind === 'raster' && !layer.box) return { ...layer, x: layer.x + dx, y: layer.y + dy }
   return { ...layer, box: { ...layer.box!, cx: layer.box!.cx + dx, cy: layer.box!.cy + dy } }
+}
+
+// The upright frame around several things, or null when none of them has anything on it.
+export function frameOf(layers: Layer[]): TransformBox | null {
+  const rects = layers
+    .map((layer) => arrangeBox(layer))
+    .filter((box): box is TransformBox => box !== null)
+    .map((box) => polygonBounds(boxCorners(box))!)
+  if (rects.length === 0) return null
+  return boxFromRect(rects.reduce((all, rect) => unionRect(all, rect)))
+}
+
+// Where a box goes when the frame around several things changes from `from` to `to`: it moves,
+// grows evenly, turns and flips along with the frame.
+export function boxInFrame(box: TransformBox, from: TransformBox, to: TransformBox): TransformBox {
+  const scale = Math.abs(to.height) / (Math.abs(from.height) || 1)
+  const flipX = Math.sign(to.width) !== Math.sign(from.width)
+  const flipY = Math.sign(to.height) !== Math.sign(from.height)
+  // The box's middle and turn, seen from the frame (unturned).
+  const dx = box.cx - from.cx
+  const dy = box.cy - from.cy
+  const cos = Math.cos(-from.rotation)
+  const sin = Math.sin(-from.rotation)
+  let x = (dx * cos - dy * sin) * scale
+  let y = (dx * sin + dy * cos) * scale
+  let turn = box.rotation - from.rotation
+  let width = box.width * scale
+  let height = box.height * scale
+  if (flipX) {
+    x = -x
+    turn = -turn
+    width = -width
+  }
+  if (flipY) {
+    y = -y
+    turn = -turn
+    height = -height
+  }
+  const c = Math.cos(to.rotation)
+  const s = Math.sin(to.rotation)
+  return { cx: to.cx + x * c - y * s, cy: to.cy + x * s + y * c, width, height, rotation: normalizeAngle(turn + to.rotation) }
+}
+
+// A layer placed along with its frame. A move by whole pixels just slides it, so pictures stay crisp.
+export function layerInFrame(layer: Layer, from: TransformBox, to: TransformBox): Layer {
+  const dx = to.cx - from.cx
+  const dy = to.cy - from.cy
+  const same = Math.abs(to.width - from.width) < 1e-9 && Math.abs(to.height - from.height) < 1e-9 && Math.abs(to.rotation - from.rotation) < 1e-9
+  if (same && Number.isInteger(dx) && Number.isInteger(dy)) return slideLayer(layer, dx, dy)
+  const box = arrangeBox(layer)
+  return box ? placeInBox(layer, boxInFrame(box, from, to)) : layer
+}
+
+// How a layer looks while its frame is being dragged; nothing is copied.
+export function previewInFrame(layer: Layer, from: TransformBox, to: TransformBox): Layer {
+  const dx = to.cx - from.cx
+  const dy = to.cy - from.cy
+  const same = Math.abs(to.width - from.width) < 1e-9 && Math.abs(to.height - from.height) < 1e-9 && Math.abs(to.rotation - from.rotation) < 1e-9
+  if (same && Number.isInteger(dx) && Number.isInteger(dy)) return slideLayer(layer, dx, dy)
+  const box = arrangeBox(layer)
+  return box ? previewInBox(layer, boxInFrame(box, from, to)) : layer
 }

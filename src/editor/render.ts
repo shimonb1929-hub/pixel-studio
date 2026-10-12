@@ -64,8 +64,8 @@ export interface RenderPart {
 }
 
 // Shown in place of a layer while it's being painted on, moved, resized or adjusted: either
-// pictures to draw, or a changed copy of the layer.
-export type LayerOverride = { layerId: string; parts: RenderPart[] } | { layerId: string; layer: Layer }
+// pictures to draw, or a changed copy of the layer, or changed copies of several layers.
+export type LayerOverride = { layerId: string; parts: RenderPart[] } | { layerId: string; layer: Layer } | { layers: Map<string, Layer> }
 
 // Adjusted layers are shown with just the detail the screen needs, worked out again only when the
 // layer, its pixels, the zoom or the design's size change.
@@ -156,7 +156,9 @@ export function renderScene(
   const screenScale = width / doc.width
   for (const original of doc.layers) {
     let layer = original
-    if (override?.layerId === original.id) {
+    if (override && 'layers' in override) {
+      layer = override.layers.get(original.id) ?? original
+    } else if (override?.layerId === original.id) {
       if ('parts' in override) {
         if (original.visible && original.opacity > 0) {
           ctx.globalAlpha = original.opacity
