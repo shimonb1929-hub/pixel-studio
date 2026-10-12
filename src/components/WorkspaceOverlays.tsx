@@ -16,11 +16,12 @@ export function ToolHint({ tool, extra }: { tool: ToolId; extra?: string }) {
   return (
     <div
       role="status"
-      className={`${PILL} pointer-events-none inset-x-3 top-3 mx-auto flex w-fit max-w-[calc(100%-1.5rem)] gap-2 rounded-full px-3.5 py-1.5 text-xs`}
+      className={`${PILL} pointer-events-none inset-x-3 top-3 mx-auto flex w-fit max-w-[calc(100%-1.5rem)] gap-2 rounded-2xl px-3.5 py-1.5 text-xs leading-[18px]`}
     >
       <Icon size={14} className="shrink-0 text-accent" />
       <span className="shrink-0 whitespace-nowrap font-semibold text-ink">{info.name}</span>
-      <span className="truncate text-ink-2">
+      {/* Wraps rather than cutting the end off, so the whole hint can always be read. */}
+      <span className="line-clamp-2 text-ink-2">
         {info.hint}
         {extra && <span className="font-medium text-accent"> {extra}</span>}
       </span>

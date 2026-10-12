@@ -394,6 +394,10 @@ function Readout({ title, description, children }: { title: string; description:
   )
 }
 
+// A name inside a sentence, in quotes and kept apart, so a Hebrew or Yiddish name reads
+// correctly inside English words.
+const named = (name: string) => `“\u2068${name}\u2069”`
+
 const LINE_UPS: { edge: LineUpEdge; label: string; icon: LucideIcon }[] = [
   { edge: 'left', label: 'Left edges', icon: AlignStartVertical },
   { edge: 'center', label: 'Centers', icon: AlignCenterVertical },
@@ -586,7 +590,7 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
           <span dir="auto">{target.name}</span>
         </Readout>
       )}
-      <Readout title="Size" description={part ? 'How big the selected part is, in pixels.' : several ? 'How big the frame around them is, in pixels.' : `How big "${target.name}" is on your design, in pixels.`}>
+      <Readout title="Size" description={part ? 'How big the selected part is, in pixels.' : several ? 'How big the frame around them is, in pixels.' : `How big ${named(target.name)} is on your design, in pixels.`}>
         {Math.round(Math.abs(target.width))} × {Math.round(Math.abs(target.height))} px
       </Readout>
       {!several && (
@@ -651,15 +655,15 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
             label="Remove background"
             title="Remove background"
             roomy
-            description={`AI finds the main thing in "${target.name}" and makes everything around it see-through. The first time, the AI is downloaded, which takes a moment. You can undo it.`}
+            description={`AI finds the main thing in ${named(target.name)} and makes everything around it see-through. The first time, the AI is downloaded, which takes a moment. You can undo it.`}
             onClick={controls.removeBackground}
           />
         )}
         {!part && (
           <>
-            <BarButton icon={BringToFront} label="Forward" title="Bring forward" description={several ? 'Move them one step toward the front.' : `Move "${target.name}" one step toward the front, over the thing above it.`} onClick={controls.forward} />
-            <BarButton icon={SendToBack} label="Backward" title="Send backward" description={several ? 'Move them one step toward the back.' : `Move "${target.name}" one step toward the back, behind the thing below it.`} onClick={controls.backward} />
-            <BarButton icon={Trash2} label="Delete" title="Delete" description={several ? 'Remove them from your design. You can undo this.' : `Remove "${target.name}" from your design. You can undo this.`} onClick={controls.remove} />
+            <BarButton icon={BringToFront} label="Forward" title="Bring forward" description={several ? 'Move them one step toward the front.' : `Move ${named(target.name)} one step toward the front, over the thing above it.`} onClick={controls.forward} />
+            <BarButton icon={SendToBack} label="Backward" title="Send backward" description={several ? 'Move them one step toward the back.' : `Move ${named(target.name)} one step toward the back, behind the thing below it.`} onClick={controls.backward} />
+            <BarButton icon={Trash2} label="Delete" title="Delete" description={several ? 'Remove them from your design. You can undo this.' : `Remove ${named(target.name)} from your design. You can undo this.`} onClick={controls.remove} />
           </>
         )}
       </div>

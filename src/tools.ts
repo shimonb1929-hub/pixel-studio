@@ -28,7 +28,7 @@ export const TOOLS: ToolInfo[] = [
     icon: MousePointer2,
     description:
       'Click anything on your design to pick it. Drag it to move it, pull a corner to resize it, or the round handle to turn it. Drag a box around several things to pick them all. Pictures never lose quality, however often you resize them.',
-    hint: `Click something to pick it, or drag a box around several. Drag to move: it lines up with the page and other things by itself (hold ${ALT_LABEL} to move freely). Pull a corner to resize, the round handle to turn.`,
+    hint: `Click something to pick it, or drag a box around several. Drag to move; it lines up by itself (hold ${ALT_LABEL} to move freely). Pull a corner to resize, the round handle to turn.`,
     keywords: ['move', 'drag', 'position', 'place', 'resize', 'scale', 'rotate', 'turn', 'flip', 'mirror', 'arrange', 'pick', 'bigger', 'smaller', 'transform', 'nudge', 'stretch', 'select several', 'multiple'],
     group: 'arrange',
   },
@@ -40,7 +40,7 @@ export const TOOLS: ToolInfo[] = [
     icon: SquareDashed,
     description: `Choose part of your design to work on. Painting, erasing, deleting and moving then only affect that part. Draw a rectangle, an oval, or any shape by hand.`,
     hint: `Drag to select an area. Hold Shift to add to it, ${ALT_LABEL} to take away. Click outside to clear it.`,
-    keywords: ['select', 'selection', 'marquee', 'lasso', 'choose area', 'cut out', 'rectangle', 'oval', 'circle'],
+    keywords: ['select', 'selection', 'marquee', 'lasso', 'choose area', 'cut out', 'rectangle', 'oval', 'circle', 'magic', 'magic wand', 'quick select', 'select subject', 'object', 'ai'],
     group: 'arrange',
   },
   {
@@ -100,7 +100,7 @@ export const TOOLS: ToolInfo[] = [
     description:
       'Paint on the selected layer. Pick a ready-made brush like Pencil or Marker, or adjust size and softness yourself.',
     hint: `Drag to paint. Shift + click draws a straight line. Hold ${ALT_LABEL} to pick a color.`,
-    keywords: ['paint', 'draw', 'pencil', 'pen', 'marker', 'sketch', 'color in', 'highlighter'],
+    keywords: ['paint', 'draw', 'pencil', 'pen', 'marker', 'sketch', 'color in', 'highlighter', 'oil paint', 'splatter', 'drips', 'spray', 'brushes'],
     group: 'draw',
   },
   {
