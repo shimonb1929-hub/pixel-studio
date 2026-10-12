@@ -32,11 +32,16 @@ function load() {
       }
       post({ type: 'progress', loaded, total })
     }
-    const [model, processor] = await Promise.all([
-      SamModel.from_pretrained(MODEL, { dtype: 'q8', progress_callback: onProgress }) as Promise<SamModel>,
+    // The graphics card is much quicker where the browser lets the page use it.
+    const gpu = 'gpu' in navigator && !!(await (navigator as Navigator & { gpu: { requestAdapter(): Promise<unknown> } }).gpu.requestAdapter().catch(() => null))
+    const model = gpu
+      ? await (SamModel.from_pretrained(MODEL, { device: 'webgpu', dtype: 'fp16', progress_callback: onProgress }) as Promise<SamModel>).catch(() => null)
+      : null
+    const [cpuModel, processor] = await Promise.all([
+      model ? Promise.resolve(model) : (SamModel.from_pretrained(MODEL, { dtype: 'q8', progress_callback: onProgress }) as Promise<SamModel>),
       SamProcessor.from_pretrained(MODEL, { progress_callback: onProgress }) as Promise<SamProcessor>,
     ])
-    return { model, processor }
+    return { model: cpuModel, processor }
   })()
   loading.catch(() => (loading = null))
   return loading
