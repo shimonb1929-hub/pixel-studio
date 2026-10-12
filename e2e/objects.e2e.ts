@@ -300,7 +300,8 @@ test('shapes, photos in shapes and resized photos come back from a project file'
   await page.locator('input[type=file]').setInputFiles({ name: 'My design 1.pixel', mimeType: '', buffer: bytes })
 
   await expect(page.locator('header')).toContainText('My design 1')
-  expect(await layerNames(page)).toEqual(['beach', 'Oval 1', 'Rectangle 1'])
+  // The header shows the name before the opened design is drawn, so wait for its layers.
+  await expect.poll(() => layerNames(page)).toEqual(['beach', 'Oval 1', 'Rectangle 1'])
   expectColor(await designPixel(page, size, 50, 50), RED)
   expectColor(await designPixel(page, size, 150, 150), RED)
   expectColor(await designPixel(page, size, 250, 150), GREEN)
