@@ -109,6 +109,8 @@ export interface CanvasViewProps {
   onPickColor: (hex: string) => void
   onMove: (session: MoveSession, dx: number, dy: number) => void
   onSelect: (selection: Selection | null, label: string) => void
+  // With the magic selection: a click on a thing, or a box dragged around it, for AI to find.
+  onMagicSelect: (target: { point: Point } | { box: Rect }, mode: SelectionMode) => void
   onBlocked: (message: string) => void
   // Shown in place of a layer while it's being resized or rotated.
   override: LayerOverride | null
@@ -261,7 +263,7 @@ const GUIDE_COLOR = '#e8457a'
 const ANTS_DASH = 4
 const ANTS_INTERVAL_MS = 90
 
-const SHAPE_LABELS: Record<SelectionShape, string> = { rectangle: 'rectangle', ellipse: 'oval', freehand: 'freehand area' }
+const SHAPE_LABELS: Record<SelectionShape, string> = { rectangle: 'rectangle', ellipse: 'oval', freehand: 'freehand area', magic: 'thing' }
 
 function pressureOf(event: globalThis.PointerEvent): number {
   // Only pens report real pressure; a mouse or finger always paints at full size.
@@ -1110,7 +1112,7 @@ export function CanvasView(props: CanvasViewProps) {
     const mode: SelectionMode = event.shiftKey ? 'add' : event.altKey ? 'subtract' : selectionMode
     event.currentTarget.setPointerCapture(event.pointerId)
     // Dragging from inside the current selection moves its outline instead of starting a new one.
-    if (mode === 'replace' && doc.selection && isPointSelected(doc.selection, doc.width, doc.height, point)) {
+    if (mode === 'replace' && props.selectionShape !== 'magic' && doc.selection && isPointSelected(doc.selection, doc.width, doc.height, point)) {
       selectRef.current = { kind: 'outline', pointerId: event.pointerId, start: point, dx: 0, dy: 0 }
       return
     }
@@ -1136,6 +1138,12 @@ export function CanvasView(props: CanvasViewProps) {
     const current = p.doc.selection
     if (drag.kind === 'outline') {
       if (current && (drag.dx !== 0 || drag.dy !== 0)) p.onSelect(translateSelection(current, drag.dx, drag.dy), 'Move selection outline')
+      requestOverlay()
+      return
+    }
+    if (drag.shape === 'magic') {
+      const box = rectFromCorners(drag.start, drag.current)
+      p.onMagicSelect(drag.moved && box.width >= 2 && box.height >= 2 ? { box } : { point: drag.start }, drag.mode)
       requestOverlay()
       return
     }

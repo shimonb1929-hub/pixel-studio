@@ -20,7 +20,7 @@ import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { DesignInfo, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
-import { effectThumbnails } from './editor/compose.ts'
+import { effectThumbnails, flattenDocument } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
 import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, type Adjustments } from './editor/adjust.ts'
 import { adjustArea, lookThumbnails, paintAdjusted, previewParts } from './editor/adjustSession.ts'
@@ -62,6 +62,9 @@ import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
 import { layerAt, layerBounds, layerPixels } from './editor/objects.ts'
 import { healRegion } from './editor/heal.ts'
+import { layerVersion } from './editor/pixelVersion.ts'
+import { combineFound, maskToOps } from './ai/maskSelection.ts'
+import { AI_PICTURE_SIDE, findThing, onAiProgress } from './ai/segment.ts'
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
@@ -104,6 +107,15 @@ const DEFAULT_ERASER = ERASER_PRESETS.find((p) => p.id === 'block')!
 
 // Look pictures in the Adjust panel are drawn this big (in screen pixels, before the screen's sharpness).
 const LOOK_PICTURE_SIZE = 66
+
+// Stands for everything that shows on a design, so the AI can tell when it's still the same picture.
+const layerListIds = new WeakMap<Layer[], number>()
+let nextLayerListId = 1
+function pictureKey(d: EditorDocument, width: number, height: number): string {
+  let list = layerListIds.get(d.layers)
+  if (!list) layerListIds.set(d.layers, (list = nextLayerListId++))
+  return `${d.id}:${list}:${d.background}:${width}x${height}:${d.layers.map(layerVersion).join(',')}`
+}
 // How much of the picture around a fix it may copy from, in design pixels.
 const HEAL_MIN_MARGIN = 48
 const HEAL_MAX_MARGIN = 400
@@ -1257,6 +1269,45 @@ export default function App() {
     })
   }
 
+  // Magic selection: AI finds the thing that was clicked (or boxed) in everything that shows.
+  async function magicSelect(target: { point: Point } | { box: Rect }, mode: SelectionMode) {
+    const d = current()
+    if (!d) return
+    const scale = Math.min(1, AI_PICTURE_SIDE / Math.max(d.width, d.height))
+    const width = Math.max(1, Math.round(d.width * scale))
+    const height = Math.max(1, Math.round(d.height * scale))
+    const picture = () => {
+      const small = createCanvas(width, height)
+      const ctx = small.getContext('2d', { willReadFrequently: true })!
+      ctx.imageSmoothingQuality = 'high'
+      ctx.drawImage(flattenDocument(d), 0, 0, width, height)
+      return ctx.getImageData(0, 0, width, height)
+    }
+    const sx = width / d.width
+    const sy = height / d.height
+    const points = 'point' in target ? [{ x: target.point.x * sx, y: target.point.y * sy, inside: true }] : []
+    const box: [number, number, number, number] | undefined =
+      'box' in target ? [target.box.x * sx, target.box.y * sy, (target.box.x + target.box.width) * sx, (target.box.y + target.box.height) * sy] : undefined
+    setNotice({ message: 'Finding it…', tone: 'info' })
+    const stop = onAiProgress((share) =>
+      setNotice({ message: `Getting the magic selection ready. This happens only the first time: ${Math.round(share * 100)}%`, tone: 'info' }),
+    )
+    try {
+      const found = await findThing(pictureKey(d, width, height), picture, points, box)
+      const ops = maskToOps(found.mask, found.width, found.height, d.width / found.width, d.height / found.height)
+      if (ops.length === 0) {
+        problem('Nothing was found there. Click right on the thing you want, or drag a box around it.')
+        return
+      }
+      setNotice(null)
+      setSelection(mode === 'add' ? 'Add to selection' : mode === 'subtract' ? 'Remove from selection' : 'Magic select', (doc) => combineFound(doc.selection, ops, mode))
+    } catch {
+      problem("The magic selection couldn't start. Check that you're online, then try again.")
+    } finally {
+      stop()
+    }
+  }
+
   // The selected part of the selected layer, or a message saying there's nothing there.
   function selectedPiece(): Piece | null {
     const d = current()
@@ -2107,6 +2158,7 @@ export default function App() {
                 onPickColor={handlePickColor}
                 onMove={handleMove}
                 onSelect={handleSelect}
+                onMagicSelect={(target, mode) => void magicSelect(target, mode)}
                 onBlocked={problem}
                 override={override}
                 box={box}

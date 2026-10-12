@@ -3,7 +3,7 @@ import { traceOutline } from './outline.ts'
 import type { Point } from './types.ts'
 
 export type SelectionMode = 'replace' | 'add' | 'subtract'
-export type SelectionShape = 'rectangle' | 'ellipse' | 'freehand'
+export type SelectionShape = 'rectangle' | 'ellipse' | 'freehand' | 'magic'
 
 // A selection is kept as the list of steps that made it ("add this oval, remove this
 // rectangle"), not as pixels. That keeps it tiny in undo history, and the pixel mask can always

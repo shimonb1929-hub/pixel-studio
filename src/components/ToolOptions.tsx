@@ -1,48 +1,4 @@
-import {
-  AlignCenterHorizontal,
-  AlignCenterVertical,
-  AlignEndHorizontal,
-  AlignEndVertical,
-  AlignHorizontalSpaceBetween,
-  AlignStartHorizontal,
-  AlignStartVertical,
-  AlignVerticalSpaceBetween,
-  BringToFront,
-  Check,
-  ChevronDown,
-  Circle,
-  Contrast,
-  Copy,
-  Crosshair,
-  Eye,
-  FlipHorizontal2,
-  FlipVertical2,
-  Group,
-  Lasso,
-  LayoutGrid,
-  Link,
-  LockOpen,
-  Minus,
-  PaintBucket,
-  Pentagon,
-  Plus,
-  RectangleHorizontal,
-  RectangleVertical,
-  RotateCcw,
-  RotateCw,
-  Scan,
-  SendToBack,
-  Square,
-  SquareDashed,
-  SquareMinus,
-  SquarePlus,
-  SquareSlash,
-  Star,
-  Trash2,
-  Ungroup,
-  Unlink,
-  type LucideIcon,
-} from 'lucide-react'
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, type LucideIcon } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -202,6 +158,12 @@ const SHAPES: Choice<SelectionShape>[] = [
   { value: 'rectangle', label: 'Rectangle', icon: Square, description: 'Drag to select a rectangle. Hold Shift while dragging for a perfect square.' },
   { value: 'ellipse', label: 'Oval', icon: Circle, description: 'Drag to select an oval. Hold Shift while dragging for a perfect circle.' },
   { value: 'freehand', label: 'Freehand', icon: Lasso, description: 'Draw around any shape by hand. Let go to close it.' },
+  {
+    value: 'magic',
+    label: 'Magic',
+    icon: WandSparkles,
+    description: 'Click a thing (a person, an animal, a house, a tree) and it is selected for you, right to its edges. Or drag a box around it. The first time, it takes a moment to get ready.',
+  },
 ]
 
 const MODES: Choice<SelectionMode>[] = [
