@@ -1,4 +1,4 @@
-import { CircleHelp, Plus, X } from 'lucide-react'
+import { ChevronDown, CircleHelp, Plus, X } from 'lucide-react'
 import {
   BLEND_MODES,
   blendInfo,
@@ -19,6 +19,9 @@ import { Button, inputClass, Slider } from './ui.tsx'
 
 interface EffectsPanelProps {
   title: string
+  // Folded away it is one line, so the Layers panel stays in view; it opens with a click.
+  open: boolean
+  onOpen: (open: boolean) => void
   effects: LayerEffects | null
   blend: BlendMode
   // How big effects are on this design: sizes are multiples of it (see effectUnit).
@@ -49,6 +52,15 @@ const DIRECTIONS = ['right', 'down and right', 'down', 'down and left', 'left', 
 
 function directionName(angle: number): string {
   return DIRECTIONS[Math.round((((angle % 360) + 360) % 360) / 45) % 8]
+}
+
+// A few words for the folded header: what's on it now.
+function summary(effects: LayerEffects, look: EffectLook | undefined, blend: BlendMode): string {
+  const kinds = (Object.keys(NAMES) as EffectKind[]).filter((kind) => effects[kind])
+  const words = look ? look.name : kinds.map((kind) => NAMES[kind]).join(', ')
+  if (blend === 'normal') return words
+  const mix = blendInfo(blend).name
+  return kinds.length ? `${words}, ${mix}` : mix
 }
 
 function EffectHeader({
@@ -125,18 +137,32 @@ export function EffectsPanel(props: EffectsPanelProps) {
 
   return (
     <section aria-label="Effects" className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className={`flex items-center justify-between gap-2 ${props.open ? 'mb-3' : ''}`}>
         <Tooltip
           title="Effects"
           description="Add a shadow, a glow or an outline, and choose how it mixes with what's below. What's on it never changes, so you can change or remove effects any time."
+          className="flex min-w-0 flex-1"
         >
-          <h2 className="flex min-w-0 cursor-help items-center gap-1.5 text-[13px] font-semibold text-ink">
-            <span className="truncate">Effects: {props.title}</span>
+          <button
+            type="button"
+            aria-expanded={props.open}
+            onClick={() => props.onOpen(!props.open)}
+            className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-[13px] font-semibold text-ink"
+          >
+            <span className="truncate">
+              Effects: <bdi>{props.title}</bdi>
+            </span>
             <CircleHelp size={14} className="shrink-0 text-ink-3" aria-hidden />
-          </h2>
+            <span className="ml-auto flex shrink-0 items-center gap-1 text-[11px] font-medium text-ink-2">
+              {!props.open && summary(effects, current, props.blend)}
+              <ChevronDown size={16} className={`text-ink-3 transition-transform ${props.open ? 'rotate-180' : ''}`} aria-hidden />
+            </span>
+          </button>
         </Tooltip>
       </div>
 
+      {props.open && (
+        <>
       <div role="radiogroup" aria-label="Ready-made effects" className="grid grid-cols-3 gap-1.5">
         {EFFECT_LOOKS.map((look, i) => (
           <Tooltip key={look.id} title={look.name} description={look.description} className="flex">
@@ -247,6 +273,8 @@ export function EffectsPanel(props: EffectsPanelProps) {
           </select>
         </Tooltip>
       </div>
+        </>
+      )}
     </section>
   )
 }

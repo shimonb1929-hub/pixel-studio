@@ -343,6 +343,8 @@ export default function App() {
   const [gradientStop, setGradientStop] = useState(0)
   // Which effect's color the Color panel colors, while one is picked in the Effects panel.
   const [effectColor, setEffectColor] = useState<{ layerId: string; kind: EffectKind } | null>(null)
+  // The Effects panel starts folded, so the Layers panel stays in view until effects are wanted.
+  const [effectsOpen, setEffectsOpen] = useState(false)
   // While on, dragging on the selected shape slides the photo inside it.
   const [photoMoving, setPhotoMoving] = useState(false)
   // Several things picked together with Arrange. Picking isn't an undo step, so it's kept here
@@ -834,11 +836,11 @@ export default function App() {
   const unit = doc ? effectUnit(doc.width, doc.height) : 1
   const effectPictures = useMemo(
     () =>
-      doc && effectsLayer
+      doc && effectsLayer && effectsOpen
         ? effectThumbnails(doc, effectsLayer, EFFECT_LOOKS.map((look) => look.effects(unit)), LOOK_PICTURE_SIZE * (window.devicePixelRatio || 1), 66 / 50)
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [effectsLayer, editor.revision, doc?.background, unit],
+    [effectsLayer, effectsOpen, editor.revision, doc?.background, unit],
   )
   const effectTarget = effectsLayer && effectColor?.layerId === effectsLayer.id && effectsLayer.effects?.[effectColor.kind] ? effectColor.kind : null
 
@@ -1926,6 +1928,15 @@ export default function App() {
       setTool('adjust')
       setAdjustments(look.settings)
     },
+    showEffects: () => {
+      if (!current()) return
+      if (tool !== 'move' && tool !== 'shape' && tool !== 'text') setTool('move')
+      setEffectsOpen(true)
+    },
+    removeBackground: () => {
+      const layer = current() && activeLayer(current()!)
+      if (layer?.kind === 'raster') void removeBackground(layer.id)
+    },
   }
 
   const actions = buildActions(
@@ -2486,6 +2497,11 @@ export default function App() {
           {effectsLayer && (
             <EffectsPanel
               title={effectsLayer.name}
+              open={effectsOpen}
+              onOpen={(open) => {
+                if (!open) setEffectColor(null)
+                setEffectsOpen(open)
+              }}
               effects={effectsLayer.effects ?? null}
               blend={effectsLayer.blend ?? 'normal'}
               unit={unit}

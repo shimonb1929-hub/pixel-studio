@@ -56,6 +56,9 @@ export interface AppCommands {
   setTool: (tool: ToolId) => void
   // Opens Adjust with a ready-made look ready to try.
   showLook: (lookId: string) => void
+  // Opens the Effects panel for what is picked.
+  showEffects: () => void
+  removeBackground: () => void
 }
 
 interface ActionState {
@@ -556,6 +559,26 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       keywords: ['thinner', 'narrower', 'brush size', 'decrease size', 'smaller'],
       shortcut: '[',
       run: c.smallerBrush,
+    },
+    {
+      id: 'effects',
+      group: 'Layers',
+      title: 'Shadow, glow or outline…',
+      description: "Give what is picked a shadow, a glow or an outline, or change how it mixes with what's below. You see each one on your design before you keep it.",
+      keywords: ['shadow', 'drop shadow', 'glow', 'outer glow', 'outline', 'stroke', 'border', 'effects', 'fx', 'layer style', 'blend', 'blend mode', 'multiply', 'screen', 'overlay', 'mix'],
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: c.showEffects,
+    },
+    {
+      id: 'remove-background',
+      group: 'Layers',
+      title: 'Remove background',
+      description: 'AI finds the main thing in the picked photo and makes everything around it see-through. You can undo it.',
+      keywords: ['remove background', 'background eraser', 'cut out', 'cutout', 'transparent', 'see-through', 'isolate', 'remove bg', 'ai'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'raster' ? 'Pick a photo or a drawing first: click it on your design.' : undefined,
+      run: c.removeBackground,
     },
     ...LOOKS.filter((look) => look.id !== 'original').map(
       (look): Action => ({

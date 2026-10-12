@@ -8,6 +8,13 @@ const RED: [number, number, number] = [239, 68, 68]
 
 const effectsPanel = (page: Page) => page.getByRole('region', { name: 'Effects' })
 
+// The Effects panel starts folded into one line; this opens it if it isn't open yet.
+async function openEffects(page: Page) {
+  const header = effectsPanel(page).getByRole('button', { name: /^Effects:/ })
+  if ((await header.getAttribute('aria-expanded')) !== 'true') await header.click()
+  await expect(header).toHaveAttribute('aria-expanded', 'true')
+}
+
 async function undoLabel(page: Page) {
   await page.mouse.move(5, 5)
   await page.getByRole('button', { name: 'Undo', exact: true }).hover()
@@ -28,6 +35,7 @@ test('shadow, glow and outline around a shape, changeable any time', async ({ pa
   await drawRectangle(page, size, [100, 100], [200, 180])
   await expect(effectsPanel(page)).toContainText('Rectangle 1')
   expectColor(await designPixel(page, size, 203, 183), WHITE)
+  await openEffects(page)
 
   // A ready-made shadow, falling down and to the right.
   await effectsPanel(page).getByRole('radio', { name: 'Bold shadow' }).click()
@@ -67,6 +75,7 @@ test('a layer can mix with what is below it, and it all comes back from a projec
   await drawRectangle(page, size, [50, 50], [200, 200])
   await page.getByRole('button', { name: 'Red', exact: true }).click()
   await drawRectangle(page, size, [150, 100], [300, 250])
+  await openEffects(page)
   await effectsPanel(page).getByRole('radio', { name: 'Soft shadow' }).click()
   // Where they overlap the blue one simply covers the red one.
   expectColor(await designPixel(page, size, 175, 150), BLUE)
@@ -96,6 +105,7 @@ test('a layer can mix with what is below it, and it all comes back from a projec
   expect(Math.abs(darkness(await designPixel(page, size, 225, 255)) - shadowed)).toBeLessThan(3)
   await page.keyboard.press('v')
   await page.getByRole('button', { name: 'Layer: Rectangle 2' }).click()
+  await openEffects(page)
   await expect(effectsPanel(page).getByLabel("Mix with what's below")).toHaveValue('multiply')
   await expect(effectsPanel(page).getByRole('radio', { name: 'Soft shadow' })).toHaveAttribute('aria-checked', 'true')
 })
@@ -105,6 +115,30 @@ test('effects are also under the Adjust sliders', async ({ page }) => {
   await drawRectangle(page, size, [100, 100], [200, 180])
   await page.keyboard.press('a')
   await expect(page.getByRole('region', { name: 'Adjust' })).toBeVisible()
+  await openEffects(page)
   await effectsPanel(page).getByRole('radio', { name: 'Bold shadow' }).click()
   expect(darkness(await designPixel(page, size, 202, 182))).toBeGreaterThan(180)
+})
+
+test('effects stay folded away until wanted, and the search box finds them', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawRectangle(page, size, [100, 100], [200, 180])
+  // Folded, the panel is one line saying what's on it, and the layers stay in view.
+  const header = effectsPanel(page).getByRole('button', { name: /^Effects:/ })
+  await expect(header).toHaveAttribute('aria-expanded', 'false')
+  await expect(header).toContainText('None')
+  await expect(effectsPanel(page).getByRole('radio', { name: 'Soft shadow' })).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Layer: Rectangle 1' })).toBeInViewport()
+
+  // Typing "shadow" in the search box opens it.
+  await page.keyboard.press('Control+k')
+  await page.keyboard.type('drop shadow')
+  await page.getByRole('option', { name: /Shadow, glow or outline/ }).click()
+  await expect(header).toHaveAttribute('aria-expanded', 'true')
+  await effectsPanel(page).getByRole('radio', { name: 'Soft shadow' }).click()
+  expect(darkness(await designPixel(page, size, 150, 186))).toBeGreaterThan(10)
+
+  // Folded again, it still says what's on it.
+  await header.click()
+  await expect(header).toContainText('Soft shadow')
 })
