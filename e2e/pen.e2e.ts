@@ -37,6 +37,8 @@ test('the Pen draws a closed shape point by point, filled with the shape color',
   // The Pen stays on, and the new shape's points show for reshaping.
   await expect(page.getByRole('button', { name: 'Pen tool' })).toHaveAttribute('aria-pressed', 'true')
   await expect(shapePanel(page)).toContainText('Pen shape 1')
+  // Effects can be added right away, without switching tools.
+  await expect(page.getByRole('region', { name: 'Effects' })).toBeVisible()
   // With Arrange, a double-click on a pen shape shows its points again.
   await page.keyboard.press('v')
   const inside = await screenPoint(page, size, 110, 180)

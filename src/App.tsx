@@ -830,7 +830,7 @@ export default function App() {
   // Effects: the picked object's shadow, glow and outline, and how it mixes with what's below.
   // They're also under the Adjust sliders, so whichever tool people try first, effects are there.
   const effectsLayer =
-    doc && !textEdit && !picked && (tool === 'move' || tool === 'shape' || tool === 'text' || (adjustOn && !doc.selection)) ? activeNow : undefined
+    doc && !textEdit && !picked && (tool === 'move' || tool === 'shape' || tool === 'pen' || tool === 'text' || (adjustOn && !doc.selection)) ? activeNow : undefined
   const unit = doc ? effectUnit(doc.width, doc.height) : 1
   const effectPictures = useMemo(
     () =>
