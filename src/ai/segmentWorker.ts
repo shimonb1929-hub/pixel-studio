@@ -7,6 +7,7 @@ import { env, RawImage, SamModel, SamProcessor, type Tensor } from '@huggingface
 import type { SegmentRequest, SegmentResponse } from './segmentTypes.ts'
 
 const MODEL = 'Xenova/slimsam-77-uniform'
+// The full-size numbers (about 40 MB in all): the squeezed versions give ragged, patchy outlines.
 
 env.allowLocalModels = false
 
@@ -42,10 +43,10 @@ function load() {
     // The graphics card is much quicker where the browser lets the page use it.
     const gpu = 'gpu' in navigator && !!(await (navigator as Navigator & { gpu: { requestAdapter(): Promise<unknown> } }).gpu.requestAdapter().catch(() => null))
     const model = gpu
-      ? await (SamModel.from_pretrained(MODEL, { device: 'webgpu', dtype: 'fp16', progress_callback: onProgress }) as Promise<SamModel>).catch(() => null)
+      ? await (SamModel.from_pretrained(MODEL, { device: 'webgpu', dtype: 'fp32', progress_callback: onProgress }) as Promise<SamModel>).catch(() => null)
       : null
     const [cpuModel, processor] = await Promise.all([
-      model ? Promise.resolve(model) : (SamModel.from_pretrained(MODEL, { dtype: 'q8', progress_callback: onProgress }) as Promise<SamModel>),
+      model ? Promise.resolve(model) : (SamModel.from_pretrained(MODEL, { dtype: 'fp32', progress_callback: onProgress }) as Promise<SamModel>),
       SamProcessor.from_pretrained(MODEL, { progress_callback: onProgress }) as Promise<SamProcessor>,
     ])
     return { model: cpuModel, processor }
@@ -81,28 +82,56 @@ function prepare(key: string, picture: SegmentRequest['image']) {
 
 async function segment(request: Extract<SegmentRequest, { type: 'segment' }>) {
   const { model, processor, image, embeddings } = await prepare(request.key, request.image)
-  const points = request.points.map((p) => [p.x, p.y])
-  const labels = request.points.map((p) => (p.inside ? 1 : 0))
-  // With only a box, a "padding" point stands in, which the model ignores.
-  const prompt = points.length > 0 ? { input_points: [[points]], input_labels: [[labels]] } : { input_points: [[[[0, 0]]]], input_labels: [[[-10]]] }
-  const inputs = await processor(image, request.box ? { ...prompt, input_boxes: [[request.box]] } : prompt)
-  const outputs = await model({
-    ...embeddings,
-    ...(inputs.input_points ? { input_points: inputs.input_points, input_labels: inputs.input_labels } : {}),
-    ...(inputs.input_boxes ? { input_boxes: inputs.input_boxes } : {}),
-  })
+  const given = [...request.points]
+  // This model doesn't take boxes, so a box becomes points: its middle is the thing and its
+  // corners are around it.
+  if (request.box) {
+    const [x0, y0, x1, y1] = request.box
+    if (!given.some((p) => p.inside)) given.push({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, inside: true })
+    for (const [x, y] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]) given.push({ x, y, inside: false })
+  }
+  const points = given.map((p) => [p.x, p.y])
+  const labels = given.map((p) => (p.inside ? 1 : 0))
+  const inputs = await processor(image, { input_points: [[points]], input_labels: [[labels]] })
+  const outputs = await model({ ...embeddings, input_points: inputs.input_points, input_labels: inputs.input_labels })
   const masks: Tensor[] = await processor.post_process_masks(outputs.pred_masks, inputs.original_sizes, inputs.reshaped_input_sizes)
   const scores = Array.from(outputs.iou_scores.data as Float32Array)
   const [, count, height, width] = masks[0].dims
   const data = masks[0].data as Uint8Array
   const size = width * height
-  // The model offers a small part, a bigger part and the whole thing. The whole thing is usually
-  // what people mean, so the biggest one that the model is nearly as sure of wins.
-  const best = Math.max(...scores)
-  let pick = scores.indexOf(best)
+  // The model offers a small part, a bigger part and the whole thing. Only parts that agree with
+  // the points count (every "this" point inside, every "not this" point outside). From one click
+  // the whole thing is usually what people mean, so the biggest one the model is nearly as sure of
+  // wins; with more points the meaning is clear, so the one it's surest of wins.
+  const agrees = (m: number) =>
+    given.every((p) => {
+      const x = Math.min(width - 1, Math.max(0, Math.round(p.x)))
+      const y = Math.min(height - 1, Math.max(0, Math.round(p.y)))
+      return !!data[m * size + y * width + x] === p.inside
+    })
+  // With a box, the thing is inside it: parts that spill well past it are something else.
+  const fitsBox = (m: number) => {
+    if (!request.box) return true
+    const [x0, y0, x1, y1] = request.box
+    let inside = 0
+    let all = 0
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (!data[m * size + y * width + x]) continue
+        all++
+        if (x >= x0 && x <= x1 && y >= y0 && y <= y1) inside++
+      }
+    }
+    return all > 0 && inside >= all * 0.97
+  }
+  let candidates = Array.from({ length: count }, (_, m) => m).filter((m) => agrees(m) && fitsBox(m))
+  if (candidates.length === 0) candidates = Array.from({ length: count }, (_, m) => m).filter(agrees)
+  if (candidates.length === 0) candidates = Array.from({ length: count }, (_, m) => m)
+  const best = Math.max(...candidates.map((m) => scores[m]))
+  let pick = candidates[0]
   let pickArea = -1
-  for (let m = 0; m < count; m++) {
-    if (scores[m] < best - 0.04) continue
+  for (const m of candidates) {
+    if (scores[m] < best - (given.length > 1 ? 0 : 0.04)) continue
     let area = 0
     for (let i = m * size; i < (m + 1) * size; i++) area += data[i] ? 1 : 0
     if (area > pickArea) {

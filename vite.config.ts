@@ -8,13 +8,17 @@ import { defineConfig, type Plugin } from 'vite'
 // app opens without internet. Only for the finished site, never while developing. Fonts (in
 // public/fonts) aren't on the list: there are too many to fetch up front, so each one is kept
 // the first time it's used.
+const AI_FILES = /(^|\/)(ort-wasm|segmentWorker)/
+
 function offlineHelper(): Plugin {
   return {
     name: 'pixel-studio-offline',
     apply: 'build',
     generateBundle(_, bundle) {
       const publicFiles = readdirSync('public').filter((name) => !name.startsWith('_') && statSync(`public/${name}`).isFile())
-      const files = [...Object.keys(bundle), ...publicFiles].sort()
+      // The AI files are big and only needed by the AI tools, so they're kept the first time
+      // they're used instead.
+      const files = [...Object.keys(bundle).filter((name) => !AI_FILES.test(name)), ...publicFiles].sort()
       const template = readFileSync('pwa/service-worker.js', 'utf8')
       // Built files have their version in their name, but files from public/ keep theirs, so their
       // contents count too: a new icon or app description must reach installed apps as well.

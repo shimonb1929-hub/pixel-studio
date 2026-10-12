@@ -131,6 +131,14 @@ function pictureKey(d: EditorDocument, width: number, height: number): string {
   if (!list) layerListIds.set(d.layers, (list = nextLayerListId++))
   return `${d.id}:${list}:${d.background}:${width}x${height}:${d.layers.map(layerVersion).join(',')}`
 }
+// A number that stands for one picture's pixels, so the AI knows when it's the same photo.
+const canvasIds = new WeakMap<HTMLCanvasElement, number>()
+function canvasKey(canvas: HTMLCanvasElement): number {
+  let id = canvasIds.get(canvas)
+  if (!id) canvasIds.set(canvas, (id = nextLayerListId++))
+  return id
+}
+
 // How much of the picture around a fix it may copy from, in design pixels.
 const HEAL_MIN_MARGIN = 48
 // How long the design must stay the same before the magic selection gets it ready.
@@ -1338,6 +1346,63 @@ export default function App() {
     }
   }
 
+  // Remove background: AI finds the main thing in a photo and everything around it becomes see-through.
+  async function removeBackground(layerId: string) {
+    const d = current()
+    const layer = d?.layers.find((l) => l.id === layerId)
+    if (!d || !layer || layer.kind !== 'raster') return
+    const source = layer.canvas
+    const scale = Math.min(1, AI_PICTURE_SIDE / Math.max(source.width, source.height))
+    const width = Math.max(1, Math.round(source.width * scale))
+    const height = Math.max(1, Math.round(source.height * scale))
+    const picture = () => {
+      const small = createCanvas(width, height)
+      const ctx = small.getContext('2d', { willReadFrequently: true })!
+      ctx.imageSmoothingQuality = 'high'
+      ctx.drawImage(source, 0, 0, width, height)
+      return ctx.getImageData(0, 0, width, height)
+    }
+    const key = `layer:${canvasKey(source)}:${layerVersion(layer)}:${width}x${height}`
+    setNotice({ message: 'Removing the background…', tone: 'info' })
+    const stop = onAiProgress((share) =>
+      setNotice({ message: `Getting the AI ready. This happens only the first time: ${Math.round(share * 100)}%`, tone: 'info' }),
+    )
+    try {
+      // A box just inside the edges asks for the main thing in the photo.
+      const inset = Math.max(1, Math.round(Math.min(width, height) * 0.01))
+      const found = await findThing(key, picture, [], [inset, inset, width - inset, height - inset])
+      const size = found.width * found.height
+      let kept = 0
+      for (let i = 0; i < size; i++) kept += found.mask[i] ? 1 : 0
+      if (kept < size * 0.005 || kept > size * 0.97) {
+        problem('The AI could not tell what to keep in this photo. Try Select → Magic: click the thing, then Invert and Delete.')
+        return
+      }
+      const mask = createCanvas(found.width, found.height)
+      const maskCtx = getContext2d(mask)
+      const pixels = maskCtx.createImageData(found.width, found.height)
+      for (let i = 0; i < size; i++) pixels.data[i * 4 + 3] = found.mask[i] ? 255 : 0
+      maskCtx.putImageData(pixels, 0, 0)
+      const out = createCanvas(source.width, source.height)
+      const ctx = getContext2d(out)
+      ctx.drawImage(source, 0, 0)
+      ctx.globalCompositeOperation = 'destination-in'
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
+      ctx.drawImage(mask, 0, 0, source.width, source.height)
+      setNotice(null)
+      editor.change('Remove background', (next) => {
+        const now = next.layers.find((l) => l.id === layerId)
+        return now && now.kind === 'raster' && now.canvas === source ? replaceLayer(next, { ...now, canvas: out }) : next
+      }, { bytes: canvasBytes(out) })
+      inform('Background removed. Press Undo if you want it back.')
+    } catch {
+      problem("Remove background couldn't start. Check that you're online, then try again.")
+    } finally {
+      stop()
+    }
+  }
+
   // The selected part of the selected layer, or a message saying there's nothing there.
   function selectedPiece(): Piece | null {
     const d = current()
@@ -2024,6 +2089,7 @@ export default function App() {
       target: { kind: 'object', name: activeNow.name, width: objectBox.width, height: objectBox.height, angle: degrees(objectBox) },
       flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? 'Flip left to right' : 'Flip upside down'),
       rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? 'Turn right' : 'Turn left'),
+      removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
     }
   })()
 

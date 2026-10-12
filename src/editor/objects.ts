@@ -172,8 +172,12 @@ function toPixels(layer: Layer): { canvas: HTMLCanvasElement; x: number; y: numb
   const height = Math.max(1, Math.min(MAX_LAYER_SIDE, rect.height))
   const canvas = createCanvas(width, height)
   const ctx = getContext2d(canvas)
+  // The shift is undone afterwards: the canvas keeps its context, and later painting on it expects
+  // a fresh one.
+  ctx.save()
   ctx.translate(-rect.x, -rect.y)
   drawLayerContent(ctx, layer)
+  ctx.restore()
   return { canvas, x: rect.x, y: rect.y }
 }
 

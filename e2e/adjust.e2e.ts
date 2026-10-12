@@ -202,9 +202,9 @@ test('Adjust starts on something you can see, and explains when there is nothing
 test('search finds looks from everyday words', async ({ page }) => {
   const size = await blueDesign(page)
   await page.keyboard.press('Control+k')
-  const search = page.getByRole('combobox')
+  const search = page.getByRole('combobox', { name: 'What do you want to do?' })
   await search.fill('sepia')
-  await expect(page.getByRole('option').first()).toContainText('Old photo look')
+  await expect(page.locator('#palette-results').getByRole('option').first()).toContainText('Old photo look')
   await search.press('Enter')
   await expect(page.getByRole('button', { name: 'Adjust tool' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('radio', { name: 'Old photo' })).toHaveAttribute('aria-checked', 'true')
@@ -212,7 +212,7 @@ test('search finds looks from everyday words', async ({ page }) => {
 
   await page.keyboard.press('Control+k')
   await search.fill('blur')
-  await expect(page.getByRole('option').first()).toContainText('Adjust tool')
+  await expect(page.locator('#palette-results').getByRole('option').first()).toContainText('Adjust tool')
 })
 
 test('adjust settings fit on common laptop screens', async ({ page }) => {

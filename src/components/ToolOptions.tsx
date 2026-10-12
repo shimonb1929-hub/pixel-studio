@@ -1,4 +1,4 @@
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, type LucideIcon } from 'lucide-react'
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, type LucideIcon } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -183,7 +183,24 @@ export interface SelectionCommands {
   center: () => void
 }
 
-function BarButton({ icon: Icon, label, title, description, disabledReason, onClick }: { icon: LucideIcon; label: string; title?: string; description: string; disabledReason?: string; onClick: () => void }) {
+// `roomy` buttons show their word only on very wide screens, where the bar has room for it.
+function BarButton({
+  icon: Icon,
+  label,
+  title,
+  description,
+  disabledReason,
+  roomy,
+  onClick,
+}: {
+  icon: LucideIcon
+  label: string
+  title?: string
+  description: string
+  disabledReason?: string
+  roomy?: boolean
+  onClick: () => void
+}) {
   return (
     <Button
       variant="ghost"
@@ -194,7 +211,7 @@ function BarButton({ icon: Icon, label, title, description, disabledReason, onCl
       tip={{ title: title ?? label, description, note: disabledReason }}
     >
       <Icon size={15} />
-      <span className="hidden xl:inline">{label}</span>
+      <span className={roomy ? 'hidden 2xl:inline' : 'hidden xl:inline'}>{label}</span>
     </Button>
   )
 }
@@ -260,6 +277,8 @@ export interface ArrangeBarControls {
   tidyUp: () => void
   lineUp: (edge: LineUpEdge) => void
   spreadOut: (axis: 'x' | 'y') => void
+  // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
+  removeBackground?: () => void
 }
 
 export type CropShape = 'free' | 'original' | 'square' | 'portrait' | 'wide'
@@ -520,6 +539,16 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
           onClick={controls.center}
         />
         {!part && target.kind !== 'many' && <LineUpMenu several={false} onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
+        {controls.removeBackground && (
+          <BarButton
+            icon={Eraser}
+            label="Remove background"
+            title="Remove background"
+            roomy
+            description={`AI finds the main thing in "${target.name}" and makes everything around it see-through. The first time, the AI is downloaded, which takes a moment. You can undo it.`}
+            onClick={controls.removeBackground}
+          />
+        )}
         {!part && (
           <>
             <BarButton icon={BringToFront} label="Forward" title="Bring forward" description={several ? 'Move them one step toward the front.' : `Move "${target.name}" one step toward the front, over the thing above it.`} onClick={controls.forward} />
