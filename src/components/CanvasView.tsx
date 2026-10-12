@@ -1004,7 +1004,7 @@ export function CanvasView(props: CanvasViewProps) {
     }
     event.currentTarget.setPointerCapture(event.pointerId)
     const target = settleLayer(layer)
-    const marker = { size: brush.size, softness: 0, opacity: 0.45, flow: 1, smoothing: 0.2, pressure: false, blend: 'normal' as const }
+    const marker = { size: brush.size, softness: 0, opacity: 0.45, flow: 1, smoothing: 0.2, pressure: false, blend: 'normal' as const, tip: 'round' as const }
     const session = new StrokeSession(target, marker, HEAL_MARK_COLOR, 'paint')
     session.begin({ ...point, pressure: 1 })
     strokeRef.current = { session, pointerId: event.pointerId, label: 'Fix spots', heal: layer.id }

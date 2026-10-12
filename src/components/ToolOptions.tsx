@@ -11,6 +11,7 @@ import {
   sameSettings,
   sizeToSlider,
   sliderToSize,
+  type BrushPreset,
   type BrushSettings,
 } from '../editor/brushes.ts'
 import type { LineUpEdge } from '../editor/organize.ts'
@@ -40,25 +41,15 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
 
   return (
     <>
-      <div role="radiogroup" aria-label={erasing ? 'Ready-made erasers' : 'Ready-made brushes'} className="flex shrink-0 gap-1">
-        {presets.map((p) => (
-          <Tooltip key={p.id} title={p.name} description={p.description}>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={p.id === presetId}
-              aria-label={p.name}
-              onClick={() => onChange(p.settings, p.id)}
-              className={`flex h-[50px] w-[68px] flex-col items-center justify-center gap-0.5 rounded-lg transition-colors xl:w-[74px] ${
-                p.id === presetId ? 'bg-accent-soft text-accent ring-1 ring-accent/30' : 'text-ink-2 hover:bg-subtle hover:text-ink'
-              }`}
-            >
-              <StrokePreview settings={p.settings} color={color} mode={mode} width={58} height={24} maxSize={14} />
-              <span className="text-[11px] font-medium">{p.name}</span>
-            </button>
-          </Tooltip>
-        ))}
-      </div>
+      {erasing ? (
+        <div role="radiogroup" aria-label="Ready-made erasers" className="flex shrink-0 gap-1">
+          {presets.map((p) => (
+            <PresetTile key={p.id} preset={p} chosen={p.id === presetId} color={color} mode={mode} onChoose={() => onChange(p.settings, p.id)} />
+          ))}
+        </div>
+      ) : (
+        <BrushPicker presetId={presetId} color={color} onChoose={(p) => onChange(p.settings, p.id)} />
+      )}
 
       <div className="h-9 w-px shrink-0 bg-line" />
 
@@ -119,6 +110,108 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
           Reset
         </Button>
       )}
+    </>
+  )
+}
+
+function PresetTile({ preset, chosen, color, mode, big, onChoose }: { preset: BrushPreset; chosen: boolean; color: string; mode: 'paint' | 'erase'; big?: boolean; onChoose: () => void }) {
+  return (
+    <Tooltip title={preset.name} description={preset.description}>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={chosen}
+        aria-label={preset.name}
+        onClick={onChoose}
+        className={`flex flex-col items-center justify-center gap-0.5 rounded-lg transition-colors ${big ? 'h-[66px] w-[104px]' : 'h-[50px] w-[68px] xl:w-[74px]'} ${
+          chosen ? 'bg-accent-soft text-accent ring-1 ring-accent/30' : 'text-ink-2 hover:bg-subtle hover:text-ink'
+        }`}
+      >
+        <StrokePreview settings={preset.settings} color={color} mode={mode} width={big ? 92 : 58} height={big ? 38 : 24} maxSize={big ? 22 : 14} />
+        <span className="text-[11px] font-medium">{preset.name}</span>
+      </button>
+    </Tooltip>
+  )
+}
+
+// All the ready-made brushes, in a panel that opens from one button, so the bar stays short as
+// more brushes are added.
+function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; color: string; onChoose: (preset: BrushPreset) => void }) {
+  const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="radio"][aria-checked="true"]', '[role="radio"]')
+  const current = BRUSH_PRESETS.find((p) => p.id === presetId)
+  const groups = [
+    { title: 'For drawing', presets: BRUSH_PRESETS.filter((p) => p.kind !== 'paint') },
+    { title: 'Paint and effects', presets: BRUSH_PRESETS.filter((p) => p.kind === 'paint') },
+  ]
+  return (
+    <>
+      <Tooltip title="Brushes" description="Pick a ready-made brush: pencil, pen, marker, oil paint, splatter, drips and more.">
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label={`Brushes: ${current?.name ?? 'your own'}`}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => {
+            setPosition(null)
+            setOpen(!open)
+          }}
+          className={`flex h-[50px] shrink-0 items-center gap-1.5 rounded-lg px-2 transition-colors ${open ? 'bg-subtle text-ink' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
+        >
+          <span className="flex flex-col items-center gap-0.5">
+            {current ? <StrokePreview settings={current.settings} color={color} mode="paint" width={58} height={24} maxSize={14} /> : <span className="h-6" />}
+            <span className="text-[11px] font-medium">{current?.name ?? 'Your brush'}</span>
+          </span>
+          <ChevronDown size={14} />
+        </button>
+      </Tooltip>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="dialog"
+            aria-label="Brushes"
+            onKeyDown={(event) => {
+              // Arrow keys move between the brushes.
+              const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="radio"]') ?? [])
+              const index = items.indexOf(document.activeElement as HTMLElement)
+              const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
+              if (step === 0) return
+              event.preventDefault()
+              event.stopPropagation()
+              items[(index + step + items.length) % items.length]?.focus()
+            }}
+            className="fixed z-40 rounded-xl border border-line bg-surface p-2 shadow-float"
+            style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
+          >
+            <div role="radiogroup" aria-label="Ready-made brushes">
+              {groups.map((group) => (
+                <div key={group.title}>
+                  <p className="px-1 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{group.title}</p>
+                  <div className="grid grid-cols-5 gap-1 pb-1">
+                    {group.presets.map((p) => (
+                      <PresetTile
+                        key={p.id}
+                        preset={p}
+                        chosen={p.id === presetId}
+                        color={color}
+                        mode="paint"
+                        big
+                        onChoose={() => {
+                          setOpen(false)
+                          setPosition(null)
+                          onChoose(p)
+                          buttonRef.current?.focus()
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   )
 }
@@ -311,13 +404,15 @@ const LINE_UPS: { edge: LineUpEdge; label: string; icon: LucideIcon }[] = [
 ]
 
 // Lining up, as a small menu of pictures: with each other for several things, with the page for one.
-function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineUp: (edge: LineUpEdge) => void; onSpread: (axis: 'x' | 'y') => void }) {
+// A menu that floats under its button. The bar scrolls sideways, so the menu sits above the page
+// instead of inside the bar. A click elsewhere, Esc or a window resize closes it.
+// `focusFirst` lists where the keyboard starts, best first.
+function useFloatingMenu(...focusFirst: string[]) {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // The bar scrolls sideways, so the menu floats above the page instead of inside the bar.
   useLayoutEffect(() => {
     if (!open) return
     const anchor = buttonRef.current?.getBoundingClientRect()
@@ -328,7 +423,12 @@ function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineU
 
   // Once it's in place (and can take focus), the first choice is ready for the keyboard.
   useEffect(() => {
-    if (open && position) menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+    if (!open || !position) return
+    for (const selector of focusFirst) {
+      const choice = menuRef.current?.querySelector<HTMLElement>(selector)
+      if (choice) return choice.focus()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, position])
 
   useEffect(() => {
@@ -355,6 +455,12 @@ function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineU
       window.removeEventListener('resize', close)
     }
   }, [open])
+
+  return { open, setOpen, position, setPosition, buttonRef, menuRef }
+}
+
+function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineUp: (edge: LineUpEdge) => void; onSpread: (axis: 'x' | 'y') => void }) {
+  const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="menuitem"]')
 
   function choose(run: () => void) {
     setOpen(false)

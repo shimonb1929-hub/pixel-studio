@@ -1,4 +1,4 @@
-import { clickAt, designPixel, drag, expectColor, INK, newDesign, WHITE } from './helpers.ts'
+import { clickAt, designPixel, drag, expectColor, INK, newDesign, WHITE, pickBrush } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 test('the brush paints, and undo and redo take it back and forth', async ({ page }) => {
@@ -54,7 +54,7 @@ test('Shift + click draws a straight line from the last point', async ({ page })
 
 test('Marker paint is see-through and stays even where one stroke crosses itself', async ({ page }) => {
   const size = await newDesign(page)
-  await page.getByRole('radio', { name: 'Marker' }).click()
+  await pickBrush(page, 'Marker')
   await expect(page.getByLabel('Opacity', { exact: true })).toHaveAttribute('aria-valuetext', '70%')
   // Right, then back left over the same path, in one stroke.
   await drag(page, size, [
@@ -127,12 +127,16 @@ test('brush presets, size keys and Reset', async ({ page }) => {
   await page.keyboard.press('[')
   await expect(sizeSlider).toHaveAttribute('aria-valuetext', '9 px')
 
-  await page.getByRole('radio', { name: 'Pencil' }).click()
+  await pickBrush(page, 'Pencil')
   await expect(sizeSlider).toHaveAttribute('aria-valuetext', '4 px')
-  // After a click the tip stays closed until the pointer leaves and comes back.
-  await page.mouse.move(700, 600)
-  await page.getByRole('radio', { name: 'Pencil' }).hover()
-  await expect(page.getByRole('tooltip')).toContainText('thin, crisp line')
+  // Each brush in the panel explains itself.
+  await page.getByRole('button', { name: 'Brushes: Pencil' }).click()
+  await page.getByRole('dialog', { name: 'Brushes' }).getByRole('radio', { name: 'Splatter' }).hover()
+  await expect(page.getByRole('tooltip')).toContainText('Flicks drops of paint')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Brushes' })).toBeHidden()
+  // Esc puts the keyboard back on the Brushes button; move it off so its tip closes.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
 
   // Sliders explain the current value while you use them.
   await page.getByLabel('Steady hand').hover()

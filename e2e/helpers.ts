@@ -71,3 +71,33 @@ export function expectColor(actual: number[], expected: [number, number, number]
 
 export const WHITE: [number, number, number] = [255, 255, 255]
 export const INK: [number, number, number] = [27, 29, 35]
+
+// Picks a ready-made brush from the Brushes panel (the Brush tool must be on).
+export async function pickBrush(page: Page, name: string) {
+  await page.getByRole('button', { name: /^Brushes:/ }).click()
+  await page.getByRole('dialog', { name: 'Brushes' }).getByRole('radio', { name, exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Brushes' })).toBeHidden()
+}
+
+// How many design pixels in a band are painted (not white), counting every 2 px.
+export function paintedIn(page: Page, size: Size, band: { x: number; y: number; width: number; height: number }): Promise<number> {
+  return page.evaluate(
+    ([w, h, bx, by, bw, bh]) => {
+      const main = document.querySelector('main')!
+      const canvas = main.querySelector('canvas')!
+      const dpr = devicePixelRatio
+      const left = Math.round(((main.clientWidth - w) / 2) * dpr)
+      const top = Math.round(((main.clientHeight - h) / 2) * dpr)
+      const ctx = canvas.getContext('2d')!
+      let count = 0
+      for (let y = by; y < by + bh; y += 2) {
+        for (let x = bx; x < bx + bw; x += 2) {
+          const [r, g, b] = ctx.getImageData(left + Math.floor(x * dpr), top + Math.floor(y * dpr), 1, 1).data
+          if (r + g + b < 600) count++
+        }
+      }
+      return count
+    },
+    [size.width, size.height, band.x, band.y, band.width, band.height],
+  )
+}

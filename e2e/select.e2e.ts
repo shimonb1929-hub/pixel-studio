@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { clickAt, designPixel, drag, expectColor, INK, newDesign, WHITE, type Size } from './helpers.ts'
+import { clickAt, designPixel, drag, expectColor, INK, newDesign, WHITE, type Size, pickBrush } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 const RED: [number, number, number] = [239, 68, 68]
@@ -13,7 +13,7 @@ async function undoLabel(page: Page) {
 
 // A thick horizontal line across the middle of the design.
 async function paintLine(page: Page, size: Size, y = 150) {
-  await page.getByRole('radio', { name: 'Marker' }).click()
+  await pickBrush(page, 'Marker')
   await page.getByLabel('Opacity', { exact: true }).focus()
   await page.keyboard.press('End')
   await drag(page, size, [
@@ -25,7 +25,7 @@ async function paintLine(page: Page, size: Size, y = 150) {
 // A solid dot, made with a big hard brush.
 async function paintDot(page: Page, size: Size, x: number, y: number) {
   await page.keyboard.press('b')
-  await page.getByRole('radio', { name: 'Marker' }).click()
+  await pickBrush(page, 'Marker')
   await page.getByLabel('Opacity', { exact: true }).focus()
   await page.keyboard.press('End')
   await clickAt(page, size, x, y)

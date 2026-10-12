@@ -16,26 +16,60 @@ const SPACING = 0.1
 // The lightest pen touch still draws at a quarter of the full size.
 const MIN_PRESSURE_SCALE = 0.25
 
-// Paints evenly spaced round dabs along a path. Used by real strokes and by the brush previews.
+// A small random number maker that gives the same numbers from the same seed, so a sample stroke
+// always looks the same.
+function randomNumbers(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// One hair of an oil brush: where it sits across the tip, how thick it is and its shade.
+interface Bristle {
+  across: number
+  size: number
+  // -1 (darker) to 1 (lighter); drifts slowly along the stroke, like paint mixing on the brush.
+  shade: number
+  // For how many more dabs this hair has run dry and leaves a gap.
+  dry: number
+}
+
+// Paints evenly spaced dabs along a path. Used by real strokes and by the brush previews.
 export class DabPainter {
   private last: InputPoint | null = null
   // Distance still to travel before the next dab.
   private carry = 0
   private painted: Rect | null = null
+  // Which way the line is going, for brushes whose tip has a direction.
+  private direction = { x: 1, y: 0 }
+  // How far the line still goes before the next drip runs down.
+  private nextDrip = 0
+  private bristles: Bristle[] = []
   private readonly ctx: CanvasRenderingContext2D
   private readonly settings: BrushSettings
+  private readonly rgb: Rgb
   private readonly solid: string
   private readonly clear: string
+  private readonly random: () => number
 
-  constructor(ctx: CanvasRenderingContext2D, settings: BrushSettings, rgb: Rgb) {
+  constructor(ctx: CanvasRenderingContext2D, settings: BrushSettings, rgb: Rgb, seed = Math.floor(Math.random() * 2 ** 31)) {
     this.ctx = ctx
     this.settings = settings
+    this.rgb = rgb
     this.solid = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`
     this.clear = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`
+    this.random = randomNumbers(seed)
   }
 
   begin(point: InputPoint): void {
     this.last = point
+    if (this.settings.tip === 'oil') this.bristles = this.makeBristles()
+    if (this.settings.tip === 'drips') this.nextDrip = this.dripGap(point.pressure) * this.random()
     this.dab(point)
     this.carry = this.spacing(point.pressure)
   }
@@ -50,6 +84,12 @@ export class DabPainter {
     const dy = point.y - from.y
     const distance = Math.hypot(dx, dy)
     if (distance === 0) return
+    // The direction turns gently, so a bristle brush doesn't jump on a wobble.
+    const turn = Math.min(1, distance / Math.max(1, this.radius(1)))
+    const nx = this.direction.x + (dx / distance - this.direction.x) * turn
+    const ny = this.direction.y + (dy / distance - this.direction.y) * turn
+    const length = Math.hypot(nx, ny) || 1
+    this.direction = { x: nx / length, y: ny / length }
     let travelled = this.carry
     while (travelled <= distance) {
       const k = travelled / distance
@@ -59,6 +99,13 @@ export class DabPainter {
     }
     this.carry = travelled - distance
     this.last = point
+    if (this.settings.tip === 'drips') {
+      this.nextDrip -= distance
+      if (this.nextDrip <= 0) {
+        this.drip(point)
+        this.nextDrip = this.dripGap(point.pressure)
+      }
+    }
   }
 
   // The area painted since the last call.
@@ -74,10 +121,33 @@ export class DabPainter {
   }
 
   private spacing(pressure: number): number {
-    return Math.max(0.5, this.radius(pressure) * 2 * SPACING)
+    const radius = this.radius(pressure)
+    // Bristles are thin, so they need dabs close together to make unbroken streaks.
+    if (this.settings.tip === 'oil') return Math.max(0.5, (radius * 1.2) / Math.max(1, this.bristles.length))
+    // Splatter throws drops every so often, not a solid line.
+    if (this.settings.tip === 'splatter') return Math.max(1, radius * 0.7)
+    return Math.max(0.5, radius * 2 * SPACING)
   }
 
-  private dab({ x, y, pressure }: InputPoint): void {
+  private mark(x: number, y: number, reach: number): void {
+    this.painted = unionRect(this.painted, { x: x - reach - 1, y: y - reach - 1, width: reach * 2 + 2, height: reach * 2 + 2 })
+  }
+
+  private circle(x: number, y: number, radius: number): void {
+    const { ctx } = this
+    ctx.beginPath()
+    ctx.arc(x, y, radius, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  private dab(point: InputPoint): void {
+    const { tip } = this.settings
+    if (tip === 'oil') this.oilDab(point)
+    else if (tip === 'splatter') this.splatterDab(point)
+    else this.roundDab(point)
+  }
+
+  private roundDab({ x, y, pressure }: InputPoint): void {
     const { ctx, settings } = this
     const radius = this.radius(pressure)
     ctx.globalAlpha = settings.flow
@@ -89,10 +159,113 @@ export class DabPainter {
       gradient.addColorStop(1, this.clear)
       ctx.fillStyle = gradient
     }
+    this.circle(x, y, radius)
+    this.mark(x, y, radius)
+  }
+
+  // Bristles side by side across the tip, each a little lighter or darker than the color.
+  private makeBristles(): Bristle[] {
+    const count = Math.round(Math.min(48, Math.max(10, this.settings.size / 1.5)))
+    return Array.from({ length: count }, (_, i) => ({
+      across: ((i + 0.5) / count) * 2 - 1 + (this.random() - 0.5) * (1.4 / count),
+      // Wide enough that neighbors overlap, so the paint covers with no gaps.
+      size: (1.3 + this.random() * 0.8) / count,
+      shade: this.random() * 2 - 1,
+      dry: 0,
+    }))
+  }
+
+  private shadeOf(shade: number): string {
+    const { r, g, b } = this.rgb
+    const amount = shade * 0.3
+    const mix = (c: number) => Math.round(amount > 0 ? c + (255 - c) * amount : c * (1 + amount))
+    return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`
+  }
+
+  // Thick paint made of bristle streaks that overlap, so it covers fully but shows the brush's grain.
+  private oilDab({ x, y, pressure }: InputPoint): void {
+    const { ctx } = this
+    const radius = this.radius(pressure)
+    const side = { x: -this.direction.y, y: this.direction.x }
+    ctx.globalAlpha = this.settings.flow * 0.7
+    for (const bristle of this.bristles) {
+      bristle.shade = Math.max(-1, Math.min(1, bristle.shade + (this.random() - 0.5) * 0.06))
+      // Now and then a hair runs dry for a little way, which gives the paint its streaky look.
+      if (bristle.dry > 0) {
+        bristle.dry--
+        continue
+      }
+      if (this.random() < 0.003) bristle.dry = 3 + Math.floor(this.random() * 12)
+      ctx.fillStyle = this.shadeOf(bristle.shade + (this.random() - 0.5) * 0.3)
+      // Each hair wanders a tiny bit, so the streaks aren't ruler-straight.
+      const reach = (bristle.across + (this.random() - 0.5) * 0.03) * radius
+      this.circle(x + side.x * reach, y + side.y * reach, Math.max(0.6, bristle.size * radius))
+    }
+    this.mark(x, y, radius * 1.2)
+  }
+
+  // Drops of all sizes around the line: many small ones, a few big ones, and now and then a
+  // splash with a trail of tiny drops.
+  private splatterDab({ x, y, pressure }: InputPoint): void {
+    const { ctx } = this
+    const radius = this.radius(pressure)
+    ctx.globalAlpha = this.settings.flow
+    ctx.fillStyle = this.solid
+    const drops = 3 + Math.floor(this.random() * 4)
+    for (let i = 0; i < drops; i++) {
+      const angle = this.random() * Math.PI * 2
+      const distance = radius * 1.1 * this.random() ** 0.7
+      const size = Math.max(0.6, radius * (0.03 + 0.2 * this.random() ** 3))
+      this.circle(x + Math.cos(angle) * distance, y + Math.sin(angle) * distance, size)
+    }
+    if (this.random() < 0.12) {
+      const angle = this.random() * Math.PI * 2
+      const cx = x + Math.cos(angle) * radius * 0.5 * this.random()
+      const cy = y + Math.sin(angle) * radius * 0.5 * this.random()
+      const big = radius * (0.22 + 0.15 * this.random())
+      this.circle(cx, cy, big)
+      const flight = this.random() * Math.PI * 2
+      for (let i = 1; i <= 4; i++) {
+        const step = big * (1.2 + i * 0.7)
+        this.circle(cx + Math.cos(flight) * step, cy + Math.sin(flight) * step, Math.max(0.6, big * (0.45 - i * 0.08)))
+      }
+      this.mark(cx, cy, big * 5)
+    }
+    this.mark(x, y, radius * 1.4)
+  }
+
+  private dripGap(pressure: number): number {
+    return this.radius(pressure) * (2 + this.random() * 5)
+  }
+
+  // A run of paint down from the line: wide where it leaves the line, a little thinner lower down,
+  // with a round drop at the end.
+  private drip({ x, y, pressure }: InputPoint): void {
+    const { ctx } = this
+    const radius = this.radius(pressure)
+    const width = radius * (0.35 + this.random() * 0.4)
+    const length = radius * (1.5 + 7 * this.random() ** 1.6)
+    const middle = x + (this.random() - 0.5) * radius
+    const top = y
+    const bottom = top + radius * 0.6 + length
+    const join = width * 0.9
+    const thin = width * 0.38
+    const end = width * 0.42
+    ctx.globalAlpha = this.settings.flow
+    ctx.fillStyle = this.solid
     ctx.beginPath()
-    ctx.arc(x, y, radius, 0, Math.PI * 2)
+    ctx.moveTo(middle - width / 2 - join, top)
+    ctx.quadraticCurveTo(middle - width / 2, top, middle - width / 2, top + join + radius * 0.4)
+    ctx.quadraticCurveTo(middle - thin, (top + bottom) / 2, middle - end, bottom)
+    ctx.lineTo(middle + end, bottom)
+    ctx.quadraticCurveTo(middle + thin, (top + bottom) / 2, middle + width / 2, top + join + radius * 0.4)
+    ctx.quadraticCurveTo(middle + width / 2, top, middle + width / 2 + join, top)
+    ctx.closePath()
     ctx.fill()
-    this.painted = unionRect(this.painted, { x: x - radius - 1, y: y - radius - 1, width: radius * 2 + 2, height: radius * 2 + 2 })
+    const drop = width * (0.62 + this.random() * 0.2)
+    this.circle(middle, bottom, drop)
+    const reach = width / 2 + join + drop
+    this.painted = unionRect(this.painted, { x: middle - reach - 1, y: top - 1, width: reach * 2 + 2, height: bottom - top + drop + 2 })
   }
 }
 
@@ -318,7 +491,8 @@ export function paintSample(
 ): void {
   const layer = createCanvas(width, height)
   const sized = { ...settings, size: Math.min(settings.size, maxSize) }
-  const painter = new DabPainter(getContext2d(layer), sized, mode === 'erase' ? { r: 0, g: 0, b: 0 } : hexToRgb(color))
+  // The same seed every time, so a sample always looks the same.
+  const painter = new DabPainter(getContext2d(layer), sized, mode === 'erase' ? { r: 0, g: 0, b: 0 } : hexToRgb(color), 7)
   const pad = sized.size / 2 + 4
   const amplitude = Math.max(0, height / 2 - pad)
   const steps = 48
