@@ -24,7 +24,7 @@ import { effectThumbnails } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
 import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, type Adjustments } from './editor/adjust.ts'
 import { adjustArea, lookThumbnails, paintAdjusted, previewParts } from './editor/adjustSession.ts'
-import { arrangeBox, placeInBox } from './editor/arrange.ts'
+import { arrangeBox, frameOf, layerInFrame, placeInBox } from './editor/arrange.ts'
 import { BRUSH_PRESETS, ERASER_PRESETS, stepBrushSize, type BrushSettings } from './editor/brushes.ts'
 import { getClipboard, ownCopyCheck, setClipboard } from './editor/clipboard.ts'
 import {
@@ -42,10 +42,26 @@ import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocume
 import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
 import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
-import { activeLayer, insertLayerAboveActive, moveLayer, moveLayerTo, nextLayerName, removeLayer, replaceLayer, updateLayer, updateShape } from './editor/layers.ts'
+import {
+  activeLayer,
+  duplicateLayers,
+  insertLayerAboveActive,
+  keepTogether,
+  moveLayersBy,
+  moveLayersTo,
+  nextLayerName,
+  pickedWith,
+  removeLayer,
+  removeLayers,
+  replaceLayer,
+  takeApart,
+  updateLayer,
+  updateShape,
+} from './editor/layers.ts'
 import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
 import { layerAt, layerPixels } from './editor/objects.ts'
+import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
 import { decodeProject } from './editor/project.ts'
@@ -89,6 +105,23 @@ const DEFAULT_ERASER = ERASER_PRESETS.find((p) => p.id === 'block')!
 const LOOK_PICTURE_SIZE = 66
 
 const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
+
+const LINE_UP_LABELS: Record<LineUpEdge, string> = {
+  left: 'Line up left edges',
+  center: 'Line up centers',
+  right: 'Line up right edges',
+  top: 'Line up tops',
+  middle: 'Line up middles',
+  bottom: 'Line up bottoms',
+}
+
+// The color a shape or text shows in the Color panel.
+function colorOfThing(layer: Layer, target: ColorTarget, fallback: string): string {
+  if (layer.kind === 'text') return layer.style.color
+  if (layer.kind !== 'shape') return fallback
+  if (layer.geometry.type === 'line' || target === 'outline') return layer.outline?.color ?? '#1b1d23'
+  return layer.fill.kind === 'color' ? layer.fill.color : fallback
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -252,6 +285,9 @@ export default function App() {
   const [effectColor, setEffectColor] = useState<{ layerId: string; kind: EffectKind } | null>(null)
   // While on, dragging on the selected shape slides the photo inside it.
   const [photoMoving, setPhotoMoving] = useState(false)
+  // Several things picked together with Arrange. Picking isn't an undo step, so it's kept here
+  // rather than in the design.
+  const [pickedState, setPicked] = useState<string[] | null>(null)
   // True while pressing and holding to see how the design looked before adjusting.
   const [comparing, setComparing] = useState(false)
   // Text being typed: new text (not in the design until it has words) or text already there.
@@ -441,7 +477,12 @@ export default function App() {
     const d = current()
     const layer = d && activeLayer(d)
     if (layer?.kind === 'shape' && (tool === 'move' || tool === 'shape')) {
-      editor.change(label, (doc) => updateShape(doc, layer.id, patch(layer)), { mergeKey: mergeKey && `${mergeKey}:${layer.id}` })
+      // With several things picked, every shape among them changes.
+      const many = manyIn(d)
+      const shapes = many && d ? d.layers.filter((l): l is ShapeLayer => many.includes(l.id) && l.kind === 'shape') : [layer]
+      editor.change(label, (doc) => shapes.reduce((next, s) => updateShape(next, s.id, patch(s)), doc), {
+        mergeKey: mergeKey && `${mergeKey}:${shapes.map((s) => s.id).join()}`,
+      })
     } else {
       setShapeDefaults(defaults)
     }
@@ -473,6 +514,22 @@ export default function App() {
     }
   }
 
+  // With several things picked, the Color panel colors every shape and text among them (a shape's
+  // fill or outline, as chosen in the Shape panel; photos inside shapes stay).
+  function colorMany(hex: string) {
+    const d = current()
+    const many = manyIn(d)
+    if (!d || !many) return
+    rememberColor(hex)
+    const colored = (l: Layer): Layer => {
+      if (l.kind === 'text') return changeText(l, { style: { color: hex } })
+      if (l.kind !== 'shape') return l
+      if (l.geometry.type === 'line' || shapeTarget === 'outline') return { ...l, outline: { color: hex, width: l.outline?.width || NEW_OUTLINE_WIDTH } }
+      return l.fill.kind === 'photo' ? l : { ...l, fill: { kind: 'color', color: hex } }
+    }
+    editor.change('Color', (doc) => ({ ...doc, layers: doc.layers.map((l) => (many.includes(l.id) ? colored(l) : l)) }), { mergeKey: `color:${many.join()}` })
+  }
+
   function changeGeometry(patch: Partial<ShapeGeometry>) {
     const label = 'corners' in patch ? 'Round corners' : 'sides' in patch ? 'Change sides' : 'arrow' in patch ? 'Arrow head' : 'Change shape'
     changeShape(label, (s) => ({ geometry: { ...s.geometry, ...patch } }), (d) => ({ ...d, geometry: { ...d.geometry, ...patch } }), `shape-${Object.keys(patch)[0]}`)
@@ -501,8 +558,134 @@ export default function App() {
     editor.change(label, (d) => replaceLayer(d, placeInBox(layer, box)), { bytes: layer.kind === 'raster' && !layer.box ? canvasBytes(layer.canvas) : 0 })
   }
 
+  // Picking several things. They count only with Arrange, while they're all still there and the
+  // picked layer is one of them.
+  function manyIn(d: EditorDocument | null): string[] | null {
+    if (!d || !pickedState || tool !== 'move' || d.selection) return null
+    const ids = d.layers.filter((l) => pickedState.includes(l.id)).map((l) => l.id)
+    return ids.length >= 2 && ids.includes(d.activeLayerId) ? ids : null
+  }
+  const picked = manyIn(doc)
+  // Forget them once they no longer count, so they don't come back later by surprise.
+  useEffect(() => {
+    if (pickedState && !picked) setPicked(null)
+  }, [pickedState, picked])
+
+  // What Arrange and the layer buttons work on: the things picked together, or the picked thing.
+  function targets(): string[] {
+    const d = current()
+    if (!d) return []
+    return manyIn(d) ?? (activeLayer(d) ? [d.activeLayerId] : [])
+  }
+
+  // Picks just one thing (even inside something kept together), or the page with ''.
+  function pickOne(layerId: string) {
+    setPicked(null)
+    setPhotoMoving(false)
+    editor.select(layerId)
+  }
+
+  // Picks several things; the top one becomes the picked layer. One picks just it, none the page.
+  function pickMany(ids: string[]) {
+    const d = current()
+    if (!d) return
+    const inOrder = d.layers.filter((l) => ids.includes(l.id)).map((l) => l.id)
+    if (inOrder.length < 2) return pickOne(inOrder[0] ?? '')
+    setPhotoMoving(false)
+    setPicked(inOrder)
+    editor.select(inOrder[inOrder.length - 1])
+  }
+
+  // Shift+click: adds a thing (with everything kept together with it) to what's picked, or takes it away.
+  function togglePicked(layerId: string) {
+    const d = current()
+    if (!d) return
+    if (tool !== 'move') setTool('move')
+    const now = manyIn(d) ?? (activeLayer(d) ? [d.activeLayerId] : [])
+    const these = pickedWith(d, layerId)
+    pickMany(these.every((id) => now.includes(id)) ? now.filter((id) => !these.includes(id)) : [...now, ...these])
+  }
+
+  // Several things moved, resized or turned together, from one frame around them to another.
+  function placeMany(ids: string[], from: TransformBox, to: TransformBox, label: string) {
+    const d = current()
+    if (!d) return
+    const bytes = d.layers.reduce((sum, l) => (ids.includes(l.id) && l.kind === 'raster' && !l.box ? sum + canvasBytes(l.canvas) : sum), 0)
+    editor.change(label, (doc) => ({ ...doc, layers: doc.layers.map((l) => (ids.includes(l.id) ? layerInFrame(l, from, to) : l)) }), { bytes })
+  }
+
+  const KEEP_TOGETHER_HINT = 'Pick two or more things first: drag a box around them on your design, or hold Shift and click each one.'
+
+  // A name for things kept together, from what's in it: "Circle + Star", or "Circle + 2 more".
+  function groupName(d: EditorDocument, ids: string[]): string {
+    const names = new Map<string, string>()
+    for (const layer of [...d.layers].reverse()) {
+      if (ids.includes(layer.id)) names.set(layer.group?.id ?? layer.id, layer.group?.name ?? layer.name)
+    }
+    const [first, second] = names.values()
+    return names.size === 2 ? `${first} + ${second}` : `${first} + ${names.size - 1} more`
+  }
+
+  // Why the picked things can't be kept together, or null if they can.
+  function keepTogetherBlocker(d: EditorDocument | null): string | null {
+    const ids = manyIn(d)
+    if (!d || !ids) return KEEP_TOGETHER_HINT
+    return thingCount(d, ids) < 2 ? 'They are already kept together.' : null
+  }
+
+  // The groups of what's picked, which Take apart lets go of.
+  function pickedGroups(d: EditorDocument | null): string[] {
+    if (!d) return []
+    const ids = manyIn(d) ?? (activeLayer(d) ? [d.activeLayerId] : [])
+    return [...new Set(d.layers.flatMap((l) => (ids.includes(l.id) && l.group ? [l.group.id] : [])))]
+  }
+
+  const organize = {
+    keepTogether: () => {
+      settle()
+      const d = current()
+      const ids = manyIn(d)
+      const blocker = keepTogetherBlocker(d)
+      if (!d || !ids || blocker) return problem(blocker ?? KEEP_TOGETHER_HINT)
+      const name = groupName(d, ids)
+      editor.change('Keep together', (doc) => keepTogether(doc, ids, { id: createId('group'), name }))
+      inform(`Kept together as “${name}”. Click any part to pick it all; double-click to pick just one part.`)
+    },
+    takeApart: () => {
+      settle()
+      const groups = pickedGroups(current())
+      if (groups.length === 0) return problem('Pick something kept together first.')
+      editor.change('Take apart', (d) => groups.reduce((doc, group) => takeApart(doc, group), d))
+    },
+    tidyUp: () => {
+      settle()
+      const d = current()
+      const ids = manyIn(d)
+      if (!d || !ids || thingCount(d, ids) < 2) return problem(KEEP_TOGETHER_HINT)
+      editor.change('Tidy up', (doc) => tidyUp(doc, ids))
+      if (current() === d) inform('They are already neat.')
+    },
+    lineUp: (edge: LineUpEdge) => {
+      settle()
+      const d = current()
+      const ids = targets()
+      if (!d || ids.length === 0) return problem('Pick something on your design first.')
+      if (ids.length === 1 && !usableLayer('line it up')) return
+      editor.change(LINE_UP_LABELS[edge], (doc) => lineUp(doc, ids, edge))
+      if (current() === d) inform('It is already lined up.')
+    },
+    spreadOut: (axis: 'x' | 'y') => {
+      settle()
+      const d = current()
+      const ids = manyIn(d)
+      if (!d || !ids || thingCount(d, ids) < 3) return problem('Pick three or more things first, to space them evenly.')
+      editor.change(axis === 'x' ? 'Space evenly across' : 'Space evenly down', (doc) => spreadOut(doc, ids, axis))
+      if (current() === d) inform('They are already evenly spaced.')
+    },
+  }
+
   // Effects: the picked object's shadow, glow and outline, and how it mixes with what's below.
-  const effectsLayer = doc && !adjustOn && !textEdit && (tool === 'move' || tool === 'shape' || tool === 'text') ? activeNow : undefined
+  const effectsLayer = doc && !adjustOn && !textEdit && !picked && (tool === 'move' || tool === 'shape' || tool === 'text') ? activeNow : undefined
   const unit = doc ? effectUnit(doc.width, doc.height) : 1
   const effectPictures = useMemo(
     () =>
@@ -606,7 +789,7 @@ export default function App() {
       problem(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then change it.`)
       return
     }
-    editor.select(layerId)
+    pickOne(layerId)
     setTextEdit({ layer, isNew: false, caret, original: layer })
   }
 
@@ -639,7 +822,12 @@ export default function App() {
     const d = current()
     const layer = d && activeLayer(d)
     if (layer?.kind === 'text' && (tool === 'move' || tool === 'text')) {
-      editor.change(label, (doc) => replaceLayer(doc, changeText(layer, { style: patch })), { mergeKey: mergeKey && `${mergeKey}:${layer.id}` })
+      // With several things picked, every text among them changes.
+      const many = manyIn(d)
+      const texts = many && d ? d.layers.filter((l): l is TextLayer => many.includes(l.id) && l.kind === 'text') : [layer]
+      editor.change(label, (doc) => texts.reduce((next, t) => replaceLayer(next, changeText(t, { style: patch })), doc), {
+        mergeKey: mergeKey && `${mergeKey}:${texts.map((t) => t.id).join()}`,
+      })
     } else {
       setTextDefaults((t) => ({ ...t, ...patch }))
     }
@@ -650,7 +838,10 @@ export default function App() {
     const target = textEditRef.current?.layer ?? pickedText
     const base = target?.style ?? { ...textDefaults, size: 16 }
     const weight = nearestWeight(id, base.weight)
-    await loadFont({ ...base, font: id, weight }, target?.text || 'Aא')
+    // Every picked text's letters, so they all fit their boxes once the font is in.
+    const many = textEditRef.current ? null : manyIn(current())
+    const letters = many ? (current()?.layers.flatMap((l) => (many.includes(l.id) && l.kind === 'text' ? [l.text] : [])).join('') ?? '') : (target?.text ?? '')
+    await loadFont({ ...base, font: id, weight }, letters || 'Aא')
     changeTextStyle({ font: id, weight }, 'Change font')
   }
 
@@ -1125,8 +1316,7 @@ export default function App() {
   const layers = {
     select: (layerId: string) => {
       settle()
-      setPhotoMoving(false)
-      editor.select(layerId)
+      pickOne(layerId)
     },
     add: () => {
       settle()
@@ -1134,39 +1324,51 @@ export default function App() {
     },
     duplicate: () => {
       settle()
-      editor.change(
-        'Duplicate layer',
-        (d) => {
-          const layer = activeLayer(d)
-          return layer ? insertLayerAboveActive(d, duplicateLayer(layer)) : d
-        },
-        { bytes: activeNow ? layerBytes(activeNow) : 0 },
-      )
+      const d = current()
+      const ids = targets()
+      if (!d || ids.length === 0) return
+      const copies: string[] = []
+      const copy = (layer: Layer) => {
+        const made = duplicateLayer(layer)
+        copies.push(made.id)
+        return made
+      }
+      const bytes = d.layers.reduce((sum, l) => (ids.includes(l.id) ? sum + layerBytes(l) : sum), 0)
+      editor.change(ids.length > 1 ? 'Duplicate' : 'Duplicate layer', (doc) => duplicateLayers(doc, ids, copy, (g) => ({ id: createId('group'), name: `${g.name} copy` })), { bytes })
+      if (copies.length > 1) pickMany(copies)
     },
     remove: () => {
       settle()
-      editor.change('Delete layer', (d) => removeLayer(d, d.activeLayerId), { bytes: activeNow ? layerBytes(activeNow) : 0 })
+      const d = current()
+      const ids = targets()
+      if (!d || ids.length === 0) return
+      const bytes = d.layers.reduce((sum, l) => (ids.includes(l.id) ? sum + layerBytes(l) : sum), 0)
+      editor.change(ids.length > 1 ? 'Delete' : 'Delete layer', (doc) => removeLayers(doc, ids), { bytes })
     },
     move: (direction: 1 | -1) => {
       settle()
-      editor.change(direction > 0 ? 'Bring forward' : 'Send backward', (d) => moveLayer(d, d.activeLayerId, direction))
+      const ids = targets()
+      editor.change(direction > 0 ? 'Bring forward' : 'Send backward', (d) => moveLayersBy(d, ids, direction))
     },
     toEnd: (end: 'front' | 'back') => {
       settle()
-      editor.change(end === 'front' ? 'Bring to front' : 'Send to back', (d) => moveLayerTo(d, d.activeLayerId, end))
+      const ids = targets()
+      editor.change(end === 'front' ? 'Bring to front' : 'Send to back', (d) => moveLayersTo(d, ids, end))
     },
     // Picks the page, so the Color panel colors it.
     pickPage: () => {
       settle()
-      setPhotoMoving(false)
-      editor.select('')
+      pickOne('')
       setTool('move')
     },
     seeThrough: (seeThrough: boolean) =>
       editor.change(seeThrough ? 'See-through page' : 'Page color', (d) => ({ ...d, background: seeThrough ? null : '#ffffff' })),
     rename: (layerId: string, name: string) => editor.change('Rename layer', (d) => updateLayer(d, layerId, { name })),
-    opacity: (layerId: string, opacity: number) =>
-      editor.change('Change layer opacity', (d) => updateLayer(d, layerId, { opacity }), { mergeKey: `opacity:${layerId}` }),
+    // Changes the opacity of everything picked together with the layer.
+    opacity: (layerId: string, opacity: number) => {
+      const ids = picked?.includes(layerId) ? picked : [layerId]
+      editor.change('Change layer opacity', (d) => ids.reduce((doc, id) => updateLayer(doc, id, { opacity }), d), { mergeKey: `opacity:${ids.join()}` })
+    },
     toggleVisibility: (layerId: string) => {
       settle()
       const layer = current()?.layers.find((l) => l.id === layerId)
@@ -1181,6 +1383,22 @@ export default function App() {
       editor.select(layerId)
       setTool('adjust')
     },
+    // Things kept together: picked, hidden and named as one.
+    pickGroup: (groupId: string) => {
+      settle()
+      const d = current()
+      if (!d) return
+      if (tool !== 'move') setTool('move')
+      pickMany(d.layers.filter((l) => l.group?.id === groupId).map((l) => l.id))
+    },
+    toggleGroupVisibility: (groupId: string) => {
+      settle()
+      const members = current()?.layers.filter((l) => l.group?.id === groupId) ?? []
+      const visible = !members.some((l) => l.visible)
+      editor.change(visible ? 'Show layer' : 'Hide layer', (d) => members.reduce((doc, l) => updateLayer(doc, l.id, { visible }), d))
+    },
+    renameGroup: (groupId: string, name: string) =>
+      editor.change('Rename layer', (d) => ({ ...d, layers: d.layers.map((l) => (l.group?.id === groupId ? { ...l, group: { id: groupId, name } } : l)) })),
   }
 
   const pasteHint = `Press ${shortcut('mod', 'V')} to paste it as a new layer.`
@@ -1327,6 +1545,13 @@ export default function App() {
     },
     center: () => {
       settle()
+      const many = manyIn(current())
+      if (many) {
+        const before = current()
+        editor.change('Center on design', (doc) => centerTogether(doc, many))
+        if (current() === before) inform('They are already in the middle.')
+        return
+      }
       const layer = usableLayer('center it')
       const d = current()
       if (!d || !layer) return
@@ -1341,10 +1566,15 @@ export default function App() {
       if (dx === 0 && dy === 0) inform('It is already in the middle.')
       else moveBy(dx, dy)
     },
-    nudge: (dx, dy) => moveBy(dx, dy, 'nudge'),
+    nudge: (dx, dy) => {
+      const many = manyIn(current())
+      if (many) editor.change('Move', (d) => moveTogether(d, many, dx, dy), { mergeKey: 'nudge' })
+      else moveBy(dx, dy, 'nudge')
+    },
     hasSelection: () => !!current()?.selection,
     isTyping: () => textEditRef.current !== null,
     deleteObject: () => {
+      if (manyIn(current())) return layers.remove()
       const layer = usableLayer('delete it')
       if (!layer) return
       if (layer.locked) {
@@ -1355,7 +1585,7 @@ export default function App() {
     },
     applyPending: () => {
       if (transformChanged) return applyTransform(), true
-      if (pickedText && tool === 'move' && !doc?.selection) return editText(pickedText.id, 'all'), true
+      if (pickedText && tool === 'move' && !doc?.selection && !picked) return editText(pickedText.id, 'all'), true
       if (tool === 'crop' && cropChanged) return applyCrop(), true
       if (adjustChanged) return applyAdjust(), true
       return false
@@ -1364,6 +1594,7 @@ export default function App() {
       if (textEditRef.current) return finishText(), true
       if (transformChanged) return cancelTransform(), true
       if (photoMoving) return setPhotoMoving(false), true
+      if (picked) return pickOne(''), true
       if (tool === 'crop' && cropChanged) return setCropEdit(null), true
       if (adjustChanged) return cancelAdjust(), true
       return false
@@ -1394,6 +1625,11 @@ export default function App() {
     layerToBack: () => layers.toEnd('back'),
     layerToggle: () => activeNow && layers.toggleVisibility(activeNow.id),
     layerDelete: layers.remove,
+    keepTogether: organize.keepTogether,
+    takeApart: organize.takeApart,
+    tidyUp: organize.tidyUp,
+    lineUp: organize.lineUp,
+    spreadOut: organize.spreadOut,
     zoomIn: () => doc && zoomBy(1),
     zoomOut: () => doc && zoomBy(-1),
     fit: () => doc && setViewport(fitted(doc)),
@@ -1410,7 +1646,16 @@ export default function App() {
     },
   }
 
-  const actions = buildActions({ doc, undoLabel: editor.undoLabel, redoLabel: editor.redoLabel, app }, commands)
+  const actions = buildActions(
+    {
+      doc,
+      undoLabel: editor.undoLabel,
+      redoLabel: editor.redoLabel,
+      app,
+      organize: { keepTogether: keepTogetherBlocker(doc), takeApart: pickedGroups(doc).length === 0 ? 'Pick something kept together first.' : null, picked },
+    },
+    commands,
+  )
 
   // Keyboard and paste handlers live in effects, so they read the latest commands through refs.
   // A layout effect updates them together with the screen, so a key pressed right after a drag
@@ -1468,6 +1713,7 @@ export default function App() {
       else if (mod && !event.shiftKey && code === 'KeyC' && hasDoc) action = c.copy
       else if (mod && code === 'KeyX' && hasDoc) action = c.cut
       else if (mod && code === 'KeyJ' && hasDoc) action = c.toNewLayer
+      else if (mod && code === 'KeyG' && hasDoc) action = event.shiftKey ? c.takeApart : c.keepTogether
       else if (event.altKey && !mod && code === 'Backspace' && hasDoc) action = c.fill
       else if (plain && (code === 'Delete' || code === 'Backspace') && c.hasSelection()) action = c.deleteArea
       else if (plain && (code === 'Delete' || code === 'Backspace') && hasDoc && currentTool === 'move') action = c.deleteObject
@@ -1622,6 +1868,12 @@ export default function App() {
       unlock: () => activeNow && layers.toggleLock(activeNow.id),
       flip: () => {},
       rotate90: () => {},
+      keepTogether: organize.keepTogether,
+      takeApart: organize.takeApart,
+      tidyUp: organize.tidyUp,
+      lineUp: organize.lineUp,
+      spreadOut: organize.spreadOut,
+      kept: false,
       locked: false,
       blocked: null,
       target: null,
@@ -1645,6 +1897,21 @@ export default function App() {
         rotate90: (direction) => applyTransform(rotateBox90(part, direction)),
       }
     }
+    const frame = picked && frameOf(doc.layers.filter((l) => picked.includes(l.id) && l.visible))
+    if (picked && frame) {
+      const groups = pickedGroups(doc)
+      // Exactly one thing kept together is picked, so it's called by its name.
+      const one = groups.length === 1 && thingCount(doc, picked) === 1
+      const name = one ? (doc.layers.find((l) => l.group?.id === groups[0])?.group?.name ?? '') : `${thingCount(doc, picked)} things`
+      const placeAll = (to: TransformBox, label: string) => placeMany(picked, frame, to, label)
+      return {
+        ...base,
+        kept: groups.length > 0,
+        target: { kind: one ? 'group' : 'many', name, width: frame.width, height: frame.height, angle: 0 },
+        flip: (axis) => placeAll(flipBox(frame, axis), axis === 'horizontal' ? 'Flip left to right' : 'Flip upside down'),
+        rotate90: (direction) => placeAll(rotateBox90(frame, direction), direction > 0 ? 'Turn right' : 'Turn left'),
+      }
+    }
     if (!activeNow.visible) return { ...base, blocked: `“${activeNow.name}” is hidden. Click its eye in the Layers panel to show it.` }
     if (activeNow.locked) return { ...base, locked: true, blocked: `“${activeNow.name}” is locked, so it doesn't move by accident.` }
     const objectBox = arrangeBox(activeNow)
@@ -1661,11 +1928,12 @@ export default function App() {
     tool === 'move' && doc && !doc.selection
       ? {
           keepProportions,
-          onPick: (layerId) => {
-            setPhotoMoving(false)
-            editor.select(layerId)
-          },
+          picked,
+          onPick: pickOne,
+          onPickMany: pickMany,
+          onToggle: togglePicked,
           onPlace: placeLayer,
+          onPlaceMany: placeMany,
         }
       : null
 
@@ -1691,10 +1959,18 @@ export default function App() {
   const textColor = textPanelOn ? (textTarget?.style.color ?? textDefaults.color) : null
   const pageColorOn = !!doc && !activeNow && tool === 'move' && !textEdit
   const effectColorShown = effectTarget ? (effectsLayer?.effects?.[effectTarget]?.color ?? null) : null
-  const panelColor = effectColorShown ?? textColor ?? shapeColor ?? (pageColorOn ? (doc?.background ?? '#ffffff') : null)
+  // With several things picked, the Shape and Text panels change all the shapes or texts among them.
+  const pickedShapes = picked && doc ? doc.layers.filter((l) => picked.includes(l.id) && l.kind === 'shape').length : 0
+  const pickedTexts = picked && doc ? doc.layers.filter((l) => picked.includes(l.id) && l.kind === 'text').length : 0
+  // With several things picked, it colors every shape and text among them.
+  const manyColored = picked && doc && !textEdit ? [...doc.layers].reverse().filter((l) => picked.includes(l.id) && (l.kind === 'shape' || l.kind === 'text')) : []
+  const manyColor = manyColored.length > 0 ? colorOfThing(manyColored[0], shapeTarget, color) : null
+  const panelColor = effectColorShown ?? textColor ?? shapeColor ?? manyColor ?? (pageColorOn ? (doc?.background ?? '#ffffff') : null)
   const onPanelColor =
     effectColorShown !== null
       ? colorEffect
+      : manyColor !== null
+      ? colorMany
       : textColor !== null
       ? (hex: string) => {
           rememberColor(hex)
@@ -1857,7 +2133,7 @@ export default function App() {
           )}
           {textPanelOn && !adjustOn && doc && (
             <TextPanel
-              title={textTarget ? textTarget.name || 'Text' : 'New text'}
+              title={pickedTexts > 1 && !textEdit ? `${pickedTexts} texts` : textTarget ? textTarget.name || 'Text' : 'New text'}
               style={textTarget?.style ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
               wrap={textTarget?.wrap ?? false}
               hasRtl={!!textTarget && hasRtlLetters(textTarget.text)}
@@ -1869,7 +2145,7 @@ export default function App() {
           )}
           {shapeShown && !adjustOn && (
             <ShapePanel
-              title={editingShape ? editingShape.name : 'New shapes'}
+              title={pickedShapes > 1 ? `${pickedShapes} shapes` : editingShape ? editingShape.name : 'New shapes'}
               editing={editingShape !== null}
               geometry={shapeShown.geometry}
               fill={shapeShown.fill}
@@ -1883,7 +2159,7 @@ export default function App() {
               onNoFill={() => changeShape('No fill', () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null }))}
               onNoOutline={() => changeShape('No outline', () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
               onOutlineWidth={changeOutlineWidth}
-              onChoosePhoto={editingShape ? () => pickFile({ shape: editingShape.id }) : undefined}
+              onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ shape: editingShape.id }) : undefined}
               photo={
                 editingShape?.fill.kind === 'photo'
                   ? {
@@ -1918,7 +2194,12 @@ export default function App() {
           <LayersPanel
             doc={doc}
             revision={editor.revision}
+            picked={picked}
             onSelect={layers.select}
+            onToggle={togglePicked}
+            onPickGroup={layers.pickGroup}
+            onToggleGroupVisibility={layers.toggleGroupVisibility}
+            onRenameGroup={layers.renameGroup}
             onToggleVisibility={layers.toggleVisibility}
             onToggleLock={layers.toggleLock}
             onEditAdjust={layers.editAdjust}

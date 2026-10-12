@@ -36,6 +36,11 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   middle and edges and with other things' edges and middles, and into even gaps between things;
   thin pink guides show what lined up. Hold Alt to place it freely. A click or a tap never moves
   anything by accident.
+- **Several things at once, without folders.** Drag a box around things (or Shift+click them) to
+  pick several; they move, resize, turn, recolor and delete together. "Keep together" makes them
+  one thing: a click on any part picks it all, a double-click picks just that part, and the Layers
+  panel shows it as one row that opens to show its parts. "Tidy up" makes a neat row or column with
+  even gaps, and "Line up" lines up edges or middles (one thing lines up with the page).
 - **A page, not a pile of sheets.** A new design is an empty page of a color (or see-through).
   Nothing has to be set up before you start: painting makes its own drawing, and photos, shapes
   and text each arrive as their own thing. Click an empty spot (or Page in the Layers panel) and
@@ -117,7 +122,9 @@ src/
     history.ts   Undo and redo, with memory limits and "changed since download" tracking
     project.ts   Project files: every layer and setting in one file, checked carefully when opened
     library.ts   "Your designs": designs kept in the browser (IndexedDB)
-    layers.ts    Adding, removing, moving and changing layers
+    layers.ts    Adding, removing, moving and changing layers, and keeping layers together
+    organize.ts  Lining things up, even gaps and tidying several things at once
+    snap.ts      Lining up by itself while dragging, and the guides that show it
     brushes.ts   The ready-made brushes and erasers
     color.ts     Color codes and the color picker math
     ...          The document, zoom math, drawing to screen, opening and downloading files
@@ -136,7 +143,9 @@ e2e/             Browser tests that use the program like a person would
 ```
 
 Under everything is the page: just a color, or nothing for a see-through design. On it are three
-kinds of layers. A picture layer (a drawing or a photo) is its own off-screen canvas. Moved by whole
+kinds of layers. Layers kept together share a group (a name and an id) and always sit next to each
+other in the list, so there is no tree of folders: drawing, saving and undo treat them like any
+other layers, and picking one picks its whole group. A picture layer (a drawing or a photo) is its own off-screen canvas. Moved by whole
 pixels it just gets a new position; resized or turned it gets a box, and is drawn from its
 original pixels into that box, so nothing is lost however often it changes. Only painting on it
 redraws its pixels at the new size. It grows when you paint past its edge, so nothing is ever cut
@@ -164,9 +173,9 @@ downloads them again and rebuilds the font list from `scripts/fonts/list.json`.
 
 A project (`.pixel`) is the letters `PXSTUDIO`, a JSON description of the design (size, layers
 with their kind, names, positions, boxes, visibility, opacity, locks and adjustments, shapes, text
-with its font and settings, the page color, the selection), and then every picture's pixels as a PNG: each picture
-layer, and each photo inside a shape, always at full size. Older projects (versions 1 to 3) still
-open, with their paper as a layer. Designs kept in the browser use the same format. Saving happens a moment after
+with its font and settings, which layers are kept together, the page color, the selection), and then every picture's pixels as a PNG: each picture
+layer, and each photo inside a shape, always at full size. Older projects (versions 1 to 4) still
+open; those from before version 4 open with their paper as a layer. Designs kept in the browser use the same format. Saving happens a moment after
 each change (and right away when you switch tabs or leave a design); only layers whose pixels
 changed are encoded again, so saving stays quick on poster-size designs.
 
@@ -201,20 +210,20 @@ pulling in see-through pixels, so blurred photos keep solid edges.
    colors; add photos (menu or drag and drop); drop a photo onto a shape to fill it, then zoom and
    slide it inside; lock and delete objects; adjustments that stay changeable; a page with its own
    color (or see-through) instead of a background layer; painting that makes its own drawing; bring
-   forward, send backward, to front and to back; lining up and even gaps by themselves while dragging.
+   forward, send backward, to front and to back; lining up and even gaps by themselves while dragging;
+   picking several things (box or Shift+click), keeping them together, tidy up and line up.
 6. **Text** (done) — type on the design in English, Hebrew and Yiddish, with right-to-left text
    that never scrambles; quick headings, subheadings and paragraphs; 175 free fonts with live
    previews, Hebrew and Yiddish filters; size, boldness, italic, lining up, reading direction,
    letter and line spacing; boxes that wrap their lines; text resizes, turns and saves like any
    object.
 7. **Shapes and the pen** (Illustrator) — a pen for curves with editable points; gradient fills;
-   outline dashes and ends; combine shapes (join, cut out, overlap); align, distribute and snapping
-   guides; SVG export.
+   outline dashes and ends; combine shapes (join, cut out, overlap); SVG export.
 8. **More text** — different fonts and colors inside one text, text along a path, text effects
    (outline, shadow, fill with a photo), your own font files, lists and columns.
 9. **Pages and print** (InDesign) — multi-page documents, master pages, margins, columns and
    guides, text that flows from box to box, print-ready PDF with bleed.
-10. **Pro layers and photo tools** (Photoshop) — blend modes, groups, effects (shadow, glow,
+10. **Pro layers and photo tools** (Photoshop) — blend modes, effects (shadow, glow,
    outline), curves and levels, clone and heal, select by color and select subject, and an easy
    way to fade or hide parts of a layer (with a brush, never a mask to learn).
 11. **Ready to sell** — accounts, saving to the cloud, payments and a free trial.

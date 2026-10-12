@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type PointerEvent, type SetStateAction } from 'react'
-import { arrangeBox, previewInBox } from '../editor/arrange.ts'
+import { arrangeBox, frameOf, previewInBox, previewInFrame } from '../editor/arrange.ts'
 import type { BrushSettings } from '../editor/brushes.ts'
 import { coverRect } from '../editor/document.ts'
 import { ellipsePolygon, polygonBounds, rectFromCorners, rectPolygon, squareFromCorners, type Rect } from '../editor/geometry.ts'
-import { activeLayer } from '../editor/layers.ts'
+import { activeLayer, pickedWith } from '../editor/layers.ts'
 import { drawShape, hitsLayer, layerAt, photoPlacement, settleLayer } from '../editor/objects.ts'
 import { startMove, type MoveSession } from '../editor/move.ts'
 import { renderScene, type LayerOverride } from '../editor/render.ts'
@@ -54,8 +54,17 @@ export interface BoxEditing {
 // Arranging whole objects with the Arrange tool.
 export interface ArrangeControls {
   keepProportions: boolean
+  // Several things picked together (two or more), or null.
+  picked: string[] | null
+  // Picks one thing (just it, even inside a group), or the page with ''.
   onPick: (layerId: string) => void
+  // Picks several things (none picks the page).
+  onPickMany: (ids: string[]) => void
+  // Shift+click: adds a thing (with its group) to what's picked, or takes it away.
+  onToggle: (layerId: string) => void
   onPlace: (layerId: string, box: TransformBox, label: string) => void
+  // Several things moved, resized or turned together, from one frame around them to another.
+  onPlaceMany: (ids: string[], from: TransformBox, to: TransformBox, label: string) => void
 }
 
 // The Text tool: a click starts text where the first line begins, a drag makes a paragraph box,
@@ -165,21 +174,26 @@ interface SnapTargets {
   whole: boolean
 }
 
+// What a handle drag changes: one thing's box, or the frame around several things.
+interface BoxDragState {
+  pointerId: number
+  handle: Handle
+  start: Point
+  startBox: TransformBox
+  box: TransformBox
+  startClient: Point
+  moved: boolean
+  snap: SnapTargets | null
+  lined: SnapResult | null
+}
+
+// Dragging what's picked with the Arrange tool, or a box on empty paper that picks what it touches.
 type ArrangeDrag =
-  | {
-      kind: 'object'
-      pointerId: number
-      layer: Layer
-      handle: Handle
-      start: Point
-      startBox: TransformBox
-      box: TransformBox
-      startClient: Point
-      moved: boolean
-      snap: SnapTargets | null
-      lined: SnapResult | null
-    }
-  | { kind: 'locked'; pointerId: number; layer: Layer; startClient: Point; warned: boolean }
+  | ({ kind: 'object'; layer: Layer } & BoxDragState)
+  // `clicked` is the thing pressed on, which a click without dragging picks on its own.
+  | ({ kind: 'frame'; ids: string[]; layers: Layer[]; clicked: Layer | null } & BoxDragState)
+  // With Shift (`adding`), the box adds what it touches to what's already picked.
+  | { kind: 'marquee'; pointerId: number; start: Point; current: Point; startClient: Point; moved: boolean; locked: Layer | null; adding: boolean }
 
 // Sliding a photo inside its shape.
 interface PhotoDrag {
@@ -549,10 +563,25 @@ export function CanvasView(props: CanvasViewProps) {
   // The box the Arrange handles show around the selected object, if it can be arranged.
   function activeBox(p: CanvasViewProps): TransformBox | null {
     const drag = arrangeRef.current
-    if (drag?.kind === 'object') return drag.box
+    if (drag?.kind === 'object' || drag?.kind === 'frame') return drag.box
+    const many = pickedLayers(p)
+    if (many) return frameOf(many)
     const layer = activeLayer(p.doc)
     if (!p.arrange || !layer || !layer.visible || layer.locked || p.textEditing?.layer.id === layer.id) return null
     return arrangeBox(layer)
+  }
+
+  // The things picked together, when there are several.
+  function pickedLayers(p: CanvasViewProps): Layer[] | null {
+    const ids = p.arrange?.picked
+    if (!ids || ids.length < 2) return null
+    const layers = p.doc.layers.filter((l) => ids.includes(l.id) && l.visible)
+    return layers.length > 0 ? layers : null
+  }
+
+  // Which side handles the picked thing has: none for several things (they grow evenly).
+  function activeEdges(p: CanvasViewProps): EdgeHandles {
+    return pickedLayers(p) ? false : edgesOf(activeLayer(p.doc))
   }
 
   function sceneOverride(): LayerOverride | null {
@@ -562,6 +591,9 @@ export function CanvasView(props: CanvasViewProps) {
     if (move) return move.session.preview(move.dx, move.dy)
     const arrange = arrangeRef.current
     if (arrange?.kind === 'object' && arrange.moved) return { layerId: arrange.layer.id, layer: previewInBox(arrange.layer, arrange.box) }
+    if (arrange?.kind === 'frame' && arrange.moved) {
+      return { layers: new Map(arrange.layers.map((layer) => [layer.id, previewInFrame(layer, arrange.startBox, arrange.box)])) }
+    }
     const photo = photoRef.current
     if (photo?.moved && photo.layer.fill.kind === 'photo') {
       return { layerId: photo.layer.id, layer: { ...photo.layer, fill: { ...photo.layer.fill, x: photo.x, y: photo.y } } }
@@ -637,15 +669,31 @@ export function CanvasView(props: CanvasViewProps) {
     if (p.box) drawBox(ctx, p.box, p.viewport, p.width, p.height)
     if (p.arrange && !p.doc.selection) {
       const hovered = hoverLayerRef.current
-      if (hovered && hovered.id !== p.doc.activeLayerId && !arrangeRef.current) {
-        const box = arrangeBox(hovered)
+      const many = pickedLayers(p)
+      if (hovered && hovered.id !== p.doc.activeLayerId && !many?.includes(hovered) && !arrangeRef.current) {
+        // Something kept together shows its whole group.
+        const box = frameOf(p.doc.layers.filter((l) => pickedWith(p.doc, hovered.id).includes(l.id)))
         if (box) drawHoverOutline(ctx, box, p.viewport)
       }
+      // Each of several picked things gets a thin outline, inside one frame with handles.
+      if (many && !arrangeRef.current) {
+        for (const layer of many) {
+          const box = arrangeBox(layer)
+          if (box) drawHoverOutline(ctx, box, p.viewport)
+        }
+      }
       const box = activeBox(p)
-      if (box) drawBox(ctx, { kind: 'transform', value: box, edges: edgesOf(activeLayer(p.doc)) }, p.viewport, p.width, p.height)
+      if (box) drawBox(ctx, { kind: 'transform', value: box, edges: activeEdges(p) }, p.viewport, p.width, p.height)
     }
     const arranging = arrangeRef.current
-    if (arranging?.kind === 'object' && arranging.moved && arranging.lined) drawGuides(ctx, arranging.lined, p.viewport)
+    if ((arranging?.kind === 'object' || arranging?.kind === 'frame') && arranging.moved && arranging.lined) drawGuides(ctx, arranging.lined, p.viewport)
+    if (arranging?.kind === 'marquee' && arranging.moved) {
+      const rect = rectFromCorners(arranging.start, arranging.current)
+      const a = toScreen({ x: rect.x, y: rect.y }, p.viewport)
+      ctx.fillStyle = 'rgba(51, 102, 255, 0.08)'
+      ctx.fillRect(a.x, a.y, rect.width * p.viewport.zoom, rect.height * p.viewport.zoom)
+      drawDashedBox(ctx, { cx: rect.x + rect.width / 2, cy: rect.y + rect.height / 2, width: rect.width, height: rect.height, rotation: 0 }, p.viewport)
+    }
     if (p.textEditing) drawDashedBox(ctx, p.textEditing.layer.box, p.viewport)
     const textDrag = textRef.current
     if (textDrag?.moved) {
@@ -787,41 +835,64 @@ export function CanvasView(props: CanvasViewProps) {
     if (props.photoMove && startPhotoMove(event)) return
     const point = documentPoint(event.clientX, event.clientY)
     const startClient = { x: event.clientX, y: event.clientY }
-    const active = activeLayer(doc)
-    let layer: Layer | null = null
-    let handle: Handle | null = null
-    const box = activeBox(props)
-    if (active && box) {
-      handle = hitHandle(box, point, viewport.zoom, { rotate: true, edges: edgesOf(active) })
-      if (handle) layer = active
-    }
-    if (!layer) {
-      layer = layerAt(doc, point, 3 / viewport.zoom)
-      handle = 'move'
-      if (layer && layer.id !== doc.activeLayerId) arrange.onPick(layer.id)
-    }
     event.currentTarget.setPointerCapture(event.pointerId)
-    if (!layer || !handle) {
-      // A locked layer here is picked (so it can be unlocked) but stays put; dragging it explains
-      // why. A press on empty paper picks the page, so its color can be changed.
-      const locked = [...doc.layers].reverse().find((l) => l.visible && l.locked && hitsLayer(l, point))
-      const picked = locked?.id ?? ''
-      if (picked !== doc.activeLayerId) arrange.onPick(picked)
-      if (locked) arrangeRef.current = { kind: 'locked', pointerId: event.pointerId, layer: locked, startClient, warned: false }
+    // The handles of what's picked: one thing, or the frame around several.
+    const many = pickedLayers(props)
+    const active = activeLayer(doc)
+    const box = activeBox(props)
+    const found = box ? hitHandle(box, point, viewport.zoom, { rotate: true, edges: activeEdges(props) }) : null
+    // Shift+click adds or takes away; Shift on a handle still resizes or turns in neat steps.
+    const handle = event.shiftKey && found === 'move' ? null : found
+    const hit = layerAt(doc, point, 3 / viewport.zoom)
+    // Inside the frame around several things, a press on something else picks that instead; a
+    // press on one of them or on the paper between them moves them all.
+    const elsewhere = handle === 'move' && many && hit && !many.includes(hit)
+    if (handle && many && !elsewhere) return startFrameDrag(event, many, handle, point, startClient, handle === 'move' ? hit : null)
+    if (handle && active && !many) return startObjectDrag(event, active, handle, point, startClient)
+    // Shift+click adds to what's picked, or takes away.
+    if (hit && event.shiftKey) {
+      arrange.onToggle(hit.id)
       return
     }
+    if (hit) {
+      // Something kept together is picked and moved as a whole.
+      const ids = pickedWith(doc, hit.id)
+      if (ids.length > 1) {
+        arrange.onPickMany(ids)
+        return startFrameDrag(event, doc.layers.filter((l) => ids.includes(l.id)), 'move', point, startClient)
+      }
+      if (hit.id !== doc.activeLayerId || many) arrange.onPick(hit.id)
+      return startObjectDrag(event, hit, 'move', point, startClient)
+    }
+    // Empty paper (or something locked): dragging a box picks what it touches; a click picks the
+    // page, or the locked thing so it can be unlocked.
+    const locked = [...doc.layers].reverse().find((l) => l.visible && l.locked && hitsLayer(l, point)) ?? null
+    arrangeRef.current = { kind: 'marquee', pointerId: event.pointerId, start: point, current: point, startClient, moved: false, locked, adding: event.shiftKey }
+  }
+
+  // What a moved thing can line up with: the page and every other thing you can see.
+  function snapTargets(moving: TransformBox, exclude: string[], whole: boolean): SnapTargets {
+    const others = doc.layers
+      .filter((l) => !exclude.includes(l.id) && l.visible && l.opacity > 0)
+      .map((l) => arrangeBox(l))
+      .filter((b): b is TransformBox => b !== null)
+      .map((b) => polygonBounds(boxCorners(b))!)
+    return { moving: polygonBounds(boxCorners(moving))!, others, whole }
+  }
+
+  function startFrameDrag(event: PointerEvent<HTMLCanvasElement>, layers: Layer[], handle: Handle, point: Point, startClient: Point, clicked: Layer | null = null) {
+    const frame = frameOf(layers)
+    if (!frame) return
+    const ids = layers.map((l) => l.id)
+    const snap = handle === 'move' ? snapTargets(frame, ids, layers.some((l) => l.kind === 'raster')) : null
+    arrangeRef.current = { kind: 'frame', pointerId: event.pointerId, ids, layers, clicked, handle, start: point, startBox: frame, box: frame, startClient, moved: false, snap, lined: null }
+    requestOverlay()
+  }
+
+  function startObjectDrag(event: PointerEvent<HTMLCanvasElement>, layer: Layer, handle: Handle, point: Point, startClient: Point) {
     const startBox = arrangeBox(layer)
     if (!startBox) return
-    // A moved object can line up with the page and everything else you can see.
-    let snap: SnapTargets | null = null
-    if (handle === 'move') {
-      const others = doc.layers
-        .filter((l) => l.id !== layer.id && l.visible && l.opacity > 0)
-        .map((l) => arrangeBox(l))
-        .filter((b): b is TransformBox => b !== null)
-        .map((b) => polygonBounds(boxCorners(b))!)
-      snap = { moving: polygonBounds(boxCorners(startBox))!, others, whole: layer.kind === 'raster' }
-    }
+    const snap = handle === 'move' ? snapTargets(startBox, [layer.id], layer.kind === 'raster') : null
     arrangeRef.current = { kind: 'object', pointerId: event.pointerId, layer, handle, start: point, startBox, box: startBox, startClient, moved: false, snap, lined: null }
     requestOverlay()
   }
@@ -829,8 +900,42 @@ export function CanvasView(props: CanvasViewProps) {
   function finishArrange() {
     const drag = arrangeRef.current
     arrangeRef.current = null
+    const p = propsRef.current
     if (drag?.kind === 'object' && drag.moved && !isIdentity(drag.box, drag.startBox)) {
-      propsRef.current.arrange?.onPlace(drag.layer.id, drag.box, describeChange(drag.box, drag.startBox))
+      p.arrange?.onPlace(drag.layer.id, drag.box, describeChange(drag.box, drag.startBox))
+    }
+    if (drag?.kind === 'frame' && drag.moved && !isIdentity(drag.box, drag.startBox)) {
+      p.arrange?.onPlaceMany(drag.ids, drag.startBox, drag.box, describeChange(drag.box, drag.startBox))
+    }
+    // A click (without dragging) on one of several picked things picks just it, or what it's
+    // kept together with.
+    if (drag?.kind === 'frame' && !drag.moved && drag.clicked && p.arrange) {
+      const own = pickedWith(p.doc, drag.clicked.id)
+      if (own.length < drag.ids.length) p.arrange.onPickMany(own)
+    }
+    if (drag?.kind === 'marquee' && p.arrange) {
+      if (drag.moved) {
+        // Everything you can see and move that the box touches, with whole groups.
+        const area = rectFromCorners(drag.start, drag.current)
+        const touched = p.doc.layers.filter((l) => {
+          if (!l.visible || l.locked || l.opacity <= 0) return false
+          const box = arrangeBox(l)
+          const bounds = box && polygonBounds(boxCorners(box))
+          return !!bounds && bounds.x < area.x + area.width && area.x < bounds.x + bounds.width && bounds.y < area.y + area.height && area.y < bounds.y + bounds.height
+        })
+        const ids = [...new Set(touched.flatMap((l) => pickedWith(p.doc, l.id)))]
+        const already = drag.adding ? (p.arrange.picked ?? (activeLayer(p.doc) ? pickedWith(p.doc, p.doc.activeLayerId) : [])) : []
+        if (ids.length === 0 && already.length === 0 && drag.locked) {
+          // Dragging something locked keeps it picked, and says why it stays put.
+          if (drag.locked.id !== p.doc.activeLayerId) p.arrange.onPick(drag.locked.id)
+          p.onBlocked(`"${drag.locked.name}" is locked, so it can't be moved by accident. Click its lock in the Layers panel to unlock it.`)
+        } else {
+          p.arrange.onPickMany([...new Set([...already, ...ids])])
+        }
+      } else {
+        const picked = drag.locked?.id ?? ''
+        if (picked !== p.doc.activeLayerId || p.arrange.picked) p.arrange.onPick(picked)
+      }
     }
     setDragging(false)
     drawScene()
@@ -1126,11 +1231,10 @@ export function CanvasView(props: CanvasViewProps) {
     const arrange = arrangeRef.current
     if (arrange && arrange.pointerId === event.pointerId) {
       const far = Math.hypot(event.clientX - arrange.startClient.x, event.clientY - arrange.startClient.y) >= clickSlop(event)
-      if (arrange.kind === 'locked') {
-        if (far && !arrange.warned) {
-          arrange.warned = true
-          props.onBlocked(`"${arrange.layer.name}" is locked, so it can't be moved by accident. Click its lock in the Layers panel to unlock it.`)
-        }
+      if (arrange.kind === 'marquee') {
+        arrange.current = point
+        if (far) arrange.moved = true
+        requestOverlay()
         return
       }
       if (!arrange.moved && far) {
@@ -1153,7 +1257,8 @@ export function CanvasView(props: CanvasViewProps) {
         }
         arrange.box = { ...arrange.startBox, cx: arrange.startBox.cx + dx, cy: arrange.startBox.cy + dy }
       } else {
-        const keepProportions = (props.arrange?.keepProportions ?? true) !== event.shiftKey
+        // Several things always grow evenly, so nothing in them gets squashed.
+        const keepProportions = arrange.kind === 'frame' || (props.arrange?.keepProportions ?? true) !== event.shiftKey
         arrange.box = dragHandle(arrange.startBox, arrange.handle, arrange.start, point, { keepProportions, snapAngle: event.shiftKey })
       }
       requestScene()
@@ -1202,7 +1307,7 @@ export function CanvasView(props: CanvasViewProps) {
     // With Arrange, the pointer shows what a press would do, and outlines what it would pick.
     if (tool === 'move' && props.arrange && !doc.selection) {
       const box = activeBox(props)
-      const handle = box ? hitHandle(box, point, viewport.zoom, { rotate: true, edges: edgesOf(activeLayer(doc)) }) : null
+      const handle = box ? hitHandle(box, point, viewport.zoom, { rotate: true, edges: activeEdges(props) }) : null
       if (handle !== boxHover) setBoxHover(handle)
       const hovered = handle ? null : layerAt(doc, point, 3 / viewport.zoom)
       if (hovered !== hoverLayerRef.current) {
@@ -1365,6 +1470,8 @@ export function CanvasView(props: CanvasViewProps) {
           const point = documentPoint(event.clientX, event.clientY)
           const hit = layerAt(doc, point, 2 / viewport.zoom)
           if (hit?.kind === 'text') props.onEditText(hit.id, textIndexAt(hit, point))
+          // Inside something kept together, a double-click picks just the one part.
+          else if (hit?.group) props.arrange?.onPick(hit.id)
         }}
         onPointerLeave={() => {
           if (busy()) return

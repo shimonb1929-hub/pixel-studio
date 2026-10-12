@@ -1,6 +1,7 @@
 import type { Action } from './actions.ts'
 import { LOOKS } from './editor/adjust.ts'
 import { activeLayer } from './editor/layers.ts'
+import type { LineUpEdge } from './editor/organize.ts'
 import type { EditorDocument, ToolId } from './editor/types.ts'
 import { shortcut } from './keys.ts'
 import { TEXT_KINDS, type TextKind } from './text/presets.ts'
@@ -40,6 +41,11 @@ export interface AppCommands {
   layerToBack: () => void
   layerToggle: () => void
   layerDelete: () => void
+  keepTogether: () => void
+  takeApart: () => void
+  tidyUp: () => void
+  lineUp: (edge: LineUpEdge) => void
+  spreadOut: (axis: 'x' | 'y') => void
   zoomIn: () => void
   zoomOut: () => void
   fit: () => void
@@ -57,17 +63,30 @@ interface ActionState {
   undoLabel: string | null
   redoLabel: string | null
   app: { installed: boolean; canInstall: boolean }
+  // Why what's picked can't be kept together or taken apart (null when it can), and the things
+  // picked together, if several are.
+  organize: { keepTogether: string | null; takeApart: string | null; picked: string[] | null }
 }
+
+const LINE_UPS: { edge: LineUpEdge; title: string; description: string; keywords: string[] }[] = [
+  { edge: 'left', title: 'Line up left edges', description: 'Move what is picked so their left edges line up. One thing on its own goes to the left edge of the page.', keywords: ['align left', 'left'] },
+  { edge: 'center', title: 'Line up centers', description: 'Move what is picked so they line up through their centers, one above the other. One thing on its own goes to the middle of the page, left to right.', keywords: ['align center', 'center horizontally', 'centre'] },
+  { edge: 'right', title: 'Line up right edges', description: 'Move what is picked so their right edges line up. One thing on its own goes to the right edge of the page.', keywords: ['align right', 'right'] },
+  { edge: 'top', title: 'Line up tops', description: 'Move what is picked so their tops line up. One thing on its own goes to the top of the page.', keywords: ['align top', 'top'] },
+  { edge: 'middle', title: 'Line up middles', description: 'Move what is picked so they line up through their middles, side by side. One thing on its own goes to the middle of the page, top to bottom.', keywords: ['align middle', 'center vertically', 'centre'] },
+  { edge: 'bottom', title: 'Line up bottoms', description: 'Move what is picked so their bottoms line up. One thing on its own goes to the bottom of the page.', keywords: ['align bottom', 'bottom'] },
+]
 
 const NOTHING_SELECTED = 'Select an area first, with the Select tool.'
 
 // Everything a person can do, in plain words. The menu, the search box and the hover tips all
 // come from this one list.
-export function buildActions({ doc, undoLabel, redoLabel, app }: ActionState, c: AppCommands): Action[] {
+export function buildActions({ doc, undoLabel, redoLabel, app, organize }: ActionState, c: AppCommands): Action[] {
   const active = doc ? activeLayer(doc) : undefined
   const activeIndex = doc && active ? doc.layers.indexOf(active) : -1
   const noLayerPicked = doc && !active ? 'Pick something on your design first.' : undefined
   const noSelection = doc && !doc.selection ? NOTHING_SELECTED : undefined
+  const pickSeveral = 'Pick two or more things first: drag a box around them on your design, or hold Shift and click each one.'
 
   return [
     {
@@ -362,6 +381,68 @@ export function buildActions({ doc, undoLabel, redoLabel, app }: ActionState, c:
       needsDocument: true,
       disabledReason: noLayerPicked,
       run: c.layerDelete,
+    },
+    {
+      id: 'keep-together',
+      group: 'Layers',
+      title: 'Keep together',
+      description: 'Make the picked things one: they are picked, moved and resized together. Double-click a part to change just it.',
+      keywords: ['group', 'combine', 'join', 'together', 'one'],
+      shortcut: shortcut('mod', 'G'),
+      needsDocument: true,
+      disabledReason: organize.keepTogether ?? undefined,
+      run: c.keepTogether,
+    },
+    {
+      id: 'take-apart',
+      group: 'Layers',
+      title: 'Take apart',
+      description: 'Let the parts of something kept together be picked and moved on their own again.',
+      keywords: ['ungroup', 'separate', 'split', 'apart', 'break'],
+      shortcut: shortcut('mod', 'shift', 'G'),
+      needsDocument: true,
+      disabledReason: organize.takeApart ?? undefined,
+      run: c.takeApart,
+    },
+    {
+      id: 'tidy-up',
+      group: 'Layers',
+      title: 'Tidy up',
+      description: 'Put the picked things in a neat row or column, with even gaps between them, lined up through their middles.',
+      keywords: ['tidy', 'neat', 'distribute', 'align', 'even', 'row', 'column', 'arrange'],
+      needsDocument: true,
+      disabledReason: organize.picked ? undefined : pickSeveral,
+      run: c.tidyUp,
+    },
+    ...LINE_UPS.map(({ edge, title, description, keywords }): Action => ({
+      id: `line-up-${edge}`,
+      group: 'Line up',
+      title,
+      description,
+      keywords: [...keywords, 'line up', 'align', 'arrange'],
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: () => c.lineUp(edge),
+    })),
+    {
+      id: 'space-across',
+      group: 'Line up',
+      title: 'Space evenly across',
+      description: 'Make the gaps between three or more picked things the same, left to right. The first and last stay put.',
+      keywords: ['distribute horizontally', 'even', 'spacing', 'gaps', 'spread'],
+      needsDocument: true,
+      disabledReason: organize.picked ? undefined : pickSeveral,
+      run: () => c.spreadOut('x'),
+    },
+    {
+      id: 'space-down',
+      group: 'Line up',
+      title: 'Space evenly down',
+      description: 'Make the gaps between three or more picked things the same, top to bottom. The first and last stay put.',
+      keywords: ['distribute vertically', 'even', 'spacing', 'gaps', 'spread'],
+      needsDocument: true,
+      disabledReason: organize.picked ? undefined : pickSeveral,
+      run: () => c.spreadOut('y'),
     },
     {
       id: 'resize-design',

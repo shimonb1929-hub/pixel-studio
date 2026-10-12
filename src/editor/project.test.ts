@@ -195,6 +195,15 @@ describe('project files', () => {
     expect(validateManifest(older).background).toBeNull()
   })
 
+  it('keeps things kept together, and turns away a damaged group', async () => {
+    const group = { id: 'group-1', name: 'Logo' }
+    const kept = manifest({ layers: [pixels({ group }), words({ group })], activeLayer: 0 })
+    const { manifest: read } = await unpackProject(packProject(kept, IMAGES().slice(0, 1)))
+    expect(read.layers.map((l) => l.group)).toEqual([group, group])
+    expect(validateManifest(manifest()).layers[0].group).toBeUndefined()
+    expect(() => validateManifest(manifest({ layers: [pixels({ group: { id: 3 } as never })], activeLayer: 0 }))).toThrow(ProjectError)
+  })
+
   it('treats an empty selection as no selection', () => {
     expect(validateManifest({ ...manifest(), selection: { ops: [] } }).selection).toBeNull()
     expect(validateManifest({ ...manifest(), selection: undefined }).selection).toBeNull()

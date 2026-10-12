@@ -9,6 +9,13 @@ export interface Point {
   y: number
 }
 
+// Layers kept together act as one thing: picked, moved and resized together. They always sit next
+// to each other in the stack.
+export interface LayerGroup {
+  id: string
+  name: string
+}
+
 // What every layer has, whatever is on it.
 interface LayerBase {
   id: string
@@ -20,6 +27,8 @@ interface LayerBase {
   // Adjustments that stay editable: they show on top of the layer without changing what's on it,
   // so they can be changed again or removed at any time.
   adjust: Adjustments | null
+  // Set when it's kept together with other layers.
+  group?: LayerGroup
   // A shadow, glow or outline around what's on the layer. Like adjustments, they never change what's
   // on it, so they can be changed again or taken off at any time. Missing means none.
   effects?: LayerEffects | null

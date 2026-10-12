@@ -8,7 +8,8 @@ import type { Selection, SelectionOp } from './selection.ts'
 import type { TransformBox } from './transform.ts'
 import type { TextAlign, TextDirection } from '../text/layout.ts'
 import { loadDesignFonts } from '../text/textLayer.ts'
-import type { EditorDocument, Layer, ShapeGeometry, ShapeOutline, ShapeType, TextStyle } from './types.ts'
+import { tidyGroups } from './layers.ts'
+import type { EditorDocument, Layer, LayerGroup, ShapeGeometry, ShapeOutline, ShapeType, TextStyle } from './types.ts'
 
 // A project keeps everything needed to carry on editing later: the design's size, every layer
 // with its pixels, position and settings, and the selection. The same format is used for
@@ -20,10 +21,10 @@ import type { EditorDocument, Layer, ShapeGeometry, ShapeOutline, ShapeType, Tex
 //
 // Version 2 added shapes, resized and turned pictures (box), locks and editable adjustments.
 // Version 3 added text. Version 4 added the page color, and designs with nothing on the page yet.
-// Version 5 added effects (shadow, glow, outline) and blend modes.
-// Older files still open.
+// Version 5 added things kept together (group). Version 6 added effects (shadow, glow, outline) and
+// blend modes. Older files still open.
 
-export const PROJECT_VERSION = 5
+export const PROJECT_VERSION = 6
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -39,6 +40,8 @@ interface ProjectLayerBase {
   opacity: number
   locked: boolean
   adjust: Adjustments | null
+  // Layers kept together share one group.
+  group?: LayerGroup
   effects?: LayerEffects | null
   blend?: BlendMode
 }
@@ -269,6 +272,12 @@ function readTextStyle(value: unknown): TextStyle {
   return { font, size, weight, italic, color: readColor(color), align: align as TextAlign, direction: direction as TextDirection, letterSpacing, lineHeight }
 }
 
+function readGroup(group: unknown): { group?: LayerGroup } {
+  if (group === undefined) return {}
+  if (!isRecord(group) || typeof group.id !== 'string' || group.id.length > MAX_NAME_LENGTH || typeof group.name !== 'string') damaged()
+  return { group: { id: group.id, name: group.name.slice(0, MAX_NAME_LENGTH) } }
+}
+
 // Checks one layer's description. Settings missing from version 1 files get their defaults.
 function readLayer(layer: unknown): ProjectLayer {
   if (!isRecord(layer) || typeof layer.name !== 'string' || typeof layer.visible !== 'boolean' || !isBetween(layer.opacity, 0, 1)) damaged()
@@ -279,6 +288,7 @@ function readLayer(layer: unknown): ProjectLayer {
     opacity: layer.opacity,
     locked: layer.locked === true,
     adjust: readAdjust(layer.adjust),
+    ...readGroup(layer.group),
   }
   const effects = readEffects(layer.effects)
   if (effects) base.effects = effects
@@ -385,6 +395,7 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
     opacity: layer.opacity,
     locked: layer.locked,
     adjust: layer.adjust,
+    ...(layer.group ? { group: layer.group } : {}),
     effects: hasEffects(layer.effects) ? layer.effects : null,
     blend: layer.blend && layer.blend !== 'normal' ? layer.blend : undefined,
   }
@@ -435,6 +446,11 @@ async function decodePicture(png: Blob, width: number, height: number): Promise<
 }
 
 async function decodeLayer(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
+  const layer = await decodeLayerKind(info, pngs)
+  return info.group ? { ...layer, group: info.group } : layer
+}
+
+async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
   const { name, visible, opacity, locked, adjust } = info
   const extras: Pick<Layer, 'effects' | 'blend'> = {}
   if (info.effects) extras.effects = info.effects
@@ -466,16 +482,23 @@ export async function decodeProject(file: Blob, id = createDesignId()): Promise<
       return decodeLayer(info, pngs)
     }),
   )
-  return {
+  // Groups get new ids, like layers do, and only whole groups are kept.
+  const groupIds = new Map<string, string>()
+  const regrouped = layers.map((layer) => {
+    if (!layer.group) return layer
+    if (!groupIds.has(layer.group.id)) groupIds.set(layer.group.id, createId('group'))
+    return { ...layer, group: { id: groupIds.get(layer.group.id)!, name: layer.group.name } }
+  })
+  return tidyGroups({
     id,
     name: manifest.name,
     width: manifest.width,
     height: manifest.height,
     background: manifest.background,
-    layers,
-    activeLayerId: layers[manifest.activeLayer]?.id ?? '',
+    layers: regrouped,
+    activeLayerId: regrouped[manifest.activeLayer]?.id ?? '',
     selection: manifest.selection,
-  }
+  })
 }
 
 // A small picture of the whole design, for the list of designs on the start screen.

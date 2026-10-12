@@ -62,7 +62,7 @@ async function dropPhoto(page: Page, size: Size, x: number, y: number, buffer: B
 
 async function drawShape(page: Page, size: Size, type: string, from: [number, number], to: [number, number]) {
   await page.keyboard.press('u')
-  await page.getByRole('radio', { name: type }).click()
+  await page.getByRole('radio', { name: type, exact: true }).click()
   await drag(page, size, [from, to])
 }
 

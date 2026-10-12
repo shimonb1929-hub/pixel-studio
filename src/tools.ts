@@ -27,9 +27,9 @@ export const TOOLS: ToolInfo[] = [
     key: 'V',
     icon: MousePointer2,
     description:
-      'Click anything on your design to pick it. Drag it to move it, pull a corner to resize it, or the round handle to turn it. Pictures never lose quality, however often you resize them.',
-    hint: 'Click something to pick it. Drag to move it: it lines up with the page and other things by itself (hold Alt to move freely). Pull a corner to resize, the round handle to turn.',
-    keywords: ['move', 'drag', 'position', 'place', 'resize', 'scale', 'rotate', 'turn', 'flip', 'mirror', 'arrange', 'pick', 'bigger', 'smaller', 'transform', 'nudge', 'stretch'],
+      'Click anything on your design to pick it. Drag it to move it, pull a corner to resize it, or the round handle to turn it. Drag a box around several things to pick them all. Pictures never lose quality, however often you resize them.',
+    hint: `Click something to pick it, or drag a box around several. Drag to move: it lines up with the page and other things by itself (hold ${ALT_LABEL} to move freely). Pull a corner to resize, the round handle to turn.`,
+    keywords: ['move', 'drag', 'position', 'place', 'resize', 'scale', 'rotate', 'turn', 'flip', 'mirror', 'arrange', 'pick', 'bigger', 'smaller', 'transform', 'nudge', 'stretch', 'select several', 'multiple'],
     group: 'arrange',
   },
   {
