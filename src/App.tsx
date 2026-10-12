@@ -91,6 +91,7 @@ import { hasRtlLetters, resolveAlign } from './text/layout.ts'
 import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './text/presets.ts'
 import { changeText, fitText, newTextBox, textLayout, textName } from './text/textLayer.ts'
 import { TOOLS } from './tools.ts'
+import { live, msg, t, useLanguage } from './i18n/i18n.ts'
 
 type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename'
 
@@ -150,14 +151,14 @@ const HEAL_MAX_MARGIN = 400
 
 const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
 
-const LINE_UP_LABELS: Record<LineUpEdge, string> = {
-  left: 'Line up left edges',
-  center: 'Line up centers',
-  right: 'Line up right edges',
-  top: 'Line up tops',
-  middle: 'Line up middles',
-  bottom: 'Line up bottoms',
-}
+const LINE_UP_LABELS: Record<LineUpEdge, string> = live({
+  left: msg('Line up left edges'),
+  center: msg('Line up centers'),
+  right: msg('Line up right edges'),
+  top: msg('Line up tops'),
+  middle: msg('Line up middles'),
+  bottom: msg('Line up bottoms'),
+})
 
 // The color a shape or text shows in the Color panel.
 function colorOfThing(layer: Layer, target: ColorTarget, fallback: string): string {
@@ -200,20 +201,28 @@ function tidyCropBox(box: TransformBox): TransformBox {
 
 // Why a layer can't be adjusted right now, in plain words, or null if it can.
 function adjustProblem(doc: EditorDocument, layer: Layer): string | null {
-  if (!layer.visible) return `“${layer.name}” is hidden. Click its eye in the Layers panel to show it, then adjust it.`
+  if (!layer.visible) return t('“{name}” is hidden. Click its eye in the Layers panel to show it, then adjust it.', { name: layer.name })
   if (layer.kind === 'raster' && isBlank(layerPixels(layer).canvas)) {
-    return `There is nothing on “${layer.name}” to adjust yet. Pick another layer in the Layers panel, or paint something first.`
+    return t('There is nothing on “{name}” to adjust yet. Pick another layer in the Layers panel, or paint something first.', { name: layer.name })
   }
   if (doc.selection && layer.kind !== 'raster') {
-    return `Shapes are adjusted as a whole. Press ${shortcut('mod', 'D')} to clear the selection, then adjust “${layer.name}”.`
+    return t('Shapes are adjusted as a whole. Press {keys} to clear the selection, then adjust “{name}”.', { keys: shortcut('mod', 'D'), name: layer.name })
   }
   if (!adjustArea(doc, layerPixels(layer), NO_ADJUSTMENTS)) {
-    return `The selected area doesn't cover anything on “${layer.name}”. Select another part, or press ${shortcut('mod', 'D')} to adjust the whole layer.`
+    return t("The selected area doesn't cover anything on “{name}”. Select another part, or press {keys} to adjust the whole layer.", { name: layer.name, keys: shortcut('mod', 'D') })
   }
   return null
 }
 
-const SHAPE_NAMES: Record<ShapeType, string> = { rectangle: 'Rectangle', ellipse: 'Oval', polygon: 'Polygon', star: 'Star', line: 'Line', path: 'Pen shape' }
+const SHAPE_NAMES: Record<ShapeType, string> = live({ rectangle: msg('Rectangle'), ellipse: msg('Oval'), polygon: msg('Polygon'), star: msg('Star'), line: msg('Line'), path: msg('Drawn shape') })
+const DRAW_LABELS: Record<ShapeType, string> = live({
+  rectangle: msg('Draw rectangle'),
+  ellipse: msg('Draw oval'),
+  polygon: msg('Draw polygon'),
+  star: msg('Draw star'),
+  line: msg('Draw line'),
+  path: msg('Draw shape'),
+})
 
 // How the next shape will look. Lines use `line` for their color and thickness.
 interface ShapeDefaults {
@@ -256,7 +265,7 @@ function placementBox(canvas: HTMLCanvasElement, doc: EditorDocument, at: Point)
 
 function nameFromFile(file: File): string {
   const dot = file.name.lastIndexOf('.')
-  return (dot > 0 ? file.name.slice(0, dot) : file.name).trim() || 'Photo'
+  return (dot > 0 ? file.name.slice(0, dot) : file.name).trim() || t('Photo')
 }
 
 function cropRect(box: TransformBox): Rect {
@@ -302,6 +311,8 @@ interface CropState {
 }
 
 export default function App() {
+  // Everything is drawn again in the new words when the language changes.
+  useLanguage()
   const editor = useEditor()
   const { doc } = editor
   const autosave = useAutosave(editor)
@@ -316,7 +327,7 @@ export default function App() {
   const [spaceHeld, setSpaceHeld] = useState(false)
   const [altHeld, setAltHeld] = useState(false)
   const [designCount, setDesignCount] = useState(0)
-  const [newDesignName, setNewDesignName] = useState('My design 1')
+  const [newDesignName, setNewDesignName] = useState(t('My design 1'))
   const [color, setColor] = useState('#1b1d23')
   const [recentColors, setRecentColors] = useState<string[]>([])
   const [brush, setBrush] = useState<{ settings: BrushSettings; presetId: string | null }>({
@@ -438,7 +449,7 @@ export default function App() {
   // live. Why it can't be adjusted, if that's the case.
   const adjustOn = tool === 'adjust'
   const adjustBlocked = useMemo(
-    () => (adjustOn && doc ? (activeNow ? adjustProblem(doc, activeNow) : 'Pick something on your design to adjust it, or click it in the Layers panel.') : null),
+    () => (adjustOn && doc ? (activeNow ? adjustProblem(doc, activeNow) : t('Pick something on your design to adjust it, or click it in the Layers panel.')) : null),
     // Only the layer, its pixels and the selection matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [adjustOn, activeNow, doc?.selection, editor.revision],
@@ -485,7 +496,7 @@ export default function App() {
     setComparing(false)
     if (!adjustChanged || !d || !layer) return
     if (!d.selection) {
-      editor.change(isNeutral(settings) ? 'Remove adjustments' : adjustmentLabel(settings), (doc) =>
+      editor.change(isNeutral(settings) ? t('Remove adjustments') : adjustmentLabel(settings), (doc) =>
         updateLayer(doc, layer.id, { adjust: isNeutral(settings) ? null : settings }),
       )
       return
@@ -541,7 +552,7 @@ export default function App() {
     return {
       id: createId('layer'),
       kind: 'shape',
-      name: nextNumberedName(closed ? 'Pen shape' : 'Curve', names),
+      name: nextNumberedName(closed ? t('Drawn shape') : t('Curve'), names),
       visible: true,
       opacity: 1,
       locked: false,
@@ -560,7 +571,7 @@ export default function App() {
       const d = current()
       if (!d) return
       const shape = newPenShape(path, d.layers.map((l) => l.name))
-      editor.change(path.closed ? 'Draw pen shape' : 'Draw curve', (doc) => ({ ...insertLayerAboveActive(doc, shape), selection: null }))
+      editor.change(path.closed ? t('Draw shape') : t('Draw curve'), (doc) => ({ ...insertLayerAboveActive(doc, shape), selection: null }))
     },
     onChange: (layerId, patch, label) => editor.change(label, (d) => updateShape(d, layerId, patch)),
     preview: (path) => newPenShape(path, []),
@@ -575,11 +586,11 @@ export default function App() {
       const w = Math.abs(layer.box.width)
       const h = Math.abs(layer.box.height)
       const path = geometryToPath(layer.geometry, Math.max(w, 1e-6), Math.max(h, 1e-6), polygonPoints(layer.geometry, w, h))
-      editor.change('Edit points', (doc) => updateShape(doc, layer.id, { geometry: { ...layer.geometry, type: 'path', path } }))
+      editor.change(t('Edit points'), (doc) => updateShape(doc, layer.id, { geometry: { ...layer.geometry, type: 'path', path } }))
     }
     editor.select(layer.id)
     setTool('pen')
-    inform('Drag the points or lines to reshape it. Click a line to add a point; double-click a point to make it sharp or smooth.')
+    inform(t('Drag the points or lines to reshape it. Click a line to add a point; double-click a point to make it sharp or smooth.'))
   }
 
   function drawNewShape(box: TransformBox) {
@@ -587,7 +598,7 @@ export default function App() {
     const d = current()
     if (!d) return
     const shape = newShape(box, d.layers.map((l) => l.name))
-    editor.change(`Draw ${SHAPE_NAMES[shape.geometry.type].toLowerCase()}`, (doc) => ({ ...insertLayerAboveActive(doc, shape), selection: null }))
+    editor.change(DRAW_LABELS[shape.geometry.type], (doc) => ({ ...insertLayerAboveActive(doc, shape), selection: null }))
     // Back to Arrange, with handles on the new shape, ready to place and color it.
     setToolState('move')
   }
@@ -634,10 +645,10 @@ export default function App() {
     const fill = shapeShown.fill
     if (kind === 'gradient') {
       setGradientStop(0)
-      changeGradient(gradientFrom(fill.kind === 'color' ? fill.color : color), 'Gradient fill')
+      changeGradient(gradientFrom(fill.kind === 'color' ? fill.color : color), t('Gradient fill'))
     } else {
       const hex = fill.kind === 'gradient' ? fill.gradient.stops[0].color : (shapeDefaults.fill ?? DEFAULT_SHAPES.fill!)
-      changeShape('Fill color', () => ({ fill: { kind: 'color', color: hex } }), (d) => ({ ...d, fill: hex, gradient: null }))
+      changeShape(t('Fill color'), () => ({ fill: { kind: 'color', color: hex } }), (d) => ({ ...d, fill: hex, gradient: null }))
     }
   }
 
@@ -645,7 +656,7 @@ export default function App() {
     rememberColor(hex)
     if (shapeTarget === 'outline') {
       changeShape(
-        shapeIsLine ? 'Line color' : 'Outline color',
+        shapeIsLine ? t('Line color') : t('Outline color'),
         (s) => ({ outline: { color: hex, width: s.outline?.width || NEW_OUTLINE_WIDTH } }),
         (d) => (shapeIsLine ? { ...d, line: { ...d.line, color: hex } } : { ...d, outline: { color: hex, width: d.outline?.width || NEW_OUTLINE_WIDTH } }),
         'shape-outline-color',
@@ -653,9 +664,9 @@ export default function App() {
     } else if (shapeShown?.fill.kind === 'gradient') {
       const gradient = shapeShown.fill.gradient
       const index = Math.min(gradientStop, gradient.stops.length - 1)
-      changeGradient({ ...gradient, stops: gradient.stops.map((s, i) => (i === index ? { ...s, color: hex } : s)) }, 'Gradient color', `shape-gradient-color-${index}`)
+      changeGradient({ ...gradient, stops: gradient.stops.map((s, i) => (i === index ? { ...s, color: hex } : s)) }, t('Gradient color'), `shape-gradient-color-${index}`)
     } else {
-      changeShape('Fill color', () => ({ fill: { kind: 'color', color: hex } }), (d) => ({ ...d, fill: hex, gradient: null }), 'shape-fill-color')
+      changeShape(t('Fill color'), () => ({ fill: { kind: 'color', color: hex } }), (d) => ({ ...d, fill: hex, gradient: null }), 'shape-fill-color')
     }
   }
 
@@ -672,17 +683,17 @@ export default function App() {
       if (isLineShape(l.geometry) || shapeTarget === 'outline') return { ...l, outline: { color: hex, width: l.outline?.width || NEW_OUTLINE_WIDTH } }
       return l.fill.kind === 'photo' || l.fill.kind === 'gradient' ? l : { ...l, fill: { kind: 'color', color: hex } }
     }
-    editor.change('Color', (doc) => ({ ...doc, layers: doc.layers.map((l) => (many.includes(l.id) ? colored(l) : l)) }), { mergeKey: `color:${many.join()}` })
+    editor.change(t('Color'), (doc) => ({ ...doc, layers: doc.layers.map((l) => (many.includes(l.id) ? colored(l) : l)) }), { mergeKey: `color:${many.join()}` })
   }
 
   function changeGeometry(patch: Partial<ShapeGeometry>) {
-    const label = 'corners' in patch ? 'Round corners' : 'sides' in patch ? 'Change sides' : 'arrow' in patch ? 'Arrow head' : 'Change shape'
+    const label = 'corners' in patch ? t('Round corners') : 'sides' in patch ? t('Change sides') : 'arrow' in patch ? t('Arrow head') : t('Change shape')
     changeShape(label, (s) => ({ geometry: { ...s.geometry, ...patch } }), (d) => ({ ...d, geometry: { ...d.geometry, ...patch } }), `shape-${Object.keys(patch)[0]}`)
   }
 
   function changeOutlineWidth(width: number) {
     changeShape(
-      shapeIsLine ? 'Line thickness' : 'Outline width',
+      shapeIsLine ? t('Line thickness') : t('Outline width'),
       (s) => ({ outline: width > 0 || shapeIsLine ? { color: s.outline?.color ?? '#1b1d23', width } : null }),
       (d) => (shapeIsLine ? { ...d, line: { ...d.line, width } } : { ...d, outline: width > 0 ? { color: d.outline?.color ?? '#1b1d23', width } : null }),
       'shape-outline-width',
@@ -759,7 +770,7 @@ export default function App() {
     editor.change(label, (doc) => ({ ...doc, layers: doc.layers.map((l) => (ids.includes(l.id) ? layerInFrame(l, from, to) : l)) }), { bytes })
   }
 
-  const KEEP_TOGETHER_HINT = 'Pick two or more things first: drag a box around them on your design, or hold Shift and click each one.'
+  const KEEP_TOGETHER_HINT = t('Pick two or more things first: drag a box around them on your design, or hold Shift and click each one.')
 
   // A name for things kept together, from what's in it: "Circle + Star", or "Circle + 2 more".
   function groupName(d: EditorDocument, ids: string[]): string {
@@ -768,14 +779,14 @@ export default function App() {
       if (ids.includes(layer.id)) names.set(layer.group?.id ?? layer.id, layer.group?.name ?? layer.name)
     }
     const [first, second] = names.values()
-    return names.size === 2 ? `${first} + ${second}` : `${first} + ${names.size - 1} more`
+    return names.size === 2 ? `${first} + ${second}` : t('{first} + {count} more', { first, count: names.size - 1 })
   }
 
   // Why the picked things can't be kept together, or null if they can.
   function keepTogetherBlocker(d: EditorDocument | null): string | null {
     const ids = manyIn(d)
     if (!d || !ids) return KEEP_TOGETHER_HINT
-    return thingCount(d, ids) < 2 ? 'They are already kept together.' : null
+    return thingCount(d, ids) < 2 ? t('They are already kept together.') : null
   }
 
   // The groups of what's picked, which Take apart lets go of.
@@ -793,39 +804,39 @@ export default function App() {
       const blocker = keepTogetherBlocker(d)
       if (!d || !ids || blocker) return problem(blocker ?? KEEP_TOGETHER_HINT)
       const name = groupName(d, ids)
-      editor.change('Keep together', (doc) => keepTogether(doc, ids, { id: createId('group'), name }))
-      inform(`Kept together as “${name}”. Click any part to pick it all; double-click to pick just one part.`)
+      editor.change(t('Keep together'), (doc) => keepTogether(doc, ids, { id: createId('group'), name }))
+      inform(t('Kept together as “{name}”. Click any part to pick it all; double-click to pick just one part.', { name }))
     },
     takeApart: () => {
       settle()
       const groups = pickedGroups(current())
-      if (groups.length === 0) return problem('Pick something kept together first.')
-      editor.change('Take apart', (d) => groups.reduce((doc, group) => takeApart(doc, group), d))
+      if (groups.length === 0) return problem(t('Pick something kept together first.'))
+      editor.change(t('Take apart'), (d) => groups.reduce((doc, group) => takeApart(doc, group), d))
     },
     tidyUp: () => {
       settle()
       const d = current()
       const ids = manyIn(d)
       if (!d || !ids || thingCount(d, ids) < 2) return problem(KEEP_TOGETHER_HINT)
-      editor.change('Tidy up', (doc) => tidyUp(doc, ids))
-      if (current() === d) inform('They are already neat.')
+      editor.change(t('Tidy up'), (doc) => tidyUp(doc, ids))
+      if (current() === d) inform(t('They are already neat.'))
     },
     lineUp: (edge: LineUpEdge) => {
       settle()
       const d = current()
       const ids = targets()
-      if (!d || ids.length === 0) return problem('Pick something on your design first.')
-      if (ids.length === 1 && !usableLayer('line it up')) return
+      if (!d || ids.length === 0) return problem(t('Pick something on your design first.'))
+      if (ids.length === 1 && !usableLayer(t('line it up'))) return
       editor.change(LINE_UP_LABELS[edge], (doc) => lineUp(doc, ids, edge))
-      if (current() === d) inform('It is already lined up.')
+      if (current() === d) inform(t('It is already lined up.'))
     },
     spreadOut: (axis: 'x' | 'y') => {
       settle()
       const d = current()
       const ids = manyIn(d)
-      if (!d || !ids || thingCount(d, ids) < 3) return problem('Pick three or more things first, to space them evenly.')
-      editor.change(axis === 'x' ? 'Space evenly across' : 'Space evenly down', (doc) => spreadOut(doc, ids, axis))
-      if (current() === d) inform('They are already evenly spaced.')
+      if (!d || !ids || thingCount(d, ids) < 3) return problem(t('Pick three or more things first, to space them evenly.'))
+      editor.change(axis === 'x' ? t('Space evenly across') : t('Space evenly down'), (doc) => spreadOut(doc, ids, axis))
+      if (current() === d) inform(t('They are already evenly spaced.'))
     },
   }
 
@@ -853,7 +864,7 @@ export default function App() {
   function changeBlend(mode: BlendMode) {
     const layer = effectsLayer
     if (!layer) return
-    editor.change(mode === 'normal' ? 'Mix normally' : `Mix: ${blendInfo(mode).name}`, (d) => updateLayer(d, layer.id, { blend: mode === 'normal' ? undefined : mode }))
+    editor.change(mode === 'normal' ? t('Mix normally') : t('Mix: {mode}', { mode: blendInfo(mode).name }), (d) => updateLayer(d, layer.id, { blend: mode === 'normal' ? undefined : mode }))
   }
 
   function colorEffect(hex: string) {
@@ -862,7 +873,7 @@ export default function App() {
     const effect = kind && layer?.effects?.[kind]
     if (!layer || !kind || !effect) return
     rememberColor(hex)
-    changeEffects({ ...layer.effects!, [kind]: { ...effect, color: hex } }, `${kind[0].toUpperCase()}${kind.slice(1)} color`, `${kind}-color`)
+    changeEffects({ ...layer.effects!, [kind]: { ...effect, color: hex } }, kind === 'shadow' ? t('Shadow color') : kind === 'glow' ? t('Glow color') : t('Outline color'), `${kind}-color`)
   }
 
   // Text: typed right on the design. The Text panel changes the text being typed, or the text
@@ -933,7 +944,7 @@ export default function App() {
     const layer = current()?.layers.find((l) => l.id === layerId)
     if (layer?.kind !== 'text') return
     if (!layer.visible) {
-      problem(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then change it.`)
+      problem(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then change it.', { name: layer.name }))
       return
     }
     pickOne(layerId)
@@ -953,12 +964,12 @@ export default function App() {
     const named = { ...layer, name: autoNamed ? textName(layer.text) : original.name }
     if (edit.isNew) {
       if (empty) return
-      editor.change('Add text', (d) => ({ ...insertLayerAboveActive(d, named), selection: null }))
+      editor.change(t('Add text'), (d) => ({ ...insertLayerAboveActive(d, named), selection: null }))
       setToolState('move')
       return
     }
-    if (empty) editor.change('Delete text', (d) => removeLayer(d, layer.id))
-    else if (!original || !sameText(layer, original) || named.name !== original.name) editor.change('Edit text', (d) => replaceLayer(d, named))
+    if (empty) editor.change(t('Delete text'), (d) => removeLayer(d, layer.id))
+    else if (!original || !sameText(layer, original) || named.name !== original.name) editor.change(t('Edit text'), (d) => replaceLayer(d, named))
   }
 
   function changeTextStyle(patch: Partial<TextStyle>, label: string, mergeKey?: string) {
@@ -989,11 +1000,11 @@ export default function App() {
     const many = textEditRef.current ? null : manyIn(current())
     const letters = many ? (current()?.layers.flatMap((l) => (many.includes(l.id) && l.kind === 'text' ? [l.text] : [])).join('') ?? '') : (target?.text ?? '')
     await loadFont({ ...base, font: id, weight }, letters || 'Aא')
-    changeTextStyle({ font: id, weight }, 'Change font')
+    changeTextStyle({ font: id, weight }, t('Change font'))
   }
 
   function changeWrap(wrap: boolean) {
-    const label = wrap ? 'Wrap text in a box' : 'Fit box to text'
+    const label = wrap ? t('Wrap text in a box') : t('Fit box to text')
     if (textEditRef.current) {
       updateTextEdit((layer) => changeText(layer, { wrap }))
       return
@@ -1022,7 +1033,7 @@ export default function App() {
       { bytes: canvasBytes(session.layer.canvas) + canvasBytes(session.source) },
     )
     if (tooBig) {
-      problem('That would be too big to draw. Try making it a little smaller.')
+      problem(t('That would be too big to draw. Try making it a little smaller.'))
       return false
     }
     setTransformEdit(null)
@@ -1037,7 +1048,7 @@ export default function App() {
     const d = current()
     if (!crop || !d || isIdentity(crop.box, fullFrame(d))) return
     const rect = cropRect(crop.box)
-    editor.change('Crop', (doc) => cropDocument(doc, rect))
+    editor.change(t('Crop'), (doc) => cropDocument(doc, rect))
     // Keep the part you kept exactly where it was on screen.
     setViewport((v) => ({ ...v, panX: v.panX + rect.x * v.zoom, panY: v.panY + rect.y * v.zoom }))
     setCropEdit(null)
@@ -1120,7 +1131,7 @@ export default function App() {
       if (!d) return
       const box = placementBox(canvas, d, at ?? { x: d.width / 2, y: d.height / 2 })
       const layer: PixelLayer = { ...layerFromCanvas(nameFromFile(file), canvas), box }
-      editor.change('Add photo', (doc) => ({ ...insertLayerAboveActive(doc, layer), selection: null }), { bytes: canvasBytes(canvas) })
+      editor.change(t('Add photo'), (doc) => ({ ...insertLayerAboveActive(doc, layer), selection: null }), { bytes: canvasBytes(canvas) })
       setTool('move')
     } catch (e) {
       problem(errorMessage(e))
@@ -1132,10 +1143,10 @@ export default function App() {
     try {
       const canvas = await imageFileToCanvas(file)
       settle()
-      editor.change('Put photo in shape', (d) => updateShape(d, layerId, { fill: { kind: 'photo', canvas, zoom: 1, x: 0, y: 0 } }), { bytes: canvasBytes(canvas) })
+      editor.change(t('Put photo in shape'), (d) => updateShape(d, layerId, { fill: { kind: 'photo', canvas, zoom: 1, x: 0, y: 0 } }), { bytes: canvasBytes(canvas) })
       editor.select(layerId)
       setTool('move')
-      inform('The photo fills the shape. Use Photo size and Move photo in the Shape panel to show the part you want.')
+      inform(t('The photo fills the shape. Use Photo size and Move photo in the Shape panel to show the part you want.'))
     } catch (e) {
       problem(errorMessage(e))
     }
@@ -1189,7 +1200,7 @@ export default function App() {
   async function openSaved(design: SavedDesign) {
     try {
       const file = await loadDesign(design.id)
-      if (!file) throw new Error(`“${design.name}” isn't in this browser anymore. It may have been deleted in another tab.`)
+      if (!file) throw new Error(t("“{name}” isn't in this browser anymore. It may have been deleted in another tab.", { name: design.name }))
       const next = await decodeProject(file, design.id)
       await leaveDesign(() => showDocument(next, true))
     } catch (e) {
@@ -1254,7 +1265,7 @@ export default function App() {
       height: Math.ceil(marks.canvas.height + margin * 2),
     })
     if (!area) return
-    editor.paint('Fix spots', layerId, area, (ctx, l) => healRegion(ctx, l, area, marks))
+    editor.paint(t('Fix spots'), layerId, area, (ctx, l) => healRegion(ctx, l, area, marks))
   }
 
   // A brush stroke where nothing can be painted on (the page, a shape, text, a locked picture) goes
@@ -1313,24 +1324,24 @@ export default function App() {
     const shape = layerAt(d, point)
     if (shape?.kind === 'text') {
       editor.select(shape.id)
-      editor.change('Color text', (doc) => replaceLayer(doc, { ...shape, style: { ...shape.style, color } }))
+      editor.change(t('Color text'), (doc) => replaceLayer(doc, { ...shape, style: { ...shape.style, color } }))
       rememberColor(color)
       return
     }
     if (shape?.kind === 'shape' && canFill(shape.geometry)) {
       editor.select(shape.id)
-      editor.change('Fill shape', (doc) => updateShape(doc, shape.id, { fill: { kind: 'color', color } }))
+      editor.change(t('Fill shape'), (doc) => updateShape(doc, shape.id, { fill: { kind: 'color', color } }))
       rememberColor(color)
       return
     }
     if (layer && !layer.visible) {
-      problem(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then fill again.`)
+      problem(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then fill again.', { name: layer.name }))
       return
     }
     const target = drawingTarget()
     // On empty paper, with no drawing picked, the bucket colors the page itself.
     if (!target && !d.selection && sampleColor({ ...d, background: null }, point.x, point.y) === null) {
-      editor.change('Page color', (doc) => ({ ...doc, background: color }))
+      editor.change(t('Page color'), (doc) => ({ ...doc, background: color }))
       rememberColor(color)
       return
     }
@@ -1344,8 +1355,8 @@ export default function App() {
       ctx.globalCompositeOperation = 'destination-over'
       ctx.drawImage(rim.canvas, rim.x - l.x, rim.y - l.y)
     }
-    if (target) editor.paint('Fill area', target.id, area, draw)
-    else paintNewDrawing('Fill area', draw)
+    if (target) editor.paint(t('Fill area'), target.id, area, draw)
+    else paintNewDrawing(t('Fill area'), draw)
     rememberColor(color)
   }
 
@@ -1369,11 +1380,11 @@ export default function App() {
     const layer = d && activeLayer(d)
     if (!d) return null
     if (!layer) {
-      problem(`Pick something on your design first, then ${doing}.`)
+      problem(t('Pick something on your design first, then {doing}.', { doing }))
       return null
     }
     if (!layer.visible) {
-      problem(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then ${doing} again.`)
+      problem(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then {doing} again.', { name: layer.name, doing }))
       return null
     }
     return layer
@@ -1385,8 +1396,8 @@ export default function App() {
     if (layer && layer.kind !== 'raster') {
       problem(
         layer.kind === 'text'
-          ? `"${layer.name}" is text, so you can't ${doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.`
-          : `"${layer.name}" is a shape, so you can't ${doing} part of it. Change it with Arrange and the Shape panel, or pick a paint layer.`,
+          ? t("“{name}” is text, so you can't {doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.", { name: layer.name, doing })
+          : t("“{name}” is a shape, so you can't {doing} part of it. Change it with Arrange and the Shape panel, or pick a paint layer.", { name: layer.name, doing }),
       )
       return null
     }
@@ -1411,7 +1422,7 @@ export default function App() {
       if (!d) return
       const { key, picture } = aiPicture(d)
       const stop = onAiProgress((share) =>
-        setNotice({ message: `Getting the magic selection ready. This happens only the first time: ${Math.round(share * 100)}%`, tone: 'info' }),
+        setNotice({ message: t('Getting the magic selection ready. This happens only the first time: {percent}%', { percent: Math.round(share * 100) }), tone: 'info' }),
       )
       prepareThing(key, picture)
         .catch(() => {})
@@ -1431,21 +1442,21 @@ export default function App() {
     const points = 'point' in target ? [{ x: target.point.x * sx, y: target.point.y * sy, inside: true }] : []
     const box: [number, number, number, number] | undefined =
       'box' in target ? [target.box.x * sx, target.box.y * sy, (target.box.x + target.box.width) * sx, (target.box.y + target.box.height) * sy] : undefined
-    setNotice({ message: 'Finding it…', tone: 'info' })
+    setNotice({ message: t('Finding it…'), tone: 'info' })
     const stop = onAiProgress((share) =>
-      setNotice({ message: `Getting the magic selection ready. This happens only the first time: ${Math.round(share * 100)}%`, tone: 'info' }),
+      setNotice({ message: t('Getting the magic selection ready. This happens only the first time: {percent}%', { percent: Math.round(share * 100) }), tone: 'info' }),
     )
     try {
       const found = await findThing(key, picture, points, box)
       const ops = maskToOps(found.mask, found.width, found.height, d.width / found.width, d.height / found.height)
       if (ops.length === 0) {
-        problem('Nothing was found there. Click right on the thing you want, or drag a box around it.')
+        problem(t('Nothing was found there. Click right on the thing you want, or drag a box around it.'))
         return
       }
       setNotice(null)
-      setSelection(mode === 'add' ? 'Add to selection' : mode === 'subtract' ? 'Remove from selection' : 'Magic select', (doc) => combineFound(doc.selection, ops, mode))
+      setSelection(mode === 'add' ? t('Add to selection') : mode === 'subtract' ? t('Remove from selection') : t('Magic select'), (doc) => combineFound(doc.selection, ops, mode))
     } catch {
-      problem("The magic selection couldn't start. Check that you're online, then try again.")
+      problem(t("The magic selection couldn't start. Check that you're online, then try again."))
     } finally {
       stop()
     }
@@ -1468,9 +1479,9 @@ export default function App() {
       return ctx.getImageData(0, 0, width, height)
     }
     const key = `layer:${canvasKey(source)}:${layerVersion(layer)}:${width}x${height}`
-    setNotice({ message: 'Removing the background…', tone: 'info' })
+    setNotice({ message: t('Removing the background…'), tone: 'info' })
     const stop = onAiProgress((share) =>
-      setNotice({ message: `Getting the AI ready. This happens only the first time: ${Math.round(share * 100)}%`, tone: 'info' }),
+      setNotice({ message: t('Getting the AI ready. This happens only the first time: {percent}%', { percent: Math.round(share * 100) }), tone: 'info' }),
     )
     try {
       // A box just inside the edges asks for the main thing in the photo.
@@ -1480,7 +1491,7 @@ export default function App() {
       let kept = 0
       for (let i = 0; i < size; i++) kept += found.mask[i] ? 1 : 0
       if (kept < size * 0.005 || kept > size * 0.97) {
-        problem('The AI could not tell what to keep in this photo. Try Select → Magic: click the thing, then Invert and Delete.')
+        problem(t('The AI could not tell what to keep in this photo. Try Select → Magic: click the thing, then Invert and Delete.'))
         return
       }
       const mask = createCanvas(found.width, found.height)
@@ -1496,13 +1507,13 @@ export default function App() {
       ctx.imageSmoothingQuality = 'high'
       ctx.drawImage(mask, 0, 0, source.width, source.height)
       setNotice(null)
-      editor.change('Remove background', (next) => {
+      editor.change(t('Remove background'), (next) => {
         const now = next.layers.find((l) => l.id === layerId)
         return now && now.kind === 'raster' && now.canvas === source ? replaceLayer(next, { ...now, canvas: out }) : next
       }, { bytes: canvasBytes(out) })
-      inform('Background removed. Press Undo if you want it back.')
+      inform(t('Background removed. Press Undo if you want it back.'))
     } catch {
-      problem("Remove background couldn't start. Check that you're online, then try again.")
+      problem(t("Remove background couldn't start. Check that you're online, then try again."))
     } finally {
       stop()
     }
@@ -1514,12 +1525,12 @@ export default function App() {
     const layer = d && activeLayer(d)
     if (!d) return null
     if (!layer) {
-      problem('Pick a drawing or photo first (in the Layers panel or with Arrange), then copy part of it.')
+      problem(t('Pick a drawing or photo first (in the Layers panel or with Arrange), then copy part of it.'))
       return null
     }
     const piece = copySelected(layer, d)
     if (!piece || isBlank(piece.canvas)) {
-      problem(d.selection ? `There is nothing in the selected area on "${layer.name}".` : `"${layer.name}" is empty, so there is nothing to copy.`)
+      problem(d.selection ? t('There is nothing in the selected area on “{name}”.', { name: layer.name }) : t('“{name}” is empty, so there is nothing to copy.', { name: layer.name }))
       return null
     }
     return piece
@@ -1531,7 +1542,7 @@ export default function App() {
     const d = current()
     if (!d) {
       // With no design open, the pasted picture becomes a new design.
-      showDocument(createDocumentFromImage('Pasted picture', canvas, canvas.width, canvas.height))
+      showDocument(createDocumentFromImage(t('Pasted picture'), canvas, canvas.width, canvas.height))
       return
     }
     const onDesign =
@@ -1543,11 +1554,11 @@ export default function App() {
     // A copy, so changing the pasted layer never changes what's on the clipboard.
     const copy = createCanvas(canvas.width, canvas.height)
     getContext2d(copy).drawImage(canvas, 0, 0)
-    editor.change('Paste', (doc) => ({ ...insertLayerAboveActive(doc, layerFromCanvas('Pasted', copy, x, y)), selection: null }), {
+    editor.change(t('Paste'), (doc) => ({ ...insertLayerAboveActive(doc, layerFromCanvas(t('Pasted'), copy, x, y)), selection: null }), {
       bytes: canvasBytes(copy),
     })
     setTool('move')
-    inform('Pasted on a new layer. Drag it to put it where you want.')
+    inform(t('Pasted on a new layer. Drag it to put it where you want.'))
   }
 
   async function pasteFile(file: File) {
@@ -1563,14 +1574,14 @@ export default function App() {
   }
 
   function moveBy(dx: number, dy: number, mergeKey?: string) {
-    const layer = usableLayer('move it')
+    const layer = usableLayer(t('move it'))
     const d = current()
     if (!layer || !d) return
     if (d.selection && layer.kind !== 'raster') {
-      problem('Only pictures and paint can be moved part by part. To move the whole thing, clear the selection first.')
+      problem(t('Only pictures and paint can be moved part by part. To move the whole thing, clear the selection first.'))
       return
     }
-    editor.change(d.selection ? 'Move selected area' : 'Move layer', (doc) => startMove(doc)?.commit(doc, dx, dy) ?? doc, {
+    editor.change(d.selection ? t('Move selected area') : t('Move layer'), (doc) => startMove(doc)?.commit(doc, dx, dy) ?? doc, {
       mergeKey,
       bytes: d.selection ? layerBytes(layer) : 0,
     })
@@ -1593,7 +1604,7 @@ export default function App() {
     },
     add: () => {
       settle()
-      editor.change('New layer', (d) => insertLayerAboveActive(d, createLayer(nextLayerName(d.layers), d.width, d.height)))
+      editor.change(t('New layer'), (d) => insertLayerAboveActive(d, createLayer(nextLayerName(d.layers), d.width, d.height)))
     },
     duplicate: () => {
       settle()
@@ -1607,7 +1618,7 @@ export default function App() {
         return made
       }
       const bytes = d.layers.reduce((sum, l) => (ids.includes(l.id) ? sum + layerBytes(l) : sum), 0)
-      editor.change(ids.length > 1 ? 'Duplicate' : 'Duplicate layer', (doc) => duplicateLayers(doc, ids, copy, (g) => ({ id: createId('group'), name: `${g.name} copy` })), { bytes })
+      editor.change(ids.length > 1 ? t('Duplicate') : t('Duplicate layer'), (doc) => duplicateLayers(doc, ids, copy, (g) => ({ id: createId('group'), name: t('{name} copy', { name: g.name }) })), { bytes })
       if (copies.length > 1) pickMany(copies)
     },
     remove: () => {
@@ -1616,17 +1627,17 @@ export default function App() {
       const ids = targets()
       if (!d || ids.length === 0) return
       const bytes = d.layers.reduce((sum, l) => (ids.includes(l.id) ? sum + layerBytes(l) : sum), 0)
-      editor.change(ids.length > 1 ? 'Delete' : 'Delete layer', (doc) => removeLayers(doc, ids), { bytes })
+      editor.change(ids.length > 1 ? t('Delete') : t('Delete layer'), (doc) => removeLayers(doc, ids), { bytes })
     },
     move: (direction: 1 | -1) => {
       settle()
       const ids = targets()
-      editor.change(direction > 0 ? 'Bring forward' : 'Send backward', (d) => moveLayersBy(d, ids, direction))
+      editor.change(direction > 0 ? t('Bring forward') : t('Send backward'), (d) => moveLayersBy(d, ids, direction))
     },
     toEnd: (end: 'front' | 'back') => {
       settle()
       const ids = targets()
-      editor.change(end === 'front' ? 'Bring to front' : 'Send to back', (d) => moveLayersTo(d, ids, end))
+      editor.change(end === 'front' ? t('Bring to front') : t('Send to back'), (d) => moveLayersTo(d, ids, end))
     },
     // Picks the page, so the Color panel colors it.
     pickPage: () => {
@@ -1635,21 +1646,21 @@ export default function App() {
       setTool('move')
     },
     seeThrough: (seeThrough: boolean) =>
-      editor.change(seeThrough ? 'See-through page' : 'Page color', (d) => ({ ...d, background: seeThrough ? null : '#ffffff' })),
-    rename: (layerId: string, name: string) => editor.change('Rename layer', (d) => updateLayer(d, layerId, { name })),
+      editor.change(seeThrough ? t('See-through page') : t('Page color'), (d) => ({ ...d, background: seeThrough ? null : '#ffffff' })),
+    rename: (layerId: string, name: string) => editor.change(t('Rename layer'), (d) => updateLayer(d, layerId, { name })),
     // Changes the opacity of everything picked together with the layer.
     opacity: (layerId: string, opacity: number) => {
       const ids = picked?.includes(layerId) ? picked : [layerId]
-      editor.change('Change layer opacity', (d) => ids.reduce((doc, id) => updateLayer(doc, id, { opacity }), d), { mergeKey: `opacity:${ids.join()}` })
+      editor.change(t('Change layer opacity'), (d) => ids.reduce((doc, id) => updateLayer(doc, id, { opacity }), d), { mergeKey: `opacity:${ids.join()}` })
     },
     toggleVisibility: (layerId: string) => {
       settle()
       const layer = current()?.layers.find((l) => l.id === layerId)
-      if (layer) editor.change(layer.visible ? 'Hide layer' : 'Show layer', (d) => updateLayer(d, layerId, { visible: !layer.visible }))
+      if (layer) editor.change(layer.visible ? t('Hide layer') : t('Show layer'), (d) => updateLayer(d, layerId, { visible: !layer.visible }))
     },
     toggleLock: (layerId: string) => {
       const layer = current()?.layers.find((l) => l.id === layerId)
-      if (layer) editor.change(layer.locked ? 'Unlock layer' : 'Lock layer', (d) => updateLayer(d, layerId, { locked: !layer.locked }))
+      if (layer) editor.change(layer.locked ? t('Unlock layer') : t('Lock layer'), (d) => updateLayer(d, layerId, { locked: !layer.locked }))
     },
     editAdjust: (layerId: string) => {
       settle()
@@ -1668,13 +1679,13 @@ export default function App() {
       settle()
       const members = current()?.layers.filter((l) => l.group?.id === groupId) ?? []
       const visible = !members.some((l) => l.visible)
-      editor.change(visible ? 'Show layer' : 'Hide layer', (d) => members.reduce((doc, l) => updateLayer(doc, l.id, { visible }), d))
+      editor.change(visible ? t('Show layer') : t('Hide layer'), (d) => members.reduce((doc, l) => updateLayer(doc, l.id, { visible }), d))
     },
     renameGroup: (groupId: string, name: string) =>
-      editor.change('Rename layer', (d) => ({ ...d, layers: d.layers.map((l) => (l.group?.id === groupId ? { ...l, group: { id: groupId, name } } : l)) })),
+      editor.change(t('Rename layer'), (d) => ({ ...d, layers: d.layers.map((l) => (l.group?.id === groupId ? { ...l, group: { id: groupId, name } } : l)) })),
   }
 
-  const pasteHint = `Press ${shortcut('mod', 'V')} to paste it as a new layer.`
+  const pasteHint = t('Press {keys} to paste it as a new layer.', { keys: shortcut('mod', 'V') })
 
   type ExtraCommands = {
     nudge: (dx: number, dy: number) => void
@@ -1695,9 +1706,9 @@ export default function App() {
     newDesign: () => {
       settle()
       // The dialog opens right away; its suggested name is corrected once the kept designs are read.
-      setNewDesignName(nextNumberedName('My design', [], designCount))
+      setNewDesignName(nextNumberedName(t('My design'), [], designCount))
       setDialog('new')
-      void savedNames().then((names) => setNewDesignName(nextNumberedName('My design', names, designCount)))
+      void savedNames().then((names) => setNewDesignName(nextNumberedName(t('My design'), names, designCount)))
     },
     open: () => pickFile('open'),
     addPhoto: () => {
@@ -1756,36 +1767,36 @@ export default function App() {
       settle()
       const d = current()
       if (!d?.selection) {
-        problem('Select an area first, with the Select tool.')
+        problem(t('Select an area first, with the Select tool.'))
         return
       }
-      const layer = paintableLayer('cut')
+      const layer = paintableLayer(t('cut'))
       const area = editArea(d)
       const piece = layer && selectedPiece()
       if (!layer || !piece || !area) return
       setClipboard(piece)
-      editor.paint('Cut', layer.id, area, (ctx, l) => clearSelected(ctx, l, d))
+      editor.paint(t('Cut'), layer.id, area, (ctx, l) => clearSelected(ctx, l, d))
       inform(`Cut. ${pasteHint}`)
     },
     paste: () => {
       settle()
       const piece = getClipboard()
       if (piece) pastePiece(piece)
-      else problem(`Nothing to paste yet. Copy part of your design first, or copy a picture in another program and press ${shortcut('mod', 'V')}.`)
+      else problem(t('Nothing to paste yet. Copy part of your design first, or copy a picture in another program and press {keys}.', { keys: shortcut('mod', 'V') }))
     },
     pasteFile: (file) => void pasteFile(file),
     openFile: (file) => void openFile(file),
     selectAll: () => {
       settle()
-      if (current()) setSelection('Select all', (d) => selectAll(d.width, d.height))
+      if (current()) setSelection(t('Select all'), (d) => selectAll(d.width, d.height))
     },
     deselect: () => {
       settle()
-      if (current()?.selection) setSelection('Deselect', () => null)
+      if (current()?.selection) setSelection(t('Deselect'), () => null)
     },
     invert: () => {
       settle()
-      if (current()) setSelection('Invert selection', (d) => invertSelection(d.selection, d.width, d.height))
+      if (current()) setSelection(t('Invert selection'), (d) => invertSelection(d.selection, d.width, d.height))
     },
     fill: () => {
       settle()
@@ -1794,20 +1805,20 @@ export default function App() {
       if (!d || !area) return
       // On a drawing or photo, it fills there; otherwise on a new drawing.
       const layer = drawingTarget()
-      if (layer) editor.paint('Fill with color', layer.id, area, (ctx, l) => fillSelected(ctx, l, d, color))
-      else paintNewDrawing('Fill with color', (ctx, l) => fillSelected(ctx, l, d, color))
+      if (layer) editor.paint(t('Fill with color'), layer.id, area, (ctx, l) => fillSelected(ctx, l, d, color))
+      else paintNewDrawing(t('Fill with color'), (ctx, l) => fillSelected(ctx, l, d, color))
       rememberColor(color)
     },
     deleteArea: () => {
       settle()
       const d = current()
       if (!d?.selection) {
-        problem('Select an area first, with the Select tool. To remove a whole layer, use Delete layer.')
+        problem(t('Select an area first, with the Select tool. To remove a whole layer, use Delete layer.'))
         return
       }
-      const layer = paintableLayer('delete')
+      const layer = paintableLayer(t('delete'))
       const area = editArea(d)
-      if (layer && area) editor.paint('Delete selected area', layer.id, area, (ctx, l) => clearSelected(ctx, l, d))
+      if (layer && area) editor.paint(t('Delete selected area'), layer.id, area, (ctx, l) => clearSelected(ctx, l, d))
     },
     toNewLayer: () => {
       settle()
@@ -1816,8 +1827,8 @@ export default function App() {
       const piece = selectedPiece()
       if (!layer || !piece) return
       editor.change(
-        'Copy to new layer',
-        (doc) => ({ ...insertLayerAboveActive(doc, layerFromCanvas(`${layer.name} copy`, piece.canvas, piece.x, piece.y)), selection: null }),
+        t('Copy to new layer'),
+        (doc) => ({ ...insertLayerAboveActive(doc, layerFromCanvas(t('{name} copy', { name: layer.name }), piece.canvas, piece.x, piece.y)), selection: null }),
         { bytes: canvasBytes(piece.canvas) },
       )
     },
@@ -1826,27 +1837,27 @@ export default function App() {
       const many = manyIn(current())
       if (many) {
         const before = current()
-        editor.change('Center on design', (doc) => centerTogether(doc, many))
-        if (current() === before) inform('They are already in the middle.')
+        editor.change(t('Center on design'), (doc) => centerTogether(doc, many))
+        if (current() === before) inform(t('They are already in the middle.'))
         return
       }
-      const layer = usableLayer('center it')
+      const layer = usableLayer(t('center it'))
       const d = current()
       if (!d || !layer) return
       const box = arrangeBox(layer)
       const bounds = d.selection ? selectionInfo(d.selection, d.width, d.height).bounds : box && polygonBounds(boxCorners(box))
       if (!bounds) {
-        problem(`"${layer.name}" is empty, so there is nothing to center.`)
+        problem(t('“{name}” is empty, so there is nothing to center.', { name: layer.name }))
         return
       }
       const dx = Math.round((d.width - bounds.width) / 2 - bounds.x)
       const dy = Math.round((d.height - bounds.height) / 2 - bounds.y)
-      if (dx === 0 && dy === 0) inform('It is already in the middle.')
+      if (dx === 0 && dy === 0) inform(t('It is already in the middle.'))
       else moveBy(dx, dy)
     },
     nudge: (dx, dy) => {
       const many = manyIn(current())
-      if (many) editor.change('Move', (d) => moveTogether(d, many, dx, dy), { mergeKey: 'nudge' })
+      if (many) editor.change(t('Move'), (d) => moveTogether(d, many, dx, dy), { mergeKey: 'nudge' })
       else moveBy(dx, dy, 'nudge')
     },
     hasSelection: () => !!current()?.selection,
@@ -1857,10 +1868,10 @@ export default function App() {
     isTyping: () => textEditRef.current !== null,
     deleteObject: () => {
       if (manyIn(current())) return layers.remove()
-      const layer = usableLayer('delete it')
+      const layer = usableLayer(t('delete it'))
       if (!layer) return
       if (layer.locked) {
-        problem(`"${layer.name}" is locked. Click its lock in the Layers panel to unlock it first.`)
+        problem(t('“{name}” is locked. Click its lock in the Layers panel to unlock it first.', { name: layer.name }))
         return
       }
       layers.remove()
@@ -1891,16 +1902,16 @@ export default function App() {
       const d = current()
       const bounds = d?.selection && selectionInfo(d.selection, d.width, d.height).bounds
       if (!bounds) {
-        problem('Select an area first, with the Select tool.')
+        problem(t('Select an area first, with the Select tool.'))
         return
       }
       settle()
-      editor.change('Crop to selection', (doc) => cropDocument({ ...doc, selection: null }, bounds))
+      editor.change(t('Crop to selection'), (doc) => cropDocument({ ...doc, selection: null }, bounds))
       setViewport((v) => ({ ...v, panX: v.panX + bounds.x * v.zoom, panY: v.panY + bounds.y * v.zoom }))
     },
-    rotateDesign: (direction) => changeWholeDesign(direction > 0 ? 'Turn design right' : 'Turn design left', (d) => rotateDocument(d, direction)),
+    rotateDesign: (direction) => changeWholeDesign(direction > 0 ? t('Turn design right') : t('Turn design left'), (d) => rotateDocument(d, direction)),
     flipDesign: (axis) =>
-      changeWholeDesign(axis === 'horizontal' ? 'Flip design left to right' : 'Flip design upside down', (d) => flipDocument(d, axis)),
+      changeWholeDesign(axis === 'horizontal' ? t('Flip design left to right') : t('Flip design upside down'), (d) => flipDocument(d, axis)),
     layerAdd: layers.add,
     layerDuplicate: layers.duplicate,
     layerUp: () => layers.move(1),
@@ -1945,7 +1956,7 @@ export default function App() {
       undoLabel: editor.undoLabel,
       redoLabel: editor.redoLabel,
       app,
-      organize: { keepTogether: keepTogetherBlocker(doc), takeApart: pickedGroups(doc).length === 0 ? 'Pick something kept together first.' : null, picked },
+      organize: { keepTogether: keepTogetherBlocker(doc), takeApart: pickedGroups(doc).length === 0 ? t('Pick something kept together first.') : null, picked },
     },
     commands,
   )
@@ -2114,11 +2125,11 @@ export default function App() {
   const hintTool: ToolId = spaceHeld ? 'hand' : altHeld && tool === 'brush' ? 'picker' : tool
   const hintExtra =
     doc?.selection && (hintTool === 'brush' || hintTool === 'eraser' || hintTool === 'adjust')
-      ? 'Only the selected area changes.'
+      ? t('Only the selected area changes.')
       : doc?.selection && hintTool === 'move'
-        ? 'The selected part moves.'
+        ? t('The selected part moves.')
         : photoMoveOn
-          ? 'Drag on the shape to slide its photo.'
+          ? t('Drag on the shape to slide its photo.')
           : undefined
 
   const box: BoxEditing | null =
@@ -2173,14 +2184,16 @@ export default function App() {
       target: null,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
-    if (!doc) return { ...base, blocked: 'Click anything on your design to pick it.' }
-    if (!activeNow) return { ...base, blocked: 'The page is picked: choose its color in the Color panel. Click anything on your design to pick it.' }
+    if (!doc) return { ...base, blocked: t('Click anything on your design to pick it.') }
+    if (!activeNow) return { ...base, blocked: t('The page is picked: choose its color in the Color panel. Click anything on your design to pick it.') }
     if (doc.selection) {
       if (!transform) {
         const blocked =
           activeNow.kind !== 'raster'
-            ? `${activeNow.kind === 'text' ? 'Text' : 'Shapes'} moves as a whole. Press ${shortcut('mod', 'D')} to clear the selection, then drag it.`
-            : `There is nothing in the selected area on “${activeNow.name}”.`
+            ? activeNow.kind === 'text'
+              ? t('Text moves as a whole. Press {keys} to clear the selection, then drag it.', { keys: shortcut('mod', 'D') })
+              : t('Shapes move as a whole. Press {keys} to clear the selection, then drag it.', { keys: shortcut('mod', 'D') })
+            : t('There is nothing in the selected area on “{name}”.', { name: activeNow.name })
         return { ...base, blocked }
       }
       const part = transform.box
@@ -2196,25 +2209,25 @@ export default function App() {
       const groups = pickedGroups(doc)
       // Exactly one thing kept together is picked, so it's called by its name.
       const one = groups.length === 1 && thingCount(doc, picked) === 1
-      const name = one ? (doc.layers.find((l) => l.group?.id === groups[0])?.group?.name ?? '') : `${thingCount(doc, picked)} things`
+      const name = one ? (doc.layers.find((l) => l.group?.id === groups[0])?.group?.name ?? '') : t('{count} things', { count: thingCount(doc, picked) })
       const placeAll = (to: TransformBox, label: string) => placeMany(picked, frame, to, label)
       return {
         ...base,
         kept: groups.length > 0,
         target: { kind: one ? 'group' : 'many', name, width: frame.width, height: frame.height, angle: 0 },
-        flip: (axis) => placeAll(flipBox(frame, axis), axis === 'horizontal' ? 'Flip left to right' : 'Flip upside down'),
-        rotate90: (direction) => placeAll(rotateBox90(frame, direction), direction > 0 ? 'Turn right' : 'Turn left'),
+        flip: (axis) => placeAll(flipBox(frame, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
+        rotate90: (direction) => placeAll(rotateBox90(frame, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       }
     }
-    if (!activeNow.visible) return { ...base, blocked: `“${activeNow.name}” is hidden. Click its eye in the Layers panel to show it.` }
-    if (activeNow.locked) return { ...base, locked: true, blocked: `“${activeNow.name}” is locked, so it doesn't move by accident.` }
+    if (!activeNow.visible) return { ...base, blocked: t('“{name}” is hidden. Click its eye in the Layers panel to show it.', { name: activeNow.name }) }
+    if (activeNow.locked) return { ...base, locked: true, blocked: t("“{name}” is locked, so it doesn't move by accident.", { name: activeNow.name }) }
     const objectBox = arrangeBox(activeNow)
-    if (!objectBox) return { ...base, blocked: `There is nothing on “${activeNow.name}” yet. Paint something, or click something else on your design to pick it.` }
+    if (!objectBox) return { ...base, blocked: t('There is nothing on “{name}” yet. Paint something, or click something else on your design to pick it.', { name: activeNow.name }) }
     return {
       ...base,
       target: { kind: 'object', name: activeNow.name, width: objectBox.width, height: objectBox.height, angle: degrees(objectBox) },
-      flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? 'Flip left to right' : 'Flip upside down'),
-      rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? 'Turn right' : 'Turn left'),
+      flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
+      rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
     }
   })()
@@ -2269,14 +2282,14 @@ export default function App() {
       : textColor !== null
       ? (hex: string) => {
           rememberColor(hex)
-          changeTextStyle({ color: hex }, 'Text color', 'text-color')
+          changeTextStyle({ color: hex }, t('Text color'), 'text-color')
         }
       : shapeColor !== null
         ? colorShape
         : pageColorOn
           ? (hex: string) => {
               rememberColor(hex)
-              editor.change('Page color', (d) => ({ ...d, background: hex }), { mergeKey: 'page-color' })
+              editor.change(t('Page color'), (d) => ({ ...d, background: hex }), { mergeKey: 'page-color' })
             }
           : setColor
 
@@ -2288,7 +2301,7 @@ export default function App() {
         saveStatus={autosave.status}
         saveProblem={autosave.problem}
         onRename={commands.renameDesign}
-        undoLabel={transformChanged ? 'Resize changes' : cropChanged ? 'Crop frame' : adjustChanged ? 'Adjustments' : editor.undoLabel}
+        undoLabel={transformChanged ? t('Resize changes') : cropChanged ? t('Crop frame') : adjustChanged ? t('Adjustments') : editor.undoLabel}
         redoLabel={transformChanged || cropChanged || adjustChanged ? null : editor.redoLabel}
         onUndo={commands.undo}
         onRedo={commands.redo}
@@ -2344,7 +2357,7 @@ export default function App() {
           reset: () => setCropEdit(null),
         }}
         adjust={{
-          target: doc && activeNow ? (doc.selection ? `the selected part of “${activeNow.name}”` : `“${activeNow.name}”`) : null,
+          target: doc && activeNow ? (doc.selection ? t('Changes the selected part of “{name}”', { name: activeNow.name }) : t('Changes “{name}”', { name: activeNow.name })) : null,
           blocked: adjustBlocked,
           changed: adjustChanged,
           comparing,
@@ -2403,7 +2416,7 @@ export default function App() {
                 onEditShape={editPoints}
                 photoMove={
                   photoMoveOn
-                    ? { onMove: (_id, x, y) => setPhotoFill({ x, y }, 'Move photo') }
+                    ? { onMove: (_id, x, y) => setPhotoFill({ x, y }, t('Move photo')) }
                     : null
                 }
                 textTool={textTool}
@@ -2426,7 +2439,7 @@ export default function App() {
           {dropActive && (
             <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-accent bg-accent-soft/80">
               <p className="text-[15px] font-medium text-accent">
-                {doc ? 'Drop a picture to add it, or drop it onto a shape to fill the shape' : 'Drop your picture or project to open it'}
+                {doc ? t('Drop a picture to add it, or drop it onto a shape to fill the shape') : t('Drop your picture or project to open it')}
               </p>
             </div>
           )}
@@ -2445,7 +2458,7 @@ export default function App() {
           )}
           {textPanelOn && !adjustOn && doc && (
             <TextPanel
-              title={pickedTexts > 1 && !textEdit ? `${pickedTexts} texts` : textTarget ? textTarget.name || 'Text' : 'New text'}
+              title={pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
               style={textTarget?.style ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
               wrap={textTarget?.wrap ?? false}
               hasRtl={!!textTarget && hasRtlLetters(textTarget.text)}
@@ -2457,7 +2470,7 @@ export default function App() {
           )}
           {shapeShown && !adjustOn && (
             <ShapePanel
-              title={pickedShapes > 1 ? `${pickedShapes} shapes` : editingShape ? editingShape.name : 'New shapes'}
+              title={pickedShapes > 1 ? t('{count} shapes', { count: pickedShapes }) : editingShape ? editingShape.name : t('New shapes')}
               editing={editingShape !== null}
               geometry={shapeShown.geometry}
               fill={shapeShown.fill}
@@ -2468,8 +2481,8 @@ export default function App() {
                 setColorTarget(target)
               }}
               onGeometry={changeGeometry}
-              onNoFill={() => changeShape('No fill', () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
-              onNoOutline={() => changeShape('No outline', () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
+              onNoFill={() => changeShape(t('No fill'), () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
+              onNoOutline={() => changeShape(t('No outline'), () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
               onOutlineWidth={changeOutlineWidth}
               onFillKind={changeFillKind}
               onGradient={changeGradient}
@@ -2486,9 +2499,9 @@ export default function App() {
                   ? {
                       zoom: editingShape.fill.zoom,
                       moving: photoMoving,
-                      onZoom: (zoom) => setPhotoFill({ zoom }, 'Photo size'),
+                      onZoom: (zoom) => setPhotoFill({ zoom }, t('Photo size')),
                       onToggleMove: () => setPhotoMoving(!photoMoving),
-                      onRemove: () => editor.change('Remove photo', (d) => updateShape(d, editingShape.id, { fill: { kind: 'color', color: DEFAULT_SHAPES.fill! } })),
+                      onRemove: () => editor.change(t('Remove photo'), (d) => updateShape(d, editingShape.id, { fill: { kind: 'color', color: DEFAULT_SHAPES.fill! } })),
                     }
                   : null
               }
@@ -2584,16 +2597,16 @@ export default function App() {
           onClose={() => setDialog(null)}
           onResize={(width, height) => {
             setDialog(null)
-            changeWholeDesign('Resize design', (d) => resizeDocument(d, width, height))
+            changeWholeDesign(t('Resize design'), (d) => resizeDocument(d, width, height))
           }}
         />
       )}
       {dialog === 'discard' && (
         <Dialog
-          title="Throw away your changes?"
-          subtitle={`${autosave.problem ?? "Your latest changes couldn't be kept in this browser."} If you continue, they will be lost. To keep them, choose Keep editing and then Download.`}
-          submitLabel="Throw away changes"
-          cancelLabel="Keep editing"
+          title={t("Throw away your changes?")}
+          subtitle={t('{problem} If you continue, they will be lost. To keep them, choose Keep editing and then Download.', { problem: autosave.problem ?? t("Your latest changes couldn't be kept in this browser.") })}
+          submitLabel={t("Throw away changes")}
+          cancelLabel={t("Keep editing")}
           danger
           onSubmit={() => {
             const action = pendingDiscardRef.current

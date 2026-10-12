@@ -1,4 +1,5 @@
 import type { Piece } from './pixels.ts'
+import { t } from '../i18n/i18n.ts'
 
 // Pixel Studio keeps its own copy of what you copied, with where it came from, so pasting puts
 // it back in the same spot. It also tries to put a picture on the computer's clipboard, so you
@@ -46,7 +47,7 @@ async function writeSystemClipboard(canvas: HTMLCanvasElement): Promise<boolean>
   try {
     if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') return false
     const blob = new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not copy'))), 'image/png'),
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(t('Could not copy')))), 'image/png'),
     )
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
     return true

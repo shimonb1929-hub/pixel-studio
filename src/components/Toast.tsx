@@ -1,4 +1,5 @@
 import { CircleAlert, CircleCheck, X } from 'lucide-react'
+import { t } from '../i18n/i18n.ts'
 
 export interface Notice {
   message: string
@@ -18,13 +19,13 @@ export function Toast({ notice, onDismiss }: { notice: Notice; onDismiss: () => 
     <div
       role={notice.tone === 'problem' ? 'alert' : 'status'}
       aria-live="polite"
-      className={`fixed bottom-6 left-1/2 z-50 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-start gap-3 rounded-xl border py-3 pl-4 pr-3 text-sm shadow-float ${tone.box}`}
+      className={`fixed bottom-6 left-1/2 z-50 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-start gap-3 rounded-xl border py-3 ps-4 pe-3 text-sm shadow-float ${tone.box}`}
     >
       <Icon size={18} className={`mt-px shrink-0 ${tone.icon}`} />
       <span className="max-w-md">{notice.message}</span>
       <button
         type="button"
-        aria-label="Dismiss"
+        aria-label={t("Dismiss")}
         onClick={onDismiss}
         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${tone.close}`}
       >

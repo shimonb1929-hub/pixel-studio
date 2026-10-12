@@ -4,6 +4,7 @@ import { validateDocumentSize } from '../editor/document.ts'
 import { Dialog, Field } from './Dialog.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { Button, inputClass } from './ui.tsx'
+import { t } from '../i18n/i18n.ts'
 
 interface ResizeDialogProps {
   width: number
@@ -15,11 +16,11 @@ interface ResizeDialogProps {
 const QUICK_SIZES = [25, 50, 200]
 
 function describeResize(width: number, height: number, newWidth: number, newHeight: number): string {
-  if (newWidth === width && newHeight === height) return 'This is the size it is now.'
+  if (newWidth === width && newHeight === height) return t('This is the size it is now.')
   if (newWidth > width || newHeight > height) {
-    return 'Shapes stay sharp at any size. Photos only have the detail they came with, so made much bigger than that they can look a little soft.'
+    return t('Shapes stay sharp at any size. Photos only have the detail they came with, so made much bigger than that they can look a little soft.')
   }
-  return 'Making a design smaller keeps it sharp. Every picture keeps all its pixels, so you can make it big again later without losing anything.'
+  return t('Making a design smaller keeps it sharp. Every picture keeps all its pixels, so you can make it big again later without losing anything.')
 }
 
 export function ResizeDialog({ width, height, onResize, onClose }: ResizeDialogProps) {
@@ -29,7 +30,7 @@ export function ResizeDialog({ width, height, onResize, onClose }: ResizeDialogP
 
   const w = Number(newWidth)
   const h = Number(newHeight)
-  const error = newWidth === '' || newHeight === '' ? 'Type a width and a height.' : validateDocumentSize(w, h)
+  const error = newWidth === '' || newHeight === '' ? t('Type a width and a height.') : validateDocumentSize(w, h)
 
   function changeWidth(text: string) {
     const digits = text.replace(/\D/g, '')
@@ -45,27 +46,27 @@ export function ResizeDialog({ width, height, onResize, onClose }: ResizeDialogP
 
   return (
     <Dialog
-      title="Resize design"
-      subtitle={`Make the whole design, with every layer, bigger or smaller. It is ${width} × ${height} pixels now.`}
-      submitLabel="Resize"
+      title={t("Resize design")}
+      subtitle={t('Make the whole design, with every layer, bigger or smaller. It is {width} × {height} pixels now.', { width, height })}
+      submitLabel={t("Resize")}
       submitDisabled={!!error}
       onSubmit={() => !error && onResize(w, h)}
       onClose={onClose}
     >
       <Field
-        label="New size in pixels"
-        help="The new width and height. With Keep shape on, changing one changes the other too, so nothing gets squashed."
+        label={t("New size in pixels")}
+        help={t("The new width and height. With Keep shape on, changing one changes the other too, so nothing gets squashed.")}
         note={error ? <span className="text-danger">{error}</span> : describeResize(width, height, w, h)}
       >
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
-            <input aria-label="New width in pixels" data-autofocus className={`${inputClass} pr-14`} inputMode="numeric" value={newWidth} onChange={(e) => changeWidth(e.target.value)} />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">wide</span>
+            <input aria-label={t("New width in pixels")} data-autofocus className={`${inputClass} pe-14`} inputMode="numeric" value={newWidth} onChange={(e) => changeWidth(e.target.value)} />
+            <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">{t('wide')}</span>
           </div>
-          <Tooltip title="Keep shape" description="Keep the width and height in step, so the design is not squashed or stretched.">
+          <Tooltip title={t("Keep shape")} description={t("Keep the width and height in step, so the design is not squashed or stretched.")}>
             <button
               type="button"
-              aria-label="Keep shape"
+              aria-label={t("Keep shape")}
               aria-pressed={keepShape}
               onClick={() => setKeepShape(!keepShape)}
               className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
@@ -76,13 +77,13 @@ export function ResizeDialog({ width, height, onResize, onClose }: ResizeDialogP
             </button>
           </Tooltip>
           <div className="relative flex-1">
-            <input aria-label="New height in pixels" className={`${inputClass} pr-12`} inputMode="numeric" value={newHeight} onChange={(e) => changeHeight(e.target.value)} />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">tall</span>
+            <input aria-label={t("New height in pixels")} className={`${inputClass} pe-12`} inputMode="numeric" value={newHeight} onChange={(e) => changeHeight(e.target.value)} />
+            <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">{t('tall')}</span>
           </div>
         </div>
       </Field>
 
-      <Field label="Quick sizes" help="Shrink or grow the design by a set amount, keeping its shape.">
+      <Field label={t("Quick sizes")} help={t("Shrink or grow the design by a set amount, keeping its shape.")}>
         <div className="flex gap-2">
           {QUICK_SIZES.map((percent) => (
             <Button

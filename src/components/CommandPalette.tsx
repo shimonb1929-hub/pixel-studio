@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
-import { actionBlocker, searchActions, type Action } from '../actions.ts'
+import { actionBlocker, groupName, searchActions, type Action } from '../actions.ts'
+import { t, tParts } from '../i18n/i18n.ts'
 
 interface CommandPaletteProps {
   actions: Action[]
@@ -55,7 +56,7 @@ export function CommandPalette({ actions, hasDocument, onClose }: CommandPalette
   return (
     <dialog
       ref={dialogRef}
-      aria-label="Search for something to do"
+      aria-label={t("Search for something to do")}
       onClose={onClose}
       onPointerDown={(event) => (pressedBackdropRef.current = event.target === event.currentTarget)}
       onClick={handleBackdropClick}
@@ -68,8 +69,8 @@ export function CommandPalette({ actions, hasDocument, onClose }: CommandPalette
           aria-expanded="true"
           aria-controls="palette-results"
           aria-activedescendant={active ? `palette-${active.id}` : undefined}
-          aria-label="What do you want to do?"
-          placeholder="What do you want to do? Try “save”, “bigger” or “new”"
+          aria-label={t("What do you want to do?")}
+          placeholder={t("What do you want to do? Try “save”, “bigger” or “new”")}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value)
@@ -80,7 +81,7 @@ export function CommandPalette({ actions, hasDocument, onClose }: CommandPalette
         />
       </div>
 
-      <ul id="palette-results" ref={listRef} role="listbox" aria-label="Results" className="max-h-[min(24rem,55vh)] overflow-y-auto p-2">
+      <ul id="palette-results" ref={listRef} role="listbox" aria-label={t("Results")} className="max-h-[min(24rem,55vh)] overflow-y-auto p-2">
         {results.map((action, index) => {
           const blocker = actionBlocker(action, hasDocument)
           const enabled = blocker === null
@@ -100,7 +101,7 @@ export function CommandPalette({ actions, hasDocument, onClose }: CommandPalette
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
                   <span className={`text-sm font-medium ${enabled ? 'text-ink' : 'text-ink-3'}`}>{action.title}</span>
-                  <span className="text-[11px] text-ink-3">{action.group}</span>
+                  <span className="text-[11px] text-ink-3">{groupName(action.group)}</span>
                 </div>
                 <p className={`mt-0.5 line-clamp-2 text-xs leading-relaxed ${enabled ? 'text-ink-2' : 'text-[#b54708]'}`}>
                   {blocker ?? action.description}
@@ -122,15 +123,9 @@ export function CommandPalette({ actions, hasDocument, onClose }: CommandPalette
       </ul>
 
       <div className="flex items-center gap-5 border-t border-line px-4 py-2.5 text-[11px] text-ink-3">
-        <span>
-          <b className="font-medium text-ink-2">Up / Down</b> to choose
-        </span>
-        <span>
-          <b className="font-medium text-ink-2">Enter</b> to do it
-        </span>
-        <span>
-          <b className="font-medium text-ink-2">Esc</b> to close
-        </span>
+        <span>{tParts('{keys} to choose', { keys: <b key="k" className="font-medium text-ink-2">{t('Up / Down')}</b> })}</span>
+        <span>{tParts('{key} to do it', { key: <b key="k" className="font-medium text-ink-2">Enter</b> })}</span>
+        <span>{tParts('{key} to close', { key: <b key="k" className="font-medium text-ink-2">Esc</b> })}</span>
       </div>
     </dialog>
   )

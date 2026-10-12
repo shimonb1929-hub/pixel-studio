@@ -89,6 +89,8 @@ export function Slider({ label, help, value, display, note, onChange, className 
       <input
         id={id}
         type="range"
+        // Sliders fill from the left in every language, matching how their numbers grow.
+        dir="ltr"
         min={0}
         max={1000}
         step={1}

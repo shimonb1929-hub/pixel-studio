@@ -1,12 +1,13 @@
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleHelp, Copy, Eye, EyeOff, Grid2x2, Lock, LockOpen, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { adjustmentLabel, isNeutral } from '../editor/adjust.ts'
+import { adjustmentName, isNeutral } from '../editor/adjust.ts'
 import { drawLayer } from '../editor/compose.ts'
 import { activeLayer } from '../editor/layers.ts'
 import type { EditorDocument, Layer, LayerGroup } from '../editor/types.ts'
 import { Tooltip, type TipContent } from './Tooltip.tsx'
 import { Slider } from './ui.tsx'
 import { useFontsVersion } from '../hooks/useFontsVersion.ts'
+import { t } from '../i18n/i18n.ts'
 
 const THUMB_SIZE = 40
 
@@ -88,7 +89,7 @@ function RenameInput({ name, onRename, onDone }: { name: string; onRename: (name
   return (
     <input
       ref={inputRef}
-      aria-label="Layer name"
+      aria-label={t("Layer name")}
       dir="auto"
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
@@ -119,9 +120,9 @@ function IconButton({ tip, disabledReason, onClick, children }: { tip: TipConten
 }
 
 function describeLayerOpacity(opacity: number): string {
-  if (opacity >= 0.99) return 'Solid. The whole layer shows fully.'
-  if (opacity > 0.01) return 'Partly see-through. The layers below show through it.'
-  return 'Invisible. The layer is still there; slide up to see it again.'
+  if (opacity >= 0.99) return t('Solid. The whole layer shows fully.')
+  if (opacity > 0.01) return t('Partly see-through. The layers below show through it.')
+  return t('Invisible. The layer is still there; slide up to see it again.')
 }
 
 interface LayersPanelProps {
@@ -162,8 +163,8 @@ export function LayersPanel(props: LayersPanelProps) {
   // Things kept together show as one row; these are opened to show their parts.
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
   const active = doc ? activeLayer(doc) : undefined
-  const noDesign = doc ? undefined : 'Start a new design or open a picture first.'
-  const noLayer = noDesign ?? (active ? undefined : 'Pick a layer first. The page itself always stays at the back.')
+  const noDesign = doc ? undefined : t('Start a new design or open a picture first.')
+  const noLayer = noDesign ?? (active ? undefined : t('Pick a layer first. The page itself always stays at the back.'))
   const pagePicked = !!doc && !active
   // What the buttons below work on.
   const targets = picked ?? (active ? [active.id] : [])
@@ -192,19 +193,19 @@ export function LayersPanel(props: LayersPanelProps) {
   }
 
   return (
-    <section aria-label="Layers" className="flex min-h-fit flex-1 flex-col rounded-card border border-line bg-surface shadow-card">
-      <div className="flex h-12 shrink-0 items-center justify-between pl-4 pr-2">
+    <section aria-label={t("Layers")} className="flex min-h-fit flex-1 flex-col rounded-card border border-line bg-surface shadow-card">
+      <div className="flex h-12 shrink-0 items-center justify-between ps-4 pe-2">
         <Tooltip
-          title="Layers"
-          description="Everything on your design, from front (top of the list) to back. Each photo, shape, text and drawing is its own layer. The page is always at the bottom. Hold Shift and click to pick several."
+          title={t("Layers")}
+          description={t("Everything on your design, from front (top of the list) to back. Each photo, shape, text and drawing is its own layer. The page is always at the bottom. Hold Shift and click to pick several.")}
         >
           <h2 className="flex cursor-help items-center gap-1.5 text-[13px] font-semibold text-ink">
-            Layers
+            {t('Layers')}
             <CircleHelp size={14} className="text-ink-3" aria-hidden />
           </h2>
         </Tooltip>
         <IconButton
-          tip={{ title: 'New layer', description: 'Add an empty drawing above the selected layer. Painting makes one by itself when it needs to, so you rarely need this.' }}
+          tip={{ title: t('New layer'), description: t('Add an empty drawing above the selected layer. Painting makes one by itself when it needs to, so you rarely need this.') }}
           disabledReason={noDesign}
           onClick={props.onAdd}
         >
@@ -213,9 +214,9 @@ export function LayersPanel(props: LayersPanelProps) {
       </div>
 
       {!doc ? (
-        <p className="px-4 text-[13px] leading-relaxed text-ink-3">Your design's layers will show up here.</p>
+        <p className="px-4 text-[13px] leading-relaxed text-ink-3">{t("Your design's layers will show up here.")}</p>
       ) : (
-        <ul aria-label="Layer list" className="min-h-[156px] flex-1 overflow-y-auto px-2">
+        <ul aria-label={t("Layer list")} className="min-h-[156px] flex-1 overflow-y-auto px-2">
           {rows.map((row) => {
             if (row.kind === 'group') {
               const { group, members } = row
@@ -223,10 +224,10 @@ export function LayersPanel(props: LayersPanelProps) {
               const open = isOpen(group.id)
               const visible = members.some((l) => l.visible)
               return (
-                <li key={`group:${group.id}`} className={`group flex items-center gap-0.5 rounded-[10px] pr-1 transition-colors ${selected ? 'bg-accent-soft' : 'hover:bg-subtle'}`}>
+                <li key={`group:${group.id}`} className={`group flex items-center gap-0.5 rounded-[10px] pe-1 transition-colors ${selected ? 'bg-accent-soft' : 'hover:bg-subtle'}`}>
                   <button
                     type="button"
-                    aria-label={open ? `Hide the parts of ${group.name}` : `Show the parts of ${group.name}`}
+                    aria-label={open ? t('Hide the parts of {name}', { name: group.name }) : t('Show the parts of {name}', { name: group.name })}
                     aria-expanded={open}
                     onClick={() => toggleOpen(group.id)}
                     className="flex h-8 w-5 shrink-0 items-center justify-center rounded-md text-ink-3 transition-colors hover:text-ink"
@@ -240,30 +241,30 @@ export function LayersPanel(props: LayersPanelProps) {
                     </div>
                   ) : (
                     <Tooltip
-                      title={`${group.name} (kept together)`}
-                      description={`${members.length} parts that are picked and moved as one. Click to pick them; open the arrow to see the parts. Double-click the name to rename it.`}
+                      title={t('{name} (kept together)', { name: group.name })}
+                      description={t('{count} parts that are picked and moved as one. Click to pick them; open the arrow to see the parts. Double-click the name to rename it.', { count: members.length })}
                       side="right"
                       className="flex min-w-0 flex-1"
                     >
                       <button
                         type="button"
-                        aria-label={`Kept together: ${group.name}`}
+                        aria-label={t('Kept together: {name}', { name: group.name })}
                         aria-pressed={selected}
                         onClick={(event) => (event.shiftKey ? props.onToggle(members[0].id) : props.onPickGroup(group.id))}
                         onDoubleClick={() => setRenamingId(group.id)}
-                        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 text-left text-[13px] text-ink"
+                        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 text-start text-[13px] text-ink"
                       >
                         <LayerThumbnail layers={members} revision={revision} doc={doc} />
-                        <span dir="auto" className="min-w-0 flex-1 truncate text-left font-medium">
+                        <span dir="auto" className="min-w-0 flex-1 truncate text-start font-medium">
                           {group.name}
                         </span>
                       </button>
                     </Tooltip>
                   )}
-                  <Tooltip title={visible ? 'Hide' : 'Show'} description="Hide or show all of its parts. Hidden things stay in your design, but are left out when you download.">
+                  <Tooltip title={visible ? t('Hide') : t('Show')} description={t("Hide or show all of its parts. Hidden things stay in your design, but are left out when you download.")}>
                     <button
                       type="button"
-                      aria-label={visible ? `Hide ${group.name}` : `Show ${group.name}`}
+                      aria-label={visible ? t('Hide {name}', { name: group.name }) : t('Show {name}', { name: group.name })}
                       aria-pressed={!visible}
                       onClick={() => props.onToggleGroupVisibility(group.id)}
                       className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-surface hover:text-ink ${visible ? 'text-ink-3' : 'text-ink'}`}
@@ -279,34 +280,34 @@ export function LayersPanel(props: LayersPanelProps) {
             return (
               <li
                 key={layer.id}
-                className={`group flex items-center gap-1 rounded-[10px] pr-1 transition-colors ${inGroup ? 'ml-5' : ''} ${selected ? 'bg-accent-soft' : 'hover:bg-subtle'}`}
+                className={`group flex items-center gap-1 rounded-[10px] pe-1 transition-colors ${inGroup ? 'ms-5' : ''} ${selected ? 'bg-accent-soft' : 'hover:bg-subtle'}`}
               >
                 {renamingId === layer.id ? (
-                  <div className="flex min-w-0 flex-1 items-center gap-2.5 py-1.5 pl-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5 py-1.5 ps-2">
                     <LayerThumbnail layers={[layer]} revision={revision} doc={doc} />
                     <RenameInput name={layer.name} onRename={(name) => props.onRename(layer.id, name)} onDone={() => setRenamingId(null)} />
                   </div>
                 ) : (
                   <Tooltip
-                    title={selected ? `${layer.name} (selected)` : layer.name}
+                    title={selected ? t('{name} (selected)', { name: layer.name }) : layer.name}
                     description={
                       selected
-                        ? 'Painting and layer buttons work on this layer. Double-click the name to rename it. Hold Shift and click to pick several.'
-                        : 'Click to paint on this layer. Double-click the name to rename it. Hold Shift and click to pick several.'
+                        ? t('Painting and layer buttons work on this layer. Double-click the name to rename it. Hold Shift and click to pick several.')
+                        : t('Click to paint on this layer. Double-click the name to rename it. Hold Shift and click to pick several.')
                     }
                     side="right"
                     className="flex min-w-0 flex-1"
                   >
                     <button
                       type="button"
-                      aria-label={`Layer: ${layer.name}`}
+                      aria-label={t('Layer: {name}', { name: layer.name })}
                       aria-pressed={selected}
                       onClick={(event) => (event.shiftKey ? props.onToggle(layer.id) : props.onSelect(layer.id))}
                       onDoubleClick={() => setRenamingId(layer.id)}
-                      className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 pl-2 text-left text-[13px] text-ink"
+                      className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 ps-2 text-start text-[13px] text-ink"
                     >
                       <LayerThumbnail layers={[layer]} revision={revision} doc={doc} />
-                      <span dir="auto" className="min-w-0 flex-1 truncate text-left">
+                      <span dir="auto" className="min-w-0 flex-1 truncate text-start">
                         {layer.name}
                       </span>
                     </button>
@@ -314,12 +315,12 @@ export function LayersPanel(props: LayersPanelProps) {
                 )}
                 {layer.adjust && !isNeutral(layer.adjust) && (
                   <Tooltip
-                    title={`Adjusted: ${adjustmentLabel(layer.adjust).replace(/ look$/, '')}`}
-                    description="This layer's colors are adjusted, and you can still change that. Click to open Adjust."
+                    title={t('Adjusted: {what}', { what: adjustmentName(layer.adjust) })}
+                    description={t("This layer's colors are adjusted, and you can still change that. Click to open Adjust.")}
                   >
                     <button
                       type="button"
-                      aria-label={`Change adjustments of ${layer.name}`}
+                      aria-label={t('Change adjustments of {name}', { name: layer.name })}
                       onClick={() => props.onEditAdjust(layer.id)}
                       className="flex h-8 w-7 items-center justify-center rounded-lg text-accent transition-colors hover:bg-surface"
                     >
@@ -328,16 +329,16 @@ export function LayersPanel(props: LayersPanelProps) {
                   </Tooltip>
                 )}
                 <Tooltip
-                  title={layer.locked ? 'Unlock layer' : 'Lock layer'}
+                  title={layer.locked ? t('Unlock layer') : t('Lock layer')}
                   description={
                     layer.locked
-                      ? "Locked, so it can't be picked or moved on the design by accident. You can still paint on it. Click to unlock it."
-                      : "Lock it, so it can't be picked or moved on the design by accident. Handy for backgrounds."
+                      ? t("Locked, so it can't be picked or moved on the design by accident. You can still paint on it. Click to unlock it.")
+                      : t("Lock it, so it can't be picked or moved on the design by accident. Handy for backgrounds.")
                   }
                 >
                   <button
                     type="button"
-                    aria-label={layer.locked ? `Unlock ${layer.name}` : `Lock ${layer.name}`}
+                    aria-label={layer.locked ? t('Unlock {name}', { name: layer.name }) : t('Lock {name}', { name: layer.name })}
                     aria-pressed={layer.locked}
                     onClick={() => props.onToggleLock(layer.id)}
                     className={`flex h-8 w-7 items-center justify-center rounded-lg transition-colors hover:bg-surface hover:text-ink ${
@@ -348,12 +349,12 @@ export function LayersPanel(props: LayersPanelProps) {
                   </button>
                 </Tooltip>
                 <Tooltip
-                  title={layer.visible ? 'Hide layer' : 'Show layer'}
-                  description="Hidden layers stay in your design, but you can't see them and they are left out when you download."
+                  title={layer.visible ? t('Hide layer') : t('Show layer')}
+                  description={t("Hidden layers stay in your design, but you can't see them and they are left out when you download.")}
                 >
                   <button
                     type="button"
-                    aria-label={layer.visible ? `Hide ${layer.name}` : `Show ${layer.name}`}
+                    aria-label={layer.visible ? t('Hide {name}', { name: layer.name }) : t('Show {name}', { name: layer.name })}
                     aria-pressed={!layer.visible}
                     onClick={() => props.onToggleVisibility(layer.id)}
                     className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-surface hover:text-ink ${
@@ -366,35 +367,35 @@ export function LayersPanel(props: LayersPanelProps) {
               </li>
             )
           })}
-          <li className={`flex items-center gap-1 rounded-[10px] pr-1 transition-colors ${pagePicked ? 'bg-accent-soft' : 'hover:bg-subtle'}`}>
+          <li className={`flex items-center gap-1 rounded-[10px] pe-1 transition-colors ${pagePicked ? 'bg-accent-soft' : 'hover:bg-subtle'}`}>
             <Tooltip
-              title="Page"
-              description="The paper under everything. Click it, then choose its color in the Color panel. Clicking an empty spot of your design picks it too."
+              title={t("Page")}
+              description={t("The paper under everything. Click it, then choose its color in the Color panel. Clicking an empty spot of your design picks it too.")}
               side="right"
               className="flex min-w-0 flex-1"
             >
               <button
                 type="button"
-                aria-label="Page"
+                aria-label={t("Page")}
                 aria-pressed={pagePicked}
                 onClick={props.onPickPage}
-                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 pl-2 text-left text-[13px] text-ink"
+                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 ps-2 text-start text-[13px] text-ink"
               >
                 <span aria-hidden className="h-10 w-10 shrink-0 rounded-md border border-line" style={{ background: doc.background ?? SEE_THROUGH }} />
-                <span className="min-w-0 flex-1 truncate">Page</span>
+                <span className="min-w-0 flex-1 truncate">{t('Page')}</span>
               </button>
             </Tooltip>
             <Tooltip
-              title={doc.background === null ? 'Give the page a color' : 'See-through page'}
+              title={doc.background === null ? t('Give the page a color') : t('See-through page')}
               description={
                 doc.background === null
-                  ? 'The page is see-through now: a PNG download keeps it see-through. Click to make it white again.'
-                  : 'Take away the page color, so a PNG download is see-through around your things, like for a logo or a sticker.'
+                  ? t('The page is see-through now: a PNG download keeps it see-through. Click to make it white again.')
+                  : t('Take away the page color, so a PNG download is see-through around your things, like for a logo or a sticker.')
               }
             >
               <button
                 type="button"
-                aria-label="See-through page"
+                aria-label={t("See-through page")}
                 aria-pressed={doc.background === null}
                 onClick={() => props.onSeeThrough(doc.background !== null)}
                 className={`flex h-8 w-7 items-center justify-center rounded-lg transition-colors ${
@@ -412,8 +413,8 @@ export function LayersPanel(props: LayersPanelProps) {
         {active && (
           <Slider
             className="mb-2 px-1"
-            label="Layer opacity"
-            help="How solid the selected layer is. Lower it to let the layers below show through."
+            label={t("Layer opacity")}
+            help={t("How solid the selected layer is. Lower it to let the layers below show through.")}
             value={active.opacity}
             display={`${Math.round(active.opacity * 100)}%`}
             note={describeLayerOpacity(active.opacity)}
@@ -422,28 +423,28 @@ export function LayersPanel(props: LayersPanelProps) {
         )}
         <div className="flex items-center justify-between">
           <IconButton
-            tip={{ title: several ? 'Duplicate' : 'Duplicate layer', description: several ? 'Make exact copies of the picked things, placed right above them.' : 'Make an exact copy of the selected layer, placed right above it.' }}
+            tip={{ title: several ? t('Duplicate') : t('Duplicate layer'), description: several ? t('Make exact copies of the picked things, placed right above them.') : t('Make an exact copy of the selected layer, placed right above it.') }}
             disabledReason={noLayer}
             onClick={props.onDuplicate}
           >
             <Copy size={16} />
           </IconButton>
           <IconButton
-            tip={{ title: 'Bring forward', description: several ? 'Move the picked things one step toward the front.' : 'Move the selected layer one step toward the front, so it covers the layer above it.' }}
-            disabledReason={noLayer ?? (atFront ? (several ? 'They are already at the front.' : 'This layer is already at the front.') : undefined)}
+            tip={{ title: t('Bring forward'), description: several ? t('Move the picked things one step toward the front.') : t('Move the selected layer one step toward the front, so it covers the layer above it.') }}
+            disabledReason={noLayer ?? (atFront ? (several ? t('They are already at the front.') : t('This layer is already at the front.')) : undefined)}
             onClick={() => props.onMove(1)}
           >
             <ArrowUp size={16} />
           </IconButton>
           <IconButton
-            tip={{ title: 'Send backward', description: several ? 'Move the picked things one step toward the back.' : 'Move the selected layer one step toward the back, behind the layer below it.' }}
-            disabledReason={noLayer ?? (atBack ? (several ? 'They are already at the back.' : 'This layer is already at the back.') : undefined)}
+            tip={{ title: t('Send backward'), description: several ? t('Move the picked things one step toward the back.') : t('Move the selected layer one step toward the back, behind the layer below it.') }}
+            disabledReason={noLayer ?? (atBack ? (several ? t('They are already at the back.') : t('This layer is already at the back.')) : undefined)}
             onClick={() => props.onMove(-1)}
           >
             <ArrowDown size={16} />
           </IconButton>
           <IconButton
-            tip={{ title: several ? 'Delete' : 'Delete layer', description: several ? 'Remove the picked things. You can undo this.' : 'Remove the selected layer and everything on it. You can undo this.' }}
+            tip={{ title: several ? t('Delete') : t('Delete layer'), description: several ? t('Remove the picked things. You can undo this.') : t('Remove the selected layer and everything on it. You can undo this.') }}
             disabledReason={noLayer}
             onClick={props.onDelete}
           >

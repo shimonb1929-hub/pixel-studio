@@ -4,6 +4,7 @@ import { layerVersion } from '../editor/pixelVersion.ts'
 import { designThumbnail, encodeProject } from '../editor/project.ts'
 import type { EditorDocument } from '../editor/types.ts'
 import type { Editor } from './useEditor.ts'
+import { t } from '../i18n/i18n.ts'
 
 // 'unsaved' means there are changes waiting to be saved in a moment.
 export type SaveStatus = 'unsaved' | 'saving' | 'saved' | 'failed'
@@ -109,7 +110,7 @@ export function useAutosave(editor: Editor): Autosave {
         await saveDesign({ id: doc.id, name: doc.name, width: doc.width, height: doc.height, updatedAt: Date.now(), thumbnail }, project)
         return true
       } catch (error) {
-        setProblem(error instanceof StorageError ? error.message : "Your latest changes couldn't be kept in this browser.")
+        setProblem(error instanceof StorageError ? error.message : t("Your latest changes couldn't be kept in this browser."))
         return false
       }
     })()

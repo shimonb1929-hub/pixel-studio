@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Dialog, Field } from './Dialog.tsx'
 import { inputClass } from './ui.tsx'
+import { t } from '../i18n/i18n.ts'
 
 interface RenameDialogProps {
   name: string
@@ -14,18 +15,18 @@ export function RenameDialog({ name, onRename, onClose }: RenameDialogProps) {
 
   return (
     <Dialog
-      title="Rename design"
-      subtitle="Give your design a name you'll recognize later."
-      submitLabel="Rename"
+      title={t("Rename design")}
+      subtitle={t("Give your design a name you'll recognize later.")}
+      submitLabel={t("Rename")}
       submitDisabled={!trimmed}
       onSubmit={() => onRename(trimmed)}
       onClose={onClose}
     >
       <Field
-        label="Name"
+        label={t("Name")}
         htmlFor="rename-design"
-        help="What your design is called. You'll see it under Your designs on the start screen, and it becomes the file name when you download it."
-        note={trimmed ? undefined : <span className="text-danger">Type a name.</span>}
+        help={t("What your design is called. You'll see it under Your designs on the start screen, and it becomes the file name when you download it.")}
+        note={trimmed ? undefined : <span className="text-danger">{t('Type a name.')}</span>}
       >
         <input
           id="rename-design"

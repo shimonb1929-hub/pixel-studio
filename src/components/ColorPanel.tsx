@@ -3,6 +3,7 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { hexToHsv, hsvToHex, normalizeHex, SWATCHES, type Hsv } from '../editor/color.ts'
 import { shortcut } from '../keys.ts'
 import { Tooltip } from './Tooltip.tsx'
+import { t } from '../i18n/i18n.ts'
 
 interface ColorPanelProps {
   color: string
@@ -17,7 +18,7 @@ function clamp01(value: number): number {
 
 function Swatch({ hex, name, selected, onClick }: { hex: string; name: string; selected: boolean; onClick: () => void }) {
   return (
-    <Tooltip title={name} description={`Click to paint with this color (${hex.toUpperCase()}).`}>
+    <Tooltip title={name} description={t('Click to paint with this color ({code}).', { code: hex.toUpperCase() })}>
       <button
         type="button"
         aria-label={name}
@@ -93,22 +94,22 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
   const pure = hsvToHex({ h: hsv.h, s: 1, v: 1 })
 
   return (
-    <section aria-label="Color" className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
+    <section aria-label={t("Color")} className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
       <div className="mb-3 flex items-center justify-between">
-        <Tooltip title="Color" description="The color your brush paints with. Pick one below, or take one from your design.">
+        <Tooltip title={t("Color")} description={t("The color your brush paints with. Pick one below, or take one from your design.")}>
           <h2 className="flex cursor-help items-center gap-1.5 text-[13px] font-semibold text-ink">
-            Color
+            {t('Color')}
             <CircleHelp size={14} className="text-ink-3" aria-hidden />
           </h2>
         </Tooltip>
         <Tooltip
-          title="Pick from design"
+          title={t("Pick from design")}
           shortcut="I"
-          description={`Take a color from anywhere in your design. With the Brush, you can also hold ${shortcut('alt')} and click.`}
+          description={t('Take a color from anywhere in your design. With the Brush, you can also hold {alt} and click.', { alt: shortcut('alt') })}
         >
           <button
             type="button"
-            aria-label="Pick a color from the design"
+            aria-label={t("Pick a color from the design")}
             onClick={onPickFromDesign}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
           >
@@ -120,14 +121,14 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
       <div className="flex items-center gap-2.5">
         <div className="h-9 w-9 shrink-0 rounded-lg border border-[rgb(16_24_40/0.12)] shadow-sm" style={{ background: color }} aria-hidden />
         <Tooltip
-          title="Color code"
-          description="The color written as a code, like #FF0000 for red. Type or paste a code to use an exact color."
+          title={t("Color code")}
+          description={t("The color written as a code, like #FF0000 for red. Type or paste a code to use an exact color.")}
           className="flex flex-1"
         >
-          <label className="flex h-9 flex-1 items-center rounded-lg border border-line bg-subtle px-2.5 focus-within:border-accent focus-within:bg-surface focus-within:ring-4 focus-within:ring-accent/15">
+          <label dir="ltr" className="flex h-9 flex-1 items-center rounded-lg border border-line bg-subtle px-2.5 focus-within:border-accent focus-within:bg-surface focus-within:ring-4 focus-within:ring-accent/15">
             <span className="text-sm text-ink-3">#</span>
             <input
-              aria-label="Color code"
+              aria-label={t("Color code")}
               spellCheck={false}
               value={draft ?? color.slice(1).toUpperCase()}
               onChange={(event) => setDraft(event.target.value)}
@@ -136,15 +137,15 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
                 if (event.key === 'Enter') commitDraft()
                 if (event.key === 'Escape') setDraft(null)
               }}
-              className="w-full bg-transparent pl-1 font-mono text-[13px] uppercase text-ink outline-none"
+              className="w-full bg-transparent ps-1 font-mono text-[13px] uppercase text-ink outline-none"
             />
           </label>
         </Tooltip>
       </div>
 
       <Tooltip
-        title="Shade"
-        description="Drag left for paler, right for more vivid. Drag up for lighter, down for darker."
+        title={t("Shade")}
+        description={t("Drag left for paler, right for more vivid. Drag up for lighter, down for darker.")}
         keepOpenOnPress
         className="mt-3 flex"
       >
@@ -152,8 +153,8 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
           ref={shadeRef}
           role="slider"
           tabIndex={0}
-          aria-label="Shade"
-          aria-valuetext={`${Math.round(hsv.s * 100)}% vivid, ${Math.round(hsv.v * 100)}% bright`}
+          aria-label={t("Shade")}
+          aria-valuetext={t('{vivid}% vivid, {bright}% bright', { vivid: Math.round(hsv.s * 100), bright: Math.round(hsv.v * 100) })}
           aria-valuenow={Math.round(hsv.s * 100)}
           onPointerDown={(event) => {
             event.currentTarget.setPointerCapture(event.pointerId)
@@ -171,12 +172,12 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
         </div>
       </Tooltip>
 
-      <Tooltip title="Color" description="Slide to choose the color itself: red, orange, yellow, green, blue, purple and back to red." keepOpenOnPress className="mt-3 flex">
+      <Tooltip title={t("Color")} description={t("Slide to choose the color itself: red, orange, yellow, green, blue, purple and back to red.")} keepOpenOnPress className="mt-3 flex">
         <div
           ref={hueRef}
           role="slider"
           tabIndex={0}
-          aria-label="Color"
+          aria-label={t("Color")}
           aria-valuemin={0}
           aria-valuemax={360}
           aria-valuenow={Math.round(hsv.h)}
@@ -204,10 +205,10 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
 
       {recent.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1.5 text-[11px] font-medium text-ink-3">Recently used</p>
+          <p className="mb-1.5 text-[11px] font-medium text-ink-3">{t('Recently used')}</p>
           <div className="grid grid-cols-9 gap-1.5">
             {recent.map((hex) => (
-              <Swatch key={hex} hex={hex} name="Recent color" selected={hex === color} onClick={() => onChange(hex)} />
+              <Swatch key={hex} hex={hex} name={t("Recent color")} selected={hex === color} onClick={() => onChange(hex)} />
             ))}
           </div>
         </div>

@@ -1,5 +1,6 @@
 import type { Rect } from './geometry.ts'
 import type { Point } from './types.ts'
+import { t } from '../i18n/i18n.ts'
 
 // A box that can be moved, resized, flipped and turned. Width and height are negative when the
 // box is flipped. The source picture always fills the box exactly.
@@ -235,7 +236,9 @@ export function describeChange(box: TransformBox, original: TransformBox): strin
   const resized =
     Math.abs(Math.abs(box.width) - Math.abs(original.width)) > 1e-6 || Math.abs(Math.abs(box.height) - Math.abs(original.height)) > 1e-6
   const rotated = Math.abs(normalizeAngle(box.rotation - original.rotation)) > 1e-6
-  const parts = [resized && 'Resize', rotated && 'Rotate', flipped && 'Flip'].filter(Boolean) as string[]
-  if (parts.length === 0) return 'Move'
-  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1].toLowerCase()}`
+  if (resized && rotated && flipped) return t('Resize, rotate and flip')
+  if (resized && rotated) return t('Resize and rotate')
+  if (resized && flipped) return t('Resize and flip')
+  if (rotated && flipped) return t('Rotate and flip')
+  return resized ? t('Resize') : rotated ? t('Rotate') : flipped ? t('Flip') : t('Move')
 }

@@ -5,6 +5,7 @@ import { describeEdited } from '../editor/time.ts'
 import { Dialog } from './Dialog.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { Button } from './ui.tsx'
+import { t } from '../i18n/i18n.ts'
 
 // Gray and white squares behind the preview, so see-through parts look see-through.
 const CHECKER: CSSProperties = {
@@ -62,14 +63,14 @@ export function YourDesigns({ designs, now, onOpen, onChanged }: YourDesignsProp
     <section aria-labelledby="your-designs" className="mt-9">
       <div className="flex items-baseline justify-between gap-4">
         <h2 id="your-designs" className="text-[15px] font-semibold tracking-tight text-ink">
-          Your designs
+          {t('Your designs')}
         </h2>
         <Tooltip
           side="top"
-          title="Kept in this browser"
-          description="Everything you make is kept here automatically as you work. To keep a copy somewhere else, or to move a design to another computer, download it as a Project."
+          title={t("Kept in this browser")}
+          description={t("Everything you make is kept here automatically as you work. To keep a copy somewhere else, or to move a design to another computer, download it as a Project.")}
         >
-          <span className="cursor-help text-xs text-ink-3">Kept in this browser</span>
+          <span className="cursor-help text-xs text-ink-3">{t('Kept in this browser')}</span>
         </Tooltip>
       </div>
       <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -77,29 +78,29 @@ export function YourDesigns({ designs, now, onOpen, onChanged }: YourDesignsProp
           <li key={design.id} className="relative">
             <Tooltip
               title={design.name}
-              description={`Open it to keep working. ${design.width} × ${design.height} pixels, with all its layers.`}
+              description={t('Open it to keep working. {width} × {height} pixels, with all its layers.', { width: design.width, height: design.height })}
               className="flex"
             >
               <button
                 type="button"
-                aria-label={`Open ${design.name}`}
+                aria-label={t('Open {name}', { name: design.name })}
                 aria-busy={opening === design.id || undefined}
                 onClick={() => void open(design)}
-                className="flex w-full flex-col overflow-hidden rounded-card border border-line bg-surface text-left shadow-card transition duration-150 hover:-translate-y-0.5 hover:border-accent/35 hover:shadow-float aria-busy:cursor-wait"
+                className="flex w-full flex-col overflow-hidden rounded-card border border-line bg-surface text-start shadow-card transition duration-150 hover:-translate-y-0.5 hover:border-accent/35 hover:shadow-float aria-busy:cursor-wait"
               >
                 <Preview design={design} />
                 <span className="block px-3 pb-3 pt-2.5">
-                  <span className="block truncate pr-1 text-sm font-medium text-ink">{design.name}</span>
+                  <span className="block truncate pe-1 text-sm font-medium text-ink">{design.name}</span>
                   <span className="mt-0.5 block truncate text-xs text-ink-3">
-                    {opening === design.id ? 'Opening…' : describeEdited(design.updatedAt, now)}
+                    {opening === design.id ? t('Opening…') : describeEdited(design.updatedAt, now)}
                   </span>
                 </span>
               </button>
             </Tooltip>
-            <Tooltip side="top" title="Delete" description="Remove this design from this browser. You'll be asked first." className="absolute right-2 top-2">
+            <Tooltip side="top" title={t("Delete")} description={t("Remove this design from this browser. You'll be asked first.")} className="absolute end-2 top-2">
               <button
                 type="button"
-                aria-label={`Delete ${design.name}`}
+                aria-label={t('Delete {name}', { name: design.name })}
                 onClick={() => setDeleting(design)}
                 className="flex h-7 w-7 items-center justify-center rounded-lg border border-line bg-surface/95 text-ink-3 shadow-sm transition-colors hover:border-[#f9dbaf] hover:bg-danger-soft hover:text-danger"
               >
@@ -112,17 +113,17 @@ export function YourDesigns({ designs, now, onOpen, onChanged }: YourDesignsProp
       {designs.length > FIRST_ROW && (
         <div className="mt-3 flex justify-center">
           <Button variant="ghost" className="h-8 px-3 text-[13px]" onClick={() => setShowAll(!showAll)} aria-expanded={showAll}>
-            {showAll ? 'Show fewer' : `Show all ${designs.length} designs`}
+            {showAll ? t('Show fewer') : t('Show all {count} designs', { count: designs.length })}
           </Button>
         </div>
       )}
 
       {deleting && (
         <Dialog
-          title={`Delete “${deleting.name}”?`}
-          subtitle="It will be removed from this browser for good. Project files you downloaded are not affected."
-          submitLabel="Delete design"
-          cancelLabel="Keep it"
+          title={t('Delete “{name}”?', { name: deleting.name })}
+          subtitle={t("It will be removed from this browser for good. Project files you downloaded are not affected.")}
+          submitLabel={t("Delete design")}
+          cancelLabel={t("Keep it")}
           danger
           onSubmit={() => {
             setDeleting(null)

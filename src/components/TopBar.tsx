@@ -1,8 +1,10 @@
 import { Check, CircleAlert, Download, Menu as MenuIcon, Redo2, Search, Undo2 } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { actionBlocker, NEEDS_DOCUMENT_HINT, type Action, type ActionGroup } from '../actions.ts'
+import { actionBlocker, groupName, NEEDS_DOCUMENT_HINT, type Action, type ActionGroup } from '../actions.ts'
+import { inSentence, msg, t } from '../i18n/i18n.ts'
 import type { SaveStatus } from '../hooks/useAutosave.ts'
 import { shortcut } from '../keys.ts'
+import { LanguagePicker } from './LanguagePicker.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { Button } from './ui.tsx'
 
@@ -49,7 +51,7 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
 
   return (
     <div ref={rootRef} className="relative">
-      <Tooltip title="Menu" description="Everything you can do, in one list. You can also type what you want in the search box.">
+      <Tooltip title={t("Menu")} description={t("Everything you can do, in one list. You can also type what you want in the search box.")}>
         <button
           ref={buttonRef}
           type="button"
@@ -61,21 +63,21 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
           }`}
         >
           <MenuIcon size={16} />
-          Menu
+          {t('Menu')}
         </button>
       </Tooltip>
       {open && (
         <div
           ref={menuRef}
           role="menu"
-          aria-label="Menu"
+          aria-label={t("Menu")}
           onKeyDown={handleMenuKeyDown}
-          className="absolute left-0 top-full z-40 mt-2 max-h-[calc(100vh-5rem)] w-72 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-float"
+          className="absolute start-0 top-full z-40 mt-2 max-h-[calc(100vh-5rem)] w-72 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-float"
         >
           {MENU_GROUPS.map((group, groupIndex) => (
-            <div key={group} role="group" aria-label={group}>
+            <div key={group} role="group" aria-label={groupName(group)}>
               {groupIndex > 0 && <div role="separator" className="mx-1 my-1.5 border-t border-line" />}
-              <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{group}</div>
+              <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{groupName(group)}</div>
               {actions
                 .filter((action) => action.group === group)
                 .map((action) => {
@@ -100,7 +102,7 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
                           close(false)
                           action.run()
                         }}
-                        className="flex w-full items-center justify-between gap-6 whitespace-nowrap rounded-lg px-2.5 py-2 text-left text-[13px] text-ink outline-none hover:bg-subtle focus-visible:bg-subtle aria-disabled:cursor-not-allowed aria-disabled:text-ink-3 aria-disabled:hover:bg-transparent"
+                        className="flex w-full items-center justify-between gap-6 whitespace-nowrap rounded-lg px-2.5 py-2 text-start text-[13px] text-ink outline-none hover:bg-subtle focus-visible:bg-subtle aria-disabled:cursor-not-allowed aria-disabled:text-ink-3 aria-disabled:hover:bg-transparent"
                       >
                         <span>{action.title}</span>
                         {action.shortcut && <span className="text-xs text-ink-3">{action.shortcut}</span>}
@@ -116,19 +118,19 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
   )
 }
 
-const KEPT_HERE = 'Your design is kept in this browser as you work, so you can close it any time. Open it again from the start screen, under Your designs.'
+const KEPT_HERE = msg('Your design is kept in this browser as you work, so you can close it any time. Open it again from the start screen, under Your designs.')
 
 // Says whether the design is safely kept, so there's never a need to wonder.
 function SaveIndicator({ status, problem }: { status: SaveStatus; problem: string | null }) {
   if (status === 'failed') {
     return (
       <Tooltip
-        title="Not saved"
-        description={`${problem ?? "Your latest changes couldn't be kept in this browser."} Download your design to keep it. Choose Project to keep every layer.`}
+        title={t("Not saved")}
+        description={t('{problem} Download your design to keep it. Choose Project to keep every layer.', { problem: problem ?? t("Your latest changes couldn't be kept in this browser.") })}
       >
         <span aria-live="polite" className="flex cursor-default items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-danger">
           <CircleAlert size={15} />
-          Not saved
+          {t('Not saved')}
         </span>
       </Tooltip>
     )
@@ -136,10 +138,10 @@ function SaveIndicator({ status, problem }: { status: SaveStatus; problem: strin
   const saved = status === 'saved'
   // Not announced to screen readers: hearing "Saving, Saved" after every stroke would be tiring.
   return (
-    <Tooltip title={saved ? 'Saved' : 'Saving'} description={KEPT_HERE}>
+    <Tooltip title={saved ? t('Saved') : t('Saving')} description={t(KEPT_HERE)}>
       <span className="flex cursor-default items-center gap-1.5 whitespace-nowrap text-[13px] text-ink-3">
         {saved && <Check size={15} />}
-        {saved ? 'Saved' : 'Saving…'}
+        {saved ? t('Saved') : t('Saving…')}
       </span>
     </Tooltip>
   )
@@ -178,33 +180,33 @@ export function TopBar({
       <div className="flex min-w-0 items-center gap-2">
         <span className="whitespace-nowrap px-2 text-[15px] font-semibold tracking-tight text-ink">Pixel Studio</span>
         <MainMenu actions={actions} hasDocument={hasDocument} />
-        <div className="ml-1 flex items-center">
+        <div className="ms-1 flex items-center">
           <Button
             variant="ghost"
-            aria-label="Undo"
+            aria-label={t("Undo")}
             className="h-9 w-9"
             disabled={!undoLabel}
             onClick={onUndo}
             tip={{
-              title: undoLabel ? `Undo ${undoLabel.toLowerCase()}` : 'Undo',
+              title: undoLabel ? t('Undo {step}', { step: inSentence(undoLabel) }) : t('Undo'),
               shortcut: shortcut('mod', 'Z'),
-              description: 'Take back your last change. Press again to keep going back.',
-              note: undoLabel ? undefined : hasDocument ? 'Nothing to undo yet.' : NEEDS_DOCUMENT_HINT,
+              description: t('Take back your last change. Press again to keep going back.'),
+              note: undoLabel ? undefined : hasDocument ? t('Nothing to undo yet.') : t(NEEDS_DOCUMENT_HINT),
             }}
           >
             <Undo2 size={17} />
           </Button>
           <Button
             variant="ghost"
-            aria-label="Redo"
+            aria-label={t("Redo")}
             className="h-9 w-9"
             disabled={!redoLabel}
             onClick={onRedo}
             tip={{
-              title: redoLabel ? `Redo ${redoLabel.toLowerCase()}` : 'Redo',
+              title: redoLabel ? t('Redo {step}', { step: inSentence(redoLabel) }) : t('Redo'),
               shortcut: shortcut('mod', 'shift', 'Z'),
-              description: 'Bring back a change you just undid.',
-              note: redoLabel ? undefined : hasDocument ? 'Nothing to redo. Redo works right after you undo.' : NEEDS_DOCUMENT_HINT,
+              description: t('Bring back a change you just undid.'),
+              note: redoLabel ? undefined : hasDocument ? t('Nothing to redo. Redo works right after you undo.') : t(NEEDS_DOCUMENT_HINT),
             }}
           >
             <Redo2 size={17} />
@@ -213,9 +215,9 @@ export function TopBar({
       </div>
 
       <Tooltip
-        title="Search"
+        title={t("Search")}
         shortcut={shortcut('mod', 'K')}
-        description="Type what you want to do in your own words, like “save”, “bigger” or “new”, and pick it from the list."
+        description={t("Type what you want to do in your own words, like “save”, “bigger” or “new”, and pick it from the list.")}
         className="flex"
       >
         <button
@@ -224,7 +226,7 @@ export function TopBar({
           className="flex h-9 w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3 text-sm text-ink-3 shadow-sm transition-colors hover:border-[#cdd2db] hover:text-ink-2"
         >
           <Search size={16} className="shrink-0" />
-          <span className="flex-1 truncate text-left">What do you want to do?</span>
+          <span className="flex-1 truncate text-start">{t('What do you want to do?')}</span>
           <kbd className="hidden rounded-md border border-line bg-subtle px-1.5 py-0.5 font-sans text-[11px] text-ink-3 sm:block">
             {shortcut('mod', 'K')}
           </kbd>
@@ -232,11 +234,12 @@ export function TopBar({
       </Tooltip>
 
       <div className="flex min-w-0 items-center justify-end gap-3">
+        <LanguagePicker compact />
         {documentName && (
-          <Tooltip title="Rename design" description="Click to change your design's name. It's used in Your designs and for downloaded files." className="hidden min-w-0 lg:flex">
+          <Tooltip title={t("Rename design")} description={t("Click to change your design's name. It's used in Your designs and for downloaded files.")} className="hidden min-w-0 lg:flex">
             <button
               type="button"
-              aria-label={`Design name: ${documentName}. Click to rename`}
+              aria-label={t('Design name: {name}. Click to rename', { name: documentName })}
               onClick={onRename}
               className="truncate rounded-md px-1.5 py-1 text-[13px] text-ink-2 transition-colors hover:bg-surface hover:text-ink"
             >
@@ -255,14 +258,14 @@ export function TopBar({
           disabled={!hasDocument}
           onClick={onDownload}
           tip={{
-            title: 'Download',
+            title: t('Download'),
             shortcut: shortcut('mod', 'S'),
-            description: 'Save your design to your computer as a PNG or JPG picture you can share or print.',
-            note: hasDocument ? undefined : NEEDS_DOCUMENT_HINT,
+            description: t('Save your design to your computer as a PNG or JPG picture you can share or print.'),
+            note: hasDocument ? undefined : t(NEEDS_DOCUMENT_HINT),
           }}
         >
           <Download size={16} />
-          Download
+          {t('Download')}
         </Button>
       </div>
     </header>

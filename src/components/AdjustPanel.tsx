@@ -12,22 +12,23 @@ import {
   type Adjustments,
 } from '../editor/adjust.ts'
 import { Tooltip } from './Tooltip.tsx'
+import { live, msg, t } from '../i18n/i18n.ts'
 import { Button, Slider } from './ui.tsx'
 
-const HELP: Record<AdjustmentKey, string> = {
-  brightness: 'Makes it lighter or darker. Pure black and pure white stay as they are.',
-  contrast: 'The difference between the light and dark parts. More makes it punchy; less makes it soft and flat.',
-  saturation: 'How strong the colors are. All the way to the left is black and white.',
-  warmth: 'To the right is warmer and more golden, like sunshine. To the left is cooler and more blue.',
-  blur: 'Makes it soft and out of focus.',
-  sharpen: 'Makes edges and small details crisper.',
-}
+const HELP: Record<AdjustmentKey, string> = live({
+  brightness: msg('Makes it lighter or darker. Pure black and pure white stay as they are.'),
+  contrast: msg('The difference between the light and dark parts. More makes it punchy; less makes it soft and flat.'),
+  saturation: msg('How strong the colors are. All the way to the left is black and white.'),
+  warmth: msg('To the right is warmer and more golden, like sunshine. To the left is cooler and more blue.'),
+  blur: msg('Makes it soft and out of focus.'),
+  sharpen: msg('Makes edges and small details crisper.'),
+})
 
-const GROUPS: { title: string; keys: AdjustmentKey[] }[] = [
-  { title: 'Light', keys: ['brightness', 'contrast'] },
-  { title: 'Color', keys: ['saturation', 'warmth'] },
-  { title: 'Detail', keys: ['blur', 'sharpen'] },
-]
+const GROUPS: { title: string; keys: AdjustmentKey[] }[] = live([
+  { title: msg('Light'), keys: ['brightness', 'contrast'] },
+  { title: msg('Color'), keys: ['saturation', 'warmth'] },
+  { title: msg('Detail'), keys: ['blur', 'sharpen'] },
+])
 
 const PREVIEW_WIDTH = 66
 const PREVIEW_HEIGHT = 50
@@ -83,14 +84,14 @@ export function AdjustPanel({ settings, thumbnails, blocked, onChange }: AdjustP
   const current = matchingLook(settings)
 
   return (
-    <section aria-label="Adjust" className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
+    <section aria-label={t("Adjust")} className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
       <div className="mb-3 flex items-center justify-between">
         <Tooltip
-          title="Adjust"
-          description="Change the colors and light of the selected layer, or of the selected part. Try a ready-made look, then fine-tune it with the sliders. Nothing changes for good until you press Apply."
+          title={t("Adjust")}
+          description={t("Change the colors and light of the selected layer, or of the selected part. Try a ready-made look, then fine-tune it with the sliders. Nothing changes for good until you press Apply.")}
         >
           <h2 className="flex cursor-help items-center gap-1.5 text-[13px] font-semibold text-ink">
-            Adjust
+            {t('Adjust')}
             <CircleHelp size={14} className="text-ink-3" aria-hidden />
           </h2>
         </Tooltip>
@@ -100,13 +101,13 @@ export function AdjustPanel({ settings, thumbnails, blocked, onChange }: AdjustP
           disabled={isNeutral(settings)}
           onClick={() => onChange(NO_ADJUSTMENTS)}
           tip={{
-            title: 'Reset',
-            description: 'Put every slider back to the middle, as it was.',
-            note: isNeutral(settings) ? 'Nothing has changed yet.' : undefined,
+            title: t('Reset'),
+            description: t('Put every slider back to the middle, as it was.'),
+            note: isNeutral(settings) ? t('Nothing has changed yet.') : undefined,
           }}
         >
           <RotateCcw size={13} />
-          Reset
+          {t('Reset')}
         </Button>
       </div>
 
@@ -114,8 +115,8 @@ export function AdjustPanel({ settings, thumbnails, blocked, onChange }: AdjustP
         <p className="text-[13px] leading-snug text-ink-2">{blocked}</p>
       ) : (
         <>
-          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-3">Looks</h3>
-          <div role="radiogroup" aria-label="Looks" className="grid grid-cols-3 gap-1.5">
+          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{t('Looks')}</h3>
+          <div role="radiogroup" aria-label={t("Looks")} className="grid grid-cols-3 gap-1.5">
             {LOOKS.map((look, i) => (
               <Tooltip key={look.id} title={look.name} description={look.description} className="flex">
                 <button

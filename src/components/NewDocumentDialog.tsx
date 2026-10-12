@@ -4,6 +4,7 @@ import { MAX_DOCUMENT_SIDE, validateDocumentSize, type BackgroundFill } from '..
 import { SIZE_PRESETS } from '../presets.ts'
 import { ChoiceGroup, Dialog, Field } from './Dialog.tsx'
 import { Button, inputClass } from './ui.tsx'
+import { live, msg, t } from '../i18n/i18n.ts'
 
 export interface NewDocumentOptions {
   name: string
@@ -12,16 +13,16 @@ export interface NewDocumentOptions {
   background: BackgroundFill
 }
 
-const BACKGROUNDS: { value: BackgroundFill; label: string; description: string }[] = [
-  { value: 'white', label: 'White', description: 'Starts as a plain white sheet, like paper.' },
-  { value: 'black', label: 'Black', description: 'Starts as a solid black sheet.' },
+const BACKGROUNDS: { value: BackgroundFill; label: string; description: string }[] = live([
+  { value: 'white', label: msg('White'), description: msg('Starts as a plain white sheet, like paper.') },
+  { value: 'black', label: msg('Black'), description: msg('Starts as a solid black sheet.') },
   {
     value: 'transparent',
-    label: 'See-through',
+    label: msg('See-through'),
     description:
-      'Starts empty and see-through. Gray and white squares show the empty parts. Good for stickers and cut-outs you will place on top of something else.',
+      msg('Starts empty and see-through. Gray and white squares show the empty parts. Good for stickers and cut-outs you will place on top of something else.'),
   },
-]
+])
 
 interface NewDocumentDialogProps {
   defaultName: string
@@ -29,9 +30,10 @@ interface NewDocumentDialogProps {
   onClose: () => void
 }
 
-function describeShape(width: number, height: number): string {
-  if (width === height) return 'a square'
-  return width > height ? 'wide' : 'tall'
+function describeSize(width: number, height: number): string {
+  const vars = { width: width.toLocaleString('en-US'), height: height.toLocaleString('en-US') }
+  if (width === height) return t("{width} pixels wide and {height} pixels tall, so it's a square.", vars)
+  return width > height ? t("{width} pixels wide and {height} pixels tall, so it's wide.", vars) : t("{width} pixels wide and {height} pixels tall, so it's tall.", vars)
 }
 
 export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumentDialogProps) {
@@ -45,7 +47,7 @@ export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumen
   const widthValue = Number(width)
   const heightValue = Number(height)
   const sizeError =
-    width === '' || height === '' ? 'Type a width and a height.' : validateDocumentSize(widthValue, heightValue)
+    width === '' || height === '' ? t('Type a width and a height.') : validateDocumentSize(widthValue, heightValue)
   const preset = SIZE_PRESETS.find((p) => p.width === widthValue && p.height === heightValue)
 
   function handleSubmit() {
@@ -55,21 +57,21 @@ export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumen
 
   return (
     <Dialog
-      title="New design"
-      subtitle="Choose a size and a background to start with."
-      submitLabel="Create design"
+      title={t("New design")}
+      subtitle={t("Choose a size and a background to start with.")}
+      submitLabel={t("Create design")}
       submitDisabled={!!sizeError}
       onSubmit={handleSubmit}
       onClose={onClose}
     >
-      <Field label="Name" htmlFor="new-name" help="What your design is called. It becomes the file name when you download it.">
+      <Field label={t("Name")} htmlFor="new-name" help={t("What your design is called. It becomes the file name when you download it.")}>
         <input id="new-name" data-autofocus className={inputClass} value={name} onChange={(e) => setTypedName(e.target.value)} />
       </Field>
 
       <Field
-        label="Ready-made size"
+        label={t("Ready-made size")}
         htmlFor="new-preset"
-        help="Common sizes for posts, screens and printed pages. Pick one, or type your own width and height below."
+        help={t("Common sizes for posts, screens and printed pages. Pick one, or type your own width and height below.")}
         note={preset?.use}
       >
         <select
@@ -84,7 +86,7 @@ export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumen
           }}
         >
           <option value="custom" disabled>
-            My own size
+            {t('My own size')}
           </option>
           {SIZE_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
@@ -95,61 +97,61 @@ export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumen
       </Field>
 
       <Field
-        label="Size in pixels"
-        help={`Pixels are the tiny colored squares every digital picture is made of. More pixels means more detail and a bigger file. Up to ${MAX_DOCUMENT_SIDE.toLocaleString('en-US')} on each side.`}
+        label={t("Size in pixels")}
+        help={t('Pixels are the tiny colored squares every digital picture is made of. More pixels means more detail and a bigger file. Up to {max} on each side.', { max: MAX_DOCUMENT_SIDE.toLocaleString('en-US') })}
         note={
           sizeError ? (
             <span className="text-danger">{sizeError}</span>
           ) : (
-            `${widthValue.toLocaleString('en-US')} pixels wide and ${heightValue.toLocaleString('en-US')} pixels tall, so it's ${describeShape(widthValue, heightValue)}.`
+            describeSize(widthValue, heightValue)
           )
         }
       >
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <input
-              aria-label="Width in pixels"
-              className={`${inputClass} pr-14`}
+              aria-label={t("Width in pixels")}
+              className={`${inputClass} pe-14`}
               inputMode="numeric"
               value={width}
               onChange={(e) => setWidth(e.target.value.replace(/\D/g, ''))}
             />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">wide</span>
+            <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">{t('wide')}</span>
           </div>
           <Button
             variant="ghost"
-            aria-label="Swap width and height"
+            aria-label={t("Swap width and height")}
             className="h-9 w-9 shrink-0"
             onClick={() => {
               setWidth(height)
               setHeight(width)
             }}
             tip={{
-              title: 'Swap width and height',
-              description: 'Turns your design on its side: a wide design becomes tall, and a tall one becomes wide.',
+              title: t('Swap width and height'),
+              description: t('Turns your design on its side: a wide design becomes tall, and a tall one becomes wide.'),
             }}
           >
             <ArrowLeftRight size={16} />
           </Button>
           <div className="relative flex-1">
             <input
-              aria-label="Height in pixels"
-              className={`${inputClass} pr-12`}
+              aria-label={t("Height in pixels")}
+              className={`${inputClass} pe-12`}
               inputMode="numeric"
               value={height}
               onChange={(e) => setHeight(e.target.value.replace(/\D/g, ''))}
             />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">tall</span>
+            <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">{t('tall')}</span>
           </div>
         </div>
       </Field>
 
       <Field
-        label="Background"
-        help="The color your design starts with. You can paint over it later."
+        label={t("Background")}
+        help={t("The color your design starts with. You can paint over it later.")}
         note={BACKGROUNDS.find((b) => b.value === background)!.description}
       >
-        <ChoiceGroup name="Background" value={background} options={BACKGROUNDS} onChange={setBackground} />
+        <ChoiceGroup name={t("Background")} value={background} options={BACKGROUNDS} onChange={setBackground} />
       </Field>
     </Dialog>
   )

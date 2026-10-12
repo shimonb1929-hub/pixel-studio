@@ -15,6 +15,7 @@ import {
 } from '../editor/path.ts'
 import type { LayerOverride } from '../editor/render.ts'
 import type { EditorDocument, Point, ShapeLayer, Viewport } from '../editor/types.ts'
+import { t } from '../i18n/i18n.ts'
 
 // The Pen: click to place points joined by straight lines, or press and drag to pull out a smooth
 // curve. Click the first point to close the shape, or press Enter to finish a line. Afterwards
@@ -315,7 +316,7 @@ export function usePen(options: PenOptions): PenControls {
           previewRef.current = null
           // A click on a line adds a point there, without changing the shape.
           if (target.kind === 'segment') {
-            optionsRef.current.onChange(layer.id, reshape(layer, insertNode(path, target.segment, target.t)), 'Add point')
+            optionsRef.current.onChange(layer.id, reshape(layer, insertNode(path, target.segment, target.t)), t('Add point'))
             selectedRef.current = { layerId: layer.id, index: target.segment + 1 }
           }
           bump()
@@ -323,7 +324,7 @@ export function usePen(options: PenOptions): PenControls {
         }
         const preview = previewRef.current
         if (preview?.geometry.path) {
-          const label = target.kind === 'node' ? 'Move point' : target.kind === 'segment' ? 'Bend curve' : 'Change curve'
+          const label = target.kind === 'node' ? t('Move point') : target.kind === 'segment' ? t('Bend curve') : t('Change curve')
           keepEdit(layer, pathInDesign(preview.geometry.path, preview.box), label)
         }
         previewRef.current = null
@@ -354,7 +355,7 @@ export function usePen(options: PenOptions): PenControls {
       if (target?.kind !== 'node') return
       const node = path.nodes[target.index]
       selectedRef.current = { layerId: layer.id, index: target.index }
-      keepEdit(layer, setSmooth(path, target.index, !node.smooth), node.smooth ? 'Sharp corner' : 'Smooth curve')
+      keepEdit(layer, setSmooth(path, target.index, !node.smooth), node.smooth ? t('Sharp corner') : t('Smooth curve'))
       bump()
     },
 
@@ -469,7 +470,7 @@ export function usePen(options: PenOptions): PenControls {
       if (!layer || index === null) return false
       const path = pathInDesign(layer.geometry.path!, layer.box)
       if (path.nodes.length <= 2) return false
-      keepEdit(layer, removeNode(path, index), 'Delete point')
+      keepEdit(layer, removeNode(path, index), t('Delete point'))
       selectedRef.current = { layerId: layer.id, index: Math.min(index, path.nodes.length - 2) }
       bump()
       return true
@@ -480,7 +481,7 @@ export function usePen(options: PenOptions): PenControls {
       if (!layer || index === null) return
       const path = pathInDesign(layer.geometry.path!, layer.box)
       const node = path.nodes[index]
-      keepEdit(layer, setSmooth(path, index, !node.smooth), node.smooth ? 'Sharp corner' : 'Smooth curve')
+      keepEdit(layer, setSmooth(path, index, !node.smooth), node.smooth ? t('Sharp corner') : t('Smooth curve'))
       bump()
     },
     version: shown.version,

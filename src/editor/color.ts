@@ -1,3 +1,4 @@
+import { live, msg } from '../i18n/i18n.ts'
 export interface Rgb {
   r: number
   g: number
@@ -72,23 +73,23 @@ export function isLight(hex: string): boolean {
   return 0.299 * r + 0.587 * g + 0.114 * b > 160
 }
 
-export const SWATCHES: { hex: string; name: string }[] = [
-  { hex: '#1b1d23', name: 'Black' },
-  { hex: '#4b5262', name: 'Dark gray' },
-  { hex: '#9aa1ad', name: 'Gray' },
-  { hex: '#e3e6eb', name: 'Light gray' },
-  { hex: '#ffffff', name: 'White' },
-  { hex: '#7a4a2a', name: 'Brown' },
-  { hex: '#c98a5a', name: 'Tan' },
-  { hex: '#f3d2b3', name: 'Peach' },
-  { hex: '#fbe7a1', name: 'Cream' },
-  { hex: '#ef4444', name: 'Red' },
-  { hex: '#f97316', name: 'Orange' },
-  { hex: '#facc15', name: 'Yellow' },
-  { hex: '#22c55e', name: 'Green' },
-  { hex: '#14b8a6', name: 'Teal' },
-  { hex: '#0ea5e9', name: 'Sky blue' },
-  { hex: '#3b5bfd', name: 'Blue' },
-  { hex: '#8b5cf6', name: 'Purple' },
-  { hex: '#ec4899', name: 'Pink' },
-]
+export const SWATCHES: { hex: string; name: string }[] = live([
+  { hex: '#1b1d23', name: msg('Black') },
+  { hex: '#4b5262', name: msg('Dark gray') },
+  { hex: '#9aa1ad', name: msg('Gray') },
+  { hex: '#e3e6eb', name: msg('Light gray') },
+  { hex: '#ffffff', name: msg('White') },
+  { hex: '#7a4a2a', name: msg('Brown') },
+  { hex: '#c98a5a', name: msg('Tan') },
+  { hex: '#f3d2b3', name: msg('Peach') },
+  { hex: '#fbe7a1', name: msg('Cream') },
+  { hex: '#ef4444', name: msg('Red') },
+  { hex: '#f97316', name: msg('Orange') },
+  { hex: '#facc15', name: msg('Yellow') },
+  { hex: '#22c55e', name: msg('Green') },
+  { hex: '#14b8a6', name: msg('Teal') },
+  { hex: '#0ea5e9', name: msg('Sky blue') },
+  { hex: '#3b5bfd', name: msg('Blue') },
+  { hex: '#8b5cf6', name: msg('Purple') },
+  { hex: '#ec4899', name: msg('Pink') },
+])

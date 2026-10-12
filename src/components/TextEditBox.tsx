@@ -3,6 +3,7 @@ import type { TextLayer, Viewport } from '../editor/types.ts'
 import { fontStack } from '../text/fonts.ts'
 import { resolveAlign } from '../text/layout.ts'
 import { textLayout } from '../text/textLayer.ts'
+import { t } from '../i18n/i18n.ts'
 
 export interface TextEditing {
   // The text as it is right now. While typing, it shows in this box instead of on the design.
@@ -65,7 +66,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
   return (
     <textarea
       ref={ref}
-      aria-label="Type your text"
+      aria-label={t("Type your text")}
       value={layer.text}
       dir={layout.direction}
       spellCheck={false}

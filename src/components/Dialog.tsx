@@ -2,6 +2,7 @@ import { CircleHelp, X } from 'lucide-react'
 import { useEffect, useId, useRef, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { Tooltip } from './Tooltip.tsx'
 import { Button } from './ui.tsx'
+import { t } from '../i18n/i18n.ts'
 
 interface DialogProps {
   title: string
@@ -16,7 +17,7 @@ interface DialogProps {
   children?: ReactNode
 }
 
-export function Dialog({ title, subtitle, submitLabel, cancelLabel = 'Cancel', danger, submitDisabled, onSubmit, onClose, children }: DialogProps) {
+export function Dialog({ title, subtitle, submitLabel, cancelLabel = t('Cancel'), danger, submitDisabled, onSubmit, onClose, children }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const pressedBackdropRef = useRef(false)
   const titleId = useId()
@@ -58,9 +59,9 @@ export function Dialog({ title, subtitle, submitLabel, cancelLabel = 'Cancel', d
           </div>
           <button
             type="button"
-            aria-label="Close"
+            aria-label={t("Close")}
             onClick={onClose}
-            className="-mr-2 -mt-1 flex h-8 w-8 items-center justify-center rounded-lg text-ink-3 hover:bg-subtle hover:text-ink"
+            className="-me-2 -mt-1 flex h-8 w-8 items-center justify-center rounded-lg text-ink-3 hover:bg-subtle hover:text-ink"
           >
             <X size={18} />
           </button>

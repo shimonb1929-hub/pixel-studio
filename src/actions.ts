@@ -1,4 +1,24 @@
+import { msg, t } from './i18n/i18n.ts'
+
 export type ActionGroup = 'Design' | 'Edit' | 'Select' | 'Layers' | 'Line up' | 'Whole design' | 'View' | 'Tools' | 'Brush' | 'Looks'
+
+const GROUP_NAMES: Record<ActionGroup, string> = {
+  Design: msg('Design'),
+  Edit: msg('Edit'),
+  Select: msg('Select'),
+  Layers: msg('Layers'),
+  'Line up': msg('Line up'),
+  'Whole design': msg('Whole design'),
+  View: msg('View'),
+  Tools: msg('Tools'),
+  Brush: msg('Brush'),
+  Looks: msg('Looks'),
+}
+
+// A group's name in the current language.
+export function groupName(group: ActionGroup): string {
+  return t(GROUP_NAMES[group])
+}
 
 // Everything a person can do, described once in plain words. The menu, the search box
 // and the hover tips all read from this list, so they always say the same thing.
@@ -16,11 +36,11 @@ export interface Action {
   run: () => void
 }
 
-export const NEEDS_DOCUMENT_HINT = 'Start a new design or open a picture first.'
+export const NEEDS_DOCUMENT_HINT = msg('Start a new design or open a picture first.')
 
 // Why an action can't be used right now, or null if it can.
 export function actionBlocker(action: Action, hasDocument: boolean): string | null {
-  if (action.needsDocument && !hasDocument) return NEEDS_DOCUMENT_HINT
+  if (action.needsDocument && !hasDocument) return t(NEEDS_DOCUMENT_HINT)
   return action.disabledReason ?? null
 }
 
@@ -31,7 +51,8 @@ function normalize(text: string): string {
     .replace(/[̀-ͯ]/g, '')
 }
 
-const WORD_SPLIT = /[^a-z0-9%]+/
+// Letters of every language count, so Hebrew and Yiddish words can be searched too.
+const WORD_SPLIT = /[^\p{L}\p{N}%]+/u
 
 // Every typed word has to match the action somewhere. Matches at the start of a title word
 // count most, then the keywords, then the middle of the title or the description. Middle-of-word

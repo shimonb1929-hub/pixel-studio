@@ -19,31 +19,31 @@ async function pressAndDrag(page: Page, size: Size, from: [number, number], to: 
   await drag(page, size, [from, to])
 }
 
-test('the Pen draws a closed shape point by point, filled with the shape color', async ({ page }) => {
+test('the Curve tool draws a closed shape point by point, filled with the shape color', async ({ page }) => {
   const size = await newDesign(page)
   await page.keyboard.press('p')
-  await expect(page.getByRole('button', { name: 'Pen tool' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Curve tool' })).toHaveAttribute('aria-pressed', 'true')
   await clickAt(page, size, 100, 60)
   await clickAt(page, size, 200, 220)
   await expect(page.getByRole('toolbar')).toContainText('Close shape')
   await clickAt(page, size, 40, 220)
   // Clicking the first point closes the shape.
   await clickAt(page, size, 100, 60)
-  expect(await layerNames(page)).toEqual(['Pen shape 1'])
-  expect(await undoLabel(page)).toContain('Undo draw pen shape')
+  expect(await layerNames(page)).toEqual(['Drawn shape 1'])
+  expect(await undoLabel(page)).toContain('Undo draw shape')
   // A triangle: inside is filled, outside stays white.
   expectColor(await designPixel(page, size, 110, 180), BLUE)
   expectColor(await designPixel(page, size, 180, 100), WHITE)
   // The Pen stays on, and the new shape's points show for reshaping.
-  await expect(page.getByRole('button', { name: 'Pen tool' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(shapePanel(page)).toContainText('Pen shape 1')
+  await expect(page.getByRole('button', { name: 'Curve tool' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(shapePanel(page)).toContainText('Drawn shape 1')
   // Effects can be added right away, without switching tools.
   await expect(page.getByRole('region', { name: 'Effects' })).toBeVisible()
   // With Arrange, a double-click on a pen shape shows its points again.
   await page.keyboard.press('v')
   const inside = await screenPoint(page, size, 110, 180)
   await page.mouse.dblclick(inside.x, inside.y)
-  await expect(page.getByRole('button', { name: 'Pen tool' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Curve tool' })).toHaveAttribute('aria-pressed', 'true')
 })
 
 test('pressing and dragging makes a smooth curve; Enter finishes an open line', async ({ page }) => {
@@ -64,7 +64,7 @@ test('pressing and dragging makes a smooth curve; Enter finishes an open line', 
   expect(await undoLabel(page)).toContain('Undo arrow head')
 })
 
-test('points of a pen shape can be moved, added, made smooth and deleted', async ({ page }) => {
+test('points of a drawn shape can be moved, added, made smooth and deleted', async ({ page }) => {
   const size = await newDesign(page)
   await page.keyboard.press('p')
   for (const [x, y] of [
@@ -76,7 +76,7 @@ test('points of a pen shape can be moved, added, made smooth and deleted', async
   ] as [number, number][]) {
     await clickAt(page, size, x, y)
   }
-  expect(await layerNames(page)).toEqual(['Pen shape 1'])
+  expect(await layerNames(page)).toEqual(['Drawn shape 1'])
   expectColor(await designPixel(page, size, 200, 150), BLUE)
 
   // Drag a corner point outwards.
@@ -101,7 +101,7 @@ test('points of a pen shape can be moved, added, made smooth and deleted', async
   expect(await undoLabel(page)).toContain('Undo add point')
   await page.keyboard.press('Delete')
   expect(await undoLabel(page)).toContain('Undo delete point')
-  expect(await layerNames(page)).toEqual(['Pen shape 1'])
+  expect(await layerNames(page)).toEqual(['Drawn shape 1'])
 
   // Double-click a corner to make it smooth.
   const corner = await screenPoint(page, size, 100, 250)
@@ -118,7 +118,7 @@ test('any shape can be reshaped point by point with Edit points', async ({ page 
     [300, 200],
   ])
   await shapePanel(page).getByRole('button', { name: 'Edit points' }).click()
-  await expect(page.getByRole('button', { name: 'Pen tool' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Curve tool' })).toHaveAttribute('aria-pressed', 'true')
   expectColor(await designPixel(page, size, 200, 150), BLUE)
   // Pull a corner far out.
   await drag(page, size, [
@@ -157,7 +157,7 @@ test('a shape can be filled with a gradient, from a ready-made one', async ({ pa
   expect(middle).toEqual(corner)
 })
 
-test('pen shapes and gradients come back from a project file', async ({ page }) => {
+test('drawn shapes and gradients come back from a project file', async ({ page }) => {
   const size = await newDesign(page)
   await page.keyboard.press('p')
   for (const [x, y] of [
@@ -182,7 +182,7 @@ test('pen shapes and gradients come back from a project file', async ({ page }) 
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Close design' }).click()
   await page.locator('input[type=file]').setInputFiles({ name: 'My design 1.pixel', mimeType: '', buffer: bytes })
-  await expect.poll(() => layerNames(page)).toEqual(['Pen shape 1'])
+  await expect.poll(() => layerNames(page)).toEqual(['Drawn shape 1'])
   expect(await designPixel(page, size, 200, 100)).toEqual(before)
   expectColor(await designPixel(page, size, 200, 280), WHITE)
 })

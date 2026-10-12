@@ -2,6 +2,7 @@ import { boxPoint, type TransformBox } from '../editor/transform.ts'
 import type { EditorDocument, Point, TextLayer, TextStyle } from '../editor/types.ts'
 import { cssFont, fontReady, fontStack, fontsVersion, loadFont } from './fonts.ts'
 import { indexAt, layoutText, mainDirection, resolveAlign, type TextLayout, type TextMeasure } from './layout.ts'
+import { t } from '../i18n/i18n.ts'
 
 // Text objects: measuring and laying them out with real fonts, drawing them, and keeping their
 // box fitted to the text as it changes.
@@ -208,7 +209,7 @@ export function textInBox(layer: TextLayer, box: TransformBox): TextLayer {
 export function textName(text: string): string {
   const first = text.split('\n').find((line) => line.trim()) ?? ''
   const trimmed = first.trim().replace(/\s+/g, ' ')
-  if (!trimmed) return 'Text'
+  if (!trimmed) return t('Text')
   const letters = [...trimmed]
   return letters.length > 28 ? `${letters.slice(0, 27).join('')}…` : trimmed
 }

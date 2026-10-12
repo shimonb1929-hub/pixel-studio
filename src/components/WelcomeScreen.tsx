@@ -7,6 +7,7 @@ import { SIZE_PRESETS, type SizePreset } from '../presets.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button } from './ui.tsx'
 import { YourDesigns } from './YourDesigns.tsx'
+import { t } from '../i18n/i18n.ts'
 
 const PREVIEW_MAX = 40
 
@@ -55,15 +56,15 @@ export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign }: Welc
   return (
     <div className="flex h-full overflow-y-auto">
       <div className="m-auto w-full max-w-3xl px-6 py-10">
-        <h1 className="text-center text-[28px] font-semibold tracking-tight text-ink">What are you making today?</h1>
+        <h1 className="text-center text-[28px] font-semibold tracking-tight text-ink">{t('What are you making today?')}</h1>
         <p className="mt-2 text-center text-[15px] text-ink-2">
-          {returning ? 'Pick up where you left off, or start something new.' : 'Pick a size to start, or open a picture from your computer.'}
+          {returning ? t('Pick up where you left off, or start something new.') : t('Pick a size to start, or open a picture from your computer.')}
         </p>
 
         {returning && (
           <>
             <YourDesigns designs={designs} now={loadedAt} onOpen={onOpenDesign} onChanged={refresh} />
-            <h2 className="mt-10 text-[15px] font-semibold tracking-tight text-ink">Start something new</h2>
+            <h2 className="mt-10 text-[15px] font-semibold tracking-tight text-ink">{t('Start something new')}</h2>
           </>
         )}
 
@@ -72,7 +73,7 @@ export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign }: Welc
             <Tooltip
               key={preset.id}
               title={preset.name}
-              description={`${preset.use} ${preset.width} × ${preset.height} pixels, with a white background.`}
+              description={t('{use} {width} × {height} pixels, with a white background.', { use: preset.use, width: preset.width, height: preset.height })}
               className="flex"
             >
               <Tile
@@ -84,14 +85,14 @@ export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign }: Welc
             </Tooltip>
           ))}
           <Tooltip
-            title="Custom size"
+            title={t("Custom size")}
             shortcut={shortcut('mod', 'alt', 'N')}
-            description="Choose your own width, height and background color."
+            description={t("Choose your own width, height and background color.")}
             className="flex"
           >
             <Tile
-              label="Custom size"
-              detail="Your own size"
+              label={t("Custom size")}
+              detail={t("Your own size")}
               preview={
                 <div className="flex h-12 w-12 items-center justify-center">
                   <div className="flex h-10 w-10 items-center justify-center rounded-[3px] border-[1.5px] border-dashed border-ink-3/45 text-ink-3 transition-colors group-hover:border-accent group-hover:text-accent">
@@ -109,15 +110,15 @@ export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign }: Welc
             className="h-10 px-5"
             onClick={onOpen}
             tip={{
-              title: 'Open a picture',
+              title: t('Open a picture'),
               shortcut: shortcut('mod', 'O'),
-              description: 'Pick a picture from your computer (PNG, JPG, GIF, WebP and more) to edit it, or a Pixel Studio project you downloaded.',
+              description: t('Pick a picture from your computer (PNG, JPG, GIF, WebP and more) to edit it, or a Pixel Studio project you downloaded.'),
             }}
           >
             <FolderOpen size={16} />
-            Open a picture…
+            {t('Open a picture…')}
           </Button>
-          <p className="text-xs text-ink-3">or drop a picture or project file anywhere on this window</p>
+          <p className="text-xs text-ink-3">{t('or drop a picture or project file anywhere on this window')}</p>
         </div>
       </div>
     </div>

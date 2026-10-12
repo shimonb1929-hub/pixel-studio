@@ -1,3 +1,4 @@
+import { live, msg, t } from '../i18n/i18n.ts'
 // Color and detail adjustments: the math, done on plain RGBA pixel arrays so it can be tested
 // without a browser. Brightness, contrast, color strength and warmth change each pixel on its own;
 // blur and sharpen look at the pixels around it.
@@ -19,14 +20,14 @@ export type AdjustmentKey = keyof Adjustments
 
 export const NO_ADJUSTMENTS: Adjustments = { brightness: 0, contrast: 0, saturation: 0, warmth: 0, blur: 0, sharpen: 0 }
 
-export const ADJUSTMENT_NAMES: Record<AdjustmentKey, string> = {
-  brightness: 'Brightness',
-  contrast: 'Contrast',
-  saturation: 'Color strength',
-  warmth: 'Warmth',
-  blur: 'Blur',
-  sharpen: 'Sharpen',
-}
+export const ADJUSTMENT_NAMES: Record<AdjustmentKey, string> = live({
+  brightness: msg('Brightness'),
+  contrast: msg('Contrast'),
+  saturation: msg('Color strength'),
+  warmth: msg('Warmth'),
+  blur: msg('Blur'),
+  sharpen: msg('Sharpen'),
+})
 
 // Sliders that go both ways start in the middle; blur and sharpen start at the left.
 export const TWO_WAY: Record<AdjustmentKey, boolean> = {
@@ -55,40 +56,40 @@ const look = (id: string, name: string, description: string, keywords: string[],
 })
 
 // Ready-made looks. Each one just sets the sliders, so you can fine-tune it afterwards.
-export const LOOKS: Look[] = [
-  look('original', 'Original', 'No changes. Puts every slider back to the middle.', ['original', 'none', 'reset', 'normal'], {}),
-  look('mono', 'Black & white', 'Takes away all color, with a little extra contrast.', ['black and white', 'grayscale', 'greyscale', 'gray', 'mono', 'no color'], {
+export const LOOKS: Look[] = live([
+  look('original', msg('Original'), msg('No changes. Puts every slider back to the middle.'), ['original', 'none', 'reset', 'normal'], {}),
+  look('mono', msg('Black & white'), msg('Takes away all color, with a little extra contrast.'), ['black and white', 'grayscale', 'greyscale', 'gray', 'mono', 'no color'], {
     saturation: -1,
     contrast: 0.12,
   }),
-  look('old', 'Old photo', 'Brown and faded, like a photo from long ago.', ['sepia', 'old', 'vintage', 'retro', 'antique', 'brown'], {
+  look('old', msg('Old photo'), msg('Brown and faded, like a photo from long ago.'), ['sepia', 'old', 'vintage', 'retro', 'antique', 'brown'], {
     saturation: -1,
     warmth: 0.75,
     contrast: -0.12,
     brightness: 0.06,
   }),
-  look('vivid', 'Vivid', 'Brighter, bolder colors that stand out.', ['vivid', 'colorful', 'bold', 'pop', 'saturated', 'bright colors'], {
+  look('vivid', msg('Vivid'), msg('Brighter, bolder colors that stand out.'), ['vivid', 'colorful', 'bold', 'pop', 'saturated', 'bright colors'], {
     saturation: 0.45,
     contrast: 0.15,
   }),
-  look('warm', 'Warm', 'A golden, sunny glow.', ['warm', 'sunny', 'golden', 'orange', 'summer'], { warmth: 0.45, saturation: 0.1, brightness: 0.04 }),
-  look('cool', 'Cool', 'A fresh, bluish feel.', ['cool', 'cold', 'blue', 'winter', 'icy'], { warmth: -0.45, saturation: -0.05 }),
-  look('soft', 'Soft', 'Lighter and gentler, with calm colors.', ['soft', 'faded', 'pastel', 'light', 'gentle', 'matte'], {
+  look('warm', msg('Warm'), msg('A golden, sunny glow.'), ['warm', 'sunny', 'golden', 'orange', 'summer'], { warmth: 0.45, saturation: 0.1, brightness: 0.04 }),
+  look('cool', msg('Cool'), msg('A fresh, bluish feel.'), ['cool', 'cold', 'blue', 'winter', 'icy'], { warmth: -0.45, saturation: -0.05 }),
+  look('soft', msg('Soft'), msg('Lighter and gentler, with calm colors.'), ['soft', 'faded', 'pastel', 'light', 'gentle', 'matte'], {
     contrast: -0.28,
     brightness: 0.12,
     saturation: -0.2,
   }),
-  look('dramatic', 'Dramatic', 'Strong darks and lights, with quieter colors.', ['dramatic', 'moody', 'dark', 'strong', 'intense'], {
+  look('dramatic', msg('Dramatic'), msg('Strong darks and lights, with quieter colors.'), ['dramatic', 'moody', 'dark', 'strong', 'intense'], {
     contrast: 0.5,
     saturation: -0.3,
     brightness: -0.06,
   }),
-  look('dreamy', 'Dreamy', 'Soft focus and light, like a dream.', ['dreamy', 'dream', 'glow', 'hazy', 'soft focus'], {
+  look('dreamy', msg('Dreamy'), msg('Soft focus and light, like a dream.'), ['dreamy', 'dream', 'glow', 'hazy', 'soft focus'], {
     blur: 0.22,
     brightness: 0.14,
     contrast: -0.18,
   }),
-]
+])
 
 export function sameAdjustments(a: Adjustments, b: Adjustments): boolean {
   return (Object.keys(a) as AdjustmentKey[]).every((key) => Math.abs(a[key] - b[key]) < 1e-6)
@@ -106,9 +107,16 @@ export function matchingLook(a: Adjustments): Look | undefined {
 // The name of the change, for undo: "Brightness", "Black & white look" or "Adjust colors".
 export function adjustmentLabel(a: Adjustments): string {
   const chosen = matchingLook(a)
-  if (chosen && chosen.id !== 'original') return `${chosen.name} look`
+  if (chosen && chosen.id !== 'original') return t('{look} look', { look: chosen.name })
   const changed = (Object.keys(a) as AdjustmentKey[]).filter((key) => a[key] !== 0)
-  return changed.length === 1 ? ADJUSTMENT_NAMES[changed[0]] : 'Adjust colors'
+  return changed.length === 1 ? ADJUSTMENT_NAMES[changed[0]] : t('Adjust colors')
+}
+
+// What has been changed, in a word or two: "Black & white", "Brightness" or "Adjust colors".
+export function adjustmentName(a: Adjustments): string {
+  const chosen = matchingLook(a)
+  if (chosen && chosen.id !== 'original') return chosen.name
+  return adjustmentLabel(a)
 }
 
 // What a slider's value means, in everyday words.
@@ -117,20 +125,20 @@ export function describeAdjustment(key: AdjustmentKey, value: number): string {
   const tier = amount < 0.005 ? 0 : amount < 0.3 ? 1 : amount < 0.7 ? 2 : 3
   const up = value > 0
   const words: Record<AdjustmentKey, [string, string[], string[]]> = {
-    brightness: ['No change.', ['A little lighter.', 'Lighter.', 'Much lighter.'], ['A little darker.', 'Darker.', 'Much darker.']],
+    brightness: [t('No change.'), [t('A little lighter.'), t('Lighter.'), t('Much lighter.')], [t('A little darker.'), t('Darker.'), t('Much darker.')]],
     contrast: [
-      'No change.',
-      ['A little more punch.', 'Darks darker and lights lighter.', 'Very strong: details may get lost in the darks and lights.'],
-      ['A little gentler.', 'Softer and flatter.', 'Very flat and gray.'],
+      t('No change.'),
+      [t('A little more punch.'), t('Darks darker and lights lighter.'), t('Very strong: details may get lost in the darks and lights.')],
+      [t('A little gentler.'), t('Softer and flatter.'), t('Very flat and gray.')],
     ],
     saturation: [
-      'No change.',
-      ['A little more colorful.', 'More colorful.', 'Very bold colors.'],
-      ['A little less colorful.', 'Faded colors.', amount >= 0.995 ? 'Black and white.' : 'Almost no color.'],
+      t('No change.'),
+      [t('A little more colorful.'), t('More colorful.'), t('Very bold colors.')],
+      [t('A little less colorful.'), t('Faded colors.'), amount >= 0.995 ? t('Black and white.') : t('Almost no color.')],
     ],
-    warmth: ['No change.', ['A little warmer.', 'Warmer and more golden.', 'Very warm and orange.'], ['A little cooler.', 'Cooler and more blue.', 'Very cool and blue.']],
-    blur: ['Sharp, as it is.', ['Slightly soft.', 'Blurry.', 'Very blurry.'], []],
-    sharpen: ['No extra sharpening.', ['Crisper details.', 'Much crisper details.', 'Very crisp. Edges may start to look rough.'], []],
+    warmth: [t('No change.'), [t('A little warmer.'), t('Warmer and more golden.'), t('Very warm and orange.')], [t('A little cooler.'), t('Cooler and more blue.'), t('Very cool and blue.')]],
+    blur: [t('Sharp, as it is.'), [t('Slightly soft.'), t('Blurry.'), t('Very blurry.')], []],
+    sharpen: [t('No extra sharpening.'), [t('Crisper details.'), t('Much crisper details.'), t('Very crisp. Edges may start to look rough.')], []],
   }
   const [none, more, less] = words[key]
   if (tier === 0) return none

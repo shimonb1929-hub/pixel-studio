@@ -1,11 +1,12 @@
+import { live, msg, t } from '../i18n/i18n.ts'
 // 'project' keeps every layer, so the design can be opened again in Pixel Studio.
 export type ExportFormat = 'png' | 'jpeg' | 'project'
 
-export const EXPORT_FORMATS: Record<ExportFormat, { label: string; mime: string; extension: string }> = {
+export const EXPORT_FORMATS: Record<ExportFormat, { label: string; mime: string; extension: string }> = live({
   png: { label: 'PNG', mime: 'image/png', extension: 'png' },
   jpeg: { label: 'JPG', mime: 'image/jpeg', extension: 'jpg' },
-  project: { label: 'Project', mime: 'application/x-pixel-studio', extension: 'pixel' },
-}
+  project: { label: msg('Project'), mime: 'application/x-pixel-studio', extension: 'pixel' },
+})
 
 export function stripExtension(name: string): string {
   const dot = name.lastIndexOf('.')
@@ -21,7 +22,7 @@ export function exportFileName(baseName: string, format: ExportFormat): string {
 }
 
 export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} bytes`
+  if (bytes < 1024) return t('{count} bytes', { count: bytes })
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }

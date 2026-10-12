@@ -5,6 +5,7 @@ import { isLineShape } from '../editor/objects.ts'
 import type { ShapeFill, ShapeGeometry, ShapeOutline } from '../editor/types.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button, Slider } from './ui.tsx'
+import { t } from '../i18n/i18n.ts'
 
 export type ColorTarget = 'fill' | 'outline'
 
@@ -16,7 +17,7 @@ function Swatch({ label, color, active, onClick, description }: { label: string;
     <Tooltip title={label} description={description} className="flex">
       <button
         type="button"
-        aria-label={`${label} color`}
+        aria-label={t('{part} color', { part: label })}
         aria-pressed={active}
         onClick={onClick}
         className={`flex h-9 items-center gap-2 rounded-lg border px-2 text-[12px] font-medium transition-colors ${
@@ -73,11 +74,11 @@ export function ShapePanel(props: ShapePanelProps) {
   const target = line ? 'outline' : props.colorTarget
 
   return (
-    <section aria-label="Shape" className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
+    <section aria-label={t("Shape")} className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
       <div className="mb-3 flex items-center justify-between gap-2">
         <Tooltip
-          title="Shape"
-          description="How the shape looks. Pick Fill or Outline, then choose a color in the Color panel above. Shapes stay sharp at any size."
+          title={t("Shape")}
+          description={t("How the shape looks. Pick Fill or Outline, then choose a color in the Color panel above. Shapes stay sharp at any size.")}
         >
           <h2 className="flex min-w-0 cursor-help items-center gap-1.5 text-[13px] font-semibold text-ink">
             <bdi className="truncate">{props.title}</bdi>
@@ -89,26 +90,26 @@ export function ShapePanel(props: ShapePanelProps) {
       <div className="flex flex-wrap items-center gap-1.5">
         {!line && (
           <Swatch
-            label="Fill"
+            label={t("Fill")}
             color={fill.kind === 'photo' ? null : fillColor}
             active={target === 'fill'}
             onClick={() => props.onColorTarget('fill')}
-            description="The inside of the shape. While this is picked, the Color panel colors the inside."
+            description={t("The inside of the shape. While this is picked, the Color panel colors the inside.")}
           />
         )}
         <Swatch
-          label={line ? 'Line' : 'Outline'}
+          label={line ? t('Line') : t('Outline')}
           color={outline?.color ?? null}
           active={target === 'outline'}
           onClick={() => props.onColorTarget('outline')}
-          description={line ? 'The color of the line. Choose it in the Color panel.' : 'The line around the shape. While this is picked, the Color panel colors the outline.'}
+          description={line ? t('The color of the line. Choose it in the Color panel.') : t('The line around the shape. While this is picked, the Color panel colors the outline.')}
         />
         {target === 'fill' && !line && fill.kind !== 'photo' && (
-          <div role="radiogroup" aria-label="Fill kind" className="flex shrink-0 gap-0.5 rounded-[10px] border border-line bg-subtle p-0.5">
+          <div role="radiogroup" aria-label={t("Fill kind")} className="flex shrink-0 gap-0.5 rounded-[10px] border border-line bg-subtle p-0.5">
             {(
               [
-                { kind: 'color', label: 'Color', icon: Square, description: 'Fill the inside with one plain color.' },
-                { kind: 'gradient', label: 'Gradient', icon: Blend, description: 'Fill the inside with colors that fade smoothly into each other. Start from a ready-made one, then change it as you like.' },
+                { kind: 'color', label: t('Color'), icon: Square, description: t('Fill the inside with one plain color.') },
+                { kind: 'gradient', label: t('Gradient'), icon: Blend, description: t('Fill the inside with colors that fade smoothly into each other. Start from a ready-made one, then change it as you like.') },
               ] as const
             ).map((choice) => (
               <Tooltip key={choice.kind} title={choice.label} description={choice.description}>
@@ -130,15 +131,15 @@ export function ShapePanel(props: ShapePanelProps) {
           </div>
         )}
         {target === 'fill' && fill.kind !== 'none' && (
-          <Button variant="ghost" className="h-9 px-2 text-[12px]" onClick={props.onNoFill} tip={{ title: 'No fill', description: 'Leave the inside empty and see-through, so only the outline shows.' }}>
+          <Button variant="ghost" className="h-9 px-2 text-[12px]" onClick={props.onNoFill} tip={{ title: t('No fill'), description: t('Leave the inside empty and see-through, so only the outline shows.') }}>
             <X size={14} />
-            No fill
+            {t('No fill')}
           </Button>
         )}
         {target === 'outline' && outline && !line && (
-          <Button variant="ghost" className="h-9 px-2 text-[12px]" onClick={props.onNoOutline} tip={{ title: 'No outline', description: 'Take away the line around the shape.' }}>
+          <Button variant="ghost" className="h-9 px-2 text-[12px]" onClick={props.onNoOutline} tip={{ title: t('No outline'), description: t('Take away the line around the shape.') }}>
             <X size={14} />
-            No outline
+            {t('No outline')}
           </Button>
         )}
       </div>
@@ -152,8 +153,8 @@ export function ShapePanel(props: ShapePanelProps) {
       <div className={`flex flex-col gap-3 ${outline || line || geometry.type === 'rectangle' || geometry.type === 'polygon' || geometry.type === 'star' ? 'mt-4' : ''}`}>
         {(outline || line) && (
           <Slider
-            label={line ? 'Thickness' : 'Outline width'}
-            help={line ? 'How thick the line is.' : 'How thick the line around the shape is.'}
+            label={line ? t('Thickness') : t('Outline width')}
+            help={line ? t('How thick the line is.') : t('How thick the line around the shape is.')}
             value={Math.sqrt((outline?.width ?? 0) / MAX_OUTLINE)}
             display={`${outline?.width ?? 0} px`}
             onChange={(position) => props.onOutlineWidth(Math.max(line ? 1 : 0, Math.round(position * position * MAX_OUTLINE)))}
@@ -161,8 +162,8 @@ export function ShapePanel(props: ShapePanelProps) {
         )}
         {geometry.type === 'rectangle' && (
           <Slider
-            label="Round corners"
-            help="How round the corners are. All the way right makes the short sides fully round, like a pill."
+            label={t("Round corners")}
+            help={t("How round the corners are. All the way right makes the short sides fully round, like a pill.")}
             value={geometry.corners}
             display={`${Math.round(geometry.corners * 100)}%`}
             onChange={(position) => props.onGeometry({ corners: Math.round(position * 100) / 100 })}
@@ -170,26 +171,26 @@ export function ShapePanel(props: ShapePanelProps) {
         )}
         {(geometry.type === 'polygon' || geometry.type === 'star') && (
           <Slider
-            label={geometry.type === 'star' ? 'Points' : 'Sides'}
-            help={geometry.type === 'star' ? 'How many points the star has.' : 'How many sides: 3 is a triangle, 6 a hexagon.'}
+            label={geometry.type === 'star' ? t('Points') : t('Sides')}
+            help={geometry.type === 'star' ? t('How many points the star has.') : t('How many sides: 3 is a triangle, 6 a hexagon.')}
             value={(geometry.sides - 3) / 9}
             display={String(geometry.sides)}
             onChange={(position) => props.onGeometry({ sides: 3 + Math.round(position * 9) })}
           />
         )}
         {line && (
-          <Tooltip title="Arrow head" description="Put an arrow head on the end of the line." className="flex">
+          <Tooltip title={t("Arrow head")} description={t("Put an arrow head on the end of the line.")} className="flex">
             <button
               type="button"
               aria-pressed={geometry.arrow}
-              aria-label="Arrow head"
+              aria-label={t("Arrow head")}
               onClick={() => props.onGeometry({ arrow: !geometry.arrow })}
               className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
                 geometry.arrow ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
               }`}
             >
               <ArrowRight size={15} />
-              Arrow head
+              {t('Arrow head')}
             </button>
           </Tooltip>
         )}
@@ -200,10 +201,10 @@ export function ShapePanel(props: ShapePanelProps) {
           variant="secondary"
           className="mt-4 h-8 w-full px-3 text-[12px]"
           onClick={props.onEditPoints}
-          tip={{ title: 'Edit points', description: 'Show the points of this shape, so you can drag them, bend its sides into curves, or add more points. Any shape can be reshaped this way.' }}
+          tip={{ title: t('Edit points'), description: t('Show the points of this shape, so you can drag them, bend its sides into curves, or add more points. Any shape can be reshaped this way.') }}
         >
           <PenTool size={15} />
-          Edit points
+          {t('Edit points')}
         </Button>
       )}
 
@@ -212,30 +213,30 @@ export function ShapePanel(props: ShapePanelProps) {
           {props.photo ? (
             <div className="flex flex-col gap-3">
               <Slider
-                label="Photo size"
-                help="Make the photo bigger inside the shape. It always fills the whole shape."
+                label={t("Photo size")}
+                help={t("Make the photo bigger inside the shape. It always fills the whole shape.")}
                 value={(props.photo.zoom - 1) / 3}
                 display={`${Math.round(props.photo.zoom * 100)}%`}
                 onChange={(position) => props.photo!.onZoom(Math.round((1 + position * 3) * 100) / 100)}
               />
               <div className="flex items-center gap-1.5">
-                <Tooltip title="Move photo" description="While this is on, drag on the shape to slide the photo inside it, to show the part you want." className="flex">
+                <Tooltip title={t("Move photo")} description={t("While this is on, drag on the shape to slide the photo inside it, to show the part you want.")} className="flex">
                   <button
                     type="button"
                     aria-pressed={props.photo.moving}
-                    aria-label="Move photo"
+                    aria-label={t("Move photo")}
                     onClick={props.photo.onToggleMove}
                     className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
                       props.photo.moving ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
                     }`}
                   >
                     <Move size={15} />
-                    Move photo
+                    {t('Move photo')}
                   </button>
                 </Tooltip>
-                <Button variant="ghost" className="h-8 px-2.5 text-[12px]" onClick={props.photo.onRemove} tip={{ title: 'Remove photo', description: 'Take the photo out, and fill the shape with a color again.' }}>
+                <Button variant="ghost" className="h-8 px-2.5 text-[12px]" onClick={props.photo.onRemove} tip={{ title: t('Remove photo'), description: t('Take the photo out, and fill the shape with a color again.') }}>
                   <X size={14} />
-                  Remove photo
+                  {t('Remove photo')}
                 </Button>
               </div>
             </div>
@@ -245,10 +246,10 @@ export function ShapePanel(props: ShapePanelProps) {
                 variant="secondary"
                 className="h-8 w-full px-3 text-[12px]"
                 onClick={props.onChoosePhoto}
-                tip={{ title: 'Fill with a photo', description: 'Put a photo inside this shape. You can also drop a picture file right onto the shape.' }}
+                tip={{ title: t('Fill with a photo'), description: t('Put a photo inside this shape. You can also drop a picture file right onto the shape.') }}
               >
                 <ImagePlus size={15} />
-                Fill with a photo…
+                {t('Fill with a photo…')}
               </Button>
             )
           )}

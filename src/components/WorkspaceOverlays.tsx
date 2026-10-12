@@ -5,6 +5,7 @@ import { formatZoom } from '../editor/viewport.ts'
 import { shortcut } from '../keys.ts'
 import { TOOLS } from '../tools.ts'
 import { Tooltip, type TipContent } from './Tooltip.tsx'
+import { t } from '../i18n/i18n.ts'
 
 const PILL = 'absolute z-10 items-center border border-line bg-surface/95 shadow-card backdrop-blur'
 
@@ -59,9 +60,9 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut, onActualSize, onFit }:
         onClick={onZoomOut}
         className="w-8 text-ink-2"
         tip={{
-          title: 'Zoom out',
+          title: t('Zoom out'),
           shortcut: shortcut('mod', 'Minus'),
-          description: 'See your design smaller, so more of it fits. Your design itself does not change.',
+          description: t('See your design smaller, so more of it fits. Your design itself does not change.'),
         }}
       >
         <Minus size={16} />
@@ -70,9 +71,9 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut, onActualSize, onFit }:
         onClick={onActualSize}
         className="w-[68px] tabular-nums text-ink"
         tip={{
-          title: 'Zoom level',
+          title: t('Zoom level'),
           shortcut: shortcut('mod', 'alt', '0'),
-          description: 'How big your design looks on screen. 100% is its real size. Click to go back to 100%.',
+          description: t('How big your design looks on screen. 100% is its real size. Click to go back to 100%.'),
         }}
       >
         {formatZoom(zoom)}
@@ -81,9 +82,9 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut, onActualSize, onFit }:
         onClick={onZoomIn}
         className="w-8 text-ink-2"
         tip={{
-          title: 'Zoom in',
+          title: t('Zoom in'),
           shortcut: shortcut('mod', 'Plus'),
-          description: 'See your design bigger, to work on small details. Your design itself does not change.',
+          description: t('See your design bigger, to work on small details. Your design itself does not change.'),
         }}
       >
         <Plus size={16} />
@@ -93,13 +94,13 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut, onActualSize, onFit }:
         onClick={onFit}
         className="px-2.5 text-ink-2"
         tip={{
-          title: 'Fit on screen',
+          title: t('Fit on screen'),
           shortcut: shortcut('mod', '0'),
-          description: 'Show your whole design, as big as fits in the window.',
+          description: t('Show your whole design, as big as fits in the window.'),
         }}
       >
         <Maximize2 size={14} />
-        Fit
+        {t('Fit')}
       </PillButton>
     </div>
   )
@@ -108,18 +109,18 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut, onActualSize, onFit }:
 export function DesignInfo({ doc, cursor }: { doc: EditorDocument; cursor: Point | null }) {
   const inside = cursor && cursor.x >= 0 && cursor.y >= 0 && cursor.x < doc.width && cursor.y < doc.height
   return (
-    <div className={`${PILL} bottom-3 left-3 hidden gap-3 rounded-xl px-3 py-2 text-xs tabular-nums text-ink-2 xl:flex`}>
+    <div className={`${PILL} bottom-3 start-3 hidden gap-3 rounded-xl px-3 py-2 text-xs tabular-nums text-ink-2 xl:flex`}>
       <Tooltip
         side="top"
-        title="Design size"
-        description="How big your design really is, in pixels. Pixels are the tiny colored squares every digital picture is made of."
+        title={t("Design size")}
+        description={t("How big your design really is, in pixels. Pixels are the tiny colored squares every digital picture is made of.")}
       >
         <span className="cursor-default">
           {doc.width} × {doc.height} px
         </span>
       </Tooltip>
       <span className="h-3.5 w-px bg-line" />
-      <Tooltip side="top" title="Pointer position" description="Where your pointer is on the design, counted in pixels from the top-left corner.">
+      <Tooltip side="top" title={t("Pointer position")} description={t("Where your pointer is on the design, counted in pixels from the top-left corner.")}>
         <span className="w-24 cursor-default whitespace-pre">
           {inside ? `X ${Math.floor(cursor.x)}   Y ${Math.floor(cursor.y)}` : 'X –   Y –'}
         </span>

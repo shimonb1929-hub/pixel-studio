@@ -4,8 +4,9 @@ import { createCanvas, createDocumentFromImage, getContext2d, MAX_DOCUMENT_SIDE 
 import { EXPORT_FORMATS, type ExportFormat } from './fileNames.ts'
 import { decodeProject, encodeProject, isProjectFile } from './project.ts'
 import type { EditorDocument } from './types.ts'
+import { msg, t } from '../i18n/i18n.ts'
 
-const CANNOT_OPEN = "This file couldn't be opened. Try a PNG, JPG, GIF, WebP or BMP image."
+const CANNOT_OPEN = msg("This file couldn't be opened. Try a PNG, JPG, GIF, WebP or BMP image.")
 
 interface DecodedImage {
   source: CanvasImageSource
@@ -33,7 +34,7 @@ async function decodeImage(file: Blob): Promise<DecodedImage> {
       }
     } catch {
       URL.revokeObjectURL(url)
-      throw new Error(CANNOT_OPEN)
+      throw new Error(t(CANNOT_OPEN))
     }
   }
 }
@@ -42,11 +43,14 @@ async function decodeImage(file: Blob): Promise<DecodedImage> {
 export async function imageFileToCanvas(file: Blob): Promise<HTMLCanvasElement> {
   const image = await decodeImage(file)
   try {
-    if (image.width < 1 || image.height < 1) throw new Error(CANNOT_OPEN)
+    if (image.width < 1 || image.height < 1) throw new Error(t(CANNOT_OPEN))
     if (image.width > MAX_DOCUMENT_SIDE || image.height > MAX_DOCUMENT_SIDE) {
       throw new Error(
-        `This image is ${image.width} × ${image.height} pixels. Pixel Studio can open images up to ` +
-          `${MAX_DOCUMENT_SIDE.toLocaleString('en-US')} pixels on each side.`,
+        t('This image is {width} × {height} pixels. Pixel Studio can open images up to {max} pixels on each side.', {
+          width: image.width,
+          height: image.height,
+          max: MAX_DOCUMENT_SIDE.toLocaleString('en-US'),
+        }),
       )
     }
     const canvas = createCanvas(image.width, image.height)
@@ -76,7 +80,7 @@ export async function exportDocument(doc: EditorDocument, format: ExportFormat, 
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) =>
-        blob ? resolve(blob) : reject(new Error('Export failed. The image may be too large for this browser.')),
+        blob ? resolve(blob) : reject(new Error(t('Export failed. The image may be too large for this browser.'))),
       EXPORT_FORMATS[format].mime,
       quality,
     )

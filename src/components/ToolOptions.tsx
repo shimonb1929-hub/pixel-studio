@@ -23,6 +23,7 @@ import { toolInfo } from '../tools.ts'
 import { StrokePreview } from './StrokePreview.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { Button, Slider } from './ui.tsx'
+import { live, msg, t } from '../i18n/i18n.ts'
 
 interface PaintOptionsProps {
   erasing: boolean
@@ -42,7 +43,7 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
   return (
     <>
       {erasing ? (
-        <div role="radiogroup" aria-label="Ready-made erasers" className="flex shrink-0 gap-1">
+        <div role="radiogroup" aria-label={t("Ready-made erasers")} className="flex shrink-0 gap-1">
           {presets.map((p) => (
             <PresetTile key={p.id} preset={p} chosen={p.id === presetId} color={color} mode={mode} onChoose={() => onChange(p.settings, p.id)} />
           ))}
@@ -54,8 +55,8 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
       <div className="h-9 w-px shrink-0 bg-line" />
 
       <Tooltip
-        title={erasing ? 'Your eraser' : 'Your brush'}
-        description="A sample of how it works right now. It changes as you move the sliders."
+        title={erasing ? t('Your eraser') : t('Your brush')}
+        description={t("A sample of how it works right now. It changes as you move the sliders.")}
       >
         <div className="hidden h-[42px] w-[104px] shrink-0 items-center justify-center rounded-lg border border-line bg-white xl:flex">
           <StrokePreview settings={settings} color={color} mode={mode} width={96} height={36} maxSize={26} />
@@ -64,8 +65,8 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
 
       <Slider
         className="w-28 shrink-0 xl:w-32"
-        label="Size"
-        help="How thick the line is."
+        label={t("Size")}
+        help={t("How thick the line is.")}
         value={sizeToSlider(settings.size)}
         display={`${settings.size} px`}
         note={describeSize(settings.size)}
@@ -73,8 +74,8 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
       />
       <Slider
         className="w-24 shrink-0 xl:w-32"
-        label="Softness"
-        help="How blurry the edge of the line is."
+        label={t("Softness")}
+        help={t("How blurry the edge of the line is.")}
         value={settings.softness}
         display={`${Math.round(settings.softness * 100)}%`}
         note={describeSoftness(settings.softness)}
@@ -82,8 +83,8 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
       />
       <Slider
         className="w-24 shrink-0 xl:w-32"
-        label={erasing ? 'Strength' : 'Opacity'}
-        help={erasing ? 'How much paint the eraser removes.' : 'How solid the paint is. Lower lets what is underneath show through.'}
+        label={erasing ? t('Strength') : t('Opacity')}
+        help={erasing ? t('How much paint the eraser removes.') : t('How solid the paint is. Lower lets what is underneath show through.')}
         value={settings.opacity}
         display={`${Math.round(settings.opacity * 100)}%`}
         note={describeOpacity(settings.opacity, erasing)}
@@ -91,8 +92,8 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
       />
       <Slider
         className="w-24 shrink-0 xl:w-32"
-        label="Steady hand"
-        help="Smooths out shaky lines, so your drawing looks clean and confident."
+        label={t("Steady hand")}
+        help={t("Smooths out shaky lines, so your drawing looks clean and confident.")}
         value={settings.smoothing}
         display={`${Math.round(settings.smoothing * 100)}%`}
         note={describeSmoothing(settings.smoothing)}
@@ -104,10 +105,10 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
           variant="ghost"
           className="h-8 shrink-0 px-2.5 text-[13px]"
           onClick={() => onChange(preset.settings, preset.id)}
-          tip={{ title: `Reset ${preset.name}`, description: `Put the sliders back to how ${preset.name} started.` }}
+          tip={{ title: t('Reset {brush}', { brush: preset.name }), description: t('Put the sliders back to how {brush} started.', { brush: preset.name }) }}
         >
           <RotateCcw size={14} />
-          Reset
+          {t('Reset')}
         </Button>
       )}
     </>
@@ -140,16 +141,16 @@ function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; c
   const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="radio"][aria-checked="true"]', '[role="radio"]')
   const current = BRUSH_PRESETS.find((p) => p.id === presetId)
   const groups = [
-    { title: 'For drawing', presets: BRUSH_PRESETS.filter((p) => p.kind !== 'paint') },
-    { title: 'Paint and effects', presets: BRUSH_PRESETS.filter((p) => p.kind === 'paint') },
+    { title: t('For drawing'), presets: BRUSH_PRESETS.filter((p) => p.kind !== 'paint') },
+    { title: t('Paint and effects'), presets: BRUSH_PRESETS.filter((p) => p.kind === 'paint') },
   ]
   return (
     <>
-      <Tooltip title="Brushes" description="Pick a ready-made brush: pencil, pen, marker, oil paint, splatter, drips and more.">
+      <Tooltip title={t("Brushes")} description={t("Pick a ready-made brush: pencil, pen, marker, oil paint, splatter, drips and more.")}>
         <button
           ref={buttonRef}
           type="button"
-          aria-label={`Brushes: ${current?.name ?? 'your own'}`}
+          aria-label={t('Brushes: {brush}', { brush: current?.name ?? t('your own') })}
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => {
@@ -160,7 +161,7 @@ function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; c
         >
           <span className="flex flex-col items-center gap-0.5">
             {current ? <StrokePreview settings={current.settings} color={color} mode="paint" width={58} height={24} maxSize={14} /> : <span className="h-6" />}
-            <span className="text-[11px] font-medium">{current?.name ?? 'Your brush'}</span>
+            <span className="text-[11px] font-medium">{current?.name ?? t('Your brush')}</span>
           </span>
           <ChevronDown size={14} />
         </button>
@@ -170,7 +171,7 @@ function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; c
           <div
             ref={menuRef}
             role="dialog"
-            aria-label="Brushes"
+            aria-label={t("Brushes")}
             onKeyDown={(event) => {
               // Arrow keys move between the brushes.
               const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="radio"]') ?? [])
@@ -184,7 +185,7 @@ function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; c
             className="fixed z-40 rounded-xl border border-line bg-surface p-2 shadow-float"
             style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
           >
-            <div role="radiogroup" aria-label="Ready-made brushes">
+            <div role="radiogroup" aria-label={t("Ready-made brushes")}>
               {groups.map((group) => (
                 <div key={group.title}>
                   <p className="px-1 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{group.title}</p>
@@ -247,23 +248,30 @@ function Segmented<T extends string>({ label, value, choices, onChange }: { labe
   )
 }
 
-const SHAPES: Choice<SelectionShape>[] = [
-  { value: 'rectangle', label: 'Rectangle', icon: Square, description: 'Drag to select a rectangle. Hold Shift while dragging for a perfect square.' },
-  { value: 'ellipse', label: 'Oval', icon: Circle, description: 'Drag to select an oval. Hold Shift while dragging for a perfect circle.' },
-  { value: 'freehand', label: 'Freehand', icon: Lasso, description: 'Draw around any shape by hand. Let go to close it.' },
+const SHAPES: Choice<SelectionShape>[] = live([
+  { value: 'rectangle', label: msg('Rectangle'), icon: Square, description: msg('Drag to select a rectangle. Hold Shift while dragging for a perfect square.') },
+  { value: 'ellipse', label: msg('Oval'), icon: Circle, description: msg('Drag to select an oval. Hold Shift while dragging for a perfect circle.') },
+  { value: 'freehand', label: msg('Freehand'), icon: Lasso, description: msg('Draw around any shape by hand. Let go to close it.') },
   {
     value: 'magic',
-    label: 'Magic',
+    label: msg('Magic'),
     icon: WandSparkles,
-    description: 'Click a thing (a person, an animal, a house, a tree) and it is selected for you, right to its edges. Or drag a box around it. The first time, it takes a moment to get ready.',
+    description: msg('Click a thing (a person, an animal, a house, a tree) and it is selected for you, right to its edges. Or drag a box around it. The first time, it takes a moment to get ready.'),
   },
-]
+])
 
-const MODES: Choice<SelectionMode>[] = [
-  { value: 'replace', label: 'New', icon: Square, description: 'Each drag starts a fresh selection.' },
-  { value: 'add', label: 'Add', icon: SquarePlus, description: 'Each drag adds to what is already selected. Tip: holding Shift does this too.' },
-  { value: 'subtract', label: 'Take away', icon: SquareMinus, description: `Each drag removes from what is already selected. Tip: holding ${ALT_LABEL} does this too.` },
-]
+const MODES: Choice<SelectionMode>[] = live([
+  { value: 'replace', label: msg('New'), icon: Square, description: msg('Each drag starts a fresh selection.') },
+  { value: 'add', label: msg('Add'), icon: SquarePlus, description: msg('Each drag adds to what is already selected. Tip: holding Shift does this too.') },
+  {
+    value: 'subtract',
+    label: msg('Take away'),
+    icon: SquareMinus,
+    get description() {
+      return t('Each drag removes from what is already selected. Tip: holding {alt} does this too.', { alt: ALT_LABEL })
+    },
+  },
+])
 
 export interface SelectionCommands {
   hasSelection: boolean
@@ -324,22 +332,22 @@ function SelectOptions({
   onShapeChange: (shape: SelectionShape) => void
   onModeChange: (mode: SelectionMode) => void
 }) {
-  const nothing = commands.hasSelection ? undefined : 'Select an area first.'
+  const nothing = commands.hasSelection ? undefined : t('Select an area first.')
   return (
     <>
-      <Segmented label="Shape" value={shape} choices={SHAPES} onChange={onShapeChange} />
-      <Segmented label="When you drag" value={mode} choices={MODES} onChange={onModeChange} />
+      <Segmented label={t("Shape")} value={shape} choices={SHAPES} onChange={onShapeChange} />
+      <Segmented label={t("When you drag")} value={mode} choices={MODES} onChange={onModeChange} />
       <Divider />
       <div className="flex shrink-0 items-center">
-        <BarButton icon={SquareDashed} label="All" title="Select all" description="Select the whole design." onClick={commands.selectAll} />
-        <BarButton icon={SquareSlash} label="None" title="Deselect" description="Clear the selection, so you can work on the whole design again." disabledReason={nothing} onClick={commands.deselect} />
-        <BarButton icon={Contrast} label="Invert" title="Invert selection" description="Swap what is selected and what is not." onClick={commands.invert} />
+        <BarButton icon={SquareDashed} label={t("All")} title={t("Select all")} description={t("Select the whole design.")} onClick={commands.selectAll} />
+        <BarButton icon={SquareSlash} label={t("None")} title={t("Deselect")} description={t("Clear the selection, so you can work on the whole design again.")} disabledReason={nothing} onClick={commands.deselect} />
+        <BarButton icon={Contrast} label={t("Invert")} title={t("Invert selection")} description={t("Swap what is selected and what is not.")} onClick={commands.invert} />
       </div>
       <Divider />
       <div className="flex shrink-0 items-center">
-        <BarButton icon={PaintBucket} label="Fill" title="Fill with color" description="Fill the selected area of the selected layer with your current color." disabledReason={nothing} onClick={commands.fill} />
-        <BarButton icon={Trash2} label="Delete" title="Delete selected area" description="Erase everything inside the selection on the selected layer." disabledReason={nothing} onClick={commands.remove} />
-        <BarButton icon={Copy} label="To new layer" title="Copy to new layer" description="Copy the selected part of the layer onto a new layer of its own, so you can move or change it separately." disabledReason={nothing} onClick={commands.toNewLayer} />
+        <BarButton icon={PaintBucket} label={t("Fill")} title={t("Fill with color")} description={t("Fill the selected area of the selected layer with your current color.")} disabledReason={nothing} onClick={commands.fill} />
+        <BarButton icon={Trash2} label={t("Delete")} title={t("Delete selected area")} description={t("Erase everything inside the selection on the selected layer.")} disabledReason={nothing} onClick={commands.remove} />
+        <BarButton icon={Copy} label={t("To new layer")} title={t("Copy to new layer")} description={t("Copy the selected part of the layer onto a new layer of its own, so you can move or change it separately.")} disabledReason={nothing} onClick={commands.toNewLayer} />
       </div>
     </>
   )
@@ -394,18 +402,14 @@ function Readout({ title, description, children }: { title: string; description:
   )
 }
 
-// A name inside a sentence, in quotes and kept apart, so a Hebrew or Yiddish name reads
-// correctly inside English words.
-const named = (name: string) => `“\u2068${name}\u2069”`
-
-const LINE_UPS: { edge: LineUpEdge; label: string; icon: LucideIcon }[] = [
-  { edge: 'left', label: 'Left edges', icon: AlignStartVertical },
-  { edge: 'center', label: 'Centers', icon: AlignCenterVertical },
-  { edge: 'right', label: 'Right edges', icon: AlignEndVertical },
-  { edge: 'top', label: 'Tops', icon: AlignStartHorizontal },
-  { edge: 'middle', label: 'Middles', icon: AlignCenterHorizontal },
-  { edge: 'bottom', label: 'Bottoms', icon: AlignEndHorizontal },
-]
+const LINE_UPS: { edge: LineUpEdge; label: string; icon: LucideIcon }[] = live([
+  { edge: 'left', label: msg('Left edges'), icon: AlignStartVertical },
+  { edge: 'center', label: msg('Centers'), icon: AlignCenterVertical },
+  { edge: 'right', label: msg('Right edges'), icon: AlignEndVertical },
+  { edge: 'top', label: msg('Tops'), icon: AlignStartHorizontal },
+  { edge: 'middle', label: msg('Middles'), icon: AlignCenterHorizontal },
+  { edge: 'bottom', label: msg('Bottoms'), icon: AlignEndHorizontal },
+])
 
 // Lining up, as a small menu of pictures: with each other for several things, with the page for one.
 // A menu that floats under its button. The bar scrolls sideways, so the menu sits above the page
@@ -476,13 +480,13 @@ function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineU
   return (
     <>
       <Tooltip
-        title="Line up"
-        description={several ? 'Line the picked things up with each other by an edge or the middle, or space them evenly.' : 'Move it to an edge or the middle of the page.'}
+        title={t("Line up")}
+        description={several ? t('Line the picked things up with each other by an edge or the middle, or space them evenly.') : t('Move it to an edge or the middle of the page.')}
       >
         <button
           ref={buttonRef}
           type="button"
-          aria-label="Line up"
+          aria-label={t("Line up")}
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => {
@@ -492,7 +496,7 @@ function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineU
           className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${open ? 'bg-subtle text-ink' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
         >
           <AlignStartVertical size={15} />
-          <span className="hidden xl:inline">Line up</span>
+          <span className="hidden xl:inline">{t('Line up')}</span>
           <ChevronDown size={13} />
         </button>
       </Tooltip>
@@ -501,7 +505,7 @@ function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineU
           <div
             ref={menuRef}
             role="menu"
-            aria-label="Line up"
+            aria-label={t("Line up")}
             onKeyDown={(event) => {
               // Arrow keys move between the choices.
               const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])
@@ -515,7 +519,7 @@ function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineU
             className="fixed z-40 w-60 rounded-xl border border-line bg-surface p-2 shadow-float"
             style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
           >
-            <p className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{several ? 'Line up their' : 'Move to the page’s'}</p>
+            <p className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{several ? t('Line up their') : t('Move to the page’s')}</p>
             <div className="grid grid-cols-3 gap-1">
               {LINE_UPS.map(({ edge, label, icon: Icon }) => {
                 const words = several ? label : PAGE_PLACES[edge]
@@ -529,15 +533,15 @@ function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineU
             </div>
             {several && (
               <>
-                <p className="px-1 pb-1.5 pt-2.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">Even gaps</p>
+                <p className="px-1 pb-1.5 pt-2.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{t('Even gaps')}</p>
                 <div className="grid grid-cols-2 gap-1">
-                  <button type="button" role="menuitem" aria-label="Space evenly across" onClick={() => choose(() => onSpread('x'))} className={item}>
+                  <button type="button" role="menuitem" aria-label={t("Space evenly across")} onClick={() => choose(() => onSpread('x'))} className={item}>
                     <AlignHorizontalSpaceBetween size={18} />
-                    Across
+                    {t('Across')}
                   </button>
-                  <button type="button" role="menuitem" aria-label="Space evenly down" onClick={() => choose(() => onSpread('y'))} className={item}>
+                  <button type="button" role="menuitem" aria-label={t("Space evenly down")} onClick={() => choose(() => onSpread('y'))} className={item}>
                     <AlignVerticalSpaceBetween size={18} />
-                    Down
+                    {t('Down')}
                   </button>
                 </div>
               </>
@@ -549,25 +553,25 @@ function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineU
   )
 }
 
-const PAGE_PLACES: Record<LineUpEdge, string> = {
-  left: 'Left edge',
-  center: 'Center',
-  right: 'Right edge',
-  top: 'Top',
-  middle: 'Middle',
-  bottom: 'Bottom',
-}
+const PAGE_PLACES: Record<LineUpEdge, string> = live({
+  left: msg('Left edge'),
+  center: msg('Center'),
+  right: msg('Right edge'),
+  top: msg('Top'),
+  middle: msg('Middle'),
+  bottom: msg('Bottom'),
+})
 
 function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
   const { target } = controls
   if (!target) {
     return (
       <>
-        <Hint>{controls.blocked ?? 'Click anything on your design to pick it.'}</Hint>
+        <Hint>{controls.blocked ?? t('Click anything on your design to pick it.')}</Hint>
         {controls.locked && (
-          <Button variant="secondary" className="h-8 shrink-0 px-3 text-[13px]" onClick={controls.unlock} tip={{ title: 'Unlock', description: 'Let this layer be picked and moved again.' }}>
+          <Button variant="secondary" className="h-8 shrink-0 px-3 text-[13px]" onClick={controls.unlock} tip={{ title: t('Unlock'), description: t('Let this layer be picked and moved again.') }}>
             <LockOpen size={15} />
-            Unlock
+            {t('Unlock')}
           </Button>
         )}
       </>
@@ -575,26 +579,25 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
   }
   const part = target.kind === 'part'
   const several = target.kind === 'many' || target.kind === 'group'
-  const it = several ? 'them' : 'it'
   return (
     <>
       {several && (
         <Readout
-          title={target.kind === 'group' ? `${target.name} (kept together)` : target.name}
+          title={target.kind === 'group' ? t('{name} (kept together)', { name: target.name }) : target.name}
           description={
             target.kind === 'group'
-              ? 'These are kept together, so they are picked and moved as one. Double-click a part on your design to change just it.'
-              : 'They move, resize and turn together. Hold Shift and click to add or take away one. Click empty paper to let go.'
+              ? t('These are kept together, so they are picked and moved as one. Double-click a part on your design to change just it.')
+              : t('They move, resize and turn together. Hold Shift and click to add or take away one. Click empty paper to let go.')
           }
         >
           <span dir="auto">{target.name}</span>
         </Readout>
       )}
-      <Readout title="Size" description={part ? 'How big the selected part is, in pixels.' : several ? 'How big the frame around them is, in pixels.' : `How big ${named(target.name)} is on your design, in pixels.`}>
+      <Readout title={t("Size")} description={part ? t('How big the selected part is, in pixels.') : several ? t('How big the frame around them is, in pixels.') : t('How big “{name}” is on your design, in pixels.', { name: target.name })}>
         {Math.round(Math.abs(target.width))} × {Math.round(Math.abs(target.height))} px
       </Readout>
       {!several && (
-        <Readout title="Angle" description="How far it is turned. Hold Shift while turning to go in neat 15° steps.">
+        <Readout title={t("Angle")} description={t("How far it is turned. Hold Shift while turning to go in neat 15° steps.")}>
           {target.angle}°
         </Readout>
       )}
@@ -603,11 +606,11 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
         <>
           <div className="flex shrink-0 items-center">
             {controls.kept ? (
-              <BarButton icon={Ungroup} label="Take apart" title="Take apart" description="Let the parts be picked and moved on their own again." onClick={controls.takeApart} />
+              <BarButton icon={Ungroup} label={t("Take apart")} title={t("Take apart")} description={t("Let the parts be picked and moved on their own again.")} onClick={controls.takeApart} />
             ) : (
-              <BarButton icon={Group} label="Keep together" title="Keep together" description="Make them one thing: from now on, a click on any part picks them all. Double-click a part to change just it." onClick={controls.keepTogether} />
+              <BarButton icon={Group} label={t("Keep together")} title={t("Keep together")} description={t("Make them one thing: from now on, a click on any part picks them all. Double-click a part to change just it.")} onClick={controls.keepTogether} />
             )}
-            {target.kind === 'many' && <BarButton icon={LayoutGrid} label="Tidy up" title="Tidy up" description="Put them in a neat row or column, with even gaps, lined up through their middles." onClick={controls.tidyUp} />}
+            {target.kind === 'many' && <BarButton icon={LayoutGrid} label={t("Tidy up")} title={t("Tidy up")} description={t("Put them in a neat row or column, with even gaps, lined up through their middles.")} onClick={controls.tidyUp} />}
             {target.kind === 'many' && <LineUpMenu several onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
           </div>
           <Divider />
@@ -615,27 +618,27 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
       )}
       <div className="flex shrink-0 items-center">
         {/* The icon names describe the mirror line: a vertical line flips left to right. */}
-        <BarButton icon={FlipVertical2} label="Mirror" title="Flip left to right" description={`Mirror ${it}, so the left side becomes the right side.`} onClick={() => controls.flip('horizontal')} />
-        <BarButton icon={FlipHorizontal2} label="Upside down" title="Flip upside down" description={`Mirror ${it} top to bottom, so the top becomes the bottom.`} onClick={() => controls.flip('vertical')} />
-        <BarButton icon={RotateCcw} label="Left" title="Turn left" description={`Turn ${it} a quarter turn to the left.`} onClick={() => controls.rotate90(-1)} />
-        <BarButton icon={RotateCw} label="Right" title="Turn right" description={`Turn ${it} a quarter turn to the right.`} onClick={() => controls.rotate90(1)} />
+        <BarButton icon={FlipVertical2} label={t("Mirror")} title={t("Flip left to right")} description={several ? t('Mirror them, so the left side becomes the right side.') : t('Mirror it, so the left side becomes the right side.')} onClick={() => controls.flip('horizontal')} />
+        <BarButton icon={FlipHorizontal2} label={t("Upside down")} title={t("Flip upside down")} description={several ? t('Mirror them top to bottom, so the top becomes the bottom.') : t('Mirror it top to bottom, so the top becomes the bottom.')} onClick={() => controls.flip('vertical')} />
+        <BarButton icon={RotateCcw} label={t("Left")} title={t("Turn left")} description={several ? t('Turn them a quarter turn to the left.') : t('Turn it a quarter turn to the left.')} onClick={() => controls.rotate90(-1)} />
+        <BarButton icon={RotateCw} label={t("Right")} title={t("Turn right")} description={several ? t('Turn them a quarter turn to the right.') : t('Turn it a quarter turn to the right.')} onClick={() => controls.rotate90(1)} />
       </div>
       {!several && (
         <Tooltip
-          title="Keep shape"
-          description="When on, dragging a corner keeps the same shape, so nothing gets squashed or stretched. Hold Shift while dragging to do the opposite. The side handles always stretch."
+          title={t("Keep shape")}
+          description={t("When on, dragging a corner keeps the same shape, so nothing gets squashed or stretched. Hold Shift while dragging to do the opposite. The side handles always stretch.")}
         >
           <button
             type="button"
             aria-pressed={controls.keepProportions}
-            aria-label="Keep shape"
+            aria-label={t("Keep shape")}
             onClick={() => controls.onKeepProportions(!controls.keepProportions)}
             className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
               controls.keepProportions ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
             }`}
           >
             {controls.keepProportions ? <Link size={15} /> : <Unlink size={15} />}
-            <span className="hidden xl:inline">Keep shape</span>
+            <span className="hidden xl:inline">{t('Keep shape')}</span>
           </button>
         </Tooltip>
       )}
@@ -643,27 +646,27 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
       <div className="flex shrink-0 items-center">
         <BarButton
           icon={Crosshair}
-          label="Center"
-          title="Center on design"
-          description={part ? 'Move the selected part so it sits exactly in the middle of your design.' : `Move ${it} so ${several ? 'they sit' : 'it sits'} exactly in the middle of your design.`}
+          label={t("Center")}
+          title={t("Center on design")}
+          description={part ? t('Move the selected part so it sits exactly in the middle of your design.') : several ? t('Move them so they sit exactly in the middle of your design.') : t('Move it so it sits exactly in the middle of your design.')}
           onClick={controls.center}
         />
         {!part && target.kind !== 'many' && <LineUpMenu several={false} onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
         {controls.removeBackground && (
           <BarButton
             icon={Eraser}
-            label="Remove background"
-            title="Remove background"
+            label={t("Remove background")}
+            title={t("Remove background")}
             roomy
-            description={`AI finds the main thing in ${named(target.name)} and makes everything around it see-through. The first time, the AI is downloaded, which takes a moment. You can undo it.`}
+            description={t('AI finds the main thing in “{name}” and makes everything around it see-through. The first time, the AI is downloaded, which takes a moment. You can undo it.', { name: target.name })}
             onClick={controls.removeBackground}
           />
         )}
         {!part && (
           <>
-            <BarButton icon={BringToFront} label="Forward" title="Bring forward" description={several ? 'Move them one step toward the front.' : `Move ${named(target.name)} one step toward the front, over the thing above it.`} onClick={controls.forward} />
-            <BarButton icon={SendToBack} label="Backward" title="Send backward" description={several ? 'Move them one step toward the back.' : `Move ${named(target.name)} one step toward the back, behind the thing below it.`} onClick={controls.backward} />
-            <BarButton icon={Trash2} label="Delete" title="Delete" description={several ? 'Remove them from your design. You can undo this.' : `Remove ${named(target.name)} from your design. You can undo this.`} onClick={controls.remove} />
+            <BarButton icon={BringToFront} label={t("Forward")} title={t("Bring forward")} description={several ? t('Move them one step toward the front.') : t('Move “{name}” one step toward the front, over the thing above it.', { name: target.name })} onClick={controls.forward} />
+            <BarButton icon={SendToBack} label={t("Backward")} title={t("Send backward")} description={several ? t('Move them one step toward the back.') : t('Move “{name}” one step toward the back, behind the thing below it.', { name: target.name })} onClick={controls.backward} />
+            <BarButton icon={Trash2} label={t("Delete")} title={t("Delete")} description={several ? t('Remove them from your design. You can undo this.') : t('Remove “{name}” from your design. You can undo this.', { name: target.name })} onClick={controls.remove} />
           </>
         )}
       </div>
@@ -671,37 +674,37 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
   )
 }
 
-const SHAPE_TYPES: Choice<ShapeType>[] = [
-  { value: 'rectangle', label: 'Rectangle', icon: Square, description: 'Rectangles and squares. Round their corners in the Shape panel.' },
-  { value: 'ellipse', label: 'Oval', icon: Circle, description: 'Ovals and circles. Hold Shift while drawing for a perfect circle.' },
-  { value: 'polygon', label: 'Polygon', icon: Pentagon, description: 'Triangles, hexagons and more. Choose the number of sides in the Shape panel.' },
-  { value: 'star', label: 'Star', icon: Star, description: 'Stars with as many points as you like.' },
-  { value: 'line', label: 'Line', icon: Minus, description: 'Straight lines, with an arrow head if you like. Hold Shift to keep them straight.' },
-]
+const SHAPE_TYPES: Choice<ShapeType>[] = live([
+  { value: 'rectangle', label: msg('Rectangle'), icon: Square, description: msg('Rectangles and squares. Round their corners in the Shape panel.') },
+  { value: 'ellipse', label: msg('Oval'), icon: Circle, description: msg('Ovals and circles. Hold Shift while drawing for a perfect circle.') },
+  { value: 'polygon', label: msg('Polygon'), icon: Pentagon, description: msg('Triangles, hexagons and more. Choose the number of sides in the Shape panel.') },
+  { value: 'star', label: msg('Star'), icon: Star, description: msg('Stars with as many points as you like.') },
+  { value: 'line', label: msg('Line'), icon: Minus, description: msg('Straight lines, with an arrow head if you like. Hold Shift to keep them straight.') },
+])
 
-const CROP_SHAPES: Choice<CropShape>[] = [
-  { value: 'free', label: 'Free', icon: Scan, description: 'Any shape you like.' },
-  { value: 'original', label: 'Original', icon: RectangleHorizontal, description: 'The same shape your design has now.' },
-  { value: 'square', label: 'Square', icon: Square, description: 'A perfect square, good for profile pictures and square posts.' },
-  { value: 'portrait', label: '4:5', icon: RectangleVertical, description: 'A little taller than wide, good for social posts.' },
-  { value: 'wide', label: '16:9', icon: RectangleHorizontal, description: 'Wide like a TV screen, good for slides and video thumbnails.' },
-]
+const CROP_SHAPES: Choice<CropShape>[] = live([
+  { value: 'free', label: msg('Free'), icon: Scan, description: msg('Any shape you like.') },
+  { value: 'original', label: msg('Original'), icon: RectangleHorizontal, description: msg('The same shape your design has now.') },
+  { value: 'square', label: msg('Square'), icon: Square, description: msg('A perfect square, good for profile pictures and square posts.') },
+  { value: 'portrait', label: '4:5', icon: RectangleVertical, description: msg('A little taller than wide, good for social posts.') },
+  { value: 'wide', label: '16:9', icon: RectangleHorizontal, description: msg('Wide like a TV screen, good for slides and video thumbnails.') },
+])
 
 function CropOptions({ controls }: { controls: CropControls }) {
-  const notYet = controls.changed ? undefined : 'Drag the frame first.'
+  const notYet = controls.changed ? undefined : t('Drag the frame first.')
   return (
     <>
-      <Segmented label="Crop shape" value={controls.shape} choices={CROP_SHAPES} onChange={controls.onShape} />
-      <Readout title="New size" description="How big your design will be after cropping, in pixels.">
+      <Segmented label={t("Crop shape")} value={controls.shape} choices={CROP_SHAPES} onChange={controls.onShape} />
+      <Readout title={t("New size")} description={t("How big your design will be after cropping, in pixels.")}>
         {controls.width} × {controls.height} px
       </Readout>
       <Divider />
-      <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" disabled={!controls.changed} onClick={controls.reset} tip={{ title: 'Start over', shortcut: 'Esc', description: 'Put the frame back around the whole design.', note: notYet }}>
-        Start over
+      <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" disabled={!controls.changed} onClick={controls.reset} tip={{ title: t('Start over'), shortcut: 'Esc', description: t('Put the frame back around the whole design.'), note: notYet }}>
+        {t('Start over')}
       </Button>
-      <Button variant="primary" className="h-8 shrink-0 px-3.5 text-[13px]" disabled={!controls.changed} onClick={controls.apply} tip={{ title: 'Crop', shortcut: 'Enter', description: 'Cut the design down to the frame. You can undo this.', note: notYet }}>
+      <Button variant="primary" className="h-8 shrink-0 px-3.5 text-[13px]" disabled={!controls.changed} onClick={controls.apply} tip={{ title: t('Crop'), shortcut: 'Enter', description: t('Cut the design down to the frame. You can undo this.'), note: notYet }}>
         <Check size={15} />
-        Crop
+        {t('Crop')}
       </Button>
     </>
   )
@@ -720,21 +723,21 @@ export interface AdjustControls {
 
 function AdjustOptions({ controls }: { controls: AdjustControls }) {
   if (controls.blocked) return <Hint>{controls.blocked}</Hint>
-  const notYet = controls.changed ? undefined : 'Pick a look or move a slider first.'
+  const notYet = controls.changed ? undefined : t('Pick a look or move a slider first.')
   const stopComparing = () => controls.onCompare(false)
   return (
     <>
       <Readout
-        title="What changes"
-        description="Adjustments change the selected layer, or only the selected part of it. To change another layer, pick it in the Layers panel."
+        title={t("What changes")}
+        description={t("Adjustments change the selected layer, or only the selected part of it. To change another layer, pick it in the Layers panel.")}
       >
-        Changes {controls.target}
+        {controls.target}
       </Readout>
       <Divider />
-      <Tooltip title="Compare" description="Press and hold to see how it looked before. You can also press and hold on your design." note={notYet}>
+      <Tooltip title={t("Compare")} description={t("Press and hold to see how it looked before. You can also press and hold on your design.")} note={notYet}>
         <button
           type="button"
-          aria-label="Hold to compare"
+          aria-label={t("Hold to compare")}
           aria-pressed={controls.comparing}
           aria-disabled={!controls.changed || undefined}
           onPointerDown={(event) => {
@@ -748,15 +751,15 @@ function AdjustOptions({ controls }: { controls: AdjustControls }) {
           className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:hover:bg-transparent aria-pressed:bg-accent-soft aria-pressed:text-accent"
         >
           <Eye size={15} />
-          Hold to compare
+          {t('Hold to compare')}
         </button>
       </Tooltip>
-      <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" disabled={!controls.changed} onClick={controls.cancel} tip={{ title: 'Cancel', shortcut: 'Esc', description: 'Put it back the way it was.', note: notYet }}>
-        Cancel
+      <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" disabled={!controls.changed} onClick={controls.cancel} tip={{ title: t('Cancel'), shortcut: 'Esc', description: t('Put it back the way it was.'), note: notYet }}>
+        {t('Cancel')}
       </Button>
-      <Button variant="primary" className="h-8 shrink-0 px-3.5 text-[13px]" disabled={!controls.changed} onClick={controls.apply} tip={{ title: 'Apply', shortcut: 'Enter', description: 'Keep the new look. You can undo it.', note: notYet }}>
+      <Button variant="primary" className="h-8 shrink-0 px-3.5 text-[13px]" disabled={!controls.changed} onClick={controls.apply} tip={{ title: t('Apply'), shortcut: 'Enter', description: t('Keep the new look. You can undo it.'), note: notYet }}>
         <Check size={15} />
-        Apply
+        {t('Apply')}
       </Button>
     </>
   )
@@ -775,10 +778,10 @@ export interface PenBarControls {
   deletePoint: () => void
 }
 
-const POINT_KINDS: Choice<'sharp' | 'smooth'>[] = [
-  { value: 'sharp', label: 'Sharp corner', icon: Pentagon, description: 'The lines meet at a point, like the corner of a star. Tip: double-click a point to switch.' },
-  { value: 'smooth', label: 'Smooth curve', icon: Spline, description: 'The line flows through the point in a round curve. Drag its round handles to change how it bends.' },
-]
+const POINT_KINDS: Choice<'sharp' | 'smooth'>[] = live([
+  { value: 'sharp', label: msg('Sharp corner'), icon: Pentagon, description: msg('The lines meet at a point, like the corner of a star. Tip: double-click a point to switch.') },
+  { value: 'smooth', label: msg('Smooth curve'), icon: Spline, description: msg('The line flows through the point in a round curve. Drag its round handles to change how it bends.') },
+])
 
 function PenOptions({ controls }: { controls: PenBarControls }) {
   if (controls.drawing) {
@@ -789,33 +792,33 @@ function PenOptions({ controls }: { controls: PenBarControls }) {
           className="h-8 shrink-0 px-3 text-[13px]"
           disabled={!controls.canClose}
           onClick={controls.close}
-          tip={{ title: 'Close shape', description: 'Join the last point to the first, making a closed shape that is filled with color. Clicking the first point does this too.', note: controls.canClose ? undefined : 'Place at least three points first.' }}
+          tip={{ title: t('Close shape'), description: t('Join the last point to the first, making a closed shape that is filled with color. Clicking the first point does this too.'), note: controls.canClose ? undefined : t('Place at least three points first.') }}
         >
           <Pentagon size={15} />
-          Close shape
+          {t('Close shape')}
         </Button>
         <Button
           variant="ghost"
           className="h-8 shrink-0 px-3 text-[13px]"
           onClick={controls.removeLast}
-          tip={{ title: 'Take back last point', shortcut: 'Backspace', description: 'Remove the point you placed last, and keep drawing from the one before.' }}
+          tip={{ title: t('Take back last point'), shortcut: 'Backspace', description: t('Remove the point you placed last, and keep drawing from the one before.') }}
         >
           <Undo2 size={15} />
-          Last point
+          {t('Last point')}
         </Button>
         <Button
           variant="primary"
           className="h-8 shrink-0 px-3.5 text-[13px]"
           onClick={controls.finish}
-          tip={{ title: 'Finish', shortcut: 'Enter', description: 'Stop here and keep it as an open line, like a curve or a wave. Clicking the last point again does this too.' }}
+          tip={{ title: t('Finish'), shortcut: 'Enter', description: t('Stop here and keep it as an open line, like a curve or a wave. Clicking the last point again does this too.') }}
         >
           <CornerDownLeft size={15} />
-          Finish
+          {t('Finish')}
         </Button>
         <Hint>
           {controls.pointCount < 2
-            ? 'Click to place the next point, or press and drag to make the line curve.'
-            : 'Keep clicking to add points. Click the first point to close the shape, or press Enter to finish a line.'}
+            ? t('Click to place the next point, or press and drag to make the line curve.')
+            : t('Keep clicking to add points. Click the first point to close the shape, or press Enter to finish a line.')}
         </Hint>
       </>
     )
@@ -823,23 +826,23 @@ function PenOptions({ controls }: { controls: PenBarControls }) {
   if (controls.selectedPoint) {
     return (
       <>
-        <Segmented label="Point" value={controls.selectedPoint.smooth ? 'smooth' : 'sharp'} choices={POINT_KINDS} onChange={(kind) => controls.setSmooth(kind === 'smooth')} />
-        <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" onClick={controls.deletePoint} tip={{ title: 'Delete point', shortcut: 'Delete', description: 'Take this point out. The lines on either side join up.' }}>
+        <Segmented label={t("Point")} value={controls.selectedPoint.smooth ? 'smooth' : 'sharp'} choices={POINT_KINDS} onChange={(kind) => controls.setSmooth(kind === 'smooth')} />
+        <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" onClick={controls.deletePoint} tip={{ title: t('Delete point'), shortcut: 'Delete', description: t('Take this point out. The lines on either side join up.') }}>
           <Trash2 size={15} />
-          Delete point
+          {t('Delete point')}
         </Button>
         <Hint>Drag the point to move it, or its round handles to change the curve. Hold {ALT_LABEL} on a handle to bend one side only.</Hint>
       </>
     )
   }
-  return <Hint>Click to start a new shape, point by point. On a picked pen shape: drag a point or a line to reshape it, click a line to add a point.</Hint>
+  return <Hint>{t('Click to start a new shape, point by point. On a picked drawn shape: drag a point or a line to reshape it, click a line to add a point.')}</Hint>
 }
 
 function describeTolerance(tolerance: number): string {
-  if (tolerance < 0.02) return 'Only exactly the same color gets filled.'
-  if (tolerance < 0.25) return 'Fills very similar colors. Good for flat areas and drawings.'
-  if (tolerance < 0.6) return 'Fills somewhat similar colors too. Good for photos.'
-  return 'Fills almost any color. Be careful, it may fill a lot.'
+  if (tolerance < 0.02) return t('Only exactly the same color gets filled.')
+  if (tolerance < 0.25) return t('Fills very similar colors. Good for flat areas and drawings.')
+  if (tolerance < 0.6) return t('Fills somewhat similar colors too. Good for photos.')
+  return t('Fills almost any color. Be careful, it may fill a lot.')
 }
 
 function Hint({ children }: { children: ReactNode }) {
@@ -879,11 +882,11 @@ export function ToolOptions(props: ToolOptionsProps) {
   const Icon = info.icon
   return (
     <div
-      aria-label={`${info.name} settings`}
+      aria-label={t('{tool} settings', { tool: info.name })}
       role="toolbar"
       className="mx-2 mb-2 flex h-[62px] shrink-0 items-center gap-3 overflow-x-auto overflow-y-hidden rounded-card border border-line bg-surface px-3 shadow-card xl:gap-4"
     >
-      <div className="flex shrink-0 items-center gap-2 pr-1">
+      <div className="flex shrink-0 items-center gap-2 pe-1">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-accent">
           <Icon size={17} strokeWidth={1.9} />
         </span>
@@ -906,8 +909,8 @@ export function ToolOptions(props: ToolOptionsProps) {
         <ArrangeOptions controls={props.arrange} />
       ) : props.tool === 'shape' ? (
         <>
-          <Segmented label="Shape to draw" value={props.shapeType} choices={SHAPE_TYPES} onChange={props.onShapeTypeChange} />
-          <Hint>Drag on your design to draw, or click to drop one. Its colors come from the Color panel. For a shape of your own, use the Pen (P).</Hint>
+          <Segmented label={t("Shape to draw")} value={props.shapeType} choices={SHAPE_TYPES} onChange={props.onShapeTypeChange} />
+          <Hint>{t('Drag on your design to draw, or click to drop one. Its colors come from the Color panel. For a shape of your own, use the Curve tool (P).')}</Hint>
         </>
       ) : props.tool === 'pen' ? (
         <PenOptions controls={props.pen} />
@@ -920,14 +923,14 @@ export function ToolOptions(props: ToolOptionsProps) {
                 variant="secondary"
                 className="h-8 shrink-0 px-3 text-[13px]"
                 onClick={() => props.onAddText(kind)}
-                tip={{ title: `Add ${TEXT_KINDS[kind].name.toLowerCase()}`, description: `${TEXT_KINDS[kind].description} It starts in the middle; just type to replace the words.` }}
+                tip={{ title: TEXT_KINDS[kind].addTitle, description: t('{description} It starts in the middle; just type to replace the words.', { description: TEXT_KINDS[kind].description }) }}
               >
                 <Plus size={15} />
                 {TEXT_KINDS[kind].name}
               </Button>
             ))}
           </div>
-          <Hint>Or click where your text should start, or drag a box for a paragraph. Hebrew and Yiddish go right to left by themselves.</Hint>
+          <Hint>{t('Or click where your text should start, or drag a box for a paragraph. Hebrew and Yiddish go right to left by themselves.')}</Hint>
         </>
       ) : props.tool === 'crop' ? (
         <CropOptions controls={props.crop} />
@@ -937,26 +940,26 @@ export function ToolOptions(props: ToolOptionsProps) {
         <>
           <Slider
             className="w-40 shrink-0"
-            label="Similar colors"
-            help="How different a color can be and still get filled. Low fills only one exact color; high fills more."
+            label={t("Similar colors")}
+            help={t("How different a color can be and still get filled. Low fills only one exact color; high fills more.")}
             value={props.fillTolerance}
             display={`${Math.round(props.fillTolerance * 100)}%`}
             note={describeTolerance(props.fillTolerance)}
             onChange={(position) => props.onFillToleranceChange(Math.round(position * 100) / 100)}
           />
-          <Hint>Click inside an area to fill it with your color. It looks at everything you can see, and paints on the selected layer.</Hint>
+          <Hint>{t('Click inside an area to fill it with your color. It looks at everything you can see, and paints on the selected layer.')}</Hint>
         </>
       ) : props.tool === 'heal' ? (
         <>
           <Slider
             className="w-40 shrink-0"
-            label="Size"
-            help="How wide the brush is. A little bigger than the spot works best."
+            label={t("Size")}
+            help={t("How wide the brush is. A little bigger than the spot works best.")}
             value={sizeToSlider(props.healSize)}
             display={`${props.healSize} px`}
             onChange={(position) => props.onHealSizeChange(sliderToSize(position))}
           />
-          <Hint>Brush over a spot, a scratch or a small thing. When you let go, it is filled in from what is around it. Undo brings it back.</Hint>
+          <Hint>{t('Brush over a spot, a scratch or a small thing. When you let go, it is filled in from what is around it. Undo brings it back.')}</Hint>
         </>
       ) : (
         <Hint>{info.description}</Hint>

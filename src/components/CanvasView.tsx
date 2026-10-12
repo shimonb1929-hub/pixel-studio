@@ -38,6 +38,7 @@ import { useFontsVersion } from '../hooks/useFontsVersion.ts'
 import { textIndexAt } from '../text/textLayer.ts'
 import { TextEditBox, type TextEditing } from './TextEditBox.tsx'
 import type { PenControls } from '../hooks/usePen.ts'
+import { live, msg, t } from '../i18n/i18n.ts'
 
 // A box with handles being edited on the canvas: around the selected part of a layer, or the crop frame.
 export interface BoxEditing {
@@ -272,7 +273,7 @@ const GUIDE_COLOR = '#e8457a'
 const ANTS_DASH = 4
 const ANTS_INTERVAL_MS = 90
 
-const SHAPE_LABELS: Record<SelectionShape, string> = { rectangle: 'rectangle', ellipse: 'oval', freehand: 'freehand area', magic: 'thing' }
+const SHAPE_LABELS: Record<SelectionShape, string> = live({ rectangle: msg('Select rectangle'), ellipse: msg('Select oval'), freehand: msg('Select freehand area'), magic: msg('Select thing') })
 
 function pressureOf(event: globalThis.PointerEvent): number {
   // Only pens report real pressure; a mouse or finger always paints at full size.
@@ -822,11 +823,11 @@ export function CanvasView(props: CanvasViewProps) {
   }
 
   // Painting and moving need a layer you can see; otherwise nothing would seem to happen.
-  function usableLayer(action: string): Layer | null {
+  function usableLayer(): Layer | null {
     const layer = activeLayer(doc)
     if (!layer) return null
     if (!layer.visible) {
-      props.onBlocked(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then ${action} again.`)
+      props.onBlocked(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then move it again.', { name: layer.name }))
       return null
     }
     return layer
@@ -950,7 +951,7 @@ export function CanvasView(props: CanvasViewProps) {
         if (ids.length === 0 && already.length === 0 && drag.locked) {
           // Dragging something locked keeps it picked, and says why it stays put.
           if (drag.locked.id !== p.doc.activeLayerId) p.arrange.onPick(drag.locked.id)
-          p.onBlocked(`"${drag.locked.name}" is locked, so it can't be moved by accident. Click its lock in the Layers panel to unlock it.`)
+          p.onBlocked(t("“{name}” is locked, so it can't be moved by accident. Click its lock in the Layers panel to unlock it.", { name: drag.locked.name }))
         } else {
           p.arrange.onPickMany([...new Set([...already, ...ids])])
         }
@@ -1015,7 +1016,7 @@ export function CanvasView(props: CanvasViewProps) {
     const point = documentPoint(event.clientX, event.clientY)
     const layer = [...doc.layers].reverse().find((l): l is PixelLayer => l.kind === 'raster' && l.visible && l.opacity > 0 && hitsLayer(l, point))
     if (!layer) {
-      props.onBlocked('Fix spots works on photos and drawings. Brush over a spot on a picture.')
+      props.onBlocked(t('Fix spots works on photos and drawings. Brush over a spot on a picture.'))
       return
     }
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -1023,7 +1024,7 @@ export function CanvasView(props: CanvasViewProps) {
     const marker = { size: brush.size, softness: 0, opacity: 0.45, flow: 1, smoothing: 0.2, pressure: false, blend: 'normal' as const, tip: 'round' as const }
     const session = new StrokeSession(target, marker, HEAL_MARK_COLOR, 'paint')
     session.begin({ ...point, pressure: 1 })
-    strokeRef.current = { session, pointerId: event.pointerId, label: 'Fix spots', heal: layer.id }
+    strokeRef.current = { session, pointerId: event.pointerId, label: t('Fix spots'), heal: layer.id }
     props.onStrokeActiveChange(true)
     session.flush()
     requestScene()
@@ -1034,14 +1035,18 @@ export function CanvasView(props: CanvasViewProps) {
     const picked = activeLayer(doc)
     let layer: PixelLayer | null = picked?.kind === 'raster' && !picked.locked ? picked : null
     if (layer && !layer.visible) {
-      props.onBlocked(`"${layer.name}" is hidden. Click its eye in the Layers panel to show it, then ${erasing ? 'erase' : 'paint'} again.`)
+      props.onBlocked(
+        erasing
+          ? t('“{name}” is hidden. Click its eye in the Layers panel to show it, then erase again.', { name: layer.name })
+          : t('“{name}” is hidden. Click its eye in the Layers panel to show it, then paint again.', { name: layer.name }),
+      )
       return
     }
     if (!layer && erasing) {
       props.onBlocked(
         picked?.kind === 'raster'
-          ? `"${picked.name}" is locked, so it can't be rubbed out by accident. Click its lock in the Layers panel to unlock it.`
-          : 'The eraser rubs out drawings and photos. Pick one in the Layers panel or with Arrange first.',
+          ? t("“{name}” is locked, so it can't be rubbed out by accident. Click its lock in the Layers panel to unlock it.", { name: picked.name })
+          : t('The eraser rubs out drawings and photos. Pick one in the Layers panel or with Arrange first.'),
       )
       return
     }
@@ -1057,11 +1062,11 @@ export function CanvasView(props: CanvasViewProps) {
     const session = new StrokeSession(target, brush, color, mode, mask)
     const point = { ...documentPoint(event.clientX, event.clientY), pressure: pressureOf(event.nativeEvent) }
     const last = lastEndRef.current
-    let label = mode === 'erase' ? 'Erase' : 'Brush stroke'
+    let label = mode === 'erase' ? t('Erase') : t('Brush stroke')
     if (event.shiftKey && last && last.docId === doc.id) {
       session.begin(last.point)
       session.lineTo(point)
-      label = mode === 'erase' ? 'Erase straight line' : 'Straight line'
+      label = mode === 'erase' ? t('Erase straight line') : t('Straight line')
     } else {
       session.begin(point)
     }
@@ -1100,10 +1105,10 @@ export function CanvasView(props: CanvasViewProps) {
   }
 
   function startMoveDrag(event: PointerEvent<HTMLCanvasElement>) {
-    if (!usableLayer('move it')) return
+    if (!usableLayer()) return
     const session = startMove(doc)
     if (!session) {
-      props.onBlocked('Only pictures and paint can be moved part by part. To move the whole shape, clear the selection first.')
+      props.onBlocked(t('Only pictures and paint can be moved part by part. To move the whole shape, clear the selection first.'))
       return
     }
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -1153,7 +1158,7 @@ export function CanvasView(props: CanvasViewProps) {
     const p = propsRef.current
     const current = p.doc.selection
     if (drag.kind === 'outline') {
-      if (current && (drag.dx !== 0 || drag.dy !== 0)) p.onSelect(translateSelection(current, drag.dx, drag.dy), 'Move selection outline')
+      if (current && (drag.dx !== 0 || drag.dy !== 0)) p.onSelect(translateSelection(current, drag.dx, drag.dy), t('Move selection outline'))
       requestOverlay()
       return
     }
@@ -1165,13 +1170,13 @@ export function CanvasView(props: CanvasViewProps) {
     }
     // A click without dragging clears the selection, like clicking away in most programs.
     if (!drag.moved) {
-      if (drag.mode === 'replace' && current) p.onSelect(null, 'Deselect')
+      if (drag.mode === 'replace' && current) p.onSelect(null, t('Deselect'))
       requestOverlay()
       return
     }
     let next = combineSelection(current, dragPolygon(drag), drag.mode)
     if (next && !selectionInfo(next, p.doc.width, p.doc.height).bounds) next = null
-    const label = drag.mode === 'add' ? 'Add to selection' : drag.mode === 'subtract' ? 'Remove from selection' : `Select ${SHAPE_LABELS[drag.shape]}`
+    const label = drag.mode === 'add' ? t('Add to selection') : drag.mode === 'subtract' ? t('Remove from selection') : SHAPE_LABELS[drag.shape]
     if (next !== current) p.onSelect(next, label)
     requestOverlay()
   }
@@ -1528,7 +1533,7 @@ export function CanvasView(props: CanvasViewProps) {
       <canvas ref={sceneRef} aria-hidden className="pointer-events-none absolute inset-0 block" style={{ width, height }} />
       <canvas
         ref={overlayRef}
-        aria-label={`${doc.name}, ${doc.width} by ${doc.height} pixels`}
+        aria-label={t('{name}, {width} by {height} pixels', { name: doc.name, width: doc.width, height: doc.height })}
         className="absolute inset-0 block touch-none"
         style={{ width, height, cursor }}
         onPointerDown={handlePointerDown}

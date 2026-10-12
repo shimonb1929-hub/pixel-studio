@@ -1,5 +1,6 @@
 import { containsRect, snapRect, unionRect, type Rect } from './geometry.ts'
 import type { EditorDocument, Layer, PixelLayer } from './types.ts'
+import { t } from '../i18n/i18n.ts'
 
 // Browsers refuse or silently fail on canvases much larger than this.
 export const MAX_DOCUMENT_SIDE = 10000
@@ -25,11 +26,11 @@ export function createDesignId(): string {
 
 export function validateDocumentSize(width: number, height: number): string | null {
   if (!Number.isInteger(width) || !Number.isInteger(height)) {
-    return 'Width and height must be whole numbers.'
+    return t('Width and height must be whole numbers.')
   }
-  if (width < 1 || height < 1) return 'Width and height must be at least 1 pixel.'
+  if (width < 1 || height < 1) return t('Width and height must be at least 1 pixel.')
   if (width > MAX_DOCUMENT_SIDE || height > MAX_DOCUMENT_SIDE) {
-    return `Width and height can be at most ${MAX_DOCUMENT_SIDE.toLocaleString('en-US')} pixels.`
+    return t('Width and height can be at most {max} pixels.', { max: MAX_DOCUMENT_SIDE.toLocaleString('en-US') })
   }
   return null
 }
@@ -43,7 +44,7 @@ export function createCanvas(width: number, height: number): HTMLCanvasElement {
 
 export function getContext2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('This browser could not create a drawing surface that large.')
+  if (!ctx) throw new Error(t('This browser could not create a drawing surface that large.'))
   return ctx
 }
 
@@ -62,7 +63,7 @@ export function createLayer(name: string, width: number, height: number): PixelL
 // so their copy can share them; pixels are copied, since painting changes them.
 export function duplicateLayer(layer: Layer): Layer {
   const id = createId('layer')
-  const name = `${layer.name} copy`
+  const name = t('{name} copy', { name: layer.name })
   if (layer.kind !== 'raster') return { ...layer, id, name, locked: false }
   const canvas = createCanvas(layer.canvas.width, layer.canvas.height)
   getContext2d(canvas).drawImage(layer.canvas, 0, 0)
@@ -108,7 +109,7 @@ export function createDocumentFromImage(
   width: number,
   height: number,
 ): EditorDocument {
-  const layer = createLayer('Picture', width, height)
+  const layer = createLayer(t('Picture'), width, height)
   getContext2d(layer.canvas).drawImage(image, 0, 0, width, height)
   return { id: createDesignId(), name, width, height, background: null, layers: [{ ...layer, locked: true }], activeLayerId: layer.id, selection: null }
 }

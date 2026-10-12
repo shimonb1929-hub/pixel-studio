@@ -1,6 +1,7 @@
 import { boxRadii } from './adjust.ts'
 import { createCanvas, getContext2d } from './document.ts'
 import { containsRect, intersectRect, snapRect, type Rect } from './geometry.ts'
+import { live, msg, t } from '../i18n/i18n.ts'
 
 // Effects around what's on a layer (a shadow, a glow, an outline) and how a layer mixes with what's
 // below it. Like adjustments, they're settings on the layer: what's on it never changes, so they
@@ -37,48 +38,48 @@ export interface BlendInfo {
   common: boolean
 }
 
-export const BLEND_MODES: BlendInfo[] = [
-  { mode: 'normal', name: 'Normal', proName: 'Normal', common: true, description: 'The layer simply covers what is below it.' },
+export const BLEND_MODES: BlendInfo[] = live([
+  { mode: 'normal', name: msg('Normal'), proName: 'Normal', common: true, description: msg('The layer simply covers what is below it.') },
   {
     mode: 'multiply',
-    name: 'Darken only',
+    name: msg('Darken only'),
     proName: 'Multiply',
     common: true,
-    description: 'Only makes things darker: white parts disappear. Great for line drawings, paper textures and shadows on photos.',
+    description: msg('Only makes things darker: white parts disappear. Great for line drawings, paper textures and shadows on photos.'),
   },
   {
     mode: 'screen',
-    name: 'Lighten only',
+    name: msg('Lighten only'),
     proName: 'Screen',
     common: true,
-    description: 'Only makes things lighter: black parts disappear. Great for light, fire, sparkles and glows.',
+    description: msg('Only makes things lighter: black parts disappear. Great for light, fire, sparkles and glows.'),
   },
   {
     mode: 'overlay',
-    name: 'Contrast',
+    name: msg('Contrast'),
     proName: 'Overlay',
     common: true,
-    description: 'Light parts brighten and dark parts darken what is below. Great for textures and color tints.',
+    description: msg('Light parts brighten and dark parts darken what is below. Great for textures and color tints.'),
   },
-  { mode: 'soft-light', name: 'Soft contrast', proName: 'Soft light', common: true, description: 'Like Contrast, but gentler. Good for a soft tint or a light texture.' },
+  { mode: 'soft-light', name: msg('Soft contrast'), proName: 'Soft light', common: true, description: msg('Like Contrast, but gentler. Good for a soft tint or a light texture.') },
   {
     mode: 'color',
-    name: 'Color only',
+    name: msg('Color only'),
     proName: 'Color',
     common: true,
-    description: "Gives what's below this layer's colors, keeping its own light and shadow. Great for coloring black-and-white photos.",
+    description: msg("Gives what's below this layer's colors, keeping its own light and shadow. Great for coloring black-and-white photos."),
   },
-  { mode: 'luminosity', name: 'Light only', proName: 'Luminosity', common: true, description: "Gives what's below this layer's light and shadow, keeping its own colors." },
-  { mode: 'darken', name: 'Darker of the two', proName: 'Darken', common: true, description: 'Each spot shows whichever is darker: this layer or what is below.' },
-  { mode: 'lighten', name: 'Lighter of the two', proName: 'Lighten', common: true, description: 'Each spot shows whichever is lighter: this layer or what is below.' },
-  { mode: 'difference', name: 'Difference', proName: 'Difference', common: true, description: 'Matching colors turn black. Handy for lining up two photos, and for bold, strange colors.' },
-  { mode: 'hard-light', name: 'Strong contrast', proName: 'Hard light', common: false, description: 'Like Contrast, but much stronger.' },
-  { mode: 'color-dodge', name: 'Brighten strongly', proName: 'Color dodge', common: false, description: 'Brightens what is below a lot. Good for shining light and glows.' },
-  { mode: 'color-burn', name: 'Darken strongly', proName: 'Color burn', common: false, description: 'Darkens what is below a lot, with rich colors.' },
-  { mode: 'exclusion', name: 'Soft difference', proName: 'Exclusion', common: false, description: 'Like Difference, but softer and grayer.' },
-  { mode: 'hue', name: 'Hue only', proName: 'Hue', common: false, description: "Gives what's below this layer's hue (red, green, blue…) and keeps the rest." },
-  { mode: 'saturation', name: 'Color strength only', proName: 'Saturation', common: false, description: "Gives what's below this layer's color strength and keeps the rest." },
-]
+  { mode: 'luminosity', name: msg('Light only'), proName: 'Luminosity', common: true, description: msg("Gives what's below this layer's light and shadow, keeping its own colors.") },
+  { mode: 'darken', name: msg('Darker of the two'), proName: 'Darken', common: true, description: msg('Each spot shows whichever is darker: this layer or what is below.') },
+  { mode: 'lighten', name: msg('Lighter of the two'), proName: 'Lighten', common: true, description: msg('Each spot shows whichever is lighter: this layer or what is below.') },
+  { mode: 'difference', name: msg('Difference'), proName: 'Difference', common: true, description: msg('Matching colors turn black. Handy for lining up two photos, and for bold, strange colors.') },
+  { mode: 'hard-light', name: msg('Strong contrast'), proName: 'Hard light', common: false, description: msg('Like Contrast, but much stronger.') },
+  { mode: 'color-dodge', name: msg('Brighten strongly'), proName: 'Color dodge', common: false, description: msg('Brightens what is below a lot. Good for shining light and glows.') },
+  { mode: 'color-burn', name: msg('Darken strongly'), proName: 'Color burn', common: false, description: msg('Darkens what is below a lot, with rich colors.') },
+  { mode: 'exclusion', name: msg('Soft difference'), proName: 'Exclusion', common: false, description: msg('Like Difference, but softer and grayer.') },
+  { mode: 'hue', name: msg('Hue only'), proName: 'Hue', common: false, description: msg("Gives what's below this layer's hue (red, green, blue…) and keeps the rest.") },
+  { mode: 'saturation', name: msg('Color strength only'), proName: 'Saturation', common: false, description: msg("Gives what's below this layer's color strength and keeps the rest.") },
+])
 
 export function blendInfo(mode: BlendMode | undefined): BlendInfo {
   return BLEND_MODES.find((b) => b.mode === (mode ?? 'normal')) ?? BLEND_MODES[0]
@@ -148,40 +149,40 @@ export interface EffectLook {
 }
 
 // Ready-made effects, each shown on the picked object itself.
-export const EFFECT_LOOKS: EffectLook[] = [
-  { id: 'none', name: 'None', description: 'No shadow, glow or outline.', effects: () => NO_EFFECTS },
-  { id: 'soft-shadow', name: 'Soft shadow', description: 'A soft shadow underneath, as if it sits just above the page.', effects: (u) => ({ ...NO_EFFECTS, shadow: defaultShadow(u) }) },
+export const EFFECT_LOOKS: EffectLook[] = live([
+  { id: 'none', name: msg('None'), description: msg('No shadow, glow or outline.'), effects: () => NO_EFFECTS },
+  { id: 'soft-shadow', name: msg('Soft shadow'), description: msg('A soft shadow underneath, as if it sits just above the page.'), effects: (u) => ({ ...NO_EFFECTS, shadow: defaultShadow(u) }) },
   {
     id: 'floating',
-    name: 'Floating',
-    description: 'A wide, faint shadow far below, as if it floats high above the page.',
+    name: msg('Floating'),
+    description: msg('A wide, faint shadow far below, as if it floats high above the page.'),
     effects: (u) => ({ ...NO_EFFECTS, shadow: { color: '#000000', opacity: 0.3, blur: Math.round(60 * u), distance: Math.round(36 * u), angle: 90 } }),
   },
   {
     id: 'bold-shadow',
-    name: 'Bold shadow',
-    description: 'A solid shadow with a hard edge, off to the side. A strong, poster-like look.',
+    name: msg('Bold shadow'),
+    description: msg('A solid shadow with a hard edge, off to the side. A strong, poster-like look.'),
     effects: (u) => ({ ...NO_EFFECTS, shadow: { color: '#000000', opacity: 0.9, blur: 0, distance: Math.round(12 * u), angle: 45 } }),
   },
-  { id: 'glow', name: 'Glow', description: 'A warm light shining around it.', effects: (u) => ({ ...NO_EFFECTS, glow: defaultGlow(u) }) },
+  { id: 'glow', name: msg('Glow'), description: msg('A warm light shining around it.'), effects: (u) => ({ ...NO_EFFECTS, glow: defaultGlow(u) }) },
   {
     id: 'neon',
-    name: 'Neon',
-    description: 'A bright pink light around it, like a neon sign. Looks best on a dark page.',
+    name: msg('Neon'),
+    description: msg('A bright pink light around it, like a neon sign. Looks best on a dark page.'),
     effects: (u) => ({ ...NO_EFFECTS, glow: { color: '#ff2bd6', opacity: 1, size: Math.round(28 * u) } }),
   },
   {
     id: 'sticker',
-    name: 'Sticker',
-    description: 'A thick white edge and a small shadow, like a sticker.',
+    name: msg('Sticker'),
+    description: msg('A thick white edge and a small shadow, like a sticker.'),
     effects: (u) => ({
       shadow: { color: '#000000', opacity: 0.3, blur: Math.round(16 * u), distance: Math.round(6 * u), angle: 90 },
       glow: null,
       outline: { color: '#ffffff', width: Math.max(1, Math.round(14 * u)) },
     }),
   },
-  { id: 'outline', name: 'Outline', description: 'A dark line all the way around it.', effects: (u) => ({ ...NO_EFFECTS, outline: { color: '#1b1d23', width: Math.max(1, Math.round(6 * u)) } }) },
-]
+  { id: 'outline', name: msg('Outline'), description: msg('A dark line all the way around it.'), effects: (u) => ({ ...NO_EFFECTS, outline: { color: '#1b1d23', width: Math.max(1, Math.round(6 * u)) } }) },
+])
 
 function sameEffect<T extends object>(a: T | null, b: T | null): boolean {
   if (!a || !b) return a === b
@@ -200,9 +201,9 @@ export function matchingEffectLook(effects: LayerEffects | null | undefined, uni
 
 // For Undo: "Undo add shadow".
 export function effectsLabel(effects: LayerEffects | null | undefined, unit: number): string {
-  if (!hasEffects(effects)) return 'Remove effects'
+  if (!hasEffects(effects)) return t('Remove effects')
   const look = matchingEffectLook(effects, unit)
-  return look ? `${look.name} effect` : 'Change effects'
+  return look ? t('{look} effect', { look: look.name }) : t('Change effects')
 }
 
 // How a glow is made: the shape is first grown a little, then blurred.

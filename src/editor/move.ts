@@ -6,6 +6,7 @@ import { settleLayer } from './objects.ts'
 import type { LayerOverride } from './render.ts'
 import { selectionInfo, translateSelection } from './selection.ts'
 import type { EditorDocument } from './types.ts'
+import { t } from '../i18n/i18n.ts'
 
 // Browsers can't make canvases much bigger than this on a side.
 const MAX_LAYER_SIDE = 16000
@@ -31,7 +32,7 @@ export function startMove(doc: EditorDocument): MoveSession | null {
   if (!doc.selection) {
     return {
       layerId: active.id,
-      label: 'Move layer',
+      label: t('Move layer'),
       movesSelection: false,
       preview: (dx, dy) => ({ layerId: active.id, layer: slideLayer(active, dx, dy) }),
       commit: (d, dx, dy) => replaceLayer(d, slideLayer(active, dx, dy)),
@@ -60,7 +61,7 @@ export function startMove(doc: EditorDocument): MoveSession | null {
 
   return {
     layerId: layer.id,
-    label: 'Move selected area',
+    label: t('Move selected area'),
     movesSelection: true,
     preview: (dx, dy) => ({
       layerId: layer.id,

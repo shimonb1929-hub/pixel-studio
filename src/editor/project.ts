@@ -12,6 +12,7 @@ import { tidyGroups } from './layers.ts'
 import type { EditorDocument, Layer, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, TextStyle } from './types.ts'
 import type { Gradient, GradientStop } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
+import { msg, t } from '../i18n/i18n.ts'
 
 // A project keeps everything needed to carry on editing later: the design's size, every layer
 // with its pixels, position and settings, and the selection. The same format is used for
@@ -107,9 +108,9 @@ export interface ProjectManifest {
 // A problem with the file itself, explained in plain words.
 export class ProjectError extends Error {}
 
-const DAMAGED = "This project file is damaged, so it can't be opened."
+const DAMAGED = msg("This project file is damaged, so it can't be opened.")
 const TOO_NEW =
-  'This project was saved by a newer version of Pixel Studio. Reload this page to get the newest version, then open it again.'
+  msg('This project was saved by a newer version of Pixel Studio. Reload this page to get the newest version, then open it again.')
 
 export function packProject(manifest: ProjectManifest, images: Blob[]): Blob {
   const description = new TextEncoder().encode(JSON.stringify(manifest))
@@ -131,14 +132,14 @@ export async function isProjectFile(file: Blob): Promise<boolean> {
 
 // Reads the description and finds each picture's PNG, without decoding any pixels yet.
 export async function unpackProject(file: Blob): Promise<{ manifest: ProjectManifest; images: Blob[] }> {
-  if (file.size < HEADER_BYTES || !(await hasMagic(file))) throw new ProjectError(DAMAGED)
+  if (file.size < HEADER_BYTES || !(await hasMagic(file))) throw new ProjectError(t(DAMAGED))
   const length = new DataView(await file.slice(MAGIC.length, HEADER_BYTES).arrayBuffer()).getUint32(0, true)
-  if (length > MAX_DESCRIPTION_BYTES || HEADER_BYTES + length > file.size) throw new ProjectError(DAMAGED)
+  if (length > MAX_DESCRIPTION_BYTES || HEADER_BYTES + length > file.size) throw new ProjectError(t(DAMAGED))
   let parsed: unknown
   try {
     parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await file.slice(HEADER_BYTES, HEADER_BYTES + length).arrayBuffer()))
   } catch {
-    throw new ProjectError(DAMAGED)
+    throw new ProjectError(t(DAMAGED))
   }
   const manifest = validateManifest(parsed)
   let offset = HEADER_BYTES + length
@@ -147,7 +148,7 @@ export async function unpackProject(file: Blob): Promise<{ manifest: ProjectMani
     offset += bytes
     return image
   })
-  if (offset > file.size) throw new ProjectError(DAMAGED)
+  if (offset > file.size) throw new ProjectError(t(DAMAGED))
   return { manifest, images }
 }
 
@@ -168,7 +169,7 @@ function isBetween(value: unknown, min: number, max: number): value is number {
 }
 
 function damaged(): never {
-  throw new ProjectError(DAMAGED)
+  throw new ProjectError(t(DAMAGED))
 }
 
 function readBox(value: unknown): TransformBox {
@@ -357,14 +358,14 @@ function picturePixels(layer: ProjectLayer): number {
 
 function readSelection(value: unknown): Selection | null {
   if (value === null || value === undefined) return null
-  if (!isRecord(value) || !Array.isArray(value.ops)) throw new ProjectError(DAMAGED)
+  if (!isRecord(value) || !Array.isArray(value.ops)) throw new ProjectError(t(DAMAGED))
   const ops = value.ops.map((op): SelectionOp => {
     if (isRecord(op) && op.kind === 'invert') return { kind: 'invert' }
     if (!isRecord(op) || op.kind !== 'polygon' || typeof op.subtract !== 'boolean' || !Array.isArray(op.points)) {
-      throw new ProjectError(DAMAGED)
+      throw new ProjectError(t(DAMAGED))
     }
     const points = op.points.map((p) => {
-      if (!isRecord(p) || !isCoordinate(p.x) || !isCoordinate(p.y)) throw new ProjectError(DAMAGED)
+      if (!isRecord(p) || !isCoordinate(p.x) || !isCoordinate(p.y)) throw new ProjectError(t(DAMAGED))
       return { x: p.x, y: p.y }
     })
     return { kind: 'polygon', subtract: op.subtract, points }
@@ -375,13 +376,13 @@ function readSelection(value: unknown): Selection | null {
 // Checks everything in a project's description, so a damaged or made-up file can't break the editor.
 export function validateManifest(value: unknown): ProjectManifest {
   if (!isRecord(value) || !Number.isInteger(value.version) || (value.version as number) < 1) damaged()
-  if ((value.version as number) > PROJECT_VERSION) throw new ProjectError(TOO_NEW)
+  if ((value.version as number) > PROJECT_VERSION) throw new ProjectError(t(TOO_NEW))
   const { name, width, height, activeLayer, layers, background } = value
   if (typeof name !== 'string' || typeof width !== 'number' || typeof height !== 'number' || validateDocumentSize(width, height)) damaged()
   if (!Array.isArray(layers) || layers.length > MAX_LAYERS) damaged()
   const checked = layers.map(readLayer)
   const totalPixels = checked.reduce((sum, layer) => sum + picturePixels(layer), 0)
-  if (totalPixels > MAX_TOTAL_PIXELS) throw new ProjectError('This project is too big for Pixel Studio to open.')
+  if (totalPixels > MAX_TOTAL_PIXELS) throw new ProjectError(t('This project is too big for Pixel Studio to open.'))
   if (!isWhole(activeLayer, -1, checked.length - 1)) damaged()
   return {
     version: value.version as number,
@@ -406,7 +407,7 @@ function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
     // The browser copies the pixels right away, so painting while it encodes is fine.
     canvas.toBlob((png) => {
       if (!png) {
-        reject(new Error('Saving failed. A layer may be too large for this browser.'))
+        reject(new Error(t('Saving failed. A layer may be too large for this browser.')))
         return
       }
       encoded.set(canvas, { version, png })
@@ -553,6 +554,6 @@ export async function designThumbnail(doc: EditorDocument, maxSide = 320): Promi
     drawLayer(ctx, doc, layer)
   }
   return new Promise((resolve, reject) =>
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Could not make a preview.'))), 'image/png'),
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error(t('Could not make a preview.')))), 'image/png'),
   )
 }

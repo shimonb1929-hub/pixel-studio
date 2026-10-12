@@ -354,7 +354,7 @@ test('an opened photo is locked: painting goes on a drawing above it, and the er
     [20, 50],
     [180, 50],
   ])
-  await expect(page.getByRole('alert')).toContainText('"Picture" is locked')
+  await expect(page.getByRole('alert')).toContainText('“Picture” is locked')
   expectColor(await designPixel(page, size, 50, 50), RED)
 
   await page.keyboard.press('b')

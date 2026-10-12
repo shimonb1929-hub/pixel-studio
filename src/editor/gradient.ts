@@ -1,4 +1,5 @@
 import { hexToRgb, rgbToHex } from './color.ts'
+import { live, msg } from '../i18n/i18n.ts'
 
 // Colors that fade smoothly into each other, across a shape (straight) or out from its middle (round).
 
@@ -34,16 +35,16 @@ const two = (a: string, b: string, angle = 0): Gradient => ({
   ],
 })
 
-export const GRADIENT_PRESETS: GradientPreset[] = [
-  { name: 'Sunset', gradient: two('#ff7e5f', '#feb47b', 90) },
-  { name: 'Ocean', gradient: two('#2193b0', '#6dd5ed', 90) },
-  { name: 'Purple dream', gradient: two('#7f53ac', '#647dee', 45) },
-  { name: 'Fresh green', gradient: two('#56ab2f', '#a8e063', 45) },
-  { name: 'Fire', gradient: two('#f12711', '#f5af19', 90) },
-  { name: 'Night sky', gradient: two('#0f2027', '#2c5364', 90) },
-  { name: 'Pastel', gradient: two('#fbc2eb', '#a6c1ee', 0) },
+export const GRADIENT_PRESETS: GradientPreset[] = live([
+  { name: msg('Sunset'), gradient: two('#ff7e5f', '#feb47b', 90) },
+  { name: msg('Ocean'), gradient: two('#2193b0', '#6dd5ed', 90) },
+  { name: msg('Purple dream'), gradient: two('#7f53ac', '#647dee', 45) },
+  { name: msg('Fresh green'), gradient: two('#56ab2f', '#a8e063', 45) },
+  { name: msg('Fire'), gradient: two('#f12711', '#f5af19', 90) },
+  { name: msg('Night sky'), gradient: two('#0f2027', '#2c5364', 90) },
+  { name: msg('Pastel'), gradient: two('#fbc2eb', '#a6c1ee', 0) },
   {
-    name: 'Gold',
+    name: msg('Gold'),
     gradient: {
       type: 'linear',
       angle: 30,
@@ -55,7 +56,7 @@ export const GRADIENT_PRESETS: GradientPreset[] = [
     },
   },
   {
-    name: 'Rainbow',
+    name: msg('Rainbow'),
     gradient: {
       type: 'linear',
       angle: 0,
@@ -63,7 +64,7 @@ export const GRADIENT_PRESETS: GradientPreset[] = [
     },
   },
   {
-    name: 'Glow',
+    name: msg('Glow'),
     gradient: {
       type: 'radial',
       angle: 0,
@@ -74,7 +75,7 @@ export const GRADIENT_PRESETS: GradientPreset[] = [
     },
   },
   {
-    name: 'Fade to see-through',
+    name: msg('Fade to see-through'),
     gradient: {
       type: 'linear',
       angle: 90,
@@ -84,7 +85,7 @@ export const GRADIENT_PRESETS: GradientPreset[] = [
       ],
     },
   },
-]
+])
 
 // A two-color gradient starting from one color, for turning a plain fill into a gradient.
 export function gradientFrom(color: string): Gradient {

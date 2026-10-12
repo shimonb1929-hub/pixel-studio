@@ -1,3 +1,4 @@
+import { t } from '../i18n/i18n.ts'
 // "Your designs": every design is kept in the browser (IndexedDB) as you work, so closing the
 // tab or the design never loses anything. The list holds small summaries with a preview; each
 // design's full project is stored separately and only read when it's opened.
@@ -33,22 +34,22 @@ function done(tx: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error)
-    tx.onabort = () => reject(tx.error ?? new StorageError('Saving was stopped.'))
+    tx.onabort = () => reject(tx.error ?? new StorageError(t('Saving was stopped.')))
   })
 }
 
 function describe(error: unknown): StorageError {
   if (error instanceof StorageError) return error
   if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-    return new StorageError('This browser is out of space for designs. Delete designs you no longer need from the start screen.')
+    return new StorageError(t('This browser is out of space for designs. Delete designs you no longer need from the start screen.'))
   }
-  return new StorageError("This browser isn't letting Pixel Studio keep designs (it may be a private window).")
+  return new StorageError(t("This browser isn't letting Pixel Studio keep designs (it may be a private window)."))
 }
 
 function database(): Promise<IDBDatabase> {
   if (!opening) {
     opening = new Promise<IDBDatabase>((resolve, reject) => {
-      if (typeof indexedDB === 'undefined') throw new StorageError("This browser can't keep designs.")
+      if (typeof indexedDB === 'undefined') throw new StorageError(t("This browser can't keep designs."))
       const req = indexedDB.open(DB_NAME, DB_VERSION)
       req.onupgradeneeded = () => {
         const db = req.result
@@ -65,7 +66,7 @@ function database(): Promise<IDBDatabase> {
         resolve(db)
       }
       req.onerror = () => reject(req.error)
-      req.onblocked = () => reject(new StorageError('Pixel Studio is open in another tab that needs to be reloaded first.'))
+      req.onblocked = () => reject(new StorageError(t('Pixel Studio is open in another tab that needs to be reloaded first.')))
     }).catch((error: unknown) => {
       // Try again next time; the problem may go away (say, after freeing up space).
       opening = null

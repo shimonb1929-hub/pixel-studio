@@ -56,7 +56,11 @@ export function Tooltip({
     if (!anchor || !tip) return
     let left: number
     let top: number
-    if (side === 'right') {
+    if (side === 'right' && document.documentElement.dir === 'rtl') {
+      // Right-to-left screens are mirrored, so a tip "beside" opens to the left.
+      left = anchor.left - GAP - tip.width
+      top = anchor.top + anchor.height / 2 - tip.height / 2
+    } else if (side === 'right') {
       left = anchor.right + GAP
       top = anchor.top + anchor.height / 2 - tip.height / 2
     } else {
@@ -107,7 +111,7 @@ export function Tooltip({
           <div
             ref={tipRef}
             role="tooltip"
-            className="pointer-events-none fixed z-50 max-w-72 rounded-[10px] bg-ink px-3 py-2.5 text-left shadow-float"
+            className="pointer-events-none fixed z-50 max-w-72 rounded-[10px] bg-ink px-3 py-2.5 text-start shadow-float"
             style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
           >
             <div className="flex items-center justify-between gap-4">
