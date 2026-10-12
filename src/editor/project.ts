@@ -9,7 +9,9 @@ import type { TransformBox } from './transform.ts'
 import type { TextAlign, TextDirection } from '../text/layout.ts'
 import { loadDesignFonts } from '../text/textLayer.ts'
 import { tidyGroups } from './layers.ts'
-import type { EditorDocument, Layer, LayerGroup, ShapeGeometry, ShapeOutline, ShapeType, TextStyle } from './types.ts'
+import type { EditorDocument, Layer, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, TextStyle } from './types.ts'
+import type { Gradient, GradientStop } from './gradient.ts'
+import type { PathNode, ShapePath } from './path.ts'
 
 // A project keeps everything needed to carry on editing later: the design's size, every layer
 // with its pixels, position and settings, and the selection. The same format is used for
@@ -22,9 +24,9 @@ import type { EditorDocument, Layer, LayerGroup, ShapeGeometry, ShapeOutline, Sh
 // Version 2 added shapes, resized and turned pictures (box), locks and editable adjustments.
 // Version 3 added text. Version 4 added the page color, and designs with nothing on the page yet.
 // Version 5 added things kept together (group). Version 6 added effects (shadow, glow, outline) and
-// blend modes. Older files still open.
+// blend modes. Version 7 added pen paths and gradient fills. Older files still open.
 
-export const PROJECT_VERSION = 6
+export const PROJECT_VERSION = 7
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -60,6 +62,7 @@ export interface ProjectPixelLayer extends ProjectLayerBase {
 export type ProjectFill =
   | { kind: 'none' }
   | { kind: 'color'; color: string }
+  | { kind: 'gradient'; gradient: Gradient }
   | { kind: 'photo'; zoom: number; x: number; y: number; width: number; height: number; bytes: number }
 
 export interface ProjectShapeLayer extends ProjectLayerBase {
@@ -221,23 +224,54 @@ function readBlend(value: unknown): BlendMode | undefined {
 }
 
 const COLOR = /^#[0-9a-f]{6}$/i
-const SHAPE_TYPES: ShapeType[] = ['rectangle', 'ellipse', 'polygon', 'star', 'line']
+const SHAPE_TYPES: ShapeType[] = ['rectangle', 'ellipse', 'polygon', 'star', 'line', 'path']
+const MAX_PATH_NODES = 100_000
+// Path points are relative to the box, so they stay near -0.5 to 0.5; handles may reach further.
+const PATH_REACH = 1e6
 
 function readColor(value: unknown): string {
   if (typeof value !== 'string' || !COLOR.test(value)) damaged()
   return value
 }
 
+function readPoint(value: unknown): Point {
+  if (!isRecord(value) || !isBetween(value.x, -PATH_REACH, PATH_REACH) || !isBetween(value.y, -PATH_REACH, PATH_REACH)) damaged()
+  return { x: value.x, y: value.y }
+}
+
+function readPath(value: unknown): ShapePath {
+  if (!isRecord(value) || !Array.isArray(value.nodes) || value.nodes.length < 1 || value.nodes.length > MAX_PATH_NODES || typeof value.closed !== 'boolean') damaged()
+  const nodes = value.nodes.map((node: unknown): PathNode => {
+    if (!isRecord(node) || typeof node.smooth !== 'boolean') damaged()
+    const { x, y } = readPoint(node)
+    return { x, y, in: readPoint(node.in), out: readPoint(node.out), smooth: node.smooth }
+  })
+  return { nodes, closed: value.closed }
+}
+
 function readGeometry(value: unknown): ShapeGeometry {
   if (!isRecord(value) || !SHAPE_TYPES.includes(value.type as ShapeType)) damaged()
   if (!isBetween(value.corners, 0, 1) || !isWhole(value.sides, 3, 64) || typeof value.arrow !== 'boolean') damaged()
-  return { type: value.type as ShapeType, corners: value.corners, sides: value.sides, arrow: value.arrow }
+  const geometry: ShapeGeometry = { type: value.type as ShapeType, corners: value.corners, sides: value.sides, arrow: value.arrow }
+  if (geometry.type === 'path') geometry.path = readPath(value.path)
+  return geometry
+}
+
+function readGradient(value: unknown): Gradient {
+  if (!isRecord(value) || (value.type !== 'linear' && value.type !== 'radial') || !isBetween(value.angle, -3600, 3600)) damaged()
+  if (!Array.isArray(value.stops) || value.stops.length < 2 || value.stops.length > 64) damaged()
+  const stops = value.stops.map((stop: unknown): GradientStop => {
+    if (!isRecord(stop) || !isBetween(stop.at, 0, 1) || !isBetween(stop.opacity, 0, 1)) damaged()
+    return { at: stop.at, color: readColor(stop.color), opacity: stop.opacity }
+  })
+  return { type: value.type, angle: value.angle, stops }
 }
 
 function readFill(value: unknown): ProjectFill {
   if (!isRecord(value)) damaged()
   if (value.kind === 'none') return { kind: 'none' }
   if (value.kind === 'color') return { kind: 'color', color: readColor(value.color) }
+  if (value.kind === 'gradient') return { kind: 'gradient', gradient: readGradient(value.gradient) }
   if (
     value.kind !== 'photo' ||
     !isBetween(value.zoom, 1, 20) ||

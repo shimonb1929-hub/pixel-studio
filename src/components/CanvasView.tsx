@@ -37,6 +37,7 @@ import { nextZoomLevel, panBy, screenToDocument, zoomAtPoint } from '../editor/v
 import { useFontsVersion } from '../hooks/useFontsVersion.ts'
 import { textIndexAt } from '../text/textLayer.ts'
 import { TextEditBox, type TextEditing } from './TextEditBox.tsx'
+import type { PenControls } from '../hooks/usePen.ts'
 
 // A box with handles being edited on the canvas: around the selected part of a layer, or the crop frame.
 export interface BoxEditing {
@@ -120,6 +121,8 @@ export interface CanvasViewProps {
   onCompareChange: (comparing: boolean) => void
   arrange: ArrangeControls | null
   shapes: ShapeDrawing | null
+  // The Pen: drawing paths point by point, and changing the points of a picked pen shape.
+  pen: PenControls | null
   // While "Move photo" is on, dragging on the selected shape slides the photo inside it.
   photoMove: { onMove: (layerId: string, x: number, y: number) => void } | null
   textTool: TextTool | null
@@ -127,6 +130,8 @@ export interface CanvasViewProps {
   textEditing: TextEditing | null
   // Double-clicking text with Arrange starts typing in it.
   onEditText: (layerId: string, caret: number) => void
+  // Double-clicking a pen shape with Arrange shows its points, to reshape it.
+  onEditShape: (layerId: string) => void
 }
 
 interface PanDrag {
@@ -255,6 +260,10 @@ const CLICK_DISTANCE = 4
 
 function clickSlop(event: { pointerType: string }): number {
   return event.pointerType === 'touch' ? 10 : event.pointerType === 'pen' ? 6 : CLICK_DISTANCE
+}
+
+function penInput(event: PointerEvent<HTMLCanvasElement>) {
+  return { shiftKey: event.shiftKey, altKey: event.altKey, slop: clickSlop(event) }
 }
 
 // How close (in screen pixels) an edge or middle has to come to another to click into line.
@@ -537,6 +546,8 @@ export function CanvasView(props: CanvasViewProps) {
   const shapeRef = useRef<ShapeDrag | null>(null)
   const photoRef = useRef<PhotoDrag | null>(null)
   const textRef = useRef<TextDrag | null>(null)
+  const penRef = useRef<number | null>(null)
+  const [penCursor, setPenCursor] = useState('crosshair')
   // The object a click would pick right now, outlined while the pointer is over it.
   const hoverLayerRef = useRef<Layer | null>(null)
   const hoverRef = useRef<Point | null>(null)
@@ -563,7 +574,8 @@ export function CanvasView(props: CanvasViewProps) {
       arrangeRef.current ||
       shapeRef.current ||
       photoRef.current ||
-      textRef.current
+      textRef.current ||
+      penRef.current !== null
     )
 
   // The box the Arrange handles show around the selected object, if it can be arranged.
@@ -600,6 +612,8 @@ export function CanvasView(props: CanvasViewProps) {
     if (arrange?.kind === 'frame' && arrange.moved) {
       return { layers: new Map(arrange.layers.map((layer) => [layer.id, previewInFrame(layer, arrange.startBox, arrange.box)])) }
     }
+    const pen = propsRef.current.pen?.override()
+    if (pen) return pen
     const photo = photoRef.current
     if (photo?.moved && photo.layer.fill.kind === 'photo') {
       return { layerId: photo.layer.id, layer: { ...photo.layer, fill: { ...photo.layer.fill, x: photo.x, y: photo.y } } }
@@ -716,6 +730,8 @@ export function CanvasView(props: CanvasViewProps) {
       ctx.restore()
     }
 
+    if (p.pen && p.tool === 'pen') p.pen.draw(ctx, p.viewport)
+
     const hover = hoverRef.current
     if (!hover || panRef.current || moveRef.current || p.spaceHeld) return
     if (pickRef.current !== null || p.tool === 'picker' || (p.tool === 'brush' && p.altHeld)) {
@@ -748,7 +764,7 @@ export function CanvasView(props: CanvasViewProps) {
 
   useLayoutEffect(() => {
     drawOverlay()
-  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box, props.textEditing])
+  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box, props.textEditing, props.pen?.version])
 
   // The dashed outline keeps moving while something is selected, so it's easy to spot.
   useEffect(() => {
@@ -1226,6 +1242,11 @@ export function CanvasView(props: CanvasViewProps) {
       const point = documentPoint(event.clientX, event.clientY)
       event.currentTarget.setPointerCapture(event.pointerId)
       shapeRef.current = { pointerId: event.pointerId, start: point, current: point, constrain: event.shiftKey, moved: false, startClient: { x: event.clientX, y: event.clientY } }
+    } else if (tool === 'pen' && props.pen) {
+      event.currentTarget.setPointerCapture(event.pointerId)
+      penRef.current = event.pointerId
+      props.pen.down(documentPoint(event.clientX, event.clientY), penInput(event), viewport.zoom)
+      requestOverlay()
     } else if (tool === 'text' && props.textTool) {
       const point = documentPoint(event.clientX, event.clientY)
       event.currentTarget.setPointerCapture(event.pointerId)
@@ -1331,6 +1352,18 @@ export function CanvasView(props: CanvasViewProps) {
     if (textDrag && textDrag.pointerId === event.pointerId) {
       textDrag.current = point
       if (!textDrag.moved && Math.hypot(event.clientX - textDrag.startClient.x, event.clientY - textDrag.startClient.y) >= clickSlop(event)) textDrag.moved = true
+      requestOverlay()
+      return
+    }
+
+    if (tool === 'pen' && props.pen) {
+      if (penRef.current === event.pointerId) {
+        props.pen.move(point, penInput(event), viewport.zoom)
+        requestScene()
+      } else if (penRef.current === null) {
+        const next = props.pen.hover(point, viewport.zoom)
+        if (next !== penCursor) setPenCursor(next)
+      }
       requestOverlay()
       return
     }
@@ -1447,7 +1480,15 @@ export function CanvasView(props: CanvasViewProps) {
       if (cancelled) textRef.current = null
       else finishText()
     }
+    if (penRef.current === event.pointerId) finishPen(cancelled)
     stopComparing(event.pointerId)
+    requestOverlay()
+  }
+
+  function finishPen(cancelled: boolean) {
+    penRef.current = null
+    propsRef.current.pen?.up(cancelled)
+    requestScene()
     requestOverlay()
   }
 
@@ -1475,6 +1516,7 @@ export function CanvasView(props: CanvasViewProps) {
     }
     if (tool === 'move' || (tool === 'select' && overSelection)) return 'move'
     if (tool === 'text') return 'text'
+    if (tool === 'pen') return penCursor
     if (pickMode || tool === 'select' || tool === 'fill' || tool === 'shape') return 'crosshair'
     if (outlineVisible) return 'none'
     return painting ? 'crosshair' : 'default'
@@ -1502,14 +1544,22 @@ export function CanvasView(props: CanvasViewProps) {
           if (shapeRef.current?.pointerId === event.pointerId) finishShape()
           if (photoRef.current?.pointerId === event.pointerId) finishPhotoMove()
           if (textRef.current?.pointerId === event.pointerId) textRef.current = null
+          if (penRef.current === event.pointerId) finishPen(false)
           stopComparing(event.pointerId)
         }}
         onDoubleClick={(event) => {
+          if (tool === 'pen' && props.pen) {
+            props.pen.doubleClick(documentPoint(event.clientX, event.clientY), viewport.zoom)
+            requestScene()
+            requestOverlay()
+            return
+          }
           // Double-clicking text with Arrange starts typing in it, with the cursor where you clicked.
           if (tool !== 'move' || doc.selection || props.textEditing) return
           const point = documentPoint(event.clientX, event.clientY)
           const hit = layerAt(doc, point, 2 / viewport.zoom)
           if (hit?.kind === 'text') props.onEditText(hit.id, textIndexAt(hit, point))
+          else if (hit?.kind === 'shape' && hit.geometry.type === 'path' && (!hit.group || doc.activeLayerId === hit.id)) props.onEditShape(hit.id)
           // Inside something kept together, a double-click picks just the one part.
           else if (hit?.group) props.arrange?.onPick(hit.id)
         }}

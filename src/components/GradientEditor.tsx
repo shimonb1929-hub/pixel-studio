@@ -1,0 +1,190 @@
+import { ArrowLeftRight, Circle, MoveRight, X } from 'lucide-react'
+import { useRef, type PointerEvent } from 'react'
+import { cssGradient, GRADIENT_PRESETS, reverseGradient, sameGradient, stopAt, type Gradient, type GradientType } from '../editor/gradient.ts'
+import { Tooltip } from './Tooltip.tsx'
+import { Button, Slider } from './ui.tsx'
+
+// A light checkerboard behind see-through colors.
+const CHECKER = 'repeating-conic-gradient(#e8eaee 0 25%, #ffffff 0 50%) 0 0 / 10px 10px'
+
+interface GradientEditorProps {
+  gradient: Gradient
+  // The color stop the Color panel colors.
+  stop: number
+  onStop: (index: number) => void
+  // `mergeKey` joins quick repeated changes (dragging) into one undo step.
+  onChange: (gradient: Gradient, label: string, mergeKey?: string) => void
+}
+
+const TYPES: { value: GradientType; label: string; icon: typeof MoveRight; description: string }[] = [
+  { value: 'linear', label: 'Straight', icon: MoveRight, description: 'The colors fade from one side to the other (a linear gradient). Choose which way with Direction.' },
+  { value: 'radial', label: 'Round', icon: Circle, description: 'The colors fade out from the middle in circles (a radial gradient), like a glow.' },
+]
+
+function describeAngle(angle: number): string {
+  const names = ['Left to right', 'Top left to bottom right', 'Top to bottom', 'Top right to bottom left', 'Right to left', 'Bottom right to top left', 'Bottom to top', 'Bottom left to top right']
+  return `${names[Math.round(((angle % 360) + 360) % 360 / 45) % 8]}.`
+}
+
+// Ready-made gradients, a bar to place the colors on, and which way the colors run.
+export function GradientEditor({ gradient, stop, onStop, onChange }: GradientEditorProps) {
+  const barRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{ pointerId: number; index: number; moved: boolean } | null>(null)
+  const selected = gradient.stops[Math.min(stop, gradient.stops.length - 1)]
+
+  function positionAt(clientX: number): number {
+    const rect = barRef.current!.getBoundingClientRect()
+    return Math.round(Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * 1000) / 1000
+  }
+
+  function setStop(index: number, patch: Partial<Gradient['stops'][number]>, label: string, mergeKey?: string) {
+    onChange({ ...gradient, stops: gradient.stops.map((s, i) => (i === index ? { ...s, ...patch } : s)) }, label, mergeKey)
+  }
+
+  // A click on the bar adds a color there, matching what the gradient already shows.
+  function addStop(event: PointerEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget) return
+    const at = positionAt(event.clientX)
+    onChange({ ...gradient, stops: [...gradient.stops, stopAt(gradient, at)] }, 'Add gradient color')
+    onStop(gradient.stops.length)
+  }
+
+  function removeStop() {
+    if (gradient.stops.length <= 2) return
+    onChange({ ...gradient, stops: gradient.stops.filter((_, i) => i !== stop) }, 'Remove gradient color')
+    onStop(Math.max(0, stop - 1))
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div role="radiogroup" aria-label="Ready-made gradients" className="flex flex-wrap gap-1.5">
+        {GRADIENT_PRESETS.map((preset) => {
+          const chosen = sameGradient(preset.gradient, gradient)
+          return (
+            <Tooltip key={preset.name} title={preset.name} description="A ready-made gradient. Change its colors afterwards if you like." className="flex">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={chosen}
+                aria-label={preset.name}
+                onClick={() => {
+                  onChange(preset.gradient, `${preset.name} gradient`)
+                  onStop(0)
+                }}
+                className={`h-7 w-7 rounded-full border transition-shadow ${chosen ? 'border-accent ring-2 ring-accent/40' : 'border-[rgb(16_24_40/0.15)] hover:ring-2 hover:ring-line'}`}
+                style={{ background: `${cssGradient(preset.gradient)}, ${CHECKER}` }}
+              />
+            </Tooltip>
+          )
+        })}
+      </div>
+
+      <div>
+        <Tooltip
+          title="Gradient colors"
+          description="Each small marker is one color. Click a marker to choose its color in the Color panel, and drag it to move where that color is. Click the bar to add another color."
+          className="flex flex-col"
+        >
+          <div
+            ref={barRef}
+            role="group"
+            aria-label="Gradient colors"
+            onPointerDown={addStop}
+            className="relative h-6 cursor-copy rounded-md border border-[rgb(16_24_40/0.15)]"
+            style={{ background: `${cssGradient(gradient, true)}, ${CHECKER}` }}
+          >
+            {gradient.stops.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={`Gradient color ${i + 1}`}
+                aria-pressed={i === stop}
+                onPointerDown={(event) => {
+                  event.stopPropagation()
+                  event.currentTarget.setPointerCapture(event.pointerId)
+                  dragRef.current = { pointerId: event.pointerId, index: i, moved: false }
+                  onStop(i)
+                }}
+                onPointerMove={(event) => {
+                  const drag = dragRef.current
+                  if (!drag || drag.pointerId !== event.pointerId) return
+                  drag.moved = true
+                  setStop(drag.index, { at: positionAt(event.clientX) }, 'Move gradient color', `gradient-move-${drag.index}`)
+                }}
+                onPointerUp={() => (dragRef.current = null)}
+                onPointerCancel={() => (dragRef.current = null)}
+                onKeyDown={(event) => {
+                  const step = event.shiftKey ? 0.1 : 0.01
+                  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                    event.preventDefault()
+                    const at = Math.max(0, Math.min(1, s.at + (event.key === 'ArrowRight' ? step : -step)))
+                    setStop(i, { at: Math.round(at * 1000) / 1000 }, 'Move gradient color', `gradient-move-${i}`)
+                  }
+                }}
+                className={`absolute top-1/2 h-7 w-3.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-[5px] border-2 shadow-sm ${
+                  i === stop ? 'border-accent ring-2 ring-accent/30' : 'border-white ring-1 ring-[rgb(16_24_40/0.3)]'
+                }`}
+                style={{ left: `${s.at * 100}%`, background: s.color }}
+              />
+            ))}
+          </div>
+        </Tooltip>
+      </div>
+
+      <div className="flex items-end gap-2">
+        <Slider
+          className="min-w-0 flex-1"
+          label="See-through"
+          help="How see-through the picked color is. All the way right fades it out completely, so what's behind shows."
+          value={1 - selected.opacity}
+          display={`${Math.round((1 - selected.opacity) * 100)}%`}
+          onChange={(position) => setStop(stop, { opacity: Math.round((1 - position) * 100) / 100 }, 'Gradient see-through', `gradient-opacity-${stop}`)}
+        />
+        {gradient.stops.length > 2 && (
+          <Button variant="ghost" className="h-8 shrink-0 px-2 text-[12px]" onClick={removeStop} tip={{ title: 'Remove color', description: 'Take the picked color out of the gradient.' }}>
+            <X size={14} />
+            Remove
+          </Button>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <div role="radiogroup" aria-label="Gradient kind" className="flex shrink-0 gap-0.5 rounded-[10px] border border-line bg-subtle p-0.5">
+          {TYPES.map((type) => (
+            <Tooltip key={type.value} title={type.label} description={type.description}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={gradient.type === type.value}
+                aria-label={type.label}
+                onClick={() => onChange({ ...gradient, type: type.value }, type.value === 'radial' ? 'Round gradient' : 'Straight gradient')}
+                className={`flex h-7 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${
+                  gradient.type === type.value ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
+                }`}
+              >
+                <type.icon size={14} strokeWidth={1.9} />
+                {type.label}
+              </button>
+            </Tooltip>
+          ))}
+        </div>
+        <Button variant="ghost" className="h-8 px-2 text-[12px]" onClick={() => onChange(reverseGradient(gradient), 'Flip gradient')} tip={{ title: 'Flip colors', description: 'Swap the colors around, so the gradient runs the other way.' }}>
+          <ArrowLeftRight size={14} />
+          Flip
+        </Button>
+      </div>
+
+      {gradient.type === 'linear' && (
+        <Slider
+          label="Direction"
+          help="Which way the colors run across the shape. Hold Shift while using the arrow keys to turn in bigger steps."
+          value={(((gradient.angle % 360) + 360) % 360) / 360}
+          display={`${Math.round(((gradient.angle % 360) + 360) % 360)}°`}
+          note={describeAngle(gradient.angle)}
+          step={1 / 360}
+          onChange={(position) => onChange({ ...gradient, angle: Math.round(position * 360) % 360 }, 'Gradient direction', 'gradient-angle')}
+        />
+      )}
+    </div>
+  )
+}

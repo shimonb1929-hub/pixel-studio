@@ -1,4 +1,4 @@
-import { Bandage, Brush, Crop, Eraser, Hand, MousePointer2, PaintBucket, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
+import { Bandage, Brush, Crop, Eraser, Hand, MousePointer2, PaintBucket, PenTool, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
 import type { ToolId } from './editor/types.ts'
 import { ALT_LABEL } from './keys.ts'
 
@@ -65,6 +65,18 @@ export const TOOLS: ToolInfo[] = [
       'Draw rectangles, ovals, polygons, stars, lines and arrows. They stay sharp at any size, and you can change their colors, outline and corners any time.',
     hint: 'Drag to draw a shape, or click empty paper to drop one. Click a shape to pick it. Hold Shift for a perfect square or circle, or a straight line.',
     keywords: ['shape', 'rectangle', 'square', 'circle', 'oval', 'ellipse', 'triangle', 'polygon', 'hexagon', 'star', 'line', 'arrow', 'box', 'frame', 'vector', 'badge', 'button'],
+    group: 'draw',
+  },
+  {
+    id: 'pen',
+    name: 'Pen',
+    label: 'Pen',
+    key: 'P',
+    icon: PenTool,
+    description:
+      'Draw any shape you like, point by point: click for sharp corners, or press and drag for smooth curves. Click the first point to close the shape. Afterwards, drag points and lines to reshape it any time. It stays sharp at any size.',
+    hint: 'Click to add points, or press and drag for a curve. Click the first point to close the shape, or press Enter to finish a line. Drag a point or a line to reshape; double-click a point to make it sharp or smooth.',
+    keywords: ['pen', 'path', 'bezier', 'curve', 'vector', 'draw shape', 'custom shape', 'outline', 'trace', 'anchor', 'points', 'logo', 'icon', 'illustration', 'reshape', 'edit points', 'curved arrow'],
     group: 'draw',
   },
   {

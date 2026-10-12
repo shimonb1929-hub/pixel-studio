@@ -1,6 +1,8 @@
 import type { TextAlign, TextDirection } from '../text/layout.ts'
 import type { Adjustments } from './adjust.ts'
 import type { BlendMode, LayerEffects } from './effects.ts'
+import type { Gradient } from './gradient.ts'
+import type { ShapePath } from './path.ts'
 import type { Selection } from './selection.ts'
 import type { TransformBox } from './transform.ts'
 
@@ -51,7 +53,8 @@ export interface PixelLayer extends LayerBase {
   box: TransformBox | null
 }
 
-export type ShapeType = 'rectangle' | 'ellipse' | 'polygon' | 'star' | 'line'
+// 'path' is a shape drawn point by point with the Pen.
+export type ShapeType = 'rectangle' | 'ellipse' | 'polygon' | 'star' | 'line' | 'path'
 
 export interface ShapeGeometry {
   type: ShapeType
@@ -59,13 +62,17 @@ export interface ShapeGeometry {
   corners: number
   // Sides of a polygon, or points of a star.
   sides: number
-  // Lines can end in an arrow head.
+  // Lines (and open pen paths) can end in an arrow head.
   arrow: boolean
+  // The points of a pen path, relative to the box: -0.5 to 0.5 across its width and height.
+  path?: ShapePath
 }
 
 export type ShapeFill =
   | { kind: 'none' }
   | { kind: 'color'; color: string }
+  // Colors fading into each other across the shape.
+  | { kind: 'gradient'; gradient: Gradient }
   // A photo filling the shape. It always covers the whole shape: `zoom` enlarges it from there, and
   // x, y (-1 to 1) slide it to show another part of it.
   | { kind: 'photo'; canvas: HTMLCanvasElement; zoom: number; x: number; y: number }
@@ -141,4 +148,4 @@ export interface Viewport {
   panY: number
 }
 
-export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'text' | 'brush' | 'eraser' | 'fill' | 'picker' | 'adjust' | 'heal' | 'hand' | 'zoom'
+export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'pen' | 'text' | 'brush' | 'eraser' | 'fill' | 'picker' | 'adjust' | 'heal' | 'hand' | 'zoom'

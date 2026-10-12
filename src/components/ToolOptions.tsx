@@ -1,4 +1,4 @@
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, type LucideIcon } from 'lucide-react'
+import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, type LucideIcon } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -758,6 +758,79 @@ function AdjustOptions({ controls }: { controls: AdjustControls }) {
   )
 }
 
+// The Pen's settings: finishing a path while drawing, or changing the picked point.
+export interface PenBarControls {
+  drawing: boolean
+  pointCount: number
+  canClose: boolean
+  selectedPoint: { smooth: boolean } | null
+  finish: () => void
+  close: () => void
+  removeLast: () => void
+  setSmooth: (smooth: boolean) => void
+  deletePoint: () => void
+}
+
+const POINT_KINDS: Choice<'sharp' | 'smooth'>[] = [
+  { value: 'sharp', label: 'Sharp corner', icon: Pentagon, description: 'The lines meet at a point, like the corner of a star. Tip: double-click a point to switch.' },
+  { value: 'smooth', label: 'Smooth curve', icon: Spline, description: 'The line flows through the point in a round curve. Drag its round handles to change how it bends.' },
+]
+
+function PenOptions({ controls }: { controls: PenBarControls }) {
+  if (controls.drawing) {
+    return (
+      <>
+        <Button
+          variant="secondary"
+          className="h-8 shrink-0 px-3 text-[13px]"
+          disabled={!controls.canClose}
+          onClick={controls.close}
+          tip={{ title: 'Close shape', description: 'Join the last point to the first, making a closed shape that is filled with color. Clicking the first point does this too.', note: controls.canClose ? undefined : 'Place at least three points first.' }}
+        >
+          <Pentagon size={15} />
+          Close shape
+        </Button>
+        <Button
+          variant="ghost"
+          className="h-8 shrink-0 px-3 text-[13px]"
+          onClick={controls.removeLast}
+          tip={{ title: 'Take back last point', shortcut: 'Backspace', description: 'Remove the point you placed last, and keep drawing from the one before.' }}
+        >
+          <Undo2 size={15} />
+          Last point
+        </Button>
+        <Button
+          variant="primary"
+          className="h-8 shrink-0 px-3.5 text-[13px]"
+          onClick={controls.finish}
+          tip={{ title: 'Finish', shortcut: 'Enter', description: 'Stop here and keep it as an open line, like a curve or a wave. Clicking the last point again does this too.' }}
+        >
+          <CornerDownLeft size={15} />
+          Finish
+        </Button>
+        <Hint>
+          {controls.pointCount < 2
+            ? 'Click to place the next point, or press and drag to make the line curve.'
+            : 'Keep clicking to add points. Click the first point to close the shape, or press Enter to finish a line.'}
+        </Hint>
+      </>
+    )
+  }
+  if (controls.selectedPoint) {
+    return (
+      <>
+        <Segmented label="Point" value={controls.selectedPoint.smooth ? 'smooth' : 'sharp'} choices={POINT_KINDS} onChange={(kind) => controls.setSmooth(kind === 'smooth')} />
+        <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" onClick={controls.deletePoint} tip={{ title: 'Delete point', shortcut: 'Delete', description: 'Take this point out. The lines on either side join up.' }}>
+          <Trash2 size={15} />
+          Delete point
+        </Button>
+        <Hint>Drag the point to move it, or its round handles to change the curve. Hold {ALT_LABEL} on a handle to bend one side only.</Hint>
+      </>
+    )
+  }
+  return <Hint>Click to start a new shape, point by point. On a picked pen shape: drag a point or a line to reshape it, click a line to add a point.</Hint>
+}
+
 function describeTolerance(tolerance: number): string {
   if (tolerance < 0.02) return 'Only exactly the same color gets filled.'
   if (tolerance < 0.25) return 'Fills very similar colors. Good for flat areas and drawings.'
@@ -779,6 +852,7 @@ interface ToolOptionsProps {
   arrange: ArrangeBarControls
   crop: CropControls
   shapeType: ShapeType
+  pen: PenBarControls
   onShapeTypeChange: (type: ShapeType) => void
   onAddText: (kind: TextKind) => void
   adjust: AdjustControls
@@ -829,8 +903,10 @@ export function ToolOptions(props: ToolOptionsProps) {
       ) : props.tool === 'shape' ? (
         <>
           <Segmented label="Shape to draw" value={props.shapeType} choices={SHAPE_TYPES} onChange={props.onShapeTypeChange} />
-          <Hint>Drag on your design to draw, or click to drop one. Its colors come from the Color panel.</Hint>
+          <Hint>Drag on your design to draw, or click to drop one. Its colors come from the Color panel. For a shape of your own, use the Pen (P).</Hint>
         </>
+      ) : props.tool === 'pen' ? (
+        <PenOptions controls={props.pen} />
       ) : props.tool === 'text' ? (
         <>
           <div className="flex shrink-0 gap-1.5">

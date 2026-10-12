@@ -139,6 +139,10 @@ describe('project files', () => {
       manifest({ layers: [shape({ fill: { kind: 'color', color: 'red' } })], activeLayer: 0 }),
       manifest({ layers: [shape({ fill: { kind: 'photo', zoom: 0.5, x: 0, y: 0, width: 10, height: 10, bytes: 4 } })], activeLayer: 0 }),
       manifest({ layers: [shape({ outline: { color: '#000000', width: -1 } })], activeLayer: 0 }),
+      manifest({ layers: [shape({ geometry: { type: 'path', corners: 0, sides: 6, arrow: false } })], activeLayer: 0 }),
+      manifest({ layers: [shape({ geometry: { type: 'path', corners: 0, sides: 6, arrow: false, path: { closed: true, nodes: [] } } })], activeLayer: 0 }),
+      manifest({ layers: [shape({ fill: { kind: 'gradient', gradient: { type: 'linear', angle: 0, stops: [{ at: 0, color: '#000000', opacity: 1 }] } } })], activeLayer: 0 }),
+      manifest({ layers: [shape({ fill: { kind: 'gradient', gradient: { type: 'conic' as 'linear', angle: 0, stops: [] } } })], activeLayer: 0 }),
       { ...manifest(), selection: { ops: [{ kind: 'polygon', subtract: false, points: [{ x: 'a', y: 1 }] }] } },
       { ...manifest(), selection: { ops: [{ kind: 'star' }] } },
     ]
@@ -162,6 +166,18 @@ describe('project files', () => {
     const { manifest: read, images } = await unpackProject(file)
     expect(read).toEqual(original)
     expect(await Promise.all(images.map(bytes))).toEqual([[1, 2, 3], [7, 8], [9]])
+  })
+
+  it('keeps pen paths and gradient fills', async () => {
+    const corner = (x: number, y: number) => ({ x, y, in: { x, y }, out: { x, y }, smooth: false })
+    const pen = shape({
+      name: 'Pen shape 1',
+      geometry: { type: 'path', corners: 0, sides: 6, arrow: false, path: { closed: true, nodes: [corner(-0.5, -0.5), { x: 0.5, y: 0, in: { x: 0.5, y: -0.3 }, out: { x: 0.5, y: 0.3 }, smooth: true }, corner(-0.5, 0.5)] } },
+      fill: { kind: 'gradient', gradient: { type: 'radial', angle: 45, stops: [{ at: 0, color: '#ff0000', opacity: 1 }, { at: 1, color: '#0000ff', opacity: 0.25 }] } },
+    })
+    const original = manifest({ layers: [pen], activeLayer: 0 })
+    const { manifest: read } = await unpackProject(packProject(original, []))
+    expect(read).toEqual(original)
   })
 
   it('keeps text, which brings no pictures along', async () => {

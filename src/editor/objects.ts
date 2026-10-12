@@ -2,6 +2,8 @@ import { fontsVersion } from '../text/fonts.ts'
 import { drawText, textReach } from '../text/textLayer.ts'
 import { createCanvas, getContext2d, MAX_LAYER_SIDE } from './document.ts'
 import { polygonBounds, snapRect, type Rect } from './geometry.ts'
+import { canvasGradient } from './gradient.ts'
+import { endDirection, mapPath, segmentCount, trimForArrow, tracePath, type ShapePath } from './path.ts'
 import { applyAffine, boxCorners, boxMatrix, invertAffine, type TransformBox } from './transform.ts'
 import type { EditorDocument, Layer, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, TextLayer } from './types.ts'
 
@@ -23,7 +25,7 @@ export function isTextLayer(layer: Layer | null | undefined): layer is TextLayer
 // How far a shape's outline (and an arrow head) reaches past its box.
 function shapeReach(layer: ShapeLayer): number {
   const width = layer.outline?.width ?? 0
-  return width / 2 + (layer.geometry.type === 'line' && layer.geometry.arrow ? width * 2.5 : 0) + 1
+  return width / 2 + (hasArrow(layer.geometry) ? width * 2.5 : 0) + 1
 }
 
 // The area a layer covers, in whole design pixels.
@@ -33,6 +35,42 @@ export function layerBounds(layer: Layer): Rect {
   const bounds = polygonBounds(boxCorners(box))!
   const reach = layer.kind === 'shape' ? shapeReach(layer) : layer.kind === 'text' ? textReach(layer) : 0
   return snapRect({ x: bounds.x - reach, y: bounds.y - reach, width: bounds.width + 2 * reach, height: bounds.height + 2 * reach })
+}
+
+// Lines, and pen paths that don't close, can end in an arrow head.
+export function hasArrow(geometry: ShapeGeometry): boolean {
+  if (!geometry.arrow) return false
+  if (geometry.type === 'line') return true
+  return geometry.type === 'path' && !!geometry.path && !geometry.path.closed && segmentCount(geometry.path) > 0
+}
+
+// Lines, and pen paths that don't close, are lines: they have a color and a thickness, no inside.
+export function isLineShape(geometry: ShapeGeometry): boolean {
+  return geometry.type === 'line' || (geometry.type === 'path' && !geometry.path?.closed)
+}
+
+// Whether a shape has an inside that can be filled.
+export function canFill(geometry: ShapeGeometry): boolean {
+  if (isLineShape(geometry)) return false
+  return geometry.type !== 'path' || (geometry.path?.nodes.length ?? 0) > 2
+}
+
+// A pen path in a w × h shape centered on 0, 0.
+export function scaledPath(geometry: ShapeGeometry, w: number, h: number): ShapePath {
+  return mapPath(geometry.path ?? { nodes: [], closed: false }, (p) => ({ x: p.x * w, y: p.y * h }))
+}
+
+// The corners of a polygon or star in a w × h shape centered on 0, 0.
+export function polygonPoints(geometry: ShapeGeometry, w: number, h: number): Point[] {
+  const n = Math.max(3, Math.round(geometry.sides))
+  const star = geometry.type === 'star'
+  const count = star ? n * 2 : n
+  const raw = Array.from({ length: count }, (_, i) => {
+    const angle = -Math.PI / 2 + (i * Math.PI * 2) / count
+    const r = star && i % 2 === 1 ? STAR_INNER : 1
+    return { x: Math.cos(angle) * r, y: Math.sin(angle) * r }
+  })
+  return fittedPoints(raw, w, h)
 }
 
 // Corner points of a regular polygon or star, stretched to fill a w × h box around 0, 0.
@@ -65,16 +103,12 @@ export function shapePath(geometry: ShapeGeometry, w: number, h: number, outline
     const end = geometry.arrow ? w / 2 - arrowLength(outlineWidth) * 0.8 : w / 2
     path.moveTo(-w / 2, 0)
     path.lineTo(Math.max(-w / 2, end), 0)
+  } else if (geometry.type === 'path') {
+    // With an arrow head, the path stops short of the tip, as a line does.
+    const pen = scaledPath(geometry, w, h)
+    tracePath(path, pen, hasArrow(geometry) ? trimForArrow(pen, arrowLength(outlineWidth) * 0.8) : 1)
   } else {
-    const n = Math.max(3, Math.round(geometry.sides))
-    const star = geometry.type === 'star'
-    const count = star ? n * 2 : n
-    const raw = Array.from({ length: count }, (_, i) => {
-      const angle = -Math.PI / 2 + (i * Math.PI * 2) / count
-      const r = star && i % 2 === 1 ? STAR_INNER : 1
-      return { x: Math.cos(angle) * r, y: Math.sin(angle) * r }
-    })
-    fittedPoints(raw, w, h).forEach((p, i) => (i === 0 ? path.moveTo(p.x, p.y) : path.lineTo(p.x, p.y)))
+    polygonPoints(geometry, w, h).forEach((p, i) => (i === 0 ? path.moveTo(p.x, p.y) : path.lineTo(p.x, p.y)))
     path.closePath()
   }
   return path
@@ -102,10 +136,14 @@ export function drawShape(ctx: CanvasRenderingContext2D, layer: ShapeLayer): voi
   ctx.save()
   const { w, h } = enterShape(ctx, layer.box)
   const path = shapePath(geometry, w, h, outline?.width ?? 0)
-  if (geometry.type !== 'line') {
+  if (canFill(geometry)) {
     if (fill.kind === 'color') {
       ctx.fillStyle = fill.color
       ctx.fill(path)
+    } else if (fill.kind === 'gradient') {
+      ctx.fillStyle = canvasGradient(ctx, fill.gradient, w, h)
+      // An arrow's path stops short, so the fill uses the whole path.
+      ctx.fill(hasArrow(geometry) ? shapePath({ ...geometry, arrow: false }, w, h) : path)
     } else if (fill.kind === 'photo') {
       ctx.save()
       ctx.clip(path)
@@ -120,15 +158,25 @@ export function drawShape(ctx: CanvasRenderingContext2D, layer: ShapeLayer): voi
     ctx.lineWidth = outline.width
     ctx.strokeStyle = outline.color
     ctx.lineJoin = 'round'
-    ctx.lineCap = geometry.type === 'line' ? 'round' : 'butt'
+    ctx.lineCap = isLineShape(geometry) ? 'round' : 'butt'
     ctx.stroke(path)
-    if (geometry.type === 'line' && geometry.arrow) {
+    if (hasArrow(geometry)) {
       const length = arrowLength(outline.width)
+      // The tip is at the end, pointing the way the line goes there.
+      let tip = { x: w / 2, y: 0 }
+      let dir = { x: 1, y: 0 }
+      if (geometry.type === 'path') {
+        const pen = scaledPath(geometry, w, h)
+        tip = pen.nodes[pen.nodes.length - 1]
+        dir = endDirection(pen)
+      }
+      const back = { x: tip.x - dir.x * length, y: tip.y - dir.y * length }
+      const side = { x: -dir.y * length * 0.6, y: dir.x * length * 0.6 }
       ctx.fillStyle = outline.color
       ctx.beginPath()
-      ctx.moveTo(w / 2, 0)
-      ctx.lineTo(w / 2 - length, length * 0.6)
-      ctx.lineTo(w / 2 - length, -length * 0.6)
+      ctx.moveTo(tip.x, tip.y)
+      ctx.lineTo(back.x + side.x, back.y + side.y)
+      ctx.lineTo(back.x - side.x, back.y - side.y)
       ctx.closePath()
       ctx.fill()
     }
@@ -235,7 +283,7 @@ export function hitsLayer(layer: Layer, point: Point, slack = 0): boolean {
     const y = local.y - 0.5
     const path = shapePath(geometry, w, h, outline?.width ?? 0)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
-    if (geometry.type !== 'line' && fill.kind !== 'none' && ctx.isPointInPath(path, x, y)) return true
+    if (canFill(geometry) && fill.kind !== 'none' && ctx.isPointInPath(path, x, y)) return true
     ctx.lineWidth = (outline?.width ?? 0) + slack * 2
     if (ctx.lineWidth > 0 && ctx.isPointInStroke(path, x, y)) return true
     if (geometry.type === 'line' && geometry.arrow && outline) return Math.hypot(x - w / 2, y) <= arrowLength(outline.width) + slack

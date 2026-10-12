@@ -41,6 +41,14 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   one thing: a click on any part picks it all, a double-click picks just that part, and the Layers
   panel shows it as one row that opens to show its parts. "Tidy up" makes a neat row or column with
   even gaps, and "Line up" lines up edges or middles (one thing lines up with the page).
+- **Any shape you can imagine.** The Pen draws your own shapes point by point: click for sharp
+  corners, press and drag for smooth curves, click the first point to close. Afterwards drag a point
+  to move it, drag a side to bend it, click a side to add a point, and double-click a point to make it
+  sharp or smooth. "Edit points" does the same for any rectangle, oval, star or line, and open
+  curves can end in an arrow head.
+- **Colors that fade.** Any shape can be filled with a gradient: pick a ready-made one, then click
+  its markers to recolor them, drag them to move them, click the bar to add a color, fade a color
+  to see-through, or make it round instead of straight.
 - **A page, not a pile of sheets.** A new design is an empty page of a color (or see-through).
   Nothing has to be set up before you start: painting makes its own drawing, and photos, shapes
   and text each arrive as their own thing. Click an empty spot (or Page in the Layers panel) and
@@ -125,6 +133,8 @@ src/
     layers.ts    Adding, removing, moving and changing layers, and keeping layers together
     organize.ts  Lining things up, even gaps and tidying several things at once
     snap.ts      Lining up by itself while dragging, and the guides that show it
+    path.ts      Pen paths: curves, their bounds, adding, bending and smoothing points
+    gradient.ts  Gradient fills: ready-made gradients, drawing them, adding and flipping colors
     brushes.ts   The ready-made brushes and erasers
     color.ts     Color codes and the color picker math
     ...          The document, zoom math, drawing to screen, opening and downloading files
@@ -149,7 +159,7 @@ other layers, and picking one picks its whole group. A picture layer (a drawing 
 pixels it just gets a new position; resized or turned it gets a box, and is drawn from its
 original pixels into that box, so nothing is lost however often it changes. Only painting on it
 redraws its pixels at the new size. It grows when you paint past its edge, so nothing is ever cut
-off by accident. A shape layer and a text layer are each a description (kind, box, fill, outline, corners, points),
+off by accident. A shape layer and a text layer are each a description (kind, box, fill or gradient, outline, corners, pen points),
 drawn fresh at any size; a photo inside a shape is kept whole, with how big it is and which part
 shows. Cropping and resizing the design only move layers and change their boxes, so undo, or
 resizing back, brings back everything.
@@ -217,8 +227,8 @@ pulling in see-through pixels, so blurred photos keep solid edges.
    previews, Hebrew and Yiddish filters; size, boldness, italic, lining up, reading direction,
    letter and line spacing; boxes that wrap their lines; text resizes, turns and saves like any
    object.
-7. **Shapes and the pen** (Illustrator) — a pen for curves with editable points; gradient fills;
-   outline dashes and ends; combine shapes (join, cut out, overlap); SVG export.
+7. **Shapes and the pen** (Illustrator) — a pen for curves with editable points (done); gradient
+   fills (done); outline dashes and ends; combine shapes (join, cut out, overlap); SVG export.
 8. **More text** — different fonts and colors inside one text, text along a path, text effects
    (outline, shadow, fill with a photo), your own font files, lists and columns.
 9. **Pages and print** (InDesign) — multi-page documents, master pages, margins, columns and

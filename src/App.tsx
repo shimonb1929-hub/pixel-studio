@@ -60,7 +60,9 @@ import {
 } from './editor/layers.ts'
 import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
-import { layerAt, layerBounds, layerPixels } from './editor/objects.ts'
+import { canFill, isLineShape, layerAt, layerBounds, layerPixels, polygonPoints } from './editor/objects.ts'
+import { fitPathToBox, geometryToPath, type ShapePath } from './editor/path.ts'
+import { gradientFrom, type Gradient } from './editor/gradient.ts'
 import { healRegion } from './editor/heal.ts'
 import { layerVersion } from './editor/pixelVersion.ts'
 import { combineFound, maskToOps } from './ai/maskSelection.ts'
@@ -79,6 +81,7 @@ import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
 import { useEditor } from './hooks/useEditor.ts'
+import { usePen } from './hooks/usePen.ts'
 import { useInstallApp } from './hooks/useInstallApp.ts'
 import { useElementSize } from './hooks/useElementSize.ts'
 import { isTypingTarget, shortcut } from './keys.ts'
@@ -160,7 +163,7 @@ const LINE_UP_LABELS: Record<LineUpEdge, string> = {
 function colorOfThing(layer: Layer, target: ColorTarget, fallback: string): string {
   if (layer.kind === 'text') return layer.style.color
   if (layer.kind !== 'shape') return fallback
-  if (layer.geometry.type === 'line' || target === 'outline') return layer.outline?.color ?? '#1b1d23'
+  if (isLineShape(layer.geometry) || target === 'outline') return layer.outline?.color ?? '#1b1d23'
   return layer.fill.kind === 'color' ? layer.fill.color : fallback
 }
 
@@ -210,12 +213,14 @@ function adjustProblem(doc: EditorDocument, layer: Layer): string | null {
   return null
 }
 
-const SHAPE_NAMES: Record<ShapeType, string> = { rectangle: 'Rectangle', ellipse: 'Oval', polygon: 'Polygon', star: 'Star', line: 'Line' }
+const SHAPE_NAMES: Record<ShapeType, string> = { rectangle: 'Rectangle', ellipse: 'Oval', polygon: 'Polygon', star: 'Star', line: 'Line', path: 'Pen shape' }
 
 // How the next shape will look. Lines use `line` for their color and thickness.
 interface ShapeDefaults {
   geometry: ShapeGeometry
   fill: string | null
+  // When set, new shapes are filled with this gradient instead of `fill`.
+  gradient: Gradient | null
   outline: ShapeOutline | null
   line: ShapeOutline
 }
@@ -223,8 +228,19 @@ interface ShapeDefaults {
 const DEFAULT_SHAPES: ShapeDefaults = {
   geometry: { type: 'rectangle', corners: 0, sides: 6, arrow: false },
   fill: '#3b5bfd',
+  gradient: null,
   outline: null,
   line: { color: '#1b1d23', width: 8 },
+}
+
+// What the Shape panel shows for new pen shapes while the Pen is picked and no shape is.
+const SAMPLE_PEN_PATH: ShapePath = {
+  closed: true,
+  nodes: [
+    { x: 0, y: -0.5, in: { x: 0, y: -0.5 }, out: { x: 0, y: -0.5 }, smooth: false },
+    { x: 0.5, y: 0.5, in: { x: 0.5, y: 0.5 }, out: { x: 0.5, y: 0.5 }, smooth: false },
+    { x: -0.5, y: 0.5, in: { x: -0.5, y: 0.5 }, out: { x: -0.5, y: 0.5 }, smooth: false },
+  ],
 }
 
 const NEW_OUTLINE_WIDTH = 4
@@ -323,6 +339,8 @@ export default function App() {
   const [shapeDefaults, setShapeDefaults] = useState<ShapeDefaults>(DEFAULT_SHAPES)
   // Which part of a shape the Color panel colors.
   const [colorTarget, setColorTarget] = useState<ColorTarget>('fill')
+  // Which color of a gradient fill the Color panel colors.
+  const [gradientStop, setGradientStop] = useState(0)
   // Which effect's color the Color panel colors, while one is picked in the Effects panel.
   const [effectColor, setEffectColor] = useState<{ layerId: string; kind: EffectKind } | null>(null)
   // While on, dragging on the selected shape slides the photo inside it.
@@ -482,12 +500,19 @@ export default function App() {
 
   // Shapes: with Arrange or Shapes, the selected shape's look is changed in the Shape panel, and
   // the Color panel colors it. With Shapes and no shape selected, they set how new shapes look.
-  const editingShape = (tool === 'move' || tool === 'shape') && activeNow?.kind === 'shape' ? activeNow : null
-  const shapePanelOn = !!doc && (editingShape !== null || tool === 'shape')
+  const editingShape = (tool === 'move' || tool === 'shape' || tool === 'pen') && activeNow?.kind === 'shape' ? activeNow : null
+  const shapePanelOn = !!doc && (editingShape !== null || tool === 'shape' || tool === 'pen')
   const photoMoveOn = photoMoving && tool === 'move' && editingShape?.fill.kind === 'photo'
 
+  // The fill new shapes get.
+  function defaultFill(): ShapeFill {
+    const { fill, gradient } = shapeDefaults
+    if (gradient) return { kind: 'gradient', gradient }
+    return fill ? { kind: 'color', color: fill } : { kind: 'none' }
+  }
+
   function newShape(box: TransformBox, names: string[]): ShapeLayer {
-    const { geometry, fill, outline, line } = shapeDefaults
+    const { geometry, outline, line } = shapeDefaults
     const isLine = geometry.type === 'line'
     return {
       id: createId('layer'),
@@ -499,9 +524,60 @@ export default function App() {
       adjust: null,
       box,
       geometry,
-      fill: !isLine && fill ? { kind: 'color', color: fill } : { kind: 'none' },
+      fill: isLine ? { kind: 'none' } : defaultFill(),
       outline: isLine ? line : outline,
     }
+  }
+
+  // A shape drawn with the Pen (its path in design coordinates). A closed one is filled like other
+  // shapes; an open one is a line.
+  function newPenShape(designPath: ShapePath, names: string[]): ShapeLayer {
+    const { box, path } = fitPathToBox(designPath)
+    const { outline, line } = shapeDefaults
+    const closed = designPath.closed
+    const fill = closed ? defaultFill() : { kind: 'none' as const }
+    return {
+      id: createId('layer'),
+      kind: 'shape',
+      name: nextNumberedName(closed ? 'Pen shape' : 'Curve', names),
+      visible: true,
+      opacity: 1,
+      locked: false,
+      adjust: null,
+      box,
+      geometry: { type: 'path', corners: 0, sides: 6, arrow: !closed && shapeDefaults.geometry.arrow, path },
+      fill,
+      outline: closed ? (outline ?? (fill.kind === 'none' ? line : null)) : line,
+    }
+  }
+
+  const pen = usePen({
+    doc,
+    getDoc: () => editor.getDoc(),
+    onCreate: (path) => {
+      const d = current()
+      if (!d) return
+      const shape = newPenShape(path, d.layers.map((l) => l.name))
+      editor.change(path.closed ? 'Draw pen shape' : 'Draw curve', (doc) => ({ ...insertLayerAboveActive(doc, shape), selection: null }))
+    },
+    onChange: (layerId, patch, label) => editor.change(label, (d) => updateShape(d, layerId, patch)),
+    preview: (path) => newPenShape(path, []),
+  })
+
+  // Turns any shape into a pen shape with the same look, so its points can be changed one by one.
+  function editPoints(layerId: string) {
+    const d = current()
+    const layer = d?.layers.find((l) => l.id === layerId)
+    if (layer?.kind !== 'shape') return
+    if (layer.geometry.type !== 'path') {
+      const w = Math.abs(layer.box.width)
+      const h = Math.abs(layer.box.height)
+      const path = geometryToPath(layer.geometry, Math.max(w, 1e-6), Math.max(h, 1e-6), polygonPoints(layer.geometry, w, h))
+      editor.change('Edit points', (doc) => updateShape(doc, layer.id, { geometry: { ...layer.geometry, type: 'path', path } }))
+    }
+    editor.select(layer.id)
+    setTool('pen')
+    inform('Drag the points or lines to reshape it. Click a line to add a point; double-click a point to make it sharp or smooth.')
   }
 
   function drawNewShape(box: TransformBox) {
@@ -518,7 +594,7 @@ export default function App() {
   function changeShape(label: string, patch: (shape: ShapeLayer) => Partial<ShapeLayer>, defaults: (d: ShapeDefaults) => ShapeDefaults, mergeKey?: string) {
     const d = current()
     const layer = d && activeLayer(d)
-    if (layer?.kind === 'shape' && (tool === 'move' || tool === 'shape')) {
+    if (layer?.kind === 'shape' && (tool === 'move' || tool === 'shape' || tool === 'pen')) {
       // With several things picked, every shape among them changes.
       const many = manyIn(d)
       const shapes = many && d ? d.layers.filter((l): l is ShapeLayer => many.includes(l.id) && l.kind === 'shape') : [layer]
@@ -530,8 +606,10 @@ export default function App() {
     }
   }
 
-  const shapeShown: ShapeLayer | null = shapePanelOn ? (editingShape ?? newShape({ cx: 0, cy: 0, width: 1, height: 1, rotation: 0 }, [])) : null
-  const shapeIsLine = shapeShown?.geometry.type === 'line'
+  const shapeShown: ShapeLayer | null = !shapePanelOn
+    ? null
+    : (editingShape ?? (tool === 'pen' ? newPenShape(SAMPLE_PEN_PATH, []) : newShape({ cx: 0, cy: 0, width: 1, height: 1, rotation: 0 }, [])))
+  const shapeIsLine = !!shapeShown && isLineShape(shapeShown.geometry)
   const shapeTarget: ColorTarget = shapeIsLine ? 'outline' : colorTarget
   // The color the Color panel shows while coloring a shape.
   const shapeColor: string | null = !shapeShown
@@ -540,7 +618,26 @@ export default function App() {
       ? (shapeShown.outline?.color ?? '#1b1d23')
       : shapeShown.fill.kind === 'color'
         ? shapeShown.fill.color
-        : color
+        : shapeShown.fill.kind === 'gradient'
+          ? shapeShown.fill.gradient.stops[Math.min(gradientStop, shapeShown.fill.gradient.stops.length - 1)].color
+          : color
+
+  // A gradient for the picked shapes, or for new shapes when none is picked.
+  function changeGradient(gradient: Gradient, label: string, mergeKey?: string) {
+    changeShape(label, () => ({ fill: { kind: 'gradient', gradient } }), (d) => ({ ...d, gradient }), mergeKey ?? `shape-gradient-${label}`)
+  }
+
+  function changeFillKind(kind: 'color' | 'gradient') {
+    if (!shapeShown || shapeShown.fill.kind === kind) return
+    const fill = shapeShown.fill
+    if (kind === 'gradient') {
+      setGradientStop(0)
+      changeGradient(gradientFrom(fill.kind === 'color' ? fill.color : color), 'Gradient fill')
+    } else {
+      const hex = fill.kind === 'gradient' ? fill.gradient.stops[0].color : (shapeDefaults.fill ?? DEFAULT_SHAPES.fill!)
+      changeShape('Fill color', () => ({ fill: { kind: 'color', color: hex } }), (d) => ({ ...d, fill: hex, gradient: null }))
+    }
+  }
 
   function colorShape(hex: string) {
     rememberColor(hex)
@@ -551,8 +648,12 @@ export default function App() {
         (d) => (shapeIsLine ? { ...d, line: { ...d.line, color: hex } } : { ...d, outline: { color: hex, width: d.outline?.width || NEW_OUTLINE_WIDTH } }),
         'shape-outline-color',
       )
+    } else if (shapeShown?.fill.kind === 'gradient') {
+      const gradient = shapeShown.fill.gradient
+      const index = Math.min(gradientStop, gradient.stops.length - 1)
+      changeGradient({ ...gradient, stops: gradient.stops.map((s, i) => (i === index ? { ...s, color: hex } : s)) }, 'Gradient color', `shape-gradient-color-${index}`)
     } else {
-      changeShape('Fill color', () => ({ fill: { kind: 'color', color: hex } }), (d) => ({ ...d, fill: hex }), 'shape-fill-color')
+      changeShape('Fill color', () => ({ fill: { kind: 'color', color: hex } }), (d) => ({ ...d, fill: hex, gradient: null }), 'shape-fill-color')
     }
   }
 
@@ -566,8 +667,8 @@ export default function App() {
     const colored = (l: Layer): Layer => {
       if (l.kind === 'text') return changeText(l, { style: { color: hex } })
       if (l.kind !== 'shape') return l
-      if (l.geometry.type === 'line' || shapeTarget === 'outline') return { ...l, outline: { color: hex, width: l.outline?.width || NEW_OUTLINE_WIDTH } }
-      return l.fill.kind === 'photo' ? l : { ...l, fill: { kind: 'color', color: hex } }
+      if (isLineShape(l.geometry) || shapeTarget === 'outline') return { ...l, outline: { color: hex, width: l.outline?.width || NEW_OUTLINE_WIDTH } }
+      return l.fill.kind === 'photo' || l.fill.kind === 'gradient' ? l : { ...l, fill: { kind: 'color', color: hex } }
     }
     editor.change('Color', (doc) => ({ ...doc, layers: doc.layers.map((l) => (many.includes(l.id) ? colored(l) : l)) }), { mergeKey: `color:${many.join()}` })
   }
@@ -944,6 +1045,7 @@ export default function App() {
   // Returns false if a resize couldn't be applied (it would be too big), which has been explained.
   function settle(): boolean {
     finishText()
+    pen.finish()
     if (transformChanged && !applyTransform()) return false
     if (cropChanged) applyCrop()
     if (adjustChanged) applyAdjust()
@@ -963,6 +1065,7 @@ export default function App() {
         setCropEdit(null)
       }
       if (tool === 'adjust') applyAdjust()
+      if (tool === 'pen') pen.finish()
       // Adjusting an empty layer does nothing, so start on the top layer that has something on it.
       if (next === 'adjust') {
         const d = current()
@@ -1046,7 +1149,7 @@ export default function App() {
     }
     const point = screenToDocument(viewport, clientX - rect.left, clientY - rect.top)
     const under = layerAt(d, point)
-    if (under?.kind === 'shape' && under.geometry.type !== 'line') void photoIntoShape(file, under.id)
+    if (under?.kind === 'shape' && canFill(under.geometry)) void photoIntoShape(file, under.id)
     else void placePhoto(file, point)
   }
 
@@ -1212,7 +1315,7 @@ export default function App() {
       rememberColor(color)
       return
     }
-    if (shape?.kind === 'shape' && shape.geometry.type !== 'line') {
+    if (shape?.kind === 'shape' && canFill(shape.geometry)) {
       editor.select(shape.id)
       editor.change('Fill shape', (doc) => updateShape(doc, shape.id, { fill: { kind: 'color', color } }))
       rememberColor(color)
@@ -1576,6 +1679,8 @@ export default function App() {
     pasteFile: (file: File) => void
     openFile: (file: File) => void
     deleteObject: () => void
+    // Delete with the Pen: the last point drawn, the picked point, or else the picked shape.
+    penDelete: () => void
     hasSelection: () => boolean
     // True while text is being typed, even if the typing box isn't focused (say, after picking a font).
     isTyping: () => boolean
@@ -1624,6 +1729,8 @@ export default function App() {
     // While resizing or cropping, it first takes back the unapplied change.
     undo: () => {
       if (strokeActiveRef.current) return
+      // While drawing with the Pen, undo takes back the last point.
+      if (tool === 'pen' && pen.removeLast()) return
       finishText()
       if (transformChanged) return cancelTransform()
       if (cropChanged) return setCropEdit(null)
@@ -1631,6 +1738,7 @@ export default function App() {
       editor.undo()
     },
     redo: () => {
+      if (pen.drawing) return
       if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged) return
       finishText()
       editor.redo()
@@ -1740,6 +1848,10 @@ export default function App() {
       else moveBy(dx, dy, 'nudge')
     },
     hasSelection: () => !!current()?.selection,
+    penDelete: () => {
+      if (pen.removeLast() || pen.deletePoint()) return
+      commands.deleteObject()
+    },
     isTyping: () => textEditRef.current !== null,
     deleteObject: () => {
       if (manyIn(current())) return layers.remove()
@@ -1752,6 +1864,7 @@ export default function App() {
       layers.remove()
     },
     applyPending: () => {
+      if (tool === 'pen' && pen.finish()) return true
       if (transformChanged) return applyTransform(), true
       if (pickedText && tool === 'move' && !doc?.selection && !picked) return editText(pickedText.id, 'all'), true
       if (tool === 'crop' && cropChanged) return applyCrop(), true
@@ -1760,6 +1873,7 @@ export default function App() {
     },
     cancelPending: () => {
       if (textEditRef.current) return finishText(), true
+      if (tool === 'pen' && pen.finish()) return true
       if (transformChanged) return cancelTransform(), true
       if (photoMoving) return setPhotoMoving(false), true
       if (picked) return pickOne(''), true
@@ -1883,6 +1997,7 @@ export default function App() {
       else if (mod && code === 'KeyJ' && hasDoc) action = c.toNewLayer
       else if (mod && code === 'KeyG' && hasDoc) action = event.shiftKey ? c.takeApart : c.keepTogether
       else if (event.altKey && !mod && code === 'Backspace' && hasDoc) action = c.fill
+      else if (plain && (code === 'Delete' || code === 'Backspace') && hasDoc && currentTool === 'pen') action = c.penDelete
       else if (plain && (code === 'Delete' || code === 'Backspace') && c.hasSelection()) action = c.deleteArea
       else if (plain && (code === 'Delete' || code === 'Backspace') && hasDoc && currentTool === 'move') action = c.deleteObject
       else if (code === 'Escape' && c.hasSelection()) action = c.deselect
@@ -2195,6 +2310,17 @@ export default function App() {
         }}
         arrange={arrangeBar}
         shapeType={shapeDefaults.geometry.type}
+        pen={{
+          drawing: pen.drawing,
+          pointCount: pen.pointCount,
+          canClose: pen.canClose,
+          selectedPoint: pen.selectedPoint,
+          finish: pen.finish,
+          close: pen.close,
+          removeLast: pen.removeLast,
+          setSmooth: (smooth) => pen.selectedPoint && pen.selectedPoint.smooth !== smooth && pen.toggleSmooth(),
+          deletePoint: pen.deletePoint,
+        }}
         onShapeTypeChange={(type) => setShapeDefaults((d) => ({ ...d, geometry: { ...d.geometry, type } }))}
         onAddText={commands.addText}
         crop={{
@@ -2262,6 +2388,8 @@ export default function App() {
                 onCompareChange={(on) => setComparing(on && adjustChanged)}
                 arrange={arrangeControls}
                 shapes={shapeDrawing}
+                pen={tool === 'pen' ? pen : null}
+                onEditShape={editPoints}
                 photoMove={
                   photoMoveOn
                     ? { onMove: (_id, x, y) => setPhotoFill({ x, y }, 'Move photo') }
@@ -2329,9 +2457,18 @@ export default function App() {
                 setColorTarget(target)
               }}
               onGeometry={changeGeometry}
-              onNoFill={() => changeShape('No fill', () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null }))}
+              onNoFill={() => changeShape('No fill', () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
               onNoOutline={() => changeShape('No outline', () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
               onOutlineWidth={changeOutlineWidth}
+              onFillKind={changeFillKind}
+              onGradient={changeGradient}
+              gradientStop={gradientStop}
+              onGradientStop={(index) => {
+                setEffectColor(null)
+                setColorTarget('fill')
+                setGradientStop(index)
+              }}
+              onEditPoints={editingShape && pickedShapes < 2 && !(tool === 'pen' && editingShape.geometry.type === 'path') ? () => editPoints(editingShape.id) : undefined}
               onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ shape: editingShape.id }) : undefined}
               photo={
                 editingShape?.fill.kind === 'photo'

@@ -1,4 +1,7 @@
-import { ArrowRight, CircleHelp, ImagePlus, Move, X } from 'lucide-react'
+import { ArrowRight, Blend, CircleHelp, ImagePlus, Move, PenTool, Square, X } from 'lucide-react'
+import { cssGradient, type Gradient } from '../editor/gradient.ts'
+import { GradientEditor } from './GradientEditor.tsx'
+import { isLineShape } from '../editor/objects.ts'
 import type { ShapeFill, ShapeGeometry, ShapeOutline } from '../editor/types.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button, Slider } from './ui.tsx'
@@ -48,6 +51,13 @@ interface ShapePanelProps {
   onNoFill: () => void
   onNoOutline: () => void
   onOutlineWidth: (width: number) => void
+  // A plain color or a gradient inside.
+  onFillKind: (kind: 'color' | 'gradient') => void
+  onGradient: (gradient: Gradient, label: string, mergeKey?: string) => void
+  gradientStop: number
+  onGradientStop: (index: number) => void
+  // Shows the shape's points with the Pen, so they can be moved one by one.
+  onEditPoints?: () => void
   // Only for a shape already on the design.
   onChoosePhoto?: () => void
   photo: ShapePhotoControls | null
@@ -58,8 +68,8 @@ const MAX_OUTLINE = 60
 // The look of the selected shape (or of new ones): its colors, outline and corners.
 export function ShapePanel(props: ShapePanelProps) {
   const { geometry, fill, outline } = props
-  const line = geometry.type === 'line'
-  const fillColor = fill.kind === 'color' ? fill.color : null
+  const line = isLineShape(geometry)
+  const fillColor = fill.kind === 'color' ? fill.color : fill.kind === 'gradient' ? cssGradient(fill.gradient) : null
   const target = line ? 'outline' : props.colorTarget
 
   return (
@@ -93,6 +103,32 @@ export function ShapePanel(props: ShapePanelProps) {
           onClick={() => props.onColorTarget('outline')}
           description={line ? 'The color of the line. Choose it in the Color panel.' : 'The line around the shape. While this is picked, the Color panel colors the outline.'}
         />
+        {target === 'fill' && !line && fill.kind !== 'photo' && (
+          <div role="radiogroup" aria-label="Fill kind" className="flex shrink-0 gap-0.5 rounded-[10px] border border-line bg-subtle p-0.5">
+            {(
+              [
+                { kind: 'color', label: 'Color', icon: Square, description: 'Fill the inside with one plain color.' },
+                { kind: 'gradient', label: 'Gradient', icon: Blend, description: 'Fill the inside with colors that fade smoothly into each other. Start from a ready-made one, then change it as you like.' },
+              ] as const
+            ).map((choice) => (
+              <Tooltip key={choice.kind} title={choice.label} description={choice.description}>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={fill.kind === choice.kind}
+                  aria-label={choice.label}
+                  onClick={() => props.onFillKind(choice.kind)}
+                  className={`flex h-7 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${
+                    fill.kind === choice.kind ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
+                  }`}
+                >
+                  <choice.icon size={14} strokeWidth={1.9} />
+                  {choice.label}
+                </button>
+              </Tooltip>
+            ))}
+          </div>
+        )}
         {target === 'fill' && fill.kind !== 'none' && (
           <Button variant="ghost" className="h-9 px-2 text-[12px]" onClick={props.onNoFill} tip={{ title: 'No fill', description: 'Leave the inside empty and see-through, so only the outline shows.' }}>
             <X size={14} />
@@ -107,7 +143,13 @@ export function ShapePanel(props: ShapePanelProps) {
         )}
       </div>
 
-      <div className="mt-4 flex flex-col gap-3">
+      {target === 'fill' && fill.kind === 'gradient' && (
+        <div className="mt-3">
+          <GradientEditor gradient={fill.gradient} stop={Math.min(props.gradientStop, fill.gradient.stops.length - 1)} onStop={props.onGradientStop} onChange={props.onGradient} />
+        </div>
+      )}
+
+      <div className={`flex flex-col gap-3 ${outline || line || geometry.type === 'rectangle' || geometry.type === 'polygon' || geometry.type === 'star' ? 'mt-4' : ''}`}>
         {(outline || line) && (
           <Slider
             label={line ? 'Thickness' : 'Outline width'}
@@ -152,6 +194,18 @@ export function ShapePanel(props: ShapePanelProps) {
           </Tooltip>
         )}
       </div>
+
+      {props.onEditPoints && (
+        <Button
+          variant="secondary"
+          className="mt-4 h-8 w-full px-3 text-[12px]"
+          onClick={props.onEditPoints}
+          tip={{ title: 'Edit points', description: 'Show the points of this shape, so you can drag them, bend its sides into curves, or add more points. Any shape can be reshaped this way.' }}
+        >
+          <PenTool size={15} />
+          Edit points
+        </Button>
+      )}
 
       {props.editing && !line && (
         <div className="mt-4 border-t border-line pt-3">
