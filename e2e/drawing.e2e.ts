@@ -212,7 +212,7 @@ test('painting on a hidden drawing explains what to do instead', async ({ page }
     [50, 150],
     [350, 150],
   ])
-  await expect(page.getByRole('alert')).toContainText('"Drawing 1" is hidden')
+  await expect(page.getByRole('alert')).toContainText('“Drawing 1” is hidden')
   await page.getByRole('button', { name: 'Show Drawing 1' }).click()
   expectColor(await designPixel(page, size, 200, 150), WHITE)
   expectColor(await designPixel(page, size, 200, 100), INK)

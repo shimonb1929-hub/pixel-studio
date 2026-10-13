@@ -351,7 +351,7 @@ test('text comes back from a project file with its font, direction and color', a
     )
     .toBeLessThanOrEqual(1)
   await page.keyboard.press('v')
-  await page.getByRole('button', { name: 'Layer: שבת שלום, Shabbat!' }).click()
+  await page.getByRole('button', { name: 'Layer: \u2068שבת שלום, Shabbat!\u2069' }).click()
   await expect(textPanel(page).getByRole('button', { name: 'Font: Frank Ruhl Libre' })).toBeVisible()
 })
 
