@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { expectDesignSize } from './helpers.ts'
 
 // Every test fails if the page logs an error or throws.
 let errors: string[] = []
@@ -129,6 +130,30 @@ test.describe('starting', () => {
     await expect(dialog).toBeHidden()
     await expect(page.getByText('500 × 300 px')).toBeVisible()
     await expect(page.locator('header')).toContainText('My design 1')
+  })
+
+  test('a new design can be sized in inches', async ({ page }) => {
+    await page.getByRole('button', { name: /Custom size/ }).click()
+    const dialog = page.getByRole('dialog', { name: 'New design' })
+    await dialog.getByLabel('Ready-made size').selectOption('a4')
+    await dialog.getByRole('radio', { name: 'Inches' }).click()
+    // The size carries across, and A4 is still A4 at its exact pixels.
+    await expect(dialog.getByLabel('Width in inches')).toHaveValue('8.27')
+    await expect(dialog.getByLabel('Ready-made size')).toHaveValue('a4')
+    await expect(dialog).toContainText('2,480 pixels wide and 3,508 pixels tall')
+
+    await dialog.getByLabel('Width in inches').fill('4')
+    await dialog.getByLabel('Height in inches').fill('2.5')
+    await expect(dialog.getByLabel('Pixels per inch')).toHaveValue('300')
+    await expect(dialog).toContainText('1,200 pixels wide and 750 pixels tall')
+    await dialog.getByLabel('Pixels per inch').fill('100')
+    await expect(dialog).toContainText('400 pixels wide and 250 pixels tall')
+
+    await dialog.getByRole('radio', { name: 'Pixels', exact: true }).click()
+    await expect(dialog.getByLabel('Width in pixels')).toHaveValue('400')
+    await dialog.getByRole('radio', { name: 'Inches' }).click()
+    await dialog.getByRole('button', { name: 'Create design' }).click()
+    await expectDesignSize(page, 400, 250)
   })
 
   test('dialogs close with Escape, Cancel and a click outside', async ({ page }) => {
