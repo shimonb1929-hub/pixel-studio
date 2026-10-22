@@ -54,7 +54,11 @@ function normalize(text: string): string {
 // Letters of every language count, so Hebrew and Yiddish words can be searched too.
 const WORD_SPLIT = /[^\p{L}\p{N}%]+/u
 
-// Every typed word has to match the action somewhere. Matches at the start of a title word
+// Little words people type in a sentence ("make it bigger", "color of the text"). They count when
+// they match, but never stop an action from being found.
+const FILLER = new Set(['a', 'an', 'the', 'it', 'its', 'my', 'me', 'i', 'to', 'of', 'for', 'on', 'in', 'into', 'with', 'make', 'do', 'how', 'can', 'want', 'please', 'this', 'that', 'some', 'is', 'more', 'way'])
+
+// Every typed word has to match the action somewhere (little words don't have to). Matches at the start of a title word
 // count most, then the keywords, then the middle of the title or the description. Middle-of-word
 // matches need three letters, so typing one letter only finds words that start with it. A title
 // that starts with exactly what was typed comes first ("resize design" before "Undo resize design").
@@ -62,6 +66,8 @@ export function searchActions(actions: Action[], query: string): Action[] {
   const typed = normalize(query).trim()
   const words = typed.split(/\s+/).filter(Boolean)
   if (words.length === 0) return actions
+  // When everything typed is little words, they all have to match after all.
+  const optional = (word: string) => FILLER.has(word) && words.some((w) => !FILLER.has(w))
 
   const matches: { action: Action; score: number; index: number }[] = []
   actions.forEach((action, index) => {
@@ -75,7 +81,7 @@ export function searchActions(actions: Action[], query: string): Action[] {
       else if (keywordWords.some((w) => w.startsWith(word))) score += 3
       else if (word.length >= 3 && title.includes(word)) score += 2
       else if (word.length >= 3 && description.includes(word)) score += 1
-      else return
+      else if (!optional(word)) return
     }
     if (title.startsWith(typed)) score += 1
     matches.push({ action, score, index })

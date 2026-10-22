@@ -51,8 +51,9 @@ function matchesFilter(font: FontInfo, filter: FontFilter): boolean {
   return font.category === filter
 }
 
-// One font in the list, shown in its own letters once it has loaded.
-function FontOption({ font, selected, onPick, observe }: { font: FontInfo; selected: boolean; onPick: () => void; observe: (el: Element | null, id: string) => void }) {
+// One font in the list, shown in its own letters once it has loaded: your own words when there
+// are some, so you see what they will look like before you pick.
+function FontOption({ font, sample, selected, onPick, observe }: { font: FontInfo; sample: string; selected: boolean; onPick: () => void; observe: (el: Element | null, id: string) => void }) {
   return (
     <div
       ref={(el) => observe(el, font.id)}
@@ -71,21 +72,34 @@ function FontOption({ font, selected, onPick, observe }: { font: FontInfo; selec
         selected ? 'bg-accent-soft text-accent' : 'text-ink hover:bg-subtle'
       }`}
     >
-      <span className="min-w-0 truncate text-[17px] leading-tight" style={{ fontFamily: fontStack(font.id), fontWeight: nearestWeight(font.id, 400) }}>
-        {font.name}
-        {font.hebrew && <span className="ms-2 text-ink-2">אבג</span>}
-      </span>
+      {sample ? (
+        <span className="flex min-w-0 flex-col">
+          <span dir="auto" className="truncate text-[17px] leading-tight" style={{ fontFamily: fontStack(font.id), fontWeight: nearestWeight(font.id, 400) }}>
+            {sample}
+          </span>
+          <span className={`truncate text-[11px] ${selected ? 'text-accent' : 'text-ink-2'}`}>{font.name}</span>
+        </span>
+      ) : (
+        <span className="min-w-0 truncate text-[17px] leading-tight" style={{ fontFamily: fontStack(font.id), fontWeight: nearestWeight(font.id, 400) }}>
+          {font.name}
+          {font.hebrew && <span className="ms-2 text-ink-2">אבג</span>}
+        </span>
+      )}
       {font.yiddish && <span className="shrink-0 rounded bg-subtle px-1.5 py-0.5 text-[10px] font-medium text-ink-2">{t('Yiddish')}</span>}
     </div>
   )
 }
 
-function FontPicker({ value, hasRtl, onPick }: { value: string; hasRtl: boolean; onPick: (id: string) => void }) {
+function FontPicker({ value, sample, hasRtl, onPick }: { value: string; sample: string; hasRtl: boolean; onPick: (id: string) => void }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<FontFilter>('all')
   const listRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
+  const sampleRef = useRef(sample)
+  useEffect(() => {
+    sampleRef.current = sample
+  }, [sample])
 
   // Fonts load only when they scroll into sight in the list.
   useEffect(() => {
@@ -96,7 +110,7 @@ function FontPicker({ value, hasRtl, onPick }: { value: string; hasRtl: boolean;
           if (!entry.isIntersecting) continue
           const id = (entry.target as HTMLElement).dataset.font
           const font = id && fontInfo(id)
-          if (font) void loadFont({ font: font.id, weight: nearestWeight(font.id, 400), italic: false, size: 17 }, `${font.name}${font.hebrew ? 'אבג' : ''}`)
+          if (font) void loadFont({ font: font.id, weight: nearestWeight(font.id, 400), italic: false, size: 17 }, `${font.name}${font.hebrew ? 'אבג' : ''}${sampleRef.current}`)
           observer.unobserve(entry.target)
         }
       },
@@ -173,6 +187,7 @@ function FontPicker({ value, hasRtl, onPick }: { value: string; hasRtl: boolean;
                 <FontOption
                   key={font.id}
                   font={font}
+                  sample={sample}
                   selected={font.id === value}
                   observe={observe}
                   onPick={() => {
@@ -242,6 +257,8 @@ export interface TextPanelProps {
   wrap: boolean
   // The text has Hebrew or Yiddish letters.
   hasRtl: boolean
+  // The first words of the picked text, shown in each font of the list ('' for new text).
+  sample: string
   // How the lines actually line up, when no alignment was chosen.
   resolvedAlign: 'left' | 'center' | 'right'
   onFont: (id: string) => void
@@ -271,7 +288,7 @@ export function TextPanel(props: TextPanelProps) {
       </div>
 
       <div className="flex flex-col gap-3">
-        <FontPicker value={style.font} hasRtl={props.hasRtl} onPick={props.onFont} />
+        <FontPicker value={style.font} sample={props.sample} hasRtl={props.hasRtl} onPick={props.onFont} />
         {props.hasRtl && font && !font.hebrew && (
           <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">
             {font.name} has no Hebrew letters, so they show in a matching Hebrew font. Pick a font marked אבג to choose their look.

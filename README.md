@@ -17,9 +17,13 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 
 - **Start from what you're making.** The first screen asks "What are you making today?" and
   offers ready-made sizes (square post, phone story, A4 page, poster…). One click and you're in.
-  People coming back see their own designs first, with a preview of each.
+  People coming back see their own designs first, with a preview of each. A new, empty page shows
+  what can go on it first (Add words, Add a photo, Add a shape, Draw), and starts on Arrange, so a
+  first click never paints by surprise. Photo has its own button in the tool column.
 - **Ask in your own words.** The "What do you want to do?" search (Ctrl+K) finds any action from
-  everyday words: "save" finds Download, "bigger" finds Zoom in, "photo" finds Open.
+  everyday words: "save" finds Download, "bigger" finds Zoom in, "photo" finds Open. Whole
+  sentences work too: little words like "make", "it" or "the" don't have to match, so "make it
+  bigger" and "background color" find what was meant.
 - **Everything explains itself.** Every tool, button, menu item and option has a short,
   plain-language tip on hover. Options show a live note that describes the current choice.
   Buttons that can't be used yet still explain why and what to do first.

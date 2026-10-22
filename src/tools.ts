@@ -94,7 +94,7 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Drag to draw a shape, or click empty paper to drop one. Click a shape to pick it. Hold Shift for a perfect square or circle, or a straight line.')
     },
-    keywords: ['shape', 'rectangle', 'square', 'circle', 'oval', 'ellipse', 'triangle', 'polygon', 'hexagon', 'star', 'line', 'arrow', 'box', 'frame', 'vector', 'badge', 'button'],
+    keywords: ['shape', 'rectangle', 'square', 'circle', 'oval', 'ellipse', 'triangle', 'polygon', 'hexagon', 'star', 'line', 'arrow', 'box', 'frame', 'vector', 'badge', 'button', 'rounded corners', 'round corners', 'photo in a shape', 'round photo', 'photo frame', 'picture frame'],
     group: 'draw',
   },
   {
@@ -132,7 +132,7 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Click where your text starts, or drag a box for a paragraph. Click text to change it. Esc when you are done.')
     },
-    keywords: ['text', 'type', 'write', 'words', 'letters', 'font', 'title', 'heading', 'headline', 'caption', 'quote', 'paragraph', 'hebrew', 'yiddish', 'right to left', 'rtl', 'typography'],
+    keywords: ['text', 'type', 'write', 'words', 'letters', 'font', 'title', 'heading', 'headline', 'caption', 'quote', 'paragraph', 'hebrew', 'yiddish', 'right to left', 'rtl', 'typography', 'text color', 'font color', 'letter color', 'text size', 'font size'],
     group: 'draw',
   },
   {

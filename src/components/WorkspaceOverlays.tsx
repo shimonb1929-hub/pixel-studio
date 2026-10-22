@@ -1,4 +1,4 @@
-import { Maximize2, Minus, Plus } from 'lucide-react'
+import { Brush, ImagePlus, Maximize2, Minus, Plus, Shapes, Type, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { EditorDocument, Point, ToolId } from '../editor/types.ts'
 import { formatZoom } from '../editor/viewport.ts'
@@ -125,6 +125,45 @@ export function DesignInfo({ doc, cursor }: { doc: EditorDocument; cursor: Point
           {inside ? `X ${Math.floor(cursor.x)}   Y ${Math.floor(cursor.y)}` : 'X –   Y –'}
         </span>
       </Tooltip>
+    </div>
+  )
+}
+
+interface StartHereProps {
+  onAddWords: () => void
+  onAddPhoto: () => void
+  onAddShape: () => void
+  onDraw: () => void
+}
+
+// While the page is still empty, the first steps sit right on it, so nobody has to wonder where to
+// begin. They go away as soon as something is on the page.
+export function StartHere({ onAddWords, onAddPhoto, onAddShape, onDraw }: StartHereProps) {
+  const choices: { title: string; description: string; icon: LucideIcon; onClick: () => void }[] = [
+    { title: t('Add words'), description: t('A heading in the middle of the page. Type to change the words.'), icon: Type, onClick: onAddWords },
+    { title: t('Add a photo'), description: t('Pick a photo or picture from your computer to put on the page.'), icon: ImagePlus, onClick: onAddPhoto },
+    { title: t('Add a shape'), description: t('Draw a rectangle, circle, star or arrow by dragging on the page.'), icon: Shapes, onClick: onAddShape },
+    { title: t('Draw'), description: t('Draw and paint with a brush, like on paper.'), icon: Brush, onClick: onDraw },
+  ]
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-4">
+      <div role="group" aria-label={t('Start here')} className="pointer-events-auto flex max-w-full flex-col items-center gap-3 rounded-2xl border border-line bg-surface/95 p-4 shadow-card backdrop-blur">
+        <p className="text-[15px] font-semibold text-ink">{t('What goes on your page first?')}</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {choices.map(({ title, description, icon: Icon, onClick }) => (
+            <Tooltip key={title} side="bottom" title={title} description={description}>
+              <button
+                type="button"
+                onClick={onClick}
+                className="flex h-[88px] w-[112px] flex-col items-center justify-center gap-2 rounded-xl border border-line bg-surface text-[13px] font-medium text-ink transition-colors hover:border-accent hover:bg-accent-soft hover:text-accent"
+              >
+                <Icon size={26} strokeWidth={1.75} className="text-accent" />
+                {title}
+              </button>
+            </Tooltip>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

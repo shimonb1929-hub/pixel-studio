@@ -46,6 +46,14 @@ describe('searchActions', () => {
     expect(ids('d')).toEqual(['download', 'new'])
   })
 
+  it('lets little words in a sentence go unmatched', () => {
+    expect(ids('make it bigger')[0]).toBe('zoom-in')
+    expect(ids('save my design')[0]).toBe('download')
+    expect(ids('zoom in')).toEqual(['zoom-in', 'zoom-out'])
+    // Little words alone still have to match.
+    expect(ids('it the')).toEqual([])
+  })
+
   it('puts a title that starts with what was typed first', () => {
     const undo: Action = { id: 'undo', group: 'Edit', title: 'Undo zoom out', description: 'Take back your last change.', keywords: ['undo'], run: noop }
     expect(searchActions([undo, ...ACTIONS], 'zoom out').map((a) => a.id)).toEqual(['zoom-out', 'undo'])

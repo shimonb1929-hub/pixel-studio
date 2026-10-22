@@ -175,8 +175,10 @@ export function TopBar({
   onDownload,
 }: TopBarProps) {
   const hasDocument = documentName !== null
+  // On narrower screens the sides take the room they need and the search box gets what is left,
+  // so it never covers Menu, Undo or Redo.
   return (
-    <header className="grid h-14 shrink-0 grid-cols-[1fr_minmax(0,28rem)_1fr] items-center gap-3 px-3">
+    <header className="grid h-14 shrink-0 grid-cols-[auto_minmax(2.25rem,1fr)_auto] items-center gap-3 px-3 xl:grid-cols-[1fr_minmax(0,28rem)_1fr]">
       <div className="flex min-w-0 items-center gap-2">
         <span className="whitespace-nowrap px-2 text-[15px] font-semibold tracking-tight text-ink">Pixel Studio</span>
         <MainMenu actions={actions} hasDocument={hasDocument} />
@@ -218,7 +220,7 @@ export function TopBar({
         title={t("Search")}
         shortcut={shortcut('mod', 'K')}
         description={t("Type what you want to do in your own words, like “save”, “bigger” or “new”, and pick it from the list.")}
-        className="flex"
+        className="mx-auto flex w-full max-w-[28rem]"
       >
         <button
           type="button"

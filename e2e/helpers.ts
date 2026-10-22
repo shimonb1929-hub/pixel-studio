@@ -14,6 +14,8 @@ export async function newDesign(page: Page, width = 400, height = 300): Promise<
   await dialog.getByRole('button', { name: 'Create design' }).click()
   await expectDesignSize(page, width, height)
   await expect(page.getByRole('button', { name: 'Zoom level' })).toHaveText('100%')
+  // A new design starts on Arrange, but most tests paint right away.
+  await page.getByRole('button', { name: 'Brush tool' }).click()
   return { width, height }
 }
 

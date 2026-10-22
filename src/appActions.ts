@@ -13,6 +13,8 @@ export interface AppCommands {
   open: () => void
   addPhoto: () => void
   addText: (kind: TextKind) => void
+  // Picks the page, so the Color panel colors it.
+  colorPage: () => void
   download: () => void
   downloadProject: () => void
   renameDesign: () => void
@@ -121,6 +123,15 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       shortcut: shortcut('mod', 'shift', 'O'),
       needsDocument: true,
       run: c.addPhoto,
+    },
+    {
+      id: 'color-page',
+      group: 'Design',
+      title: t('Color the page'),
+      description: t('Picks the page, so the Color panel colors it. You can also click an empty spot on the page.'),
+      keywords: ['background', 'background color', 'page color', 'paper color', 'backdrop', 'fill page'],
+      needsDocument: true,
+      run: c.colorPage,
     },
     ...(['heading', 'subheading', 'body'] as const).map((kind) => ({
       id: `add-${kind}`,

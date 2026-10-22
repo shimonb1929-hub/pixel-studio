@@ -18,7 +18,7 @@ import { ToolDock } from './components/ToolDock.tsx'
 import { ToolOptions, type ArrangeBarControls, type CropShape } from './components/ToolOptions.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
-import { DesignInfo, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
+import { DesignInfo, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
 import { effectThumbnails, flattenDocument } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
@@ -310,6 +310,12 @@ interface CropState {
   shape: CropShape
 }
 
+// The first line of a text, short enough to fit a row of the font list.
+function fontSample(text: string): string {
+  const line = text.trim().split('\n')[0].trim()
+  return line.length > 30 ? `${line.slice(0, 30).trimEnd()}…` : line
+}
+
 export default function App() {
   // Everything is drawn again in the new words when the language changes.
   useLanguage()
@@ -318,7 +324,8 @@ export default function App() {
   const autosave = useAutosave(editor)
   const app = useInstallApp()
   const [viewport, setViewport] = useState<Viewport>({ zoom: 1, panX: 0, panY: 0 })
-  const [tool, setToolState] = useState<ToolId>('brush')
+  // A new design starts on Arrange: clicking never paints by surprise.
+  const [tool, setToolState] = useState<ToolId>('move')
   const [cursor, setCursor] = useState<Point | null>(null)
   const [dialog, setDialog] = useState<DialogId | null>(null)
   const [exportFormat, setExportFormat] = useState<ExportFormat>('png')
@@ -1212,7 +1219,10 @@ export default function App() {
     try {
       const next = createBlankDocument(name, width, height, background)
       setDialog(null)
-      void leaveDesign(() => showDocument(next))
+      void leaveDesign(() => {
+        setTool('move')
+        showDocument(next)
+      })
     } catch (e) {
       problem(errorMessage(e))
     }
@@ -1716,6 +1726,9 @@ export default function App() {
     },
     addText: (kind) => {
       if (current()) addText(kind)
+    },
+    colorPage: () => {
+      if (current()) layers.pickPage()
     },
     download: () => {
       settle()
@@ -2372,7 +2385,7 @@ export default function App() {
       />
 
       <div className="flex min-h-0 flex-1 gap-2 px-2 pb-2">
-        <ToolDock tool={tool} onToolChange={setTool} />
+        <ToolDock tool={tool} onToolChange={setTool} onAddPhoto={doc ? commands.addPhoto : null} />
 
         <main
           ref={workspaceRef}
@@ -2423,7 +2436,16 @@ export default function App() {
                 textEditing={textEditing}
                 onEditText={editText}
               />
-              <ToolHint tool={hintTool} extra={hintExtra} />
+              {doc.layers.length === 0 && tool === 'move' && !textEdit ? (
+                <StartHere
+                  onAddWords={() => addText('heading')}
+                  onAddPhoto={commands.addPhoto}
+                  onAddShape={() => setTool('shape')}
+                  onDraw={() => setTool('brush')}
+                />
+              ) : (
+                <ToolHint tool={hintTool} extra={hintExtra} />
+              )}
               <ZoomControls
                 zoom={viewport.zoom}
                 onZoomIn={commands.zoomIn}
@@ -2462,6 +2484,7 @@ export default function App() {
               style={textTarget?.style ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
               wrap={textTarget?.wrap ?? false}
               hasRtl={!!textTarget && hasRtlLetters(textTarget.text)}
+              sample={fontSample(textTarget?.text ?? '')}
               resolvedAlign={textTarget ? resolveAlign(textTarget.style.align, textLayout(textTarget).direction) : 'left'}
               onFont={(id) => void changeFont(id)}
               onStyle={changeTextStyle}
