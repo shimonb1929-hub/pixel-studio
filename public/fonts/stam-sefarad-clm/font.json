@@ -1,0 +1,13 @@
+{
+  "name": "Stam Sefarad CLM",
+  "license": "GPL-2.0-with-font-exception",
+  "version": "0.140",
+  "faces": [
+    {
+      "file": "stam-sefarad-clm-500-normal.woff2",
+      "weight": "500",
+      "style": "normal",
+      "unicodeRange": "U+0020-0040,U+005B-005F,U+0591-05C7,U+05D0-05EA,U+2009"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "Aharoni CLM",
+  "license": "GPL-2.0-with-font-exception",
+  "version": "0.140",
+  "faces": [
+    {
+      "file": "aharoni-clm-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+0020-007E,U+00A0,U+05B0-05B9,U+05BB-05C4,U+05D0-05EA,U+05F0-05F4,U+200C-200F,U+20AA,U+25CC,U+FB1D-FB20,U+FB29-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    },
+    {
+      "file": "aharoni-clm-700-normal.woff2",
+      "weight": "700",
+      "style": "normal",
+      "unicodeRange": "U+0020-007E,U+00A0,U+05B0-05B9,U+05BB-05C4,U+05D0-05EA,U+05F0-05F4,U+200C-200F,U+20AA,U+25CC,U+FB1D-FB20,U+FB29-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    },
+    {
+      "file": "aharoni-clm-400-italic.woff2",
+      "weight": "400",
+      "style": "italic",
+      "unicodeRange": "U+0020-007E,U+00A0,U+05B0-05B9,U+05BB-05C4,U+05D0-05EA,U+05F0-05F4,U+200C-200F,U+20AA,U+25CC,U+FB1D-FB20,U+FB29-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    }
+  ]
+}

@@ -17,6 +17,10 @@
 //   400), normal style, plus italic in the first of those weights when the package has it.
 // If the files add up to more than list.json's maxTotalMB, italic files of display and handwriting
 // families are left out first, biggest first.
+//
+// Fonts marked "local" in list.json are not on Fontsource: their files are made by another script
+// (for "culmus", scripts/fonts/culmus.py) straight into public/fonts/<id>/ with a font.json, and
+// are read from there and left in place.
 
 import { execFileSync } from 'node:child_process'
 import {
@@ -59,6 +63,7 @@ const LICENSES = new Map([
   ['mit', 'MIT'],
   ['cc0-1.0', 'CC0-1.0'],
   ['unlicense', 'Unlicense'],
+  ['gpl-2.0-with-font-exception', 'GPL-2.0-with-font-exception'],
 ])
 const WOFF2_MAGIC = 'wOF2'
 
@@ -241,6 +246,43 @@ function readFamily(font, pkgDir, version) {
   }
 }
 
+// A font made by another script into public/fonts/<id>/, described by its font.json.
+function readLocalFamily(font) {
+  const dir = join(fontsDir, font.id)
+  const infoPath = join(dir, 'font.json')
+  if (!existsSync(infoPath)) return skip(font.id, `no ${infoPath}; run scripts/fonts/${font.local}.py first`)
+  const info = JSON.parse(readFileSync(infoPath, 'utf8'))
+  const license = LICENSES.get(String(info.license ?? '').toLowerCase())
+  if (!license) return skip(font.id, `license ${info.license} does not allow redistribution here`)
+  const licensePath = join(dir, 'LICENSE')
+  if (!existsSync(licensePath)) return skip(font.id, 'has no LICENSE file')
+  if (!font.category) return skip(font.id, 'list.json gives no category')
+  const faces = []
+  for (const face of info.faces) {
+    const source = join(dir, face.file)
+    if (!existsSync(source)) {
+      warn(`${font.id}: font.json names ${face.file}, which is not there`)
+      continue
+    }
+    faces.push({ ...face, subset: font.hebrew ? 'hebrew' : 'latin', source, size: statSync(source).size, local: true })
+  }
+  if (faces.length === 0) return skip(font.id, 'no woff2 file')
+  return {
+    id: font.id,
+    name: info.name,
+    category: font.category,
+    hebrew: font.hebrew === true,
+    yiddish: font.hebrew === true && font.yiddish === true,
+    niqqud: font.hebrew === true && font.niqqud === true,
+    variable: false,
+    license,
+    licensePath,
+    version: info.version,
+    faces,
+    local: true,
+  }
+}
+
 // --- Choosing and writing ---------------------------------------------------------------------
 
 function weightsOf(family) {
@@ -283,8 +325,12 @@ function fitInBudget(families) {
 }
 
 function copyFiles(families) {
-  rmSync(fontsDir, { recursive: true, force: true })
+  const local = new Set(list.fonts.filter((font) => font.local).map((font) => font.id))
+  for (const name of existsSync(fontsDir) ? readdirSync(fontsDir) : []) {
+    if (!local.has(name)) rmSync(join(fontsDir, name), { recursive: true, force: true })
+  }
   for (const family of families) {
+    if (family.local) continue
     const dir = join(fontsDir, family.id)
     mkdirSync(dir, { recursive: true })
     copyFileSync(family.licensePath, join(dir, 'LICENSE'))
@@ -330,7 +376,7 @@ function familyToTs(family) {
   ].join('\n')
 }
 
-const CATALOG_HEAD = `// Made by scripts/fonts/fetch.mjs from Fontsource packages. Do not edit by hand; run \`node scripts/fonts/fetch.mjs\`.
+const CATALOG_HEAD = `// Made by scripts/fonts/fetch.mjs from Fontsource packages (and Culmus). Do not edit by hand; run \`node scripts/fonts/fetch.mjs\`.
 export type FontCategory = 'sans' | 'serif' | 'display' | 'handwriting' | 'mono'
 
 export interface FontFileInfo {
@@ -388,6 +434,7 @@ function inlineJson(value) {
 
 function writeList(versions) {
   const fonts = list.fonts.map((font) => {
+    if (font.local) return font
     const version = versions.get(font.id) ?? font.version
     const rest = { ...font }
     delete rest.id
@@ -414,9 +461,14 @@ for (const font of list.fonts) {
   ids.add(font.id)
 }
 
-const downloads = download(list.fonts)
+const downloads = download(list.fonts.filter((font) => !font.local))
 const families = []
 for (const font of list.fonts) {
+  if (font.local) {
+    const family = readLocalFamily(font)
+    if (family) families.push(family)
+    continue
+  }
   const fetched = downloads.get(font.id)
   if (!fetched) continue
   const family = readFamily(font, unpack(font.id, fetched.tarball), fetched.version)

@@ -58,10 +58,10 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   layer's adjustments stay changeable any time (no adjustment layers).
 - **English, Hebrew and Yiddish, all first-class.** Type right on the design. Hebrew and Yiddish
   read right to left by themselves; numbers, English words and punctuation inside them land where
-  a reader expects, even where lines wrap. What you see while typing is exactly what you get. 175
-  free fonts come built in, 62 of them with Hebrew letters and 19 with every Yiddish letter and
-  vowel point; fonts made only for English still show Hebrew in a matching Hebrew font, never as
-  boxes.
+  a reader expects, even where lines wrap. What you see while typing is exactly what you get. 243
+  free fonts come built in, 77 of them with Hebrew letters (among them the classic David, Frank
+  Ruehl, Miriam, Keter and Stam) and 30 with every Yiddish letter and vowel point; fonts made only
+  for English still show Hebrew in a matching Hebrew font, never as boxes.
 - **Try first, then decide.** Cropping and adjusting colors show the result live. Nothing changes
   until you press Apply (or Enter); Esc puts it back. While adjusting, press and hold on the design
   to compare with how it was. Arranging shows the exact size and angle while you drag, and Undo
@@ -177,9 +177,11 @@ A browser test types mixed Hebrew, Yiddish, English, numbers and punctuation and
 finished text matches what was on screen while typing.
 
 The fonts are free fonts from Google Fonts (through Fontsource), under the SIL Open Font License or
-the Apache License; each one's license is next to it in `public/fonts/<font>/LICENSE`. They're
-loaded only when a design uses them and kept for offline use after that. `node scripts/fonts/fetch.mjs`
-downloads them again and rebuilds the font list from `scripts/fonts/list.json`.
+the Apache License, and the Culmus Hebrew fonts, under the GNU GPL with the font exception (a design
+that uses them is not covered by the GPL); each one's license is next to it in
+`public/fonts/<font>/LICENSE`. They're loaded only when a design uses them and kept for offline use
+after that. `node scripts/fonts/fetch.mjs` downloads them again and rebuilds the font list from
+`scripts/fonts/list.json`; `python3 scripts/fonts/culmus.py` remakes the Culmus files first.
 
 A project (`.pixel`) is the letters `PXSTUDIO`, a JSON description of the design (size, layers
 with their kind, names, positions, boxes, visibility, opacity, locks and adjustments, shapes, text
@@ -223,7 +225,7 @@ pulling in see-through pixels, so blurred photos keep solid edges.
    forward, send backward, to front and to back; lining up and even gaps by themselves while dragging;
    picking several things (box or Shift+click), keeping them together, tidy up and line up.
 6. **Text** (done) — type on the design in English, Hebrew and Yiddish, with right-to-left text
-   that never scrambles; quick headings, subheadings and paragraphs; 175 free fonts with live
+   that never scrambles; quick headings, subheadings and paragraphs; 243 free fonts with live
    previews, Hebrew and Yiddish filters; size, boldness, italic, lining up, reading direction,
    letter and line spacing; boxes that wrap their lines; text resizes, turns and saves like any
    object.

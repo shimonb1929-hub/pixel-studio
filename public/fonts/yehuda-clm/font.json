@@ -1,0 +1,19 @@
+{
+  "name": "Yehuda CLM",
+  "license": "GPL-2.0-with-font-exception",
+  "version": "0.140",
+  "faces": [
+    {
+      "file": "yehuda-clm-300-normal.woff2",
+      "weight": "300",
+      "style": "normal",
+      "unicodeRange": "U+0020-0023,U+0025,U+0027-003F,U+005B-005D,U+00A0,U+05BE,U+05C3,U+05D0-05EA,U+05F0-05F4,U+2013-2015,U+2026"
+    },
+    {
+      "file": "yehuda-clm-700-normal.woff2",
+      "weight": "700",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+0020-0023,U+0025,U+0027-003F,U+005B-005D,U+00A0,U+05BE,U+05C3,U+05D0-05EA,U+05F0-05F4,U+2013-2015,U+2026"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "Keter YG",
+  "license": "GPL-2.0-with-font-exception",
+  "version": "0.140",
+  "faces": [
+    {
+      "file": "keter-yg-500-normal.woff2",
+      "weight": "500",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+0020-007E,U+0307-0308,U+030A,U+034F,U+0591-05C7,U+05D0-05EA,U+05F0-05F4,U+2009-200A,U+200C-200F,U+2018-201A,U+201C-201E,U+20AA,U+20AC,U+25CC,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    },
+    {
+      "file": "keter-yg-700-normal.woff2",
+      "weight": "700",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+0020-007E,U+00A0,U+0307-0308,U+034F,U+0591-05C7,U+05D0-05EA,U+05F0-05F4,U+2009,U+200C-200D,U+2018-2019,U+201C-201D,U+20AA,U+20AC,U+25CC,U+FB1D-FB29,U+FB35-FB36,U+FB39,U+FB4F"
+    },
+    {
+      "file": "keter-yg-500-italic.woff2",
+      "weight": "500",
+      "style": "italic",
+      "unicodeRange": "U+0000,U+0020-007E,U+0307-0308,U+030A,U+034F,U+0591-05C7,U+05D0-05EA,U+05F0-05F4,U+2009-200A,U+200C-200F,U+2018-201A,U+201C-201E,U+20AA,U+20AC,U+25CC,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    }
+  ]
+}

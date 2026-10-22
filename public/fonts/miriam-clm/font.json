@@ -1,0 +1,19 @@
+{
+  "name": "Miriam CLM",
+  "license": "GPL-2.0-with-font-exception",
+  "version": "0.140",
+  "faces": [
+    {
+      "file": "miriam-clm-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+0020-0025,U+0027-003F,U+005B-005D,U+00A0,U+00A3,U+034F,U+05AB,U+05B0-05C5,U+05C7,U+05D0-05EA,U+05F0-05F4,U+200C-200F,U+2013-2015,U+2018-201A,U+201C-201E,U+2026,U+20AA,U+20AC,U+2212,U+25CC,U+FB1D-FB20,U+FB29-FB4F"
+    },
+    {
+      "file": "miriam-clm-700-normal.woff2",
+      "weight": "700",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+0020-0025,U+0027-003F,U+005B-005D,U+00A0,U+00A3,U+034F,U+05AB,U+05B0-05C5,U+05C7,U+05D0-05EA,U+05F0-05F4,U+200C-200F,U+2013-2015,U+2018-201A,U+201C-201E,U+2026,U+20AA,U+20AC,U+2212,U+25CC,U+FB1D-FB20,U+FB29-FB4F"
+    }
+  ]
+}
