@@ -6,6 +6,9 @@ import { shortcut } from '../keys.ts'
 import { TOOLS } from '../tools.ts'
 import { Tooltip, type TipContent } from './Tooltip.tsx'
 import { t } from '../i18n/i18n.ts'
+import { documentPpi, formatInUnit, useUnit } from '../editor/units.ts'
+import { UnitPicker } from './UnitPicker.tsx'
+import { unitShort } from './unitWords.ts'
 
 const PILL = 'absolute z-10 items-center border border-line bg-surface/95 shadow-card backdrop-blur'
 
@@ -108,23 +111,33 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut, onActualSize, onFit }:
 
 export function DesignInfo({ doc, cursor }: { doc: EditorDocument; cursor: Point | null }) {
   const inside = cursor && cursor.x >= 0 && cursor.y >= 0 && cursor.x < doc.width && cursor.y < doc.height
+  const [unit] = useUnit()
+  const ppi = documentPpi(doc)
+  const shown = (pixels: number) => formatInUnit(pixels, unit, ppi)
+  const short = unitShort(unit)
   return (
     <div className={`${PILL} bottom-3 start-3 hidden gap-3 rounded-xl px-3 py-2 text-xs tabular-nums text-ink-2 xl:flex`}>
       <Tooltip
         side="top"
         title={t("Design size")}
-        description={t("How big your design really is, in pixels. Pixels are the tiny colored squares every digital picture is made of.")}
+        description={
+          unit === 'px'
+            ? t('How big your design really is, in pixels. Pixels are the tiny colored squares every digital picture is made of.')
+            : t('How big your design will be on paper. It is {width} × {height} pixels, at {ppi} pixels per inch.', { width: doc.width, height: doc.height, ppi })
+        }
       >
         <span dir="ltr" className="cursor-default">
-          {doc.width} × {doc.height} px
+          {shown(doc.width)} × {shown(doc.height)} {short}
         </span>
       </Tooltip>
       <span className="h-3.5 w-px bg-line" />
-      <Tooltip side="top" title={t("Pointer position")} description={t("Where your pointer is on the design, counted in pixels from the top-left corner.")}>
-        <span dir="ltr" className="w-24 cursor-default whitespace-pre">
-          {inside ? `X ${Math.floor(cursor.x)}   Y ${Math.floor(cursor.y)}` : 'X –   Y –'}
+      <Tooltip side="top" title={t("Pointer position")} description={t('Where your pointer is on the design, counted in {unit} from the top-left corner.', { unit: short })}>
+        <span dir="ltr" className="min-w-24 cursor-default whitespace-pre">
+          {inside ? `X ${shown(Math.floor(cursor.x))}   Y ${shown(Math.floor(cursor.y))}` : 'X –   Y –'}
         </span>
       </Tooltip>
+      <span className="h-3.5 w-px bg-line" />
+      <UnitPicker side="top" className="-my-1" />
     </div>
   )
 }

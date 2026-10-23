@@ -474,7 +474,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       group: 'Whole design',
       title: t('Resize design…'),
       description: t('Make the whole design, with every layer, bigger or smaller.'),
-      keywords: ['resize', 'image size', 'scale', 'bigger', 'smaller', 'dimensions', 'pixels', 'shrink', 'enlarge'],
+      keywords: ['resize', 'image size', 'scale', 'bigger', 'smaller', 'dimensions', 'pixels', 'shrink', 'enlarge', 'inches', 'print size', 'dpi', 'ppi', 'resolution'],
       needsDocument: true,
       run: c.resizeDesign,
     },

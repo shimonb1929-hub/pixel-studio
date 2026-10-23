@@ -189,9 +189,9 @@ test('a project file keeps every layer, and opens again with all of them', async
 
   // "project" in the search finds the project download.
   await page.keyboard.press('Control+k')
-  await page.getByRole('combobox').fill('save project')
-  await expect(page.getByRole('option').first()).toContainText('Download project')
-  await page.getByRole('combobox').press('Enter')
+  await page.getByRole('combobox', { name: 'What do you want to do?' }).fill('save project')
+  await expect(page.locator('#palette-results').getByRole('option').first()).toContainText('Download project')
+  await page.getByRole('combobox', { name: 'What do you want to do?' }).press('Enter')
   const dialog = page.getByRole('dialog', { name: 'Download your design' })
   await expect(dialog.getByRole('radio', { name: 'Project' })).toHaveAttribute('aria-checked', 'true')
   await expect(dialog).toContainText('Saves as My design 1.pixel')

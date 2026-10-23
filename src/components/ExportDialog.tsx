@@ -2,7 +2,8 @@ import { ChevronDown } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { exportFileName, formatFileSize, stripExtension, type ExportFormat } from '../editor/fileNames.ts'
 import { exportDocument } from '../editor/io.ts'
-import { defaultWidthInches, type PdfPurpose, type PdfSettings } from '../editor/pdfLayout.ts'
+import type { PdfPurpose, PdfSettings } from '../editor/pdfLayout.ts'
+import { documentPpi } from '../editor/units.ts'
 import type { EditorDocument } from '../editor/types.ts'
 import { ChoiceGroup, Dialog, Field } from './Dialog.tsx'
 import { inputClass } from './ui.tsx'
@@ -115,8 +116,8 @@ export function ExportDialog({ doc, initialFormat = 'png', onExport, onClose }: 
   const [estimate, setEstimate] = useState<{ key: string; size: number } | null>(null)
   const [purpose, setPurpose] = useState<PdfPurpose>('print')
   // Typed as text so "8." can be on the way to "8.5"; the other side follows the design's shape.
-  const [paperWidth, setPaperWidth] = useState(() => inchesText(defaultWidthInches(doc.width)))
-  const [paperHeight, setPaperHeight] = useState(() => inchesText((defaultWidthInches(doc.width) * doc.height) / doc.width))
+  const [paperWidth, setPaperWidth] = useState(() => inchesText(doc.width / documentPpi(doc)))
+  const [paperHeight, setPaperHeight] = useState(() => inchesText((doc.width / documentPpi(doc) * doc.height) / doc.width))
   // The side typed last is kept exact; the other is rounded for showing. Untouched, the size is the
   // exact one at 300 pixels per inch, so an A4 design prints exactly A4.
   const [paperSide, setPaperSide] = useState<'width' | 'height' | null>(null)
@@ -125,7 +126,7 @@ export function ExportDialog({ doc, initialFormat = 'png', onExport, onClose }: 
   const [cropMarks, setCropMarks] = useState(false)
 
   const widthInches =
-    paperSide === 'width' ? Number(paperWidth) : paperSide === 'height' ? (Number(paperHeight) * doc.width) / doc.height : defaultWidthInches(doc.width)
+    paperSide === 'width' ? Number(paperWidth) : paperSide === 'height' ? (Number(paperHeight) * doc.width) / doc.height : doc.width / documentPpi(doc)
   const paperError = purpose === 'print' && !(widthInches > 0 && Number(paperHeight) > 0) ? t('Type how big it should be on paper.') : null
   const pdf: PdfSettings = { purpose, widthInches, bleed, cropMarks }
 
