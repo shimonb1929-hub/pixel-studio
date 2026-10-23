@@ -1,15 +1,34 @@
 // Runs the AI that finds things in a picture, away from the page so the program never freezes.
 //
 // It uses SlimSAM (a small "Segment Anything" model, Apache License 2.0) through Transformers.js.
-// The model is downloaded once, the first time it's needed, and kept by the browser after that.
+// The model is downloaded from our own site once, the first time it's needed, and kept by the
+// browser after that. Nothing comes from any other site (see aiFiles.ts).
 
 import { env, RawImage, SamModel, SamProcessor, type Tensor } from '@huggingface/transformers'
+import graphicsMjs from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url'
+import graphicsWasm from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
+import plainMjs from 'onnxruntime-web/ort-wasm-simd-threaded.mjs?url'
+import plainWasm from 'onnxruntime-web/ort-wasm-simd-threaded.wasm?url'
+import { isSafari, pointAtOwnSite, type AiSettings } from './aiFiles.ts'
 import type { SegmentRequest, SegmentResponse } from './segmentTypes.ts'
 
+// The model's files are in public/models/Xenova/slimsam-77-uniform (see scripts/models/fetch.mjs).
 const MODEL = 'Xenova/slimsam-77-uniform'
 // The full-size numbers (about 40 MB in all): the squeezed versions give ragged, patchy outlines.
 
-env.allowLocalModels = false
+// The page's address, which the page sends first, before anything else.
+let siteBase: string | null = null
+const own = (url: string) => new URL(url, import.meta.url).href
+
+function pointAtOurSite() {
+  if (!siteBase) throw new Error('The page did not say where the site is.')
+  pointAtOwnSite(
+    env as unknown as AiSettings,
+    siteBase,
+    { plain: { mjs: own(plainMjs), wasm: own(plainWasm) }, graphics: { mjs: own(graphicsMjs), wasm: own(graphicsWasm) } },
+    isSafari(navigator.userAgent, (navigator as Navigator & { vendor?: string }).vendor ?? ''),
+  )
+}
 
 let loading: Promise<{ model: SamModel; processor: SamProcessor }> | null = null
 interface Prepared {
@@ -28,6 +47,7 @@ function post(message: SegmentResponse) {
 
 function load() {
   loading ??= (async () => {
+    pointAtOurSite()
     const progress = new Map<string, { loaded: number; total: number }>()
     const onProgress = (info: { status: string; file?: string; loaded?: number; total?: number }) => {
       if (info.status !== 'progress' || !info.file || !info.total) return
@@ -57,7 +77,7 @@ function load() {
 
 // Works the picture out once, so clicks on it are quick. A click that comes while it's still being
 // worked out waits for the same work instead of starting it again.
-function prepare(key: string, picture: SegmentRequest['image']) {
+function prepare(key: string, picture: Extract<SegmentRequest, { type: 'segment' }>['image']) {
   if (kept?.key === key) return kept.ready
   const ready = (async () => {
     const { model, processor } = await load()
@@ -145,7 +165,9 @@ async function segment(request: Extract<SegmentRequest, { type: 'segment' }>) {
 
 self.onmessage = (event: MessageEvent<SegmentRequest>) => {
   const request = event.data
-  if (request.type === 'prepare') {
+  if (request.type === 'setup') {
+    siteBase = request.siteBase
+  } else if (request.type === 'prepare') {
     prepare(request.key, request.image).then(
       () => post({ type: 'prepared', id: request.id }),
       (error: unknown) => post({ type: 'error', id: request.id, message: String(error) }),

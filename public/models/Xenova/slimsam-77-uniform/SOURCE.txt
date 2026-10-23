@@ -1,0 +1,2 @@
+SlimSAM (Xenova/slimsam-77-uniform), Apache License 2.0.
+Downloaded by scripts/models/fetch.mjs from https://huggingface.co/Xenova/slimsam-77-uniform at revision 5850ab45f587c112167512ffef949107115e26a0.
