@@ -87,7 +87,8 @@ export function changeEveryPage(doc: EditorDocument, update: (page: EditorDocume
   const results = allPages(doc).map((page, i) => update(i === index ? { ...single(page), selection: doc.selection } : single(page)))
   const pages = results.map((r, i): DesignPage => ({ id: doc.pages![i].id, background: r.background, layers: r.layers, activeLayerId: r.activeLayerId }))
   const open = results[index]
-  return { ...doc, width: open.width, height: open.height, selection: open.selection, background: open.background, layers: open.layers, activeLayerId: open.activeLayerId, pages, pageIndex: index }
+  // The open page's result carries everything else the change did to the design (like its size).
+  return { ...open, pages, pageIndex: index }
 }
 
 // The page holding a layer, or -1.

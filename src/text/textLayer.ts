@@ -163,6 +163,67 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
   ctx.restore()
 }
 
+export interface PlacedGlyph {
+  // One letter as people see it (a letter with its vowel marks stays together).
+  text: string
+  // Where it starts on its line and how wide it is, in design pixels.
+  x: number
+  width: number
+}
+
+export interface PlacedLine {
+  baseline: number
+  // Left to right as they appear, so right-to-left words come last letter first.
+  glyphs: PlacedGlyph[]
+}
+
+const graphemes = typeof Intl !== 'undefined' && 'Segmenter' in Intl ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null
+
+function splitLetters(text: string): string[] {
+  return graphemes ? [...graphemes.segment(text)].map((s) => s.segment) : Array.from(text)
+}
+
+// Where every letter of a text object is drawn, for text people can select in a PDF: the matrix
+// from the text's own coordinates to the design (like drawText uses), and each line's letters.
+export function placeText(layer: TextLayer): { matrix: DOMMatrix; lines: PlacedLine[] } {
+  const { box, style } = layer
+  const layout = textLayout(layer)
+  const w = Math.abs(box.width)
+  const h = Math.abs(box.height)
+  const matrix = new DOMMatrix()
+    .translate(box.cx, box.cy)
+    .rotate((box.rotation * 180) / Math.PI)
+    .scale(box.width < 0 ? -1 : 1, box.height < 0 ? -1 : 1)
+    .translate(-w / 2 + lineShift(layer, layout), -h / 2)
+  const ctx = measuringContext()
+  ctx.font = cssFont(style)
+  ctx.letterSpacing = `${style.letterSpacing * style.size}px`
+  const lines = layout.lines.map((line): PlacedLine => {
+    ctx.wordSpacing = `${line.wordSpacing}px`
+    const glyphs: PlacedGlyph[] = []
+    let x = line.x
+    for (const run of line.runs) {
+      const piece = layer.text.slice(run.start, run.end)
+      ctx.direction = run.rtl ? 'rtl' : 'ltr'
+      const total = ctx.measureText(piece).width
+      const letters = splitLetters(piece)
+      if (run.rtl) letters.reverse()
+      const widths = letters.map((letter) => ctx.measureText(letter).width)
+      // Letters measured one by one add up a little differently (joins, kerning), so they're
+      // stretched to fill exactly the width that's drawn.
+      const sum = widths.reduce((a, b) => a + b, 0)
+      const fit = sum > 0 ? total / sum : 1
+      letters.forEach((letter, i) => {
+        glyphs.push({ text: letter, x, width: widths[i] * fit })
+        x += widths[i] * fit
+      })
+    }
+    ctx.wordSpacing = '0px'
+    return { baseline: line.baseline, glyphs }
+  })
+  return { matrix, lines }
+}
+
 // A design point in the text's own coordinates: from its top-left corner, unturned and unflipped.
 export function textLocalPoint(layer: TextLayer, point: Point): Point {
   const { box } = layer

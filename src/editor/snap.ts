@@ -99,14 +99,14 @@ function spacingCandidates(moving: Rect, others: Rect[], axis: 'x' | 'y'): Candi
 }
 
 // The smallest shift (within `tolerance`) that lines an edge or middle up, or evens out gaps.
-function bestShift(moving: Rect, others: Rect[], page: Rect, axis: 'x' | 'y', tolerance: number): Candidate | null {
+function bestShift(moving: Rect, others: Rect[], frames: Rect[], axis: 'x' | 'y', tolerance: number): Candidate | null {
   let best: Candidate | null = null
   const consider = (candidate: Candidate) => {
     if (Math.abs(candidate.shift) > tolerance) return
     if (!best || Math.abs(candidate.shift) < Math.abs(best.shift) - 1e-9) best = candidate
   }
   const mine = lines(along(moving, axis))
-  for (const target of [page, ...others]) {
+  for (const target of [...frames, ...others]) {
     for (const t of lines(along(target, axis))) for (const m of mine) consider({ shift: t - m, spacing: null })
   }
   for (const candidate of spacingCandidates(moving, others, axis)) consider(candidate)
@@ -114,7 +114,7 @@ function bestShift(moving: Rect, others: Rect[], page: Rect, axis: 'x' | 'y', to
 }
 
 // Where edges or middles of the moved thing now line up with the page or other things.
-function guidesFor(moving: Rect, others: Rect[], page: Rect, axis: 'x' | 'y'): Guide[] {
+function guidesFor(moving: Rect, others: Rect[], frames: Rect[], axis: 'x' | 'y'): Guide[] {
   const found = new Map<number, Guide>()
   const mine = lines(along(moving, axis))
   const myAcross = across(moving, axis)
@@ -128,9 +128,11 @@ function guidesFor(moving: Rect, others: Rect[], page: Rect, axis: 'x' | 'y'): G
       found.set(key, { axis, at, from, to })
     }
   }
-  const pageAcross = across(page, axis)
-  for (const t of lines(along(page, axis))) {
-    if (mine.some((m) => Math.abs(m - t) < 0.5)) add(t, pageAcross.start, pageAcross.start + pageAcross.size)
+  for (const frame of frames) {
+    const frameAcross = across(frame, axis)
+    for (const t of lines(along(frame, axis))) {
+      if (mine.some((m) => Math.abs(m - t) < 0.5)) add(t, frameAcross.start, frameAcross.start + frameAcross.size)
+    }
   }
   for (const other of others) {
     const otherAcross = across(other, axis)
@@ -144,16 +146,18 @@ function guidesFor(moving: Rect, others: Rect[], page: Rect, axis: 'x' | 'y'): G
 
 // Snaps a move of `moving` by dx, dy. `tolerance` is how close counts (in design pixels); `whole`
 // keeps moves to whole pixels, for pictures.
-export function snapMove(moving: Rect, dx: number, dy: number, others: Rect[], page: Rect, tolerance: number, whole: boolean): SnapResult {
+export function snapMove(moving: Rect, dx: number, dy: number, others: Rect[], page: Rect | Rect[], tolerance: number, whole: boolean): SnapResult {
+  // The page, and the margins and columns on it, whose edges and middles things line up with.
+  const frames = Array.isArray(page) ? page : [page]
   const round = (n: number) => (whole ? Math.round(n) : n)
   const moved = { ...moving, x: moving.x + dx, y: moving.y + dy }
-  const snapX = bestShift(moved, others, page, 'x', tolerance)
-  const snapY = bestShift(moved, others, page, 'y', tolerance)
+  const snapX = bestShift(moved, others, frames, 'x', tolerance)
+  const snapY = bestShift(moved, others, frames, 'y', tolerance)
   const finalDx = round(dx + (snapX?.shift ?? 0))
   const finalDy = round(dy + (snapY?.shift ?? 0))
   const final = { ...moving, x: moving.x + finalDx, y: moving.y + finalDy }
   const spacing: SpacingGuide[] = []
   if (snapX?.spacing && Math.abs(final.x - moved.x - snapX.shift) < 0.5) spacing.push(snapX.spacing)
   if (snapY?.spacing && Math.abs(final.y - moved.y - snapY.shift) < 0.5) spacing.push(snapY.spacing)
-  return { dx: finalDx, dy: finalDy, guides: [...guidesFor(final, others, page, 'x'), ...guidesFor(final, others, page, 'y')], spacing }
+  return { dx: finalDx, dy: finalDy, guides: [...guidesFor(final, others, frames, 'x'), ...guidesFor(final, others, frames, 'y')], spacing }
 }

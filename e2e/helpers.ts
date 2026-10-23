@@ -53,9 +53,11 @@ export async function clickAt(page: Page, size: Size, x: number, y: number, modi
 }
 
 // The color shown on screen at a point of the design (at 100% zoom).
+// Waits for the screen to finish drawing first, so a design that was just opened or changed shows.
 export function designPixel(page: Page, size: Size, x: number, y: number): Promise<number[]> {
   return page.evaluate(
-    ([w, h, px, py]) => {
+    async ([w, h, px, py]) => {
+      for (let i = 0; i < 2; i++) await new Promise(requestAnimationFrame)
       const main = document.querySelector('main')!
       const canvas = main.querySelector('canvas')!
       const dpr = devicePixelRatio
