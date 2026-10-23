@@ -41,6 +41,9 @@ interface LayerBase {
   // Parts of the layer that are softly hidden. Like adjustments, hiding never changes what's on the
   // layer, so hidden parts can be brought back at any time. Missing means nothing is hidden.
   hide?: LayerHide | null
+  // Pictures and shapes: set when text in a box nearby flows around it instead of running under
+  // it. Missing means text ignores it.
+  textWrap?: TextWrap | null
 }
 
 // How hidden each spot of a layer is: solid hides it, see-through shows it, and in between fades it.
@@ -50,6 +53,26 @@ interface LayerBase {
 export interface LayerHide {
   canvas: HTMLCanvasElement
   rect: { x: number; y: number; width: number; height: number }
+}
+
+// How text flows around a picture or shape (what design programs call text wrap): close around
+// its outline, around the box it sits in, or only above and below it, with some space kept free.
+export type TextWrapMode = 'shape' | 'box' | 'jump'
+
+export interface TextWrap {
+  mode: TextWrapMode
+  // Space kept free between it and the text, in design pixels.
+  gap: number
+}
+
+// Something a text flows around, in the text's own coordinates: from the top-left of its box,
+// unturned and unflipped. Worked out again after every change, from the things the text overlaps.
+export interface AvoidArea {
+  // Its outlines; text keeps out of everything between their leftmost and rightmost points, row by row.
+  outlines: Point[][]
+  gap: number
+  // Which side of it the text runs down, or 'none' when text only goes above and below it.
+  side: 'left' | 'right' | 'none'
 }
 
 // A layer of pixels: a photo, a painting, a pasted picture.
@@ -173,6 +196,8 @@ export interface TextLayer extends LayerBase {
   pageNumber?: boolean
   // A photo showing through the letters instead of a color (words with their own color keep it).
   photo?: PhotoFill
+  // Pictures and shapes this paragraph box flows around. Missing when there are none.
+  avoid?: AvoidArea[]
 }
 
 export interface TextFlow {
@@ -190,9 +215,12 @@ export interface TextFlow {
 // One object in the design. Bottom layer first.
 export type Layer = PixelLayer | ShapeLayer | TextLayer
 
-// One page of a design with several pages. All pages share the design's size.
+// One page of a design with several pages. Pages can each have their own size, like a post, a
+// story and a banner of the same design side by side.
 export interface DesignPage {
   id: string
+  width: number
+  height: number
   background: string | null
   pageGradient?: Gradient | null
   // Bottom layer first.

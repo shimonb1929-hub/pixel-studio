@@ -1,4 +1,5 @@
-import { drawText, textReach } from '../text/textLayer.ts'
+import { drawText, textLocalPoint, textReach } from '../text/textLayer.ts'
+import { avoidSlots } from '../text/avoid.ts'
 import { createCanvas, getContext2d, MAX_LAYER_SIDE } from './document.ts'
 import { intersectRect, polygonBounds, snapRect, type Rect } from './geometry.ts'
 import { canvasGradient } from './gradient.ts'
@@ -413,7 +414,14 @@ export function hitsLayer(layer: Layer, point: Point, slack = 0): boolean {
     const dy = point.y - box.cy
     const cos = Math.cos(-box.rotation)
     const sin = Math.sin(-box.rotation)
-    return Math.abs(dx * cos - dy * sin) <= Math.abs(box.width) / 2 + slack && Math.abs(dx * sin + dy * cos) <= Math.abs(box.height) / 2 + slack
+    const inBox = Math.abs(dx * cos - dy * sin) <= Math.abs(box.width) / 2 + slack && Math.abs(dx * sin + dy * cos) <= Math.abs(box.height) / 2 + slack
+    if (!inBox || !layer.wrap || !layer.avoid?.length) return inBox
+    // Where the text flows around a picture or shape, a click goes through to it.
+    const { style } = layer
+    const lineHeight = style.size * style.lineHeight
+    const local = textLocalPoint(layer, point)
+    const slot = avoidSlots(layer.avoid, Math.abs(box.width), lineHeight, style.size)(Math.max(0, Math.floor(local.y / lineHeight)))
+    return !!slot && local.x >= slot.x - slack && local.x <= slot.x + slot.width + slack
   }
   const ctx = probeContext()
   if (layer.kind === 'shape') {

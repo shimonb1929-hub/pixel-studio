@@ -5,6 +5,7 @@ import type { EditorDocument, Point, TextLayer, TextStyle } from '../editor/type
 import { cssFont, fontReady, fontStack, fontsVersion, loadFont } from './fonts.ts'
 import { indexAt, layoutText, listStartAt, mainDirection, plainWidth, resolveAlign, type RangeWidth, type TextLayout, type TextMeasure } from './layout.ts'
 import { styledPieces, tidySpans } from './spans.ts'
+import { avoidSlots } from './avoid.ts'
 import { t } from '../i18n/i18n.ts'
 
 // Text objects: measuring and laying them out with real fonts, drawing them, and keeping their
@@ -109,7 +110,10 @@ export function textLayout(layer: TextLayer): TextLayout {
   if (cached && cached.version === version) return cached.layout
   // A list in a box the text runs on into keeps counting from the boxes before.
   const listStart = layer.style.list && layer.flow ? listStartAt(layer.flow.full, layer.flow.start) : undefined
-  const layout = layoutText(layer.text, layer.style, layer.wrap ? Math.abs(layer.box.width) : null, textMeasure(layer.style), textWidth(layer), listStart)
+  const width = Math.abs(layer.box.width)
+  // A paragraph box keeps out of the pictures and shapes it flows around.
+  const rows = layer.wrap && layer.avoid?.length ? avoidSlots(layer.avoid, width, layer.style.size * layer.style.lineHeight, layer.style.size) : undefined
+  const layout = layoutText(layer.text, layer.style, layer.wrap ? width : null, textMeasure(layer.style), textWidth(layer), listStart, rows)
   layouts.set(layer, { version, layout })
   return layout
 }
@@ -305,6 +309,23 @@ export function fitText(layer: TextLayer): TextLayer {
   const width = layer.wrap ? Math.abs(layer.box.width) : layout.width
   const box = keepSide(layer.box, width, layout.height, anchorSide(layout, layer.style))
   return { ...layer, box }
+}
+
+// New words typed on one line would run straight off the page. Once they reach the page's edge,
+// they start wrapping there instead, the way a beginner expects; the side they started from stays put.
+export function keepOnPage(layer: TextLayer, pageWidth: number): TextLayer {
+  if (layer.wrap || layer.flow || layer.box.rotation !== 0) return layer
+  const layout = textLayout(layer)
+  const side = anchorSide(layout, layer.style)
+  const left = layer.box.cx - Math.abs(layer.box.width) / 2
+  const right = left + Math.abs(layer.box.width)
+  if (left >= 0 && right <= pageWidth) return layer
+  const anchor = side === -1 ? left : side === 1 ? right : layer.box.cx
+  const room = side === -1 ? pageWidth - anchor : side === 1 ? anchor : 2 * Math.min(anchor, pageWidth - anchor)
+  // Started right at the edge: there is no sensible width to wrap at, so it stays one line.
+  if (room < layer.style.size * 3) return layer
+  const box = keepSide(layer.box, room, Math.abs(layer.box.height), side)
+  return fitText({ ...layer, wrap: true, box })
 }
 
 // Changes the text or how it looks, keeping the box fitted. A change to the whole text's look
