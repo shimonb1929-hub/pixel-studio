@@ -25,7 +25,9 @@ export function useElementSize(ref: RefObject<HTMLElement | null>): Size {
 
   // Also measured after every change on screen, before it shows: the observer only tells a frame
   // later, and in that frame things would be drawn for the old size (like a design that has just
-  // opened, before the panels beside it took their room).
+  // opened, before the panels beside it took their room). It only sets a new size when the size
+  // really changed, so it settles right away.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     if (ref.current) measure(ref.current, setSize)
   })
