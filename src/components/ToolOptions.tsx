@@ -83,6 +83,7 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
         className="w-24 shrink-0 xl:w-32"
         label={t("Softness")}
         help={t("How blurry the edge of the line is.")}
+        pro="Hardness (the other way round)"
         value={settings.softness}
         display={`${Math.round(settings.softness * 100)}%`}
         note={describeSoftness(settings.softness)}
@@ -90,7 +91,8 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
       />
       <Slider
         className="w-24 shrink-0 xl:w-32"
-        label={erasing ? t('Strength') : t('Opacity')}
+        label={t('Strength')}
+        pro="Opacity"
         help={erasing ? t('How much paint the eraser removes.') : t('How solid the paint is. Lower lets what is underneath show through.')}
         value={settings.opacity}
         display={`${Math.round(settings.opacity * 100)}%`}
@@ -561,7 +563,7 @@ function SelectOptions({
       <div className="flex shrink-0 items-center">
         <BarButton icon={SquareDashed} label={t("All")} title={t("Select all")} description={t("Select the whole design.")} onClick={commands.selectAll} />
         <BarButton icon={SquareSlash} roomy label={t("Let go")} description={t('Stop selecting (Deselect), so the whole design can be changed again. Nothing in your design changes.')} disabledReason={nothing} onClick={commands.deselect} />
-        <BarButton icon={Contrast} label={t("Invert")} title={t("Invert selection")} description={t("Swap what is selected and what is not.")} onClick={commands.invert} />
+        <BarButton icon={Contrast} label={t("Swap")} title={t("Select everything else")} description={t("Swap what is selected and what is not.")} onClick={commands.invert} />
         <BarButton
           icon={Blend}
           label={t('Edge')}

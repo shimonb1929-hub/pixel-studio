@@ -4,6 +4,7 @@ import { AdjustPanel } from './components/AdjustPanel.tsx'
 import { CanvasView, type ArrangeControls, type BoxEditing, type ShapeDrawing, type TextTool } from './components/CanvasView.tsx'
 import { ColorPanel } from './components/ColorPanel.tsx'
 import { CommandPalette } from './components/CommandPalette.tsx'
+import { HelpGuide } from './components/HelpGuide.tsx'
 import { Dialog } from './components/Dialog.tsx'
 import { PagesBar } from './components/PagesBar.tsx'
 import { ExportDialog, type ExportOptions } from './components/ExportDialog.tsx'
@@ -113,7 +114,7 @@ import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
 import { isRtl, live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes'
+type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -2118,7 +2119,7 @@ export default function App() {
     // Changes the opacity of everything picked together with the layer.
     opacity: (layerId: string, opacity: number) => {
       const ids = picked?.includes(layerId) ? picked : [layerId]
-      editor.change(t('Change layer opacity'), (d) => ids.reduce((doc, id) => updateLayer(doc, id, { opacity }), d), { mergeKey: `opacity:${ids.join()}` })
+      editor.change(t('Change how solid'), (d) => ids.reduce((doc, id) => updateLayer(doc, id, { opacity }), d), { mergeKey: `opacity:${ids.join()}` })
     },
     toggleVisibility: (layerId: string) => {
       settle()
@@ -2277,11 +2278,11 @@ export default function App() {
     },
     deselect: () => {
       settle()
-      if (current()?.selection) setSelection(t('Deselect'), () => null)
+      if (current()?.selection) setSelection(t('Let go'), () => null)
     },
     invert: () => {
       settle()
-      if (current()) setSelection(t('Invert selection'), (d) => invertSelection(d.selection, d.width, d.height))
+      if (current()) setSelection(t('Select everything else'), (d) => invertSelection(d.selection, d.width, d.height))
     },
     fill: () => {
       settle()
@@ -2473,6 +2474,7 @@ export default function App() {
     fit: () => doc && setViewport(fitted(doc)),
     actualSize: () => doc && setViewport(centeredViewport(doc.width, doc.height, workspace.width, workspace.height, 1)),
     search: () => setDialog('search'),
+    help: () => setDialog('help'),
     biggerBrush: () => changeBrushSize(1),
     smallerBrush: () => changeBrushSize(-1),
     setTool,
@@ -2554,6 +2556,7 @@ export default function App() {
       let action: (() => unknown) | undefined
       if (mod && code === 'KeyK') action = c.search
       else if (plain && event.key === '/') action = c.search
+      else if (event.key === 'F1' || (plain && event.key === '?')) action = c.help
       else if (mod && event.altKey && code === 'KeyN') action = c.newDesign
       else if (mod && event.shiftKey && code === 'KeyO' && hasDoc) action = c.addPhoto
       else if (mod && !event.shiftKey && code === 'KeyO') action = c.open
@@ -2970,6 +2973,7 @@ export default function App() {
         onUndo={commands.undo}
         onRedo={commands.redo}
         onSearch={commands.search}
+        onHelp={commands.help}
         onDownload={commands.download}
       />
 
@@ -3401,6 +3405,7 @@ export default function App() {
         />
       )}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
+      {dialog === 'help' && <HelpGuide actions={actions} hasDocument={!!doc} onPickTool={setTool} onClose={() => setDialog(null)} />}
       {dialog === 'layout' && doc && (
         <PageLayoutDialog
           doc={doc}

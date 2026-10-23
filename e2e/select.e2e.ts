@@ -14,7 +14,7 @@ async function undoLabel(page: Page) {
 // A thick horizontal line across the middle of the design.
 async function paintLine(page: Page, size: Size, y = 150) {
   await pickBrush(page, 'Marker')
-  await page.getByLabel('Opacity', { exact: true }).focus()
+  await page.getByLabel('Strength', { exact: true }).focus()
   await page.keyboard.press('End')
   await drag(page, size, [
     [20, y],
@@ -26,7 +26,7 @@ async function paintLine(page: Page, size: Size, y = 150) {
 async function paintDot(page: Page, size: Size, x: number, y: number) {
   await page.keyboard.press('b')
   await pickBrush(page, 'Marker')
-  await page.getByLabel('Opacity', { exact: true }).focus()
+  await page.getByLabel('Strength', { exact: true }).focus()
   await page.keyboard.press('End')
   await clickAt(page, size, x, y)
 }
@@ -129,7 +129,7 @@ test('select all and invert', async ({ page }) => {
   await page.keyboard.press('Control+z')
 
   await selectRect(page, size, 100, 100, 300, 200)
-  await page.getByRole('button', { name: 'Invert selection' }).click()
+  await page.getByRole('button', { name: 'Select everything else' }).click()
   await page.keyboard.press('Alt+Backspace')
   expectColor(await designPixel(page, size, 200, 150), WHITE)
   expectColor(await designPixel(page, size, 50, 50), GREEN)

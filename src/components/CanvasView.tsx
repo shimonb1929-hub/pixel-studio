@@ -1441,7 +1441,7 @@ export function CanvasView(props: CanvasViewProps) {
     }
     // A click without dragging clears the selection, like clicking away in most programs.
     if (!drag.moved) {
-      if (drag.mode === 'replace' && current) p.onSelect(null, t('Deselect'))
+      if (drag.mode === 'replace' && current) p.onSelect(null, t('Let go'))
       requestOverlay()
       return
     }
@@ -1768,7 +1768,7 @@ export function CanvasView(props: CanvasViewProps) {
       }
     }
     if (moveRef.current?.pointerId === event.pointerId) finishMove()
-    if (letGo && propsRef.current.doc.selection) propsRef.current.onSelect(null, t('Deselect'))
+    if (letGo && propsRef.current.doc.selection) propsRef.current.onSelect(null, t('Let go'))
     if (selectRef.current?.pointerId === event.pointerId) finishSelect()
     if (boxRef.current?.pointerId === event.pointerId) {
       const { moved, box } = boxRef.current
