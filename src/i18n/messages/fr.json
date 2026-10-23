@@ -1322,5 +1322,7 @@
   "How big your design prints, in {unit}. Change one side and the other follows, so nothing gets stretched.": "La taille d’impression de votre création, en {unit}. Changez un côté et l’autre suit, rien n’est donc étiré.",
   "Prints {width} × {height} {unit} ({inWidth} × {inHeight} in).": "S’imprime en {width} × {height} {unit} ({inWidth} × {inHeight} in).",
   "Copied. {hint}": "Copié. {hint}",
-  "Cut. {hint}": "Coupé. {hint}"
+  "Cut. {hint}": "Coupé. {hint}",
+  "Effects: {name}": "Effets : {name}",
+  "Shows the spacing between letters and lines, and the reading direction.": "Affiche l’espacement entre les lettres et les lignes, et le sens de lecture."
 }

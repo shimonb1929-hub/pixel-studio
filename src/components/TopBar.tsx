@@ -74,7 +74,7 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
           role="menu"
           aria-label={t("Menu")}
           onKeyDown={handleMenuKeyDown}
-          className="absolute start-0 top-full z-40 mt-2 flex max-h-[calc(100vh-5rem)] w-72 flex-col overflow-y-auto rounded-2xl border border-line bg-surface p-2 shadow-float lg:w-max lg:flex-row lg:gap-2 lg:p-3"
+          className="absolute start-0 top-full z-40 mt-2 flex max-h-[calc(100vh-5rem)] w-72 flex-col overflow-y-auto rounded-2xl border border-line bg-surface p-2 shadow-float lg:fixed lg:start-4 lg:top-14 lg:mt-0 lg:w-max lg:flex-row lg:gap-2 lg:p-3"
         >
           {MENU_COLUMNS.map((column, columnIndex) => (
             <div key={columnIndex} className="flex flex-col lg:w-56 lg:border-s lg:border-line lg:ps-2 lg:first:border-s-0 lg:first:ps-0">
@@ -109,7 +109,11 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
                             className="flex w-full items-center justify-between gap-6 whitespace-nowrap rounded-lg px-2.5 py-2 text-start text-[13px] text-ink outline-none hover:bg-subtle focus-visible:bg-subtle aria-disabled:cursor-not-allowed aria-disabled:text-ink-3 aria-disabled:hover:bg-transparent"
                           >
                             <span>{action.title}</span>
-                            {action.shortcut && <span className="text-xs text-ink-3">{action.shortcut}</span>}
+                            {action.shortcut && (
+                              <span dir="ltr" className="text-xs text-ink-3">
+                                {action.shortcut}
+                              </span>
+                            )}
                           </button>
                         </Tooltip>
                       )
@@ -235,7 +239,7 @@ export function TopBar({
         >
           <Search size={16} className="shrink-0" />
           <span className="flex-1 truncate text-start">{t('What do you want to do?')}</span>
-          <kbd className="hidden rounded-md border border-line bg-subtle px-1.5 py-0.5 font-sans text-[11px] text-ink-3 sm:block">
+          <kbd dir="ltr" className="hidden rounded-md border border-line bg-subtle px-1.5 py-0.5 font-sans text-[11px] text-ink-3 sm:block">
             {shortcut('mod', 'K')}
           </kbd>
         </button>

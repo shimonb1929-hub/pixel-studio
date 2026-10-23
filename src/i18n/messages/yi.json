@@ -1322,5 +1322,7 @@
   "How big your design prints, in {unit}. Change one side and the other follows, so nothing gets stretched.": "ווי גרויס אייער דיזיין ווערט געדרוקט, אין {unit}. טוישט איין זייט און די אנדערע גייט מיט, אזוי אז גארנישט ווערט נישט אויסגעצויגן.",
   "Prints {width} × {height} {unit} ({inWidth} × {inHeight} in).": "ווערט געדרוקט {width} × {height} {unit} ({inWidth} × {inHeight} אינטש).",
   "Copied. {hint}": "קאפירט. {hint}",
-  "Cut. {hint}": "אויסגעשניטן. {hint}"
+  "Cut. {hint}": "אויסגעשניטן. {hint}",
+  "Effects: {name}": "עפעקטן: {name}",
+  "Shows the spacing between letters and lines, and the reading direction.": "ווייזט דעם אפשטאנד צווישן אותיות און שורות, און די ליין-ריכטונג."
 }

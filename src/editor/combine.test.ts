@@ -57,6 +57,21 @@ describe('making one shape out of several', () => {
     expect(shape.fill).toEqual(big.fill)
   })
 
+  it('keeps curves round: a circle joined with a square, and a circle on its own', () => {
+    const circle = square('circle', 50, 50, 100, 'ellipse')
+    const joined = combineAreas([square('a', 0, 0, 100), circle], 'join')
+    expect(joined).toHaveLength(1)
+    // A square and a quarter-overlapping circle, give or take the tiny straight steps of the curve.
+    expect(area(joined)).toBeCloseTo(10000 + Math.PI * 2500 * 0.75, -1)
+    expect(joined[0].length).toBeGreaterThan(40)
+    const alone = combineAreas([circle], 'join')
+    expect(alone).toHaveLength(1)
+    expect(area(alone)).toBeCloseTo(Math.PI * 2500, -1)
+    expect(alone[0].length).toBeGreaterThan(40)
+    // A square on its own is still just four corners.
+    expect(combineAreas([square('a', 0, 0, 100)], 'join')[0]).toHaveLength(4)
+  })
+
   it('nothing is left of shapes that do not overlap', () => {
     expect(combineAreas([square('a', 0, 0, 10), square('b', 50, 50, 10)], 'overlap')).toEqual([])
   })

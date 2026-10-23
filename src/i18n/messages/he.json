@@ -1322,5 +1322,7 @@
   "How big your design prints, in {unit}. Change one side and the other follows, so nothing gets stretched.": "כמה גדול העיצוב יודפס, ב{unit}. שנה צד אחד והשני ישתנה איתו, כך ששום דבר לא נמתח.",
   "Prints {width} × {height} {unit} ({inWidth} × {inHeight} in).": "יודפס בגודל {width} × {height} {unit} ({inWidth} × {inHeight} אינץ').",
   "Copied. {hint}": "הועתק. {hint}",
-  "Cut. {hint}": "נגזר. {hint}"
+  "Cut. {hint}": "נגזר. {hint}",
+  "Effects: {name}": "אפקטים: {name}",
+  "Shows the spacing between letters and lines, and the reading direction.": "מציג את הרווח בין אותיות ושורות, ואת כיוון הקריאה."
 }

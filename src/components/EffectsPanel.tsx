@@ -16,7 +16,7 @@ import {
 import { LookPreview } from './AdjustPanel.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { Button, inputClass, Slider } from './ui.tsx'
-import { live, msg, t } from '../i18n/i18n.ts'
+import { live, msg, t, tParts } from '../i18n/i18n.ts'
 
 interface EffectsPanelProps {
   title: string
@@ -162,9 +162,7 @@ export function EffectsPanel(props: EffectsPanelProps) {
             onClick={() => props.onOpen(!props.open)}
             className="flex min-w-0 flex-1 items-center gap-1.5 text-start text-[13px] font-semibold text-ink"
           >
-            <span className="truncate">
-              Effects: <bdi>{props.title}</bdi>
-            </span>
+            <span className="truncate">{tParts('Effects: {name}', { name: <bdi key="name">{props.title}</bdi> })}</span>
             <CircleHelp size={14} className="shrink-0 text-ink-3" aria-hidden />
             <span className="ms-auto flex shrink-0 items-center gap-1 text-[11px] font-medium text-ink-2">
               {!props.open && summary(effects, current, props.blend)}

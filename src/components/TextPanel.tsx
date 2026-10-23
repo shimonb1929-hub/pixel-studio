@@ -631,15 +631,17 @@ export function TextPanel(props: TextPanelProps) {
           )}
         </div>
 
-        <button
-          type="button"
-          aria-expanded={more}
-          onClick={() => setMore(!more)}
-          className="flex h-8 items-center gap-1.5 self-start rounded-lg px-2.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
-        >
-          <ChevronDown size={15} className={`transition-transform ${more ? 'rotate-180' : ''}`} aria-hidden />
-          {t('More')}
-        </button>
+        <Tooltip title={t('More')} description={t('Shows the spacing between letters and lines, and the reading direction.')} className="flex self-start">
+          <button
+            type="button"
+            aria-expanded={more}
+            onClick={() => setMore(!more)}
+            className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+          >
+            <ChevronDown size={15} className={`transition-transform ${more ? 'rotate-180' : ''}`} aria-hidden />
+            {t('More')}
+          </button>
+        </Tooltip>
         {more && (
           <div className="flex flex-col gap-3 border-t border-line pt-3">
             {!props.hasRtl && <ChoiceRow label={t("Reading direction")} value={style.direction} choices={DIRECTIONS} onChange={(direction) => props.onStyle({ direction, align: style.align === 'left' || style.align === 'right' ? 'auto' : style.align }, t('Reading direction'))} />}

@@ -44,15 +44,25 @@ function area(layer: ShapeLayer): MultiPolygon {
   return rest.length ? polygonClipping.xor(first, ...rest) : [first]
 }
 
-// Leaves out points that lie on a straight line between their neighbors.
+// How far a point may sit from a straight line before it's needed to follow the outline.
+const TIDY_TOLERANCE = 0.05
+
+// Leaves out points that lie on a straight line from the last point kept to the next one, so a
+// straight side is two points while a curve keeps every point that bends it (a curve's points are
+// close together, so each is nearly in line with its neighbors; the last kept point stays put).
 function tidy(ring: Ring): Point[] {
-  const points = ring.slice(0, -1).map(([x, y]) => ({ x, y }))
-  return points.filter((p, i) => {
-    const a = points[(i - 1 + points.length) % points.length]
+  const points = ring.map(([x, y]) => ({ x, y }))
+  const first = points[0]
+  const last = points[points.length - 1]
+  if (points.length > 1 && first.x === last.x && first.y === last.y) points.pop()
+  const kept: Point[] = []
+  points.forEach((p, i) => {
+    const a = kept[kept.length - 1] ?? points[points.length - 1]
     const b = points[(i + 1) % points.length]
     const cross = (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)
-    return Math.abs(cross) / (Math.hypot(b.x - a.x, b.y - a.y) || 1) > 0.05
+    if (Math.abs(cross) / (Math.hypot(b.x - a.x, b.y - a.y) || 1) > TIDY_TOLERANCE) kept.push(p)
   })
+  return kept
 }
 
 // Which shapes can be combined: closed ones that can be filled, not lines.

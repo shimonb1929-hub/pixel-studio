@@ -117,7 +117,9 @@ export function Tooltip({
             <div className="flex items-center justify-between gap-4">
               <span className="text-[13px] font-semibold text-white">{title}</span>
               {shortcut && (
-                <kbd className="rounded bg-white/12 px-1.5 py-0.5 font-sans text-[11px] font-medium text-white/80">{shortcut}</kbd>
+                <kbd dir="ltr" className="rounded bg-white/12 px-1.5 py-0.5 font-sans text-[11px] font-medium text-white/80">
+                  {shortcut}
+                </kbd>
               )}
             </div>
             {description && <p className="mt-1 text-xs leading-relaxed text-white/75">{description}</p>}
