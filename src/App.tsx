@@ -2987,16 +2987,6 @@ export default function App() {
               column (then they scroll); the Layers panel always keeps the rest, so it never slips
               off a short screen. */}
           <ScrollRegion className="max-h-[64%] shrink-0 gap-3 [@media(max-height:820px)]:max-h-[56%]">
-            {adjustOn && doc ? (
-              <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
-            ) : tool === 'fade' && doc ? null : (
-              <ColorPanel
-                color={panelColor ?? color}
-                recent={recentColors}
-                onChange={onPanelColor}
-                onPickFromDesign={() => setTool('picker')}
-              />
-            )}
             {textPanelOn && !adjustOn && doc && (
               <TextPanel
                 title={pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
@@ -3066,6 +3056,17 @@ export default function App() {
                 onFade={fadeSide}
                 onPreview={setFadePreview}
                 onShowAll={() => fadeLayer && changeHide(fadeLayer.id, null, t('Show all of it again'))}
+              />
+            )}
+            {/* The picked thing's own settings come first; the Color panel colors it from below. */}
+            {adjustOn && doc ? (
+              <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
+            ) : tool === 'fade' && doc ? null : (
+              <ColorPanel
+                color={panelColor ?? color}
+                recent={recentColors}
+                onChange={onPanelColor}
+                onPickFromDesign={() => setTool('picker')}
               />
             )}
             {effectsLayer && (
