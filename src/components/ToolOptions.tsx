@@ -832,7 +832,7 @@ function TextWrapMenu({ controls }: { controls: TextWrapControls }) {
           className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${open || on ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
         >
           <WrapText size={15} />
-          <span className="hidden xl:inline">{t('Text around it')}</span>
+          <span className="hidden 2xl:inline">{t('Text around it')}</span>
           <ChevronDown size={13} />
         </button>
       </Tooltip>
@@ -1042,8 +1042,8 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
       )}
       <div className="flex shrink-0 items-center">
         {/* The icon names describe the mirror line: a vertical line flips left to right. */}
-        <BarButton icon={FlipVertical2} label={t("Mirror")} title={t("Flip left to right")} description={several ? t('Mirror them, so the left side becomes the right side.') : t('Mirror it, so the left side becomes the right side.')} onClick={() => controls.flip('horizontal')} />
-        <BarButton icon={FlipHorizontal2} label={t("Upside down")} title={t("Flip upside down")} description={several ? t('Mirror them top to bottom, so the top becomes the bottom.') : t('Mirror it top to bottom, so the top becomes the bottom.')} onClick={() => controls.flip('vertical')} />
+        <BarButton icon={FlipVertical2} roomy label={t("Mirror")} title={t("Flip left to right")} description={several ? t('Mirror them, so the left side becomes the right side.') : t('Mirror it, so the left side becomes the right side.')} onClick={() => controls.flip('horizontal')} />
+        <BarButton icon={FlipHorizontal2} roomy label={t("Upside down")} title={t("Flip upside down")} description={several ? t('Mirror them top to bottom, so the top becomes the bottom.') : t('Mirror it top to bottom, so the top becomes the bottom.')} onClick={() => controls.flip('vertical')} />
         <BarButton icon={RotateCcw} label={t("Left")} title={t("Turn left")} description={several ? t('Turn them a quarter turn to the left.') : t('Turn it a quarter turn to the left.')} onClick={() => controls.rotate90(-1)} />
         <BarButton icon={RotateCw} label={t("Right")} title={t("Turn right")} description={several ? t('Turn them a quarter turn to the right.') : t('Turn it a quarter turn to the right.')} onClick={() => controls.rotate90(1)} />
       </div>
