@@ -294,7 +294,12 @@ export function restoreRegion(target: HTMLCanvasElement, region: HTMLCanvasEleme
 }
 
 // Reused between strokes, so drawing on a big poster doesn't allocate huge canvases each time.
-const pool = { stroke: null as HTMLCanvasElement | null, preview: null as HTMLCanvasElement | null, masked: null as HTMLCanvasElement | null }
+const pool = {
+  stroke: null as HTMLCanvasElement | null,
+  preview: null as HTMLCanvasElement | null,
+  masked: null as HTMLCanvasElement | null,
+  copied: null as HTMLCanvasElement | null,
+}
 
 function pooled(key: keyof typeof pool, width: number, height: number): HTMLCanvasElement {
   const canvas = pool[key]
@@ -308,6 +313,15 @@ export interface StrokeMask {
   // Where the mask's top-left corner sits in the design.
   x: number
   y: number
+}
+
+// Copy paint: instead of a color, the brush paints a copy of another part of the picture. Each
+// spot painted at p gets what `canvas` has at p + (dx, dy), in the layer's own coordinates. The
+// picture is read as it was before the stroke, so a stroke never copies itself.
+export interface CopySource {
+  canvas: HTMLCanvasElement
+  dx: number
+  dy: number
 }
 
 // One brush or eraser stroke, from pointer down to pointer up.
@@ -330,6 +344,8 @@ export class StrokeSession {
   private readonly mask: StrokeMask | null
   private readonly stroke: HTMLCanvasElement
   private readonly masked: HTMLCanvasElement | null
+  private readonly copy: CopySource | null
+  private readonly copied: HTMLCanvasElement | null
   private readonly previewCtx: CanvasRenderingContext2D
   private readonly painter: DabPainter
   private readonly width: number
@@ -338,8 +354,9 @@ export class StrokeSession {
   private target: InputPoint | null = null
   private total: Rect | null = null
 
-  constructor(layer: PixelLayer, settings: BrushSettings, color: string, mode: StrokeMode, mask: StrokeMask | null = null) {
+  constructor(layer: PixelLayer, settings: BrushSettings, color: string, mode: StrokeMode, mask: StrokeMask | null = null, copy: CopySource | null = null) {
     this.layerId = layer.id
+    this.copy = copy
     this.layer = layer
     this.settings = settings
     this.mode = mode
@@ -352,6 +369,7 @@ export class StrokeSession {
     this.stroke = pooled('stroke', this.width, this.height)
     this.preview = pooled('preview', this.width, this.height)
     this.masked = mask ? pooled('masked', this.width, this.height) : null
+    this.copied = copy ? pooled('copied', this.width, this.height) : null
 
     const strokeCtx = getContext2d(this.stroke)
     strokeCtx.clearRect(0, 0, this.width, this.height)
@@ -416,6 +434,21 @@ export class StrokeSession {
       masked.drawImage(this.mask.canvas, this.mask.x - this.x, this.mask.y - this.y)
       masked.restore()
       source = this.masked
+    }
+
+    // Copy paint keeps the stroke's shape and softness, filled with the copied part of the picture.
+    if (this.copy && this.copied) {
+      const copied = getContext2d(this.copied)
+      copied.save()
+      copied.clearRect(x, y, width, height)
+      copied.drawImage(source, x, y, width, height, x, y, width, height)
+      copied.beginPath()
+      copied.rect(x, y, width, height)
+      copied.clip()
+      copied.globalCompositeOperation = 'source-in'
+      copied.drawImage(this.copy.canvas, -this.copy.dx, -this.copy.dy)
+      copied.restore()
+      source = this.copied
     }
 
     const ctx = this.previewCtx

@@ -32,7 +32,7 @@ import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, typ
 import { adjustArea, lookThumbnails, paintAdjusted, previewParts } from './editor/adjustSession.ts'
 import { DEFAULT_PPI, documentPpi } from './editor/units.ts'
 import { arrangeBox, changeBox, frameOf, layerInFrame, placeInBox, type BoxChange } from './editor/arrange.ts'
-import { BRUSH_PRESETS, ERASER_PRESETS, stepBrushSize, type BrushSettings } from './editor/brushes.ts'
+import { BRUSH_PRESETS, COPY_BRUSH, ERASER_PRESETS, stepBrushSize, type BrushSettings, type CopyBrush } from './editor/brushes.ts'
 import { getClipboard, ownCopyCheck, setClipboard } from './editor/clipboard.ts'
 import {
   createBlankDocument,
@@ -82,7 +82,8 @@ import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
 import { decodeProject } from './editor/project.ts'
 import type { LayerOverride } from './editor/render.ts'
-import { invertSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
+import { invertSelection, refineSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
+import { colorMaskAt } from './editor/colorSelect.ts'
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
@@ -382,6 +383,16 @@ export default function App() {
   const [cropEdit, setCropEdit] = useState<CropState | null>(null)
   const [fillTolerance, setFillTolerance] = useState(0.15)
   const [healSize, setHealSize] = useState(40)
+  // Copy paint: its brush, whether the copy follows along from stroke to stroke, and the spot it
+  // copies from (with how far that is from where painting started, while it follows along).
+  const [copyBrush, setCopyBrush] = useState<CopyBrush>({ size: 40, softness: 0.5, opacity: 1 })
+  const [copyAligned, setCopyAligned] = useState(true)
+  const [copyFrom, setCopyFrom] = useState<{ docId: string; layerId: string; point: Point; offset: Point | null } | null>(null)
+  // Selecting by color: how similar a color must be, and whether only touching parts count.
+  const [colorTolerance, setColorTolerance] = useState(0.12)
+  const [colorTouching, setColorTouching] = useState(true)
+  // A softer, bigger or smaller selection edge being tried out on `base`, before it's kept.
+  const [edgeEdit, setEdgeEdit] = useState<{ base: Selection; soften: number; grow: number } | null>(null)
   // Adjustments being tried on one layer (and selection); they start over when either changes.
   const [adjustEdit, setAdjustEdit] = useState<{ layer: Layer; selection: Selection | null; settings: Adjustments } | null>(null)
   const [shapeDefaults, setShapeDefaults] = useState<ShapeDefaults>(DEFAULT_SHAPES)
@@ -461,6 +472,15 @@ export default function App() {
   // With Arrange and a selection, handles are ready around the selected part of the layer.
   // A new layer or selection, including one brought back by undo, starts fresh handles.
   const activeNow = doc ? activeLayer(doc) : undefined
+  // The spot Copy paint copies from, while its picture is still there.
+  const copySource = copyFrom && doc && copyFrom.docId === doc.id && doc.layers.some((l) => l.id === copyFrom.layerId && l.kind === 'raster') ? copyFrom : null
+  // A selection edge being tried out counts only while its selection is still the one shown.
+  const edgeShown = edgeEdit && tool === 'select' && doc?.selection === edgeEdit.base ? edgeEdit : null
+  const edgePreview = useMemo(
+    () => (edgeShown && (edgeShown.soften > 0 || edgeShown.grow !== 0) ? refineSelection(edgeShown.base, edgeShown) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [edgeShown?.base, edgeShown?.soften, edgeShown?.grow],
+  )
   const transformOn = tool === 'move' && !!doc?.selection
   const session = useMemo(
     () => (transformOn && doc ? startTransform(doc, fillGap) : null),
@@ -1544,6 +1564,26 @@ export default function App() {
     return layer.kind === 'raster' ? canvasBytes(layer.canvas) : 0
   }
 
+  // Same color: everything of a similar color to the clicked spot, in what you see.
+  function colorSelect(point: Point, mode: SelectionMode) {
+    const d = current()
+    if (!d) return
+    const mask = colorMaskAt(d, point, Math.round(colorTolerance * 255), colorTouching)
+    const ops = mask ? maskToOps(mask, d.width, d.height, 1, 1) : []
+    if (ops.length === 0) {
+      problem(t('Nothing big enough was found there. Try a higher “Similar colors”.'))
+      return
+    }
+    setSelection(mode === 'add' ? t('Add to selection') : mode === 'subtract' ? t('Remove from selection') : t('Select same color'), (doc) => combineFound(doc.selection, ops, mode))
+  }
+
+  function applyEdge() {
+    const edit = edgeShown
+    setEdgeEdit(null)
+    if (!edit || (edit.soften === 0 && edit.grow === 0)) return
+    setSelection(t('Change selection edge'), (d) => (d.selection === edit.base ? refineSelection(edit.base, edit) : d.selection))
+  }
+
   function handleSelect(selection: Selection | null, label: string) {
     editor.change(label, (d) => ({ ...d, selection }))
   }
@@ -1599,6 +1639,7 @@ export default function App() {
     })
     if (tool === 'eraser') setEraser(update)
     else if (tool === 'heal') setHealSize((size) => stepBrushSize(size, direction))
+    else if (tool === 'clone') setCopyBrush((b) => ({ ...b, size: stepBrushSize(b.size, direction) }))
     else setBrush(update)
   }
 
@@ -2159,6 +2200,7 @@ export default function App() {
       if (pickedText && tool === 'move' && !doc?.selection && !picked) return editText(pickedText.id, 'all'), true
       if (tool === 'crop' && cropChanged) return applyCrop(), true
       if (adjustChanged) return applyAdjust(), true
+      if (edgeShown) return applyEdge(), true
       return false
     },
     cancelPending: () => {
@@ -2169,6 +2211,7 @@ export default function App() {
       if (picked) return pickOne(''), true
       if (tool === 'crop' && cropChanged) return setCropEdit(null), true
       if (adjustChanged) return cancelAdjust(), true
+      if (edgeShown) return setEdgeEdit(null), true
       return false
     },
     pageLayout: () => {
@@ -2452,7 +2495,14 @@ export default function App() {
     setCrop(box, shape)
   }
 
-  const paintSettings = tool === 'eraser' ? eraser.settings : tool === 'heal' ? { ...brush.settings, size: healSize } : brush.settings
+  const paintSettings =
+    tool === 'eraser'
+      ? eraser.settings
+      : tool === 'heal'
+        ? { ...brush.settings, size: healSize }
+        : tool === 'clone'
+          ? { ...COPY_BRUSH, ...copyBrush }
+          : brush.settings
   const hintTool: ToolId = spaceHeld ? 'hand' : altHeld && tool === 'brush' ? 'picker' : tool
   const hintExtra =
     doc?.selection && (hintTool === 'brush' || hintTool === 'eraser' || hintTool === 'adjust')
@@ -2758,6 +2808,30 @@ export default function App() {
         onFillToleranceChange={setFillTolerance}
         healSize={healSize}
         onHealSizeChange={setHealSize}
+        copy={{
+          brush: copyBrush,
+          onBrushChange: setCopyBrush,
+          aligned: copyAligned,
+          onAlignedChange: (aligned) => {
+            setCopyAligned(aligned)
+            setCopyFrom((from) => from && { ...from, offset: null })
+          },
+          picked: !!copySource,
+          pickAgain: () => setCopyFrom(null),
+        }}
+        colorSelect={{
+          tolerance: colorTolerance,
+          onToleranceChange: setColorTolerance,
+          touching: colorTouching,
+          onTouchingChange: setColorTouching,
+        }}
+        edge={{
+          editing: edgeShown && { soften: edgeShown.soften, grow: edgeShown.grow },
+          start: () => doc?.selection && setEdgeEdit({ base: doc.selection, soften: 0, grow: 0 }),
+          change: (change) => setEdgeEdit((edit) => edit && { ...edit, ...change }),
+          apply: applyEdge,
+          cancel: () => setEdgeEdit(null),
+        }}
       />}
 
       <div className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
@@ -2796,6 +2870,22 @@ export default function App() {
                 fillGap={fillGap}
                 onSelect={handleSelect}
                 onMagicSelect={(target, mode) => void magicSelect(target, mode)}
+                onColorSelect={colorSelect}
+                selectionPreview={edgePreview}
+                clone={
+                  tool === 'clone'
+                    ? {
+                        source: copySource && { layerId: copySource.layerId, point: copySource.point },
+                        offset: copySource?.offset ?? null,
+                        aligned: copyAligned,
+                        onSource: (layerId, point) => {
+                          setCopyFrom({ docId: doc.id, layerId, point, offset: null })
+                          setNotice({ message: t('Got it. Now paint where the copy should go.'), tone: 'info' })
+                        },
+                        onOffset: (offset) => setCopyFrom((from) => from && { ...from, offset }),
+                      }
+                    : null
+                }
                 onBlocked={problem}
                 override={override}
                 box={box}

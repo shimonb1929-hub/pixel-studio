@@ -4,7 +4,7 @@ import { BLEND_MODES, hasEffects, type BlendMode, type LayerEffects } from './ef
 import { createCanvas, createDesignId, createId, getContext2d, layerFromCanvas, MAX_LAYER_SIDE, validateDocumentSize } from './document.ts'
 import { EXPORT_FORMATS } from './fileNames.ts'
 import { pixelVersion } from './pixelVersion.ts'
-import type { Selection, SelectionOp } from './selection.ts'
+import { MAX_EDGE_CHANGE, type Selection, type SelectionOp } from './selection.ts'
 import type { TransformBox } from './transform.ts'
 import type { TextAlign, TextDirection } from '../text/layout.ts'
 import { loadDesignFonts } from '../text/textLayer.ts'
@@ -463,6 +463,10 @@ function readSelection(value: unknown): Selection | null {
   if (!isRecord(value) || !Array.isArray(value.ops)) throw new ProjectError(t(DAMAGED))
   const ops = value.ops.map((op): SelectionOp => {
     if (isRecord(op) && op.kind === 'invert') return { kind: 'invert' }
+    if (isRecord(op) && (op.kind === 'grow' || op.kind === 'soften')) {
+      if (!isBetween(op.by, -MAX_EDGE_CHANGE, MAX_EDGE_CHANGE)) throw new ProjectError(t(DAMAGED))
+      return { kind: op.kind, by: op.by as number }
+    }
     if (!isRecord(op) || op.kind !== 'polygon' || typeof op.subtract !== 'boolean' || !Array.isArray(op.points)) {
       throw new ProjectError(t(DAMAGED))
     }

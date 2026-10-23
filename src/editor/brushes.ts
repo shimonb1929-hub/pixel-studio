@@ -159,3 +159,8 @@ export function describeOpacity(opacity: number, erasing: boolean): string {
 export function sameSettings(a: BrushSettings, b: BrushSettings): boolean {
   return (Object.keys(a) as (keyof BrushSettings)[]).every((key) => a[key] === b[key])
 }
+
+// Copy paint has its own simple brush: a size, a soft edge and how strongly it covers.
+export type CopyBrush = Pick<BrushSettings, 'size' | 'softness' | 'opacity'>
+
+export const COPY_BRUSH: BrushSettings = { size: 40, softness: 0.5, opacity: 1, flow: 1, smoothing: 0.2, pressure: false, blend: 'normal', tip: 'round' }
