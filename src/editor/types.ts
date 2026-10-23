@@ -66,6 +66,9 @@ export interface ShapeGeometry {
   arrow: boolean
   // The points of a pen path, relative to the box: -0.5 to 0.5 across its width and height.
   path?: ShapePath
+  // More closed outlines of the same shape, from joining or cutting shapes: holes cut into it, and
+  // pieces apart from it. With them, a spot is inside when an odd number of outlines go around it.
+  parts?: ShapePath[]
 }
 
 export type ShapeFill =

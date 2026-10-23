@@ -87,7 +87,7 @@ interface PenOptions {
 // The picked shape, if it's a pen shape that can be changed.
 export function penShape(doc: EditorDocument | null): ShapeLayer | null {
   const layer = doc ? activeLayer(doc) : undefined
-  if (layer?.kind !== 'shape' || layer.geometry.type !== 'path' || !layer.geometry.path) return null
+  if (layer?.kind !== 'shape' || layer.geometry.type !== 'path' || !layer.geometry.path || layer.geometry.parts) return null
   if (!layer.visible || layer.locked) return null
   return layer
 }
