@@ -1161,8 +1161,13 @@ export default function App() {
   // leave the design off-center.
   const [fitPending, setFitPending] = useState<{ width: number; height: number } | null>(null)
   useLayoutEffect(() => {
-    if (!fitPending || !workspace.width || !workspace.height) return
-    setViewport(fitViewport(fitPending.width, fitPending.height, workspace.width, workspace.height, { allowUpscale: false, padding: FIT_PADDING }))
+    // Measured here and now: the size kept in `workspace` only catches up a moment later.
+    const element = workspaceRef.current
+    const size = element ? { width: element.clientWidth, height: element.clientHeight } : workspace
+    if (!fitPending || !size.width || !size.height) return
+    setViewport(fitViewport(fitPending.width, fitPending.height, size.width, size.height, { allowUpscale: false, padding: FIT_PADDING }))
+    // When `workspace` catches up, the view is already right for it.
+    lastWorkspaceRef.current = size
     setFitPending(null)
   }, [fitPending, workspace])
 
