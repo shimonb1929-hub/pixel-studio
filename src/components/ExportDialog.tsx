@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { exportFileName, formatFileSize, stripExtension, type ExportFormat } from '../editor/fileNames.ts'
 import { exportDocument } from '../editor/io.ts'
+import { PRINT_PIXELS_PER_INCH } from '../editor/pdf.ts'
 import type { EditorDocument } from '../editor/types.ts'
 import { ChoiceGroup, Dialog, Field } from './Dialog.tsx'
 import { inputClass } from './ui.tsx'
@@ -13,26 +14,47 @@ export interface ExportOptions {
   fileName: string
 }
 
-const FORMATS: { value: ExportFormat; label: string; description: string }[] = live([
+// Plain words first, so anyone can choose; the file type's short name sits underneath for those
+// who know it.
+const FORMATS: { value: ExportFormat; label: string; detail: string; description: string }[] = live([
   {
     value: 'png',
-    label: 'PNG',
+    label: msg('Best quality'),
+    detail: 'PNG',
     description:
       msg('Keeps every detail and any see-through parts. Files are bigger. Best for drawings, text, graphics and screenshots.'),
   },
   {
     value: 'jpeg',
-    label: 'JPG',
+    label: msg('Small file'),
+    detail: 'JPG',
     description:
       msg('Makes much smaller files and is best for photos. It cannot be see-through, so empty parts turn white. A tiny bit of detail is lost.'),
   },
   {
+    value: 'pdf',
+    label: msg('Print'),
+    detail: 'PDF',
+    description: msg('A page ready to print or send to a print shop, at its real size. Every detail is kept, and see-through parts print as white paper.'),
+  },
+  {
     value: 'project',
     label: msg('Project'),
+    detail: msg('Keep editing'),
     description:
       msg('Keeps every layer, so you can open it in Pixel Studio later and keep editing, on this computer or another one. Other programs can’t open it.'),
   },
 ])
+
+// "It prints 8.27 × 11.69 inches (21 × 29.7 cm)."
+function printSizeNote(doc: EditorDocument): string {
+  const inches = (pixels: number) => pixels / PRINT_PIXELS_PER_INCH
+  const round = (value: number, places: number) => String(Math.round(value * 10 ** places) / 10 ** places)
+  return t('It prints {inches} inches ({cm} cm).', {
+    inches: `${round(inches(doc.width), 2)} × ${round(inches(doc.height), 2)}`,
+    cm: `${round(inches(doc.width) * 2.54, 1)} × ${round(inches(doc.height) * 2.54, 1)}`,
+  })
+}
 
 // Above this many pixels, measuring the file size on every change gets slow.
 const ESTIMATE_PIXEL_LIMIT = 16_000_000
@@ -86,8 +108,8 @@ export function ExportDialog({ doc, initialFormat = 'png', onExport, onClose }: 
     >
       <Field
         label={t("File type")}
-        help={t("How your design is stored. PNG keeps everything perfect. JPG makes small files for photos. Project keeps every layer so you can keep editing.")}
-        note={FORMATS.find((f) => f.value === format)!.description}
+        help={t("How your design is stored. Best quality keeps everything perfect. Small file is best for photos. Print makes a page for printing. Project keeps every layer so you can keep editing.")}
+        note={format === 'pdf' ? `${FORMATS.find((f) => f.value === format)!.description} ${printSizeNote(doc)}` : FORMATS.find((f) => f.value === format)!.description}
       >
         <ChoiceGroup name={t("File type")} value={format} options={FORMATS} onChange={setFormat} />
       </Field>

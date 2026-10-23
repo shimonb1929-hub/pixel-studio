@@ -16,7 +16,8 @@ The goal has two halves, and both matter equally:
 Pixel Studio should feel obvious to a 15-year-old and still produce professional work.
 
 - **Start from what you're making.** The first screen asks "What are you making today?" and
-  offers ready-made sizes (square post, phone story, A4 page, poster…). One click and you're in.
+  offers ready-made sizes (square post, phone story, A4 page, poster…), and nothing else: the
+  tools and panels only appear once there is a design to use them on. One click and you're in.
   People coming back see their own designs first, with a preview of each. A new, empty page shows
   what can go on it first (Add words, Add a photo, Add a shape, Draw), and starts on Arrange, so a
   first click never paints by surprise. Photo has its own button in the tool column.
@@ -81,6 +82,9 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   safe: it waits under "Your designs" on the start screen. Download it as a Project to keep a
   copy or move it to another computer. If the browser can't keep designs (some private
   windows), the top says "Not saved", and closing with changes that aren't downloaded asks first.
+- **Downloads in plain words.** Best quality (PNG), Small file (JPG), Print (PDF) or Project. Print
+  makes a page at the design's real printed size (300 pixels to the inch, so an A4 design is an
+  A4 page), says how big it prints in inches and centimeters, and keeps every detail.
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 
@@ -238,7 +242,8 @@ pulling in see-through pixels, so blurred photos keep solid edges.
 8. **More text** — different fonts and colors inside one text, text along a path, text effects
    (outline, shadow, fill with a photo), your own font files, lists and columns.
 9. **Pages and print** (InDesign) — multi-page documents, master pages, margins, columns and
-   guides, text that flows from box to box, print-ready PDF with bleed.
+   guides, text that flows from box to box, print-ready PDF with bleed (a one-page PDF at real
+   size is done).
 10. **Pro layers and photo tools** (Photoshop) — blend modes, effects (shadow, glow,
    outline), curves and levels, clone and heal, select by color and select subject, and an easy
    way to fade or hide parts of a layer (with a brush, never a mask to learn).

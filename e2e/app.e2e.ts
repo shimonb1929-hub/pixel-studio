@@ -73,7 +73,7 @@ function filePixel(page: Page, file: Buffer, x: number, y: number) {
   )
 }
 
-async function downloadAs(page: Page, format: 'PNG' | 'JPG'): Promise<{ name: string; bytes: Buffer }> {
+async function downloadAs(page: Page, format: 'PNG' | 'JPG' | 'PDF'): Promise<{ name: string; bytes: Buffer }> {
   await page.getByRole('button', { name: 'Download', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Download your design' })
   await dialog.getByRole('radio', { name: format }).click()
@@ -85,6 +85,9 @@ test.describe('starting', () => {
   test('welcome screen has no pictures and explains each size', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'What are you making today?' })).toBeVisible()
     await expect(page.locator('img')).toHaveCount(0)
+    // Nothing to use tools on yet, so the screen shows only the start.
+    await expect(page.getByRole('navigation', { name: 'Tools' })).toHaveCount(0)
+    await expect(page.getByRole('toolbar')).toHaveCount(0)
     await page.getByRole('button', { name: /Phone story/ }).hover()
     await expect(page.getByRole('tooltip')).toContainText('Full-screen phone stories')
   })
@@ -403,6 +406,22 @@ test.describe('downloading', () => {
     const jpg = await downloadAs(page, 'JPG')
     const white = (await filePixel(page, jpg.bytes, 10, 10)).pixel
     expect(white.slice(0, 3).every((v) => v > 250)).toBe(true)
+  })
+
+  test('Print makes a PDF page at the size the design prints', async ({ page }) => {
+    await page.getByRole('button', { name: /A4 page/ }).click()
+    await page.getByRole('button', { name: 'Download', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Download your design' })
+    await dialog.getByRole('radio', { name: 'PDF' }).click()
+    await expect(dialog).toContainText('It prints 8.27 × 11.69 inches (21 × 29.7 cm).')
+    await page.keyboard.press('Escape')
+
+    const pdf = await downloadAs(page, 'PDF')
+    expect(pdf.name).toBe('A4 page.pdf')
+    const text = pdf.bytes.toString('latin1')
+    expect(text.startsWith('%PDF-')).toBe(true)
+    expect(text).toContain('/MediaBox [0 0 595.2 841.92]')
+    expect(text).toContain('/Width 2480 /Height 3508')
   })
 
   test('hidden layers are left out of the download', async ({ page }) => {

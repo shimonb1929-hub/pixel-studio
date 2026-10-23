@@ -2322,7 +2322,8 @@ export default function App() {
         onDownload={commands.download}
       />
 
-      <ToolOptions
+      {/* Before a design is open there is nothing to use the tools on, so only the start screen shows. */}
+      {doc && <ToolOptions
         tool={tool}
         brush={brush.settings}
         brushPresetId={brush.presetId}
@@ -2382,10 +2383,10 @@ export default function App() {
         onFillToleranceChange={setFillTolerance}
         healSize={healSize}
         onHealSizeChange={setHealSize}
-      />
+      />}
 
       <div className="flex min-h-0 flex-1 gap-2 px-2 pb-2">
-        <ToolDock tool={tool} onToolChange={setTool} onAddPhoto={doc ? commands.addPhoto : null} />
+        {doc && <ToolDock tool={tool} onToolChange={setTool} onAddPhoto={commands.addPhoto} />}
 
         <main
           ref={workspaceRef}
@@ -2467,7 +2468,7 @@ export default function App() {
           )}
         </main>
 
-        <div className="hidden w-[272px] shrink-0 flex-col gap-2 overflow-y-auto md:flex">
+        <div className={`hidden w-[272px] shrink-0 flex-col gap-2 overflow-y-auto ${doc ? 'md:flex' : ''}`}>
           {adjustOn && doc ? (
             <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
           ) : (

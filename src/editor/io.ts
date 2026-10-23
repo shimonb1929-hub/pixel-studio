@@ -2,6 +2,7 @@ import { loadDesignFonts } from '../text/textLayer.ts'
 import { flattenDocument } from './compose.ts'
 import { createCanvas, createDocumentFromImage, getContext2d, MAX_DOCUMENT_SIDE } from './document.ts'
 import { EXPORT_FORMATS, type ExportFormat } from './fileNames.ts'
+import { makePdf } from './pdf.ts'
 import { decodeProject, encodeProject, isProjectFile } from './project.ts'
 import type { EditorDocument } from './types.ts'
 import { msg, t } from '../i18n/i18n.ts'
@@ -77,6 +78,7 @@ export async function exportDocument(doc: EditorDocument, format: ExportFormat, 
   await loadDesignFonts(doc)
   // JPG has no transparency, so see-through areas become white instead of black.
   const canvas = flattenDocument(doc, format === 'jpeg' ? '#ffffff' : undefined)
+  if (format === 'pdf') return makePdf(getContext2d(canvas).getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height)
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) =>

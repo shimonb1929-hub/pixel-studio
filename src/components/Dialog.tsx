@@ -115,6 +115,8 @@ interface ChoiceOption<T extends string> {
   value: T
   label: string
   description: string
+  // A small second line under the label, such as a file type's short name.
+  detail?: string
 }
 
 interface ChoiceGroupProps<T extends string> {
@@ -139,6 +141,7 @@ export function ChoiceGroup<T extends string>({ name, value, options, onChange }
             }`}
           >
             {option.label}
+            {option.detail && <span className="block text-[11px] font-normal text-ink-3">{option.detail}</span>}
           </button>
         </Tooltip>
       ))}

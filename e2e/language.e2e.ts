@@ -29,7 +29,7 @@ test('Hebrew turns the whole app right to left, and stays picked', async ({ page
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
   await pickLanguage(page, 'English')
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
-  await expect(page.getByRole('button', { name: 'Arrange tool' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'What are you making today?' })).toBeVisible()
 })
 
 for (const [lang, name] of [['yi', 'אידיש'], ['es', 'Español'], ['fr', 'Français']] as const) {
