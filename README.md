@@ -70,7 +70,13 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   36 with every Yiddish letter and vowel point; fonts made only for English still show Hebrew in a
   matching Hebrew font, never as boxes. Fonts are found by what they're for (headlines, easy
   reading, Torah and seforim, invitations, kids) or by a word like "wedding", and pointing at one
-  shows it on the page before you pick it.
+  shows it on the page before you pick it. "Add your own font" takes a .ttf, .otf, .woff or .woff2
+  file from your computer: it stays under "Your fonts" for next time, and goes inside your designs
+  and SVG downloads, so they look right on any computer.
+- **Lists.** The Text panel's List row puts dots, numbers or letters before each paragraph: א ב ג
+  on the right for Hebrew and Yiddish, a b c on the left for English. They count by themselves, an
+  empty line gets none, wrapped lines stay lined up beside them, and text that runs on into another
+  box keeps counting.
 - **Try first, then decide.** Cropping and adjusting colors show the result live. Nothing changes
   until you press Apply (or Enter); Esc puts it back. While adjusting, press and hold on the design
   to compare with how it was. Arranging shows the exact size and angle while you drag, and Undo
@@ -264,7 +270,7 @@ pulling in see-through pixels, so blurred photos keep solid edges.
 7. **Shapes and the pen** (Illustrator) — a pen for curves with editable points (done); gradient
    fills (done); outline dashes and ends; combine shapes (join, cut out, overlap); SVG export.
 8. **More text** — different fonts and colors inside one text, text along a path, text effects
-   (outline, shadow, fill with a photo), your own font files, lists and columns.
+   (outline, shadow, fill with a photo), your own font files (done), lists (done) and columns.
 9. **Pages and print** (InDesign) — multi-page documents (done), margins and columns (done),
    text that flows from box to box (done), things and page numbers on every page (done), print-ready PDF (several pages, bleed, cut lines and
    selectable text are done).
