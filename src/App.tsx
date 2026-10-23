@@ -3146,7 +3146,8 @@ export default function App() {
                   tool={hintTool}
                   extra={hintExtra}
                   below={
-                    doc.selection ? (
+                    // While the edge is being tried out, its own Apply and Cancel are the way out.
+                    doc.selection && !edgeShown ? (
                       <SelectionBar
                         adding={tool === 'select' && selectionMode === 'add'}
                         takingAway={tool === 'select' && selectionMode === 'subtract'}
