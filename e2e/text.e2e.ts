@@ -359,7 +359,15 @@ test('text comes back from a project file with its font, direction and color', a
   await textPanel(page).getByLabel('Find a font').fill('frank')
   await textPanel(page).getByRole('option', { name: 'Frank Ruhl Libre' }).click()
   await page.getByRole('button', { name: 'Blue', exact: true }).click()
-  const inkBefore = (await inkBounds(page, size, 0, 60, 400, 120))!
+  // The design is drawn again once the new font is in; measure it after it has settled.
+  let inkBefore: Awaited<ReturnType<typeof inkBounds>> = null
+  await expect
+    .poll(async () => {
+      const last = inkBefore
+      inkBefore = await inkBounds(page, size, 0, 60, 400, 120)
+      return !!last && JSON.stringify(last) === JSON.stringify(inkBefore)
+    })
+    .toBe(true)
 
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Download project…' }).click()
@@ -380,7 +388,7 @@ test('text comes back from a project file with its font, direction and color', a
     .poll(
       async () => {
         const ink = await inkBounds(page, size, 0, 60, 400, 120)
-        return ink && Math.max(Math.abs(ink.left - inkBefore.left), Math.abs(ink.right - inkBefore.right), Math.abs(ink.top - inkBefore.top))
+        return ink && inkBefore && Math.max(Math.abs(ink.left - inkBefore.left), Math.abs(ink.right - inkBefore.right), Math.abs(ink.top - inkBefore.top))
       },
       { timeout: 15000 },
     )

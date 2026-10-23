@@ -1153,8 +1153,18 @@ export default function App() {
     setCropEdit(null)
     setCursor(null)
     setNotice(null)
-    setViewport(fitted(next, false))
+    setFitPending(next)
   }
+
+  // A design just opened is fitted once the screen has settled around it: the tools and panels
+  // only appear with a design, which makes the workspace smaller, so fitting it any earlier would
+  // leave the design off-center.
+  const [fitPending, setFitPending] = useState<{ width: number; height: number } | null>(null)
+  useLayoutEffect(() => {
+    if (!fitPending || !workspace.width || !workspace.height) return
+    setViewport(fitViewport(fitPending.width, fitPending.height, workspace.width, workspace.height, { allowUpscale: false, padding: FIT_PADDING }))
+    setFitPending(null)
+  }, [fitPending, workspace])
 
   // Before leaving the open design, its latest changes are saved in the browser. If that doesn't
   // work and they haven't been downloaded either, it asks first.
