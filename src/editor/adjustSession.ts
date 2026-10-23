@@ -1,4 +1,18 @@
-import { adjustColors, adjustmentReach, adjustPixels, blurSigma, changesColors, isNeutral, NO_ADJUSTMENTS, sharpenAmount, sharpenSigma, sharpenWith, type Adjustments } from './adjust.ts'
+import {
+  adjustmentLookAround,
+  adjustmentReach,
+  adjustPixels,
+  adjustToneAndColor,
+  blurSigma,
+  changesAfterDetail,
+  isNeutral,
+  NO_ADJUSTMENTS,
+  sharpenAmount,
+  sharpenSigma,
+  sharpenWith,
+  type Adjustments,
+  type PixelPlace,
+} from './adjust.ts'
 import { createCanvas, getContext2d, layerRect } from './document.ts'
 import { intersectRect, unionRect, type Rect } from './geometry.ts'
 import type { RenderPart } from './render.ts'
@@ -39,7 +53,7 @@ export function adjustArea(doc: EditorDocument, layer: PixelLayer, a: Adjustment
 // The pixels an adjustment of `area` looks at. A blur near the edge of a photo repeats the edge
 // rather than pulling in see-through pixels from beyond it.
 function readArea(doc: EditorDocument, layer: PixelLayer, area: Rect, a: Adjustments): Rect {
-  const reach = adjustmentReach(a, longSide(doc))
+  const reach = adjustmentReach(a, longSide(doc)) + adjustmentLookAround(a, longSide(doc))
   const limits = unionRect(layerRect(layer), { x: 0, y: 0, width: doc.width, height: doc.height })
   return intersectRect(grow(area, reach), limits) ?? area
 }
@@ -56,13 +70,22 @@ function capture(image: HTMLCanvasElement, rect: Rect, read: Rect, scale: number
   return canvas
 }
 
-// Adjusts a captured canvas in place. `size` is the design's longer side in the design's pixels.
-function process(canvas: HTMLCanvasElement, read: Rect, a: Adjustments, size: number): void {
+// Adjusts a captured canvas (showing `read` of the design) in place. `size` is the design's longer
+// side in the design's pixels; `frame` is the photo or selected part, for dark corners.
+function process(canvas: HTMLCanvasElement, read: Rect, a: Adjustments, size: number, frame: Rect): void {
   if (isNeutral(a)) return
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  adjustPixels(image.data, canvas.width, canvas.height, a, size * Math.min(canvas.width / read.width, canvas.height / read.height))
+  const scale = Math.min(canvas.width / read.width, canvas.height / read.height)
+  const place: PixelPlace = { x: read.x, y: read.y, scale: canvas.width / read.width, frame, size }
+  adjustPixels(image.data, canvas.width, canvas.height, a, size * scale, place)
   ctx.putImageData(image, 0, 0)
+}
+
+// What dark corners are measured from: the selected part, or the layer.
+function frameOf(doc: EditorDocument, layer: PixelLayer): Rect {
+  const bounds = doc.selection ? selectionInfo(doc.selection, doc.width, doc.height).bounds : null
+  return bounds ?? layerRect(layer)
 }
 
 // The adjusted pixels of `area`, at `scale` (1 for full detail). With a selection, only the
@@ -77,30 +100,33 @@ export function renderAdjusted(
 ): HTMLCanvasElement {
   const read = readArea(doc, layer, area, a)
   const size = longSide(doc)
+  const frame = frameOf(doc, layer)
   const blur = blurSigma(a.blur, size * scale)
   const sharpen = a.sharpen > 0
-  // Sharpening comes after the blur and before the colors, so with it the steps are done apart.
-  const firstStep = sharpen ? { ...NO_ADJUSTMENTS, blur: a.blur } : a
+  // The rest comes after the blur, at full detail, so grain and fine changes stay crisp.
+  const rest = changesAfterDetail(a)
   let work: HTMLCanvasElement
   if (blur > blurDetail) {
     const small = capture(layer.canvas, layerRect(layer), read, (scale * blurDetail) / blur)
-    process(small, read, firstStep, size)
-    // Sharpening needs every detail, so it works on the blurred picture at full size.
-    work = sharpen ? capture(small, read, read, scale) : small
+    process(small, read, { ...NO_ADJUSTMENTS, blur: a.blur }, size, frame)
+    work = sharpen || rest ? capture(small, read, read, scale) : small
   } else {
     work = capture(layer.canvas, layerRect(layer), read, scale)
-    process(work, read, firstStep, size)
+    if (a.blur > 0) process(work, read, { ...NO_ADJUSTMENTS, blur: a.blur }, size, frame)
   }
-  if (sharpen) {
-    // A soft copy, made by shrinking the picture and enlarging it again; pushing every pixel away
-    // from it makes edges crisper. Letting the canvas do the shrinking is far quicker than blurring.
-    const shrink = 1 + 2 * sharpenSigma(size * (work.width / read.width))
-    const soft = capture(capture(work, read, read, work.width / read.width / shrink), read, read, work.width / read.width)
-    const softPixels = soft.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, soft.width, soft.height).data
+  if (sharpen || rest) {
     const ctx = work.getContext('2d', { willReadFrequently: true })!
     const image = ctx.getImageData(0, 0, work.width, work.height)
-    if (softPixels.length === image.data.length) sharpenWith(image.data, softPixels, sharpenAmount(a))
-    if (changesColors(a)) adjustColors(image.data, a)
+    const workScale = work.width / read.width
+    if (sharpen) {
+      // A soft copy, made by shrinking the picture and enlarging it again; pushing every pixel away
+      // from it makes edges crisper. Letting the canvas do the shrinking is far quicker than blurring.
+      const shrink = 1 + 2 * sharpenSigma(size * workScale)
+      const soft = capture(capture(work, read, read, workScale / shrink), read, read, workScale)
+      const softPixels = soft.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, soft.width, soft.height).data
+      if (softPixels.length === image.data.length) sharpenWith(image.data, softPixels, sharpenAmount(a))
+    }
+    if (rest) adjustToneAndColor(image.data, work.width, work.height, a, size * workScale, { x: read.x, y: read.y, scale: workScale, frame, size })
     ctx.putImageData(image, 0, 0)
   }
 
@@ -181,4 +207,23 @@ export function lookThumbnails(doc: EditorDocument, layer: PixelLayer, looks: Ad
   if (!area) return null
   const scale = Math.min(1, maxSide / Math.max(area.width, area.height))
   return looks.map((a) => renderAdjusted(doc, layer, a, area, scale, PREVIEW_BLUR_DETAIL))
+}
+
+// A small copy of the layer's pixels (or the selected part's), as they are before adjusting, for
+// the automatic fixes to measure.
+export function pixelsToMeasure(doc: EditorDocument, layer: PixelLayer, maxSide = 400): Uint8ClampedArray | null {
+  const area = adjustArea(doc, layer, NO_ADJUSTMENTS)
+  if (!area) return null
+  const scale = Math.min(1, maxSide / Math.max(area.width, area.height))
+  const canvas = capture(layer.canvas, layerRect(layer), area, scale)
+  const data = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, canvas.width, canvas.height).data
+  if (!doc.selection) return data
+  // Only what's selected counts.
+  const mask = createCanvas(canvas.width, canvas.height)
+  const mctx = getContext2d(mask)
+  mctx.setTransform(canvas.width / area.width, 0, 0, canvas.height / area.height, -area.x * (canvas.width / area.width), -area.y * (canvas.height / area.height))
+  mctx.drawImage(selectionInfo(doc.selection, doc.width, doc.height).mask, 0, 0)
+  const selected = mctx.getImageData(0, 0, mask.width, mask.height).data
+  for (let i = 3; i < data.length; i += 4) data[i] = Math.min(data[i], selected[i])
+  return data
 }

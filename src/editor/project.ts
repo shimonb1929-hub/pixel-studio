@@ -1,4 +1,4 @@
-import type { Adjustments } from './adjust.ts'
+import { COLOR_RANGES, CURVE_CHANNELS, NO_ADJUSTMENTS, SLIDER_KEYS, tidyAdjustments, type Adjustments, type CurvePoint } from './adjust.ts'
 import { drawLayer } from './compose.ts'
 import { BLEND_MODES, hasEffects, type BlendMode, type LayerEffects } from './effects.ts'
 import { createCanvas, createDesignId, createId, getContext2d, layerFromCanvas, MAX_LAYER_SIDE, validateDocumentSize } from './document.ts'
@@ -241,19 +241,45 @@ function readBox(value: unknown): TransformBox {
   return { cx, cy, width, height, rotation }
 }
 
-const ADJUSTMENT_KEYS = ['brightness', 'contrast', 'saturation', 'warmth', 'blur', 'sharpen'] as const
+// Sliders added after the first six may be missing from older projects; they start at 0.
+const FIRST_ADJUSTMENT_KEYS = new Set(['brightness', 'contrast', 'saturation', 'warmth', 'blur', 'sharpen'])
+const ONE_WAY_ADJUSTMENTS = new Set(['blur', 'sharpen', 'grain'])
 
 function readAdjust(value: unknown): Adjustments | null {
   if (value === null || value === undefined) return null
   if (!isRecord(value)) damaged()
-  const settings = {} as Adjustments
-  for (const key of ADJUSTMENT_KEYS) {
+  const settings = { ...NO_ADJUSTMENTS }
+  for (const key of SLIDER_KEYS) {
     const v = value[key]
-    const min = key === 'blur' || key === 'sharpen' ? 0 : -1
-    if (!isBetween(v, min, 1)) damaged()
+    if (v === undefined && !FIRST_ADJUSTMENT_KEYS.has(key)) continue
+    if (!isBetween(v, ONE_WAY_ADJUSTMENTS.has(key) ? 0 : -1, 1)) damaged()
     settings[key] = v
   }
-  return settings
+  const { colors, curve } = value
+  if (colors !== undefined) {
+    if (!isRecord(colors)) damaged()
+    settings.colors = {}
+    for (const range of COLOR_RANGES) {
+      const change = colors[range]
+      if (change === undefined) continue
+      if (!isRecord(change) || !isBetween(change.hue, -1, 1) || !isBetween(change.strength, -1, 1) || !isBetween(change.light, -1, 1)) damaged()
+      settings.colors[range] = { hue: change.hue, strength: change.strength, light: change.light }
+    }
+  }
+  if (curve !== undefined) {
+    if (!isRecord(curve)) damaged()
+    settings.curve = {}
+    for (const channel of CURVE_CHANNELS) {
+      const points = curve[channel]
+      if (points === undefined) continue
+      if (!Array.isArray(points) || points.length > 64) damaged()
+      settings.curve[channel] = points.map((point: unknown): CurvePoint => {
+        if (!Array.isArray(point) || !isBetween(point[0], 0, 1) || !isBetween(point[1], 0, 1)) damaged()
+        return [point[0], point[1]]
+      })
+    }
+  }
+  return tidyAdjustments(settings)
 }
 
 const MAX_EFFECT_SIZE = 100000

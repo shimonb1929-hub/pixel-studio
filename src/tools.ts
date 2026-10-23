@@ -223,7 +223,7 @@ export const TOOLS: ToolInfo[] = [
     key: 'A',
     icon: SlidersHorizontal,
     get description() {
-      return t('Change the light and colors of the selected layer, or just the selected part: ready-made looks like Black & white, and sliders for brightness, contrast, color, blur and sharpness. Nothing changes for good until you press Apply.')
+      return t('Change the light and colors of the selected layer, or just the selected part: one-click fixes, ready-made looks like Black & white, and sliders for light, dark parts, bright parts, color, one color only, a light curve, sharpness, dark corners and grain. Nothing changes for good until you press Apply.')
     },
     get hint() {
       return t('Pick a look or move the sliders on the right. Press and hold on your design to compare. Enter applies, Esc cancels.')
@@ -249,6 +249,29 @@ export const TOOLS: ToolInfo[] = [
       'look',
       'fix photo',
       'enhance',
+      'auto',
+      'auto tone',
+      'auto color',
+      'white balance',
+      'shadows',
+      'highlights',
+      'whites',
+      'blacks',
+      'levels',
+      'curves',
+      'exposure',
+      'vibrance',
+      'tint',
+      'temperature',
+      'hue',
+      'hsl',
+      'color mixer',
+      'clarity',
+      'texture',
+      'vignette',
+      'grain',
+      'noise',
+      'film',
     ],
     group: 'adjust',
   },

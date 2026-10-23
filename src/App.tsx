@@ -31,8 +31,8 @@ import { GradientHandles } from './components/GradientHandles.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
 import { effectThumbnails, flattenDocument } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
-import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, type Adjustments } from './editor/adjust.ts'
-import { adjustArea, lookThumbnails, paintAdjusted, previewParts } from './editor/adjustSession.ts'
+import { adjustmentLabel, autoColor, autoLight, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, tidyAdjustments, type Adjustments } from './editor/adjust.ts'
+import { adjustArea, lookThumbnails, paintAdjusted, pixelsToMeasure, previewParts } from './editor/adjustSession.ts'
 import { DEFAULT_PPI, documentPpi } from './editor/units.ts'
 import { arrangeBox, changeBox, frameOf, layerInFrame, placeInBox, type BoxChange } from './editor/arrange.ts'
 import { BRUSH_PRESETS, COPY_BRUSH, ERASER_PRESETS, stepBrushSize, type BrushSettings, type CopyBrush } from './editor/brushes.ts'
@@ -552,11 +552,30 @@ export default function App() {
     [adjustLayer, doc?.selection, editor.revision],
   )
 
+  // The photo's pixels as they are, for the light curve's tones and the automatic fixes.
+  const adjustSample = useMemo(
+    () => (doc && adjustLayer ? pixelsToMeasure(doc, layerPixels(adjustLayer)) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [adjustLayer, doc?.selection, editor.revision],
+  )
+  const adjustHistogram = useMemo(() => {
+    if (!adjustSample) return null
+    const counts = new Uint32Array(256)
+    for (let i = 0; i < adjustSample.length; i += 4) {
+      if (adjustSample[i + 3] >= 128) counts[Math.round(0.2126 * adjustSample[i] + 0.7152 * adjustSample[i + 1] + 0.0722 * adjustSample[i + 2])]++
+    }
+    return counts
+  }, [adjustSample])
+  // "Fix light" and "Fix colors" set some sliders; the rest stay as they are.
+  const autoAdjust = (fix: (data: Uint8ClampedArray) => Partial<Adjustments>) => {
+    if (adjustSample) setAdjustments({ ...adjustments, ...fix(adjustSample) })
+  }
+
   // Keeps the adjustments: as the layer's setting, or (for a selected part) in its pixels.
   function applyAdjust() {
     const d = current()
     const layer = d && activeLayer(d)
-    const settings = adjustments
+    const settings = tidyAdjustments(adjustments)
     setAdjustEdit(null)
     setComparing(false)
     if (!adjustChanged || !d || !layer) return
@@ -3085,7 +3104,15 @@ export default function App() {
             )}
             {/* The picked thing's own settings come first; the Color panel colors it from below. */}
             {adjustOn && doc ? (
-              <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
+              <AdjustPanel
+                settings={adjustments}
+                thumbnails={lookPictures}
+                histogram={adjustHistogram}
+                blocked={adjustBlocked}
+                onChange={setAdjustments}
+                onAutoLight={() => autoAdjust(autoLight)}
+                onAutoColor={() => autoAdjust(autoColor)}
+              />
             ) : (
               <ColorPanel
                 color={panelColor ?? color}
