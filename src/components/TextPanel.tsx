@@ -1,4 +1,4 @@
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Italic, Search, WrapText, type LucideIcon } from 'lucide-react'
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, Italic, Search, WrapText, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { TextStyle } from '../editor/types.ts'
 import type { FontCategory, FontInfo } from '../text/fontCatalog.ts'
@@ -468,6 +468,10 @@ export interface TextPanelProps {
   // While typing: whether the font, boldness, slant and color change just the picked words or all
   // of the text. Null when not typing.
   scope?: 'words' | 'all' | null
+  // Where the text sits when it runs on from box to box: this box's place and how many there are.
+  flow?: { box: number; boxes: number } | null
+  // Adds a box for the text to continue in. Missing while typing or with several things picked.
+  onContinue?: () => void
 }
 
 // How text looks: font, size, boldness, lining up, which way it reads and spacing.
@@ -564,24 +568,50 @@ export function TextPanel(props: TextPanelProps) {
         <ChoiceRow label={t("Line up")} value={alignShown} choices={ALIGNS} onChange={(align) => props.onStyle({ align }, t('Line up text'))} />
         {props.hasRtl && <ChoiceRow label={t("Reading direction")} value={style.direction} choices={DIRECTIONS} onChange={(direction) => props.onStyle({ direction, align: style.align === 'left' || style.align === 'right' ? 'auto' : style.align }, t('Reading direction'))} />}
 
-        <Tooltip
-          title={t("Wrap in a box")}
-          description={t("On: lines wrap at the box's width; drag the box's side handles to change it. Off: the box fits the text, and lines break only where you press Enter.")}
-          className="flex"
-        >
-          <button
-            type="button"
-            aria-label={t("Wrap in a box")}
-            aria-pressed={props.wrap}
-            onClick={() => props.onWrap(!props.wrap)}
-            className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
-              props.wrap ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
-            }`}
+        {props.flow ? (
+          <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">
+            {t('Box {box} of {boxes}. The text runs on from one box to the next: what doesn’t fit here continues in the next box.', { box: props.flow.box, boxes: props.flow.boxes })}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap gap-1">
+          {!props.flow && (
+          <Tooltip
+            title={t("Wrap in a box")}
+            description={t("On: lines wrap at the box's width; drag the box's side handles to change it. Off: the box fits the text, and lines break only where you press Enter.")}
+            className="flex"
           >
-            <WrapText size={15} />
-            {t('Wrap in a box')}
-          </button>
-        </Tooltip>
+            <button
+              type="button"
+              aria-label={t("Wrap in a box")}
+              aria-pressed={props.wrap}
+              onClick={() => props.onWrap(!props.wrap)}
+              className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
+                props.wrap ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
+              }`}
+            >
+              <WrapText size={15} />
+              {t('Wrap in a box')}
+            </button>
+          </Tooltip>
+          )}
+          {props.onContinue && (
+            <Tooltip
+              title={t('Continue in another box')}
+              description={t('Adds an empty box next to this one. Words that don’t fit here run on into it, like a story in a newspaper that goes on in the next column. Move and size each box as you like.')}
+              className="flex"
+            >
+              <button
+                type="button"
+                aria-label={t('Continue in another box')}
+                onClick={props.onContinue}
+                className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+              >
+                <Columns2 size={15} />
+                {t('Continue in another box')}
+              </button>
+            </Tooltip>
+          )}
+        </div>
 
         <button
           type="button"

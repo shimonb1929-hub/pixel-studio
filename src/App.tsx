@@ -12,7 +12,7 @@ import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocu
 import { RenameDialog } from './components/RenameDialog.tsx'
 import { ResizeDialog } from './components/ResizeDialog.tsx'
 import { PageLayoutDialog } from './components/PageLayoutDialog.tsx'
-import { hasLayout } from './editor/pageLayout.ts'
+import { defaultGap, hasLayout } from './editor/pageLayout.ts'
 import { ShapePanel, type ColorTarget } from './components/ShapePanel.tsx'
 import type { TextEditing } from './components/TextEditBox.tsx'
 import { TextPanel } from './components/TextPanel.tsx'
@@ -97,6 +97,8 @@ import type { SizePreset } from './presets.ts'
 import { DEFAULT_FONT, loadFont, nearestWeight, onFontsLoaded } from './text/fonts.ts'
 import { hasRtlLetters, resolveAlign } from './text/layout.ts'
 import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './text/presets.ts'
+import { useFontsVersion } from './hooks/useFontsVersion.ts'
+import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
 import { changeText, fitText, newTextBox, textLayout, textName } from './text/textLayer.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
@@ -1050,6 +1052,17 @@ export default function App() {
       setToolState('move')
       return
     }
+    // A box the text runs on from is never removed for being empty: the story fills it again.
+    if (original?.flow) {
+      if (sameText({ ...layer, box: original.box, wrap: original.wrap }, original)) return
+      editor.change(t('Edit text'), (d) => {
+        const next = editFlowPart(d, layer.id, layer.text, layer.spans)
+        // A look chosen for all of the text while typing goes to every box of it.
+        if (layer.style === original.style) return next
+        return storyBoxes(next, layer).reduce((doc, box) => replaceLayer(doc, { ...box, style: layer.style }), next)
+      })
+      return
+    }
     if (empty) editor.change(t('Delete text'), (d) => removeLayer(d, layer.id))
     else if (!original || !sameText(layer, original) || named.name !== original.name) editor.change(t('Edit text'), (d) => replaceLayer(d, named))
   }
@@ -1072,7 +1085,9 @@ export default function App() {
     if (layer?.kind === 'text' && (tool === 'move' || tool === 'text')) {
       // With several things picked, every text among them changes.
       const many = manyIn(d)
-      const texts = many && d ? d.layers.filter((l): l is TextLayer => many.includes(l.id) && l.kind === 'text') : [layer]
+      const chosen = many && d ? d.layers.filter((l): l is TextLayer => many.includes(l.id) && l.kind === 'text') : [layer]
+      // Boxes the text runs on through all look the same.
+      const texts = [...new Map(chosen.flatMap((l) => (d ? storyBoxes(d, l) : [l])).map((l) => [l.id, l])).values()]
       editor.change(label, (doc) => texts.reduce((next, t) => replaceLayer(next, changeText(t, { style: patch })), doc), {
         mergeKey: mergeKey && `${mergeKey}:${texts.map((t) => t.id).join()}`,
       })
@@ -1122,6 +1137,24 @@ export default function App() {
     }
     if (pickedText) editor.change(label, (d) => replaceLayer(d, changeText(pickedText, { wrap })))
   }
+
+  // An empty box after the picked text, for the words to run on into.
+  function continueInAnotherBox() {
+    const d = current()
+    if (!d || !pickedText) return
+    const gap = d.layout && d.layout.columns > 1 ? d.layout.gap : defaultGap(d.width, d.height)
+    let added: string | null = null
+    editor.change(t('Continue in another box'), (doc) => {
+      const result = continueText(doc, pickedText.id, gap)
+      added = result?.id ?? null
+      return result?.doc ?? doc
+    })
+    if (added) pickOne(added)
+  }
+
+  // Letters can change size when their font arrives, so text running on from box to box is split again.
+  const fontsVersion = useFontsVersion()
+  useEffect(() => editor.reflow(), [fontsVersion])
 
   // The font the program starts with is ready before anyone types.
   const hasDoc = !!doc
@@ -2753,6 +2786,8 @@ export default function App() {
                 onPreviewFont={previewFont}
                 onStyle={changeTextStyle}
                 onWrap={changeWrap}
+                flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
+                onContinue={pickedText && !textEdit && pickedTexts <= 1 ? continueInAnotherBox : undefined}
               />
             )}
             {shapeShown && !adjustOn && (

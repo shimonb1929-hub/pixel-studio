@@ -12,7 +12,7 @@ import { tidySpans } from '../text/spans.ts'
 import { tidyGroups } from './layers.ts'
 import { allPages, pageIndex } from './pages.ts'
 import { hasLayout } from './pageLayout.ts'
-import type { DesignPage, EditorDocument, Layer, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TextSpan, TextStyle } from './types.ts'
+import type { DesignPage, EditorDocument, Layer, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TextFlow, TextSpan, TextStyle } from './types.ts'
 import type { Gradient, GradientStop } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
 import { msg, t } from '../i18n/i18n.ts'
@@ -31,9 +31,10 @@ import { MAX_PPI } from './units.ts'
 // Version 5 added things kept together (group). Version 6 added effects (shadow, glow, outline) and
 // blend modes. Version 7 added pen paths and gradient fills. Version 8 added designs with several
 // pages (pages): then each page has its own layers, and the pictures come page by page. Version 9
-// added margins and columns (layout). Older files still open.
+// added margins and columns (layout). Version 10 added text that runs on from box to box (flow).
+// Older files still open.
 
-export const PROJECT_VERSION = 9
+export const PROJECT_VERSION = 10
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -88,6 +89,7 @@ export interface ProjectTextLayer extends ProjectLayerBase {
   style: TextStyle
   spans?: TextSpan[]
   wrap: boolean
+  flow?: TextFlow
 }
 
 export type ProjectLayer = ProjectPixelLayer | ProjectShapeLayer | ProjectTextLayer
@@ -330,6 +332,17 @@ const TEXT_ALIGNS: TextAlign[] = ['auto', 'left', 'center', 'right', 'justify']
 const TEXT_DIRECTIONS: TextDirection[] = ['auto', 'rtl', 'ltr']
 const MAX_TEXT_LENGTH = 1_000_000
 
+function readFlow(value: unknown): TextFlow {
+  if (!value || typeof value !== 'object') damaged()
+  const flow = value as Record<string, unknown>
+  const whole = (n: unknown, max: number) => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= max
+  if (typeof flow.story !== 'string' || flow.story.length > 100 || typeof flow.full !== 'string' || flow.full.length > MAX_TEXT_LENGTH) damaged()
+  const full = flow.full as string
+  if (!whole(flow.index, MAX_LAYERS) || !whole(flow.start, full.length) || !whole(flow.end, full.length) || (flow.start as number) > (flow.end as number)) damaged()
+  if (typeof flow.height !== 'number' || !Number.isFinite(flow.height) || flow.height <= 0) damaged()
+  return { story: flow.story as string, index: flow.index as number, full, start: flow.start as number, end: flow.end as number, height: flow.height as number }
+}
+
 function readTextStyle(value: unknown): TextStyle {
   if (!isRecord(value)) damaged()
   const { font, size, weight, italic, color, align, direction, letterSpacing, lineHeight } = value
@@ -395,7 +408,9 @@ function readLayer(layer: unknown): ProjectLayer {
     if (typeof layer.text !== 'string' || layer.text.length > MAX_TEXT_LENGTH || typeof layer.wrap !== 'boolean') damaged()
     const style = readTextStyle(layer.style)
     const spans = readSpans(layer.spans, style, layer.text.length)
-    return { ...base, kind: 'text', box: readBox(layer.box), text: layer.text, style, ...(spans ? { spans } : {}), wrap: layer.wrap }
+    const text: ProjectTextLayer = { ...base, kind: 'text', box: readBox(layer.box), text: layer.text, style, ...(spans ? { spans } : {}), wrap: layer.wrap }
+    if (layer.flow !== undefined) text.flow = readFlow(layer.flow)
+    return text
   }
   if (
     layer.kind !== 'raster' ||
@@ -521,7 +536,7 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
   if (layer.kind === 'raster') {
     return { ...base, kind: 'raster', x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height, box: layer.box, bytes: sizes[0] }
   }
-  if (layer.kind === 'text') return { ...base, kind: 'text', box: layer.box, text: layer.text, style: layer.style, ...(layer.spans ? { spans: layer.spans } : {}), wrap: layer.wrap }
+  if (layer.kind === 'text') return { ...base, kind: 'text', box: layer.box, text: layer.text, style: layer.style, ...(layer.spans ? { spans: layer.spans } : {}), wrap: layer.wrap, ...(layer.flow ? { flow: layer.flow } : {}) }
   const { fill } = layer
   const savedFill: ProjectFill =
     fill.kind === 'photo'
@@ -586,7 +601,7 @@ async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer>
     return { ...layerFromCanvas(name, canvas, info.x, info.y), box: info.box, visible, opacity, locked, adjust, ...extras }
   }
   if (info.kind === 'text') {
-    return { id: createId('layer'), kind: 'text', name, visible, opacity, locked, adjust, ...extras, box: info.box, text: info.text, style: info.style, ...(info.spans ? { spans: info.spans } : {}), wrap: info.wrap }
+    return { id: createId('layer'), kind: 'text', name, visible, opacity, locked, adjust, ...extras, box: info.box, text: info.text, style: info.style, ...(info.spans ? { spans: info.spans } : {}), wrap: info.wrap, ...(info.flow ? { flow: info.flow } : {}) }
   }
   const fill =
     info.fill.kind === 'photo'

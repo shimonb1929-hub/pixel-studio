@@ -40,7 +40,7 @@ function withBox(layer: Layer, box: TransformBox, scale = 1): Layer {
     const outline = layer.outline && { ...layer.outline, width: layer.outline.width * scale }
     return { ...layer, box, outline }
   }
-  if (layer.kind === 'text') return { ...layer, box, style: { ...layer.style, size: layer.style.size * scale } }
+  if (layer.kind === 'text') return { ...layer, box, style: { ...layer.style, size: layer.style.size * scale }, ...(layer.flow ? { flow: { ...layer.flow, height: layer.flow.height * scale } } : {}) }
   return { ...layer, box }
 }
 
