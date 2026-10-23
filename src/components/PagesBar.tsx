@@ -2,6 +2,7 @@ import { Ellipsis, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { drawLayer } from '../editor/compose.ts'
 import { getContext2d } from '../editor/document.ts'
+import { paintPage } from '../editor/gradient.ts'
 import { allPages, pageIndex } from '../editor/pages.ts'
 import type { DesignPage, EditorDocument } from '../editor/types.ts'
 import { Tooltip } from './Tooltip.tsx'
@@ -25,11 +26,10 @@ function PageThumb({ doc, page, revision }: { doc: EditorDocument; page: DesignP
       canvas.width = Math.round(width * dpr)
       canvas.height = Math.round(height * dpr)
       const ctx = getContext2d(canvas)
-      ctx.fillStyle = page.background ?? '#ffffff'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
       ctx.imageSmoothingQuality = 'high'
       const s = canvas.width / doc.width
       ctx.setTransform(s, 0, 0, s, 0, 0)
+      paintPage(ctx, page, doc.width, doc.height, undefined, '#ffffff')
       for (const layer of page.layers) {
         if (!layer.visible || layer.opacity <= 0) continue
         ctx.globalAlpha = layer.opacity

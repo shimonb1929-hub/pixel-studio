@@ -21,6 +21,8 @@ import { ScrollRegion } from './components/ui.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { DesignInfo, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
+import { PagePanel } from './components/PagePanel.tsx'
+import { GradientHandles } from './components/GradientHandles.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
 import { effectThumbnails, flattenDocument } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
@@ -139,7 +141,7 @@ let nextLayerListId = 1
 function pictureKey(d: EditorDocument, width: number, height: number): string {
   let list = layerListIds.get(d.layers)
   if (!list) layerListIds.set(d.layers, (list = nextLayerListId++))
-  return `${d.id}:${list}:${d.background}:${width}x${height}:${d.layers.map(layerVersion).join(',')}`
+  return `${d.id}:${list}:${d.background}:${JSON.stringify(d.pageGradient ?? null)}:${width}x${height}:${d.layers.map(layerVersion).join(',')}`
 }
 // A number that stands for one picture's pixels, so the AI knows when it's the same photo.
 const canvasIds = new WeakMap<HTMLCanvasElement, number>()
@@ -660,6 +662,22 @@ export default function App() {
     changeShape(label, () => ({ fill: { kind: 'gradient', gradient } }), (d) => ({ ...d, gradient }), mergeKey ?? `shape-gradient-${label}`)
   }
 
+  // The page's gradient. Its first color is also kept as the page's color.
+  function changePageGradient(gradient: Gradient, label: string, mergeKey?: string) {
+    editor.change(label, (d) => ({ ...d, background: gradient.stops[0].color, pageGradient: gradient }), { mergeKey: mergeKey ?? `page-gradient-${label}` })
+  }
+
+  function changePageFillKind(kind: 'color' | 'gradient') {
+    const d = current()
+    if (!d || (kind === 'gradient') === !!(d.background && d.pageGradient)) return
+    if (kind === 'gradient') {
+      setGradientStop(0)
+      changePageGradient(gradientFrom(d.background ?? '#ffffff'), t('Page gradient'))
+    } else {
+      editor.change(t('Page color'), (doc) => ({ ...doc, background: doc.background ?? '#ffffff', pageGradient: null }))
+    }
+  }
+
   function changeFillKind(kind: 'color' | 'gradient') {
     if (!shapeShown || shapeShown.fill.kind === kind) return
     const fill = shapeShown.fill
@@ -1116,7 +1134,10 @@ export default function App() {
   }
 
   function fitted(next: { width: number; height: number }, allowUpscale = true): Viewport {
-    return fitViewport(next.width, next.height, workspace.width, workspace.height, { allowUpscale, padding: FIT_PADDING })
+    // The newest size, even when called after waiting (opening a file), when `workspace` from
+    // back then may be out of date.
+    const area = lastWorkspaceRef.current
+    return fitViewport(next.width, next.height, area.width, area.height, { allowUpscale, padding: FIT_PADDING })
   }
 
   // `stored` means the design is already kept in this browser (it was opened from Your designs).
@@ -1132,10 +1153,16 @@ export default function App() {
 
   // Before leaving the open design, its latest changes are saved in the browser. If that doesn't
   // work and they haven't been downloaded either, it asks first.
+  const leaveTicketRef = useRef(0)
   async function leaveDesign(action: () => void) {
     // Stay put rather than lose a resize that couldn't be applied.
     if (!settle()) return
-    if ((await autosave.flush()) || !editor.isDirty) {
+    // Saving takes a moment. If something else was asked for meanwhile (closing, then opening a
+    // file), only the newest one happens, so a late "close" never closes the design just opened.
+    const ticket = ++leaveTicketRef.current
+    const saved = await autosave.flush()
+    if (ticket !== leaveTicketRef.current) return
+    if (saved || !editor.isDirty) {
       action()
     } else {
       pendingDiscardRef.current = action
@@ -1722,7 +1749,7 @@ export default function App() {
       setTool('move')
     },
     seeThrough: (seeThrough: boolean) =>
-      editor.change(seeThrough ? t('See-through page') : t('Page color'), (d) => ({ ...d, background: seeThrough ? null : '#ffffff' })),
+      editor.change(seeThrough ? t('See-through page') : t('Page color'), (d) => ({ ...d, background: seeThrough ? null : '#ffffff', pageGradient: null })),
     rename: (layerId: string, name: string) => editor.change(t('Rename layer'), (d) => updateLayer(d, layerId, { name })),
     // Changes the opacity of everything picked together with the layer.
     opacity: (layerId: string, opacity: number) => {
@@ -2400,7 +2427,20 @@ export default function App() {
   // With several things picked, it colors every shape and text among them.
   const manyColored = picked && doc && !textEdit ? [...doc.layers].reverse().filter((l) => picked.includes(l.id) && (l.kind === 'shape' || l.kind === 'text')) : []
   const manyColor = manyColored.length > 0 ? colorOfThing(manyColored[0], shapeTarget, color) : null
-  const panelColor = effectColorShown ?? textColor ?? shapeColor ?? manyColor ?? (pageColorOn ? (doc?.background ?? '#ffffff') : null)
+  const pageGradient = pageColorOn && doc?.background ? (doc.pageGradient ?? null) : null
+  const pageShownColor = pageGradient ? pageGradient.stops[Math.min(gradientStop, pageGradient.stops.length - 1)].color : (doc?.background ?? '#ffffff')
+  // Dots on the design for turning a straight gradient: on the picked shape, or on the picked page.
+  const gradientHandles = ((): { box: TransformBox; gradient: Gradient; onChange: typeof changeGradient } | null => {
+    if (!doc || tool !== 'move' || textEdit || transformChanged || adjustOn) return null
+    if (editingShape && !(picked && picked.length > 1) && editingShape.fill.kind === 'gradient' && editingShape.fill.gradient.type === 'linear' && !isLineShape(editingShape.geometry)) {
+      return { box: editingShape.box, gradient: editingShape.fill.gradient, onChange: changeGradient }
+    }
+    if (pageGradient && pageGradient.type === 'linear') {
+      return { box: { cx: doc.width / 2, cy: doc.height / 2, width: doc.width, height: doc.height, rotation: 0 }, gradient: pageGradient, onChange: changePageGradient }
+    }
+    return null
+  })()
+  const panelColor = effectColorShown ?? textColor ?? shapeColor ?? manyColor ?? (pageColorOn ? pageShownColor : null)
   const onPanelColor =
     effectColorShown !== null
       ? colorEffect
@@ -2416,7 +2456,10 @@ export default function App() {
         : pageColorOn
           ? (hex: string) => {
               rememberColor(hex)
-              editor.change(t('Page color'), (d) => ({ ...d, background: hex }), { mergeKey: 'page-color' })
+              if (pageGradient) {
+                const index = Math.min(gradientStop, pageGradient.stops.length - 1)
+                changePageGradient({ ...pageGradient, stops: pageGradient.stops.map((s, i) => (i === index ? { ...s, color: hex } : s)) }, t('Gradient color'), `page-gradient-color-${index}`)
+              } else editor.change(t('Page color'), (d) => ({ ...d, background: hex }), { mergeKey: 'page-color' })
             }
           : setColor
 
@@ -2554,6 +2597,7 @@ export default function App() {
                 textEditing={textEditing}
                 onEditText={editText}
               />
+              {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
               {doc.layers.length === 0 && tool === 'move' && !textEdit ? (
                 <StartHere
                   onAddWords={() => addText('heading')}
@@ -2623,6 +2667,15 @@ export default function App() {
                 onFont={(id) => void changeFont(id)}
                 onStyle={changeTextStyle}
                 onWrap={changeWrap}
+              />
+            )}
+            {pageColorOn && !adjustOn && doc && (
+              <PagePanel
+                gradient={pageGradient}
+                onFillKind={changePageFillKind}
+                onGradient={changePageGradient}
+                gradientStop={gradientStop}
+                onGradientStop={setGradientStop}
               />
             )}
             {shapeShown && !adjustOn && (

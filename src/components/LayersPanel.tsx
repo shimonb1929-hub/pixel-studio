@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleHelp, Copy, Eye, E
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { adjustmentName, isNeutral } from '../editor/adjust.ts'
 import { drawLayer } from '../editor/compose.ts'
+import { cssPage } from '../editor/gradient.ts'
 import { activeLayer } from '../editor/layers.ts'
 import type { EditorDocument, Layer, LayerGroup } from '../editor/types.ts'
 import { Tooltip, type TipContent } from './Tooltip.tsx'
@@ -381,7 +382,7 @@ export function LayersPanel(props: LayersPanelProps) {
                 onClick={props.onPickPage}
                 className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 ps-2 text-start text-[13px] text-ink"
               >
-                <span aria-hidden className="h-10 w-10 shrink-0 rounded-md border border-line" style={{ background: doc.background ?? SEE_THROUGH }} />
+                <span aria-hidden className="h-10 w-10 shrink-0 rounded-md border border-line" style={{ background: cssPage(doc) ?? SEE_THROUGH }} />
                 <span className="min-w-0 flex-1 truncate">{t('Page')}</span>
               </button>
             </Tooltip>

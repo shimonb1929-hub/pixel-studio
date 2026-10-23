@@ -15,7 +15,7 @@ export function pageIndex(doc: EditorDocument): number {
 
 function openPage(doc: EditorDocument): DesignPage {
   const id = doc.pages?.[pageIndex(doc)]?.id ?? `${doc.id}-page`
-  return { id, background: doc.background, layers: doc.layers, activeLayerId: doc.activeLayerId }
+  return { id, background: doc.background, pageGradient: doc.pageGradient ?? null, layers: doc.layers, activeLayerId: doc.activeLayerId }
 }
 
 // Every page as it is now, in order.
@@ -29,7 +29,7 @@ export function allPages(doc: EditorDocument): DesignPage[] {
 function withPages(doc: EditorDocument, pages: DesignPage[], index: number): EditorDocument {
   const page = pages[index]
   // A selection belongs to the page it was made on.
-  const next: EditorDocument = { ...doc, background: page.background, layers: page.layers, activeLayerId: page.activeLayerId, selection: null }
+  const next: EditorDocument = { ...doc, background: page.background, pageGradient: page.pageGradient ?? null, layers: page.layers, activeLayerId: page.activeLayerId, selection: null }
   if (pages.length === 1) {
     delete next.pages
     delete next.pageIndex
@@ -49,7 +49,7 @@ export function addPage(doc: EditorDocument, copy = false): EditorDocument {
   const pages = allPages(doc)
   const index = pageIndex(doc)
   const current = pages[index]
-  let page: DesignPage = { id: createId('page'), background: current.background, layers: [], activeLayerId: '' }
+  let page: DesignPage = { id: createId('page'), background: current.background, pageGradient: current.pageGradient ?? null, layers: [], activeLayerId: '' }
   if (copy) {
     // Copies keep their names; pixels are copied, since painting changes them in place.
     const layers = current.layers.map((layer) => ({ ...duplicateLayer(layer), name: layer.name, locked: layer.locked }))
@@ -83,11 +83,11 @@ export function movePage(doc: EditorDocument, direction: 1 | -1): EditorDocument
 export function changeEveryPage(doc: EditorDocument, update: (page: EditorDocument) => EditorDocument): EditorDocument {
   if (!doc.pages) return update(doc)
   const index = pageIndex(doc)
-  const single = (page: DesignPage): EditorDocument => ({ ...doc, pages: undefined, pageIndex: undefined, background: page.background, layers: page.layers, activeLayerId: page.activeLayerId, selection: null })
+  const single = (page: DesignPage): EditorDocument => ({ ...doc, pages: undefined, pageIndex: undefined, background: page.background, pageGradient: page.pageGradient ?? null, layers: page.layers, activeLayerId: page.activeLayerId, selection: null })
   const results = allPages(doc).map((page, i) => update(i === index ? { ...single(page), selection: doc.selection } : single(page)))
-  const pages = results.map((r, i): DesignPage => ({ id: doc.pages![i].id, background: r.background, layers: r.layers, activeLayerId: r.activeLayerId }))
+  const pages = results.map((r, i): DesignPage => ({ id: doc.pages![i].id, background: r.background, pageGradient: r.pageGradient ?? null, layers: r.layers, activeLayerId: r.activeLayerId }))
   const open = results[index]
-  return { ...doc, width: open.width, height: open.height, selection: open.selection, background: open.background, layers: open.layers, activeLayerId: open.activeLayerId, pages, pageIndex: index }
+  return { ...doc, width: open.width, height: open.height, selection: open.selection, background: open.background, pageGradient: open.pageGradient ?? null, layers: open.layers, activeLayerId: open.activeLayerId, pages, pageIndex: index }
 }
 
 // The page holding a layer, or -1.
@@ -97,5 +97,5 @@ export function pageOfLayer(doc: EditorDocument, layerId: string): number {
 
 // Each page as a one-page design, for downloads and previews.
 export function pageDocuments(doc: EditorDocument): EditorDocument[] {
-  return allPages(doc).map((page) => ({ ...doc, pages: undefined, pageIndex: undefined, background: page.background, layers: page.layers, activeLayerId: page.activeLayerId, selection: null }))
+  return allPages(doc).map((page) => ({ ...doc, pages: undefined, pageIndex: undefined, background: page.background, pageGradient: page.pageGradient ?? null, layers: page.layers, activeLayerId: page.activeLayerId, selection: null }))
 }

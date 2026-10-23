@@ -5,6 +5,7 @@ import { drawWithEffects, effectsReach, type DrawOptions, type LayerEffects } fr
 import { drawLayerContent, layerBounds, layerPixels } from './objects.ts'
 import { layerVersion } from './pixelVersion.ts'
 import type { EditorDocument, Layer } from './types.ts'
+import { paintPage } from './gradient.ts'
 
 // Putting the design together at full detail: for downloads, previews, the fill bucket and the
 // color picker.
@@ -52,11 +53,7 @@ export function drawLayer(ctx: CanvasRenderingContext2D, doc: EditorDocument, la
 export function flattenDocument(doc: EditorDocument, seeThroughColor?: string): HTMLCanvasElement {
   const canvas = createCanvas(doc.width, doc.height)
   const ctx = getContext2d(canvas)
-  const page = doc.background ?? seeThroughColor
-  if (page) {
-    ctx.fillStyle = page
-    ctx.fillRect(0, 0, doc.width, doc.height)
-  }
+  paintPage(ctx, doc, doc.width, doc.height, undefined, seeThroughColor)
   for (const layer of doc.layers) {
     if (!layer.visible || layer.opacity <= 0) continue
     ctx.globalAlpha = layer.opacity
@@ -83,12 +80,9 @@ export function effectThumbnails(doc: EditorDocument, layer: Layer, looks: Layer
   return looks.map((effects) => {
     const canvas = createCanvas(width, height)
     const ctx = getContext2d(canvas)
-    if (doc.background) {
-      ctx.fillStyle = doc.background
-      ctx.fillRect(0, 0, width, height)
-    }
     ctx.imageSmoothingQuality = 'high'
     ctx.setTransform(scale, 0, 0, scale, -area.x * scale, -area.y * scale)
+    paintPage(ctx, doc, doc.width, doc.height, area)
     drawLayer(ctx, doc, { ...base, effects }, { blend: false })
     return canvas
   })

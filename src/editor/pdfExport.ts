@@ -1,6 +1,7 @@
 import { t } from '../i18n/i18n.ts'
 import { drawLayer } from './compose.ts'
 import { createCanvas, getContext2d } from './document.ts'
+import { paintPage } from './gradient.ts'
 import { placeText } from '../text/textLayer.ts'
 import { buildPdf, type PdfImage, type PdfPage, type PdfTextLine } from './pdf.ts'
 import { pageDocuments } from './pages.ts'
@@ -17,10 +18,9 @@ function drawStrip(doc: EditorDocument, layout: PdfLayout, top: number, height: 
   const canvas = createCanvas(layout.imageWidth, height)
   const ctx = getContext2d(canvas)
   // PDFs print on paper, so a see-through page comes out white.
-  ctx.fillStyle = doc.background ?? '#ffffff'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
   const { scale, area } = layout
   ctx.setTransform(scale, 0, 0, scale, -area.x * scale, -area.y * scale - top)
+  paintPage(ctx, doc, doc.width, doc.height, { x: area.x, y: area.y + top / scale, width: canvas.width / scale, height: canvas.height / scale }, '#ffffff')
   ctx.imageSmoothingQuality = 'high'
   for (const layer of doc.layers) {
     if (!layer.visible || layer.opacity <= 0) continue

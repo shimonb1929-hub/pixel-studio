@@ -6,6 +6,7 @@ import { drawLayerContent, layerBounds, layerPixels } from './objects.ts'
 import { layerVersion } from './pixelVersion.ts'
 import { applyAffine, type Affine } from './transform.ts'
 import type { EditorDocument, Layer, Viewport } from './types.ts'
+import { paintPage } from './gradient.ts'
 
 export const WORKSPACE_COLOR = '#e7e9ee'
 
@@ -180,8 +181,11 @@ export function renderScene(
   }
 
   if (doc.background) {
-    ctx.fillStyle = doc.background
-    ctx.fillRect(left, top, width, height)
+    ctx.save()
+    ctx.translate(left, top)
+    ctx.scale(width / doc.width, height / doc.height)
+    paintPage(ctx, doc, doc.width, doc.height)
+    ctx.restore()
   }
 
   // Layers that mix with what's below need something real below them: on a see-through page they

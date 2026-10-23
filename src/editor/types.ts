@@ -129,6 +129,7 @@ export type Layer = PixelLayer | ShapeLayer | TextLayer
 export interface DesignPage {
   id: string
   background: string | null
+  pageGradient?: Gradient | null
   // Bottom layer first.
   layers: Layer[]
   activeLayerId: string
@@ -141,6 +142,9 @@ export interface EditorDocument {
   height: number
   // The color of the page under everything, or null for a see-through page.
   background: string | null
+  // Colors fading across the whole page instead of one color. Only used when `background` is set
+  // (which keeps the gradient's first color). Missing means a plain color.
+  pageGradient?: Gradient | null
   // Bottom layer first, top layer last.
   layers: Layer[]
   // The layer that painting and layer actions apply to. Empty when the page itself is picked.

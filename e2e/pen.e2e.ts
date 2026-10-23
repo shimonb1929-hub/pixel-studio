@@ -181,6 +181,8 @@ test('drawn shapes and gradients come back from a project file', async ({ page }
   const bytes = readFileSync((await download.path())!)
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Close design' }).click()
+  // The design takes a moment to close; opening the file before then would race it.
+  await expect(page.getByRole('main').locator('canvas')).toHaveCount(0)
   await page.locator('input[type=file]').setInputFiles({ name: 'My design 1.pixel', mimeType: '', buffer: bytes })
   await expect.poll(() => layerNames(page)).toEqual(['Drawn shape 1'])
   expect(await designPixel(page, size, 200, 100)).toEqual(before)

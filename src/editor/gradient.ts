@@ -166,3 +166,40 @@ export function sameGradient(a: Gradient, b: Gradient): boolean {
     a.stops.every((s, i) => s.at === b.stops[i].at && s.color.toLowerCase() === b.stops[i].color.toLowerCase() && s.opacity === b.stops[i].opacity)
   )
 }
+
+// What a page is filled with: one color, or a gradient across it. Null background is see-through.
+export interface PageFill {
+  background: string | null
+  pageGradient?: Gradient | null
+}
+
+// Fills `rect` (in design pixels, under the context's current transform) with the page of a
+// width × height design. A gradient is laid out across the page, and its end colors carry on past
+// the page's edges (for printing with bleed).
+export function paintPage(
+  ctx: CanvasRenderingContext2D,
+  page: PageFill,
+  width: number,
+  height: number,
+  rect = { x: 0, y: 0, width, height },
+  fallback?: string,
+): void {
+  if (page.background && page.pageGradient) {
+    ctx.save()
+    ctx.translate(width / 2, height / 2)
+    ctx.fillStyle = canvasGradient(ctx, page.pageGradient, width, height)
+    ctx.fillRect(rect.x - width / 2, rect.y - height / 2, rect.width, rect.height)
+    ctx.restore()
+    return
+  }
+  const color = page.background ?? fallback
+  if (!color) return
+  ctx.fillStyle = color
+  ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
+}
+
+// The page as CSS, for small swatches of it.
+export function cssPage(page: PageFill): string | null {
+  if (!page.background) return null
+  return page.pageGradient ? cssGradient(page.pageGradient) : page.background
+}

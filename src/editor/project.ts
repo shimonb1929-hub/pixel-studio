@@ -11,7 +11,7 @@ import { loadDesignFonts } from '../text/textLayer.ts'
 import { tidyGroups } from './layers.ts'
 import { allPages, pageIndex } from './pages.ts'
 import type { DesignPage, EditorDocument, Layer, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, TextStyle } from './types.ts'
-import type { Gradient, GradientStop } from './gradient.ts'
+import { paintPage, type Gradient, type GradientStop } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
 import { msg, t } from '../i18n/i18n.ts'
 import { MAX_PPI } from './units.ts'
@@ -103,6 +103,7 @@ export interface ProjectManifest {
   height: number
   // The page's color, or null when it's see-through. Older files had a layer for it instead.
   background: string | null
+  pageGradient?: Gradient
   // Pixels per inch on paper. Older files don't have it.
   ppi?: number
   // Which layer was selected, counted from the bottom; -1 when the page was picked.
@@ -118,13 +119,15 @@ export interface ProjectManifest {
 
 export interface ProjectPage {
   background: string | null
+  // Colors fading across the page instead of one color. Older files don't have it.
+  pageGradient?: Gradient
   activeLayer: number
   layers: ProjectLayer[]
 }
 
 // Every page in a project, also for one-page files.
 function manifestPages(manifest: ProjectManifest): ProjectPage[] {
-  return manifest.pages ?? [{ background: manifest.background, activeLayer: manifest.activeLayer, layers: manifest.layers }]
+  return manifest.pages ?? [{ background: manifest.background, pageGradient: manifest.pageGradient, activeLayer: manifest.activeLayer, layers: manifest.layers }]
 }
 
 // A problem with the file itself, explained in plain words.
@@ -428,11 +431,12 @@ export function validateManifest(value: unknown): ProjectManifest {
 }
 
 function readPage(value: Record<string, unknown>): ProjectPage {
-  const { activeLayer, layers, background } = value
+  const { activeLayer, layers, background, pageGradient } = value
   if (!Array.isArray(layers) || layers.length > MAX_LAYERS) damaged()
   const checked = layers.map(readLayer)
   if (!isWhole(activeLayer, -1, checked.length - 1)) damaged()
-  return { background: background === undefined || background === null ? null : readColor(background), activeLayer, layers: checked }
+  const color = background === undefined || background === null ? null : readColor(background)
+  return { background: color, ...(color && pageGradient !== undefined ? { pageGradient: readGradient(pageGradient) } : {}), activeLayer, layers: checked }
 }
 
 // Encoding a big picture takes a moment, so each PNG is kept until its pixels change.
@@ -491,6 +495,7 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
   const pictures = await Promise.all(pages.map((page) => Promise.all(page.layers.map((layer) => Promise.all(layerPictures(layer).map(canvasPng))))))
   const described = pages.map((page, p): ProjectPage => ({
     background: page.background,
+    ...(page.background && page.pageGradient ? { pageGradient: page.pageGradient } : {}),
     activeLayer: page.layers.findIndex((layer) => layer.id === page.activeLayerId),
     layers: page.layers.map((layer, i) => describeLayer(layer, pictures[p][i].map((png) => png.size))),
   }))
@@ -500,7 +505,7 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
     name: doc.name,
     width: doc.width,
     height: doc.height,
-    ...(several ? { background: doc.background, activeLayer: -1, layers: [] } : described[0]),
+    ...(several ? { background: doc.background, ...(described[pageIndex(doc)].pageGradient ? { pageGradient: described[pageIndex(doc)].pageGradient } : {}), activeLayer: -1, layers: [] } : described[0]),
     ...(doc.ppi ? { ppi: doc.ppi } : {}),
     selection: doc.selection,
     ...(several ? { pages: described, page: pageIndex(doc) } : {}),
@@ -572,7 +577,7 @@ export async function decodeProject(file: Blob, id = createDesignId()): Promise<
         return { ...layer, group: { id: groupIds.get(layer.group.id)!, name: layer.group.name } }
       })
       const tidy = tidyGroups({ id, name: '', width: 1, height: 1, background: null, layers: regrouped, activeLayerId: regrouped[info.activeLayer]?.id ?? '', selection: null })
-      return { id: createId('page'), background: info.background, layers: tidy.layers, activeLayerId: tidy.activeLayerId }
+      return { id: createId('page'), background: info.background, pageGradient: info.pageGradient ?? null, layers: tidy.layers, activeLayerId: tidy.activeLayerId }
     }),
   )
   const index = manifest.page ?? 0
@@ -583,6 +588,7 @@ export async function decodeProject(file: Blob, id = createDesignId()): Promise<
     width: manifest.width,
     height: manifest.height,
     background: open.background,
+    pageGradient: open.pageGradient ?? null,
     ...(manifest.ppi ? { ppi: manifest.ppi } : {}),
     layers: open.layers,
     activeLayerId: open.activeLayerId,
@@ -599,10 +605,7 @@ export async function designThumbnail(doc: EditorDocument, maxSide = 320): Promi
   const ctx = getContext2d(canvas)
   ctx.imageSmoothingQuality = 'high'
   ctx.scale(scale, scale)
-  if (doc.background) {
-    ctx.fillStyle = doc.background
-    ctx.fillRect(0, 0, doc.width, doc.height)
-  }
+  paintPage(ctx, doc, doc.width, doc.height)
   for (const layer of doc.layers) {
     if (!layer.visible || layer.opacity <= 0) continue
     ctx.globalAlpha = layer.opacity
