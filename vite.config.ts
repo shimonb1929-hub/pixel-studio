@@ -38,4 +38,7 @@ export default defineConfig({
   // Relative paths, so the site works at any address (its own domain or a folder of one).
   base: './',
   plugins: [react(), tailwindcss(), offlineHelper()],
+  // The AI library is only used inside a worker, which the dev server doesn't look into ahead of
+  // time. Without this, the first AI use prepares it late and reloads every open page.
+  optimizeDeps: { include: ['@huggingface/transformers'] },
 })
