@@ -221,7 +221,7 @@ export function LayersPanel(props: LayersPanelProps) {
       {!doc ? (
         <p className="px-4 text-[13px] leading-relaxed text-ink-3">{t("Your design's layers will show up here.")}</p>
       ) : (
-        <ul aria-label={t("Layer list")} className="min-h-[104px] flex-1 overflow-y-auto px-2">
+        <ul aria-label={t("Layer list")} className="min-h-[104px] flex-1 overflow-y-auto px-2 [@media(max-height:820px)]:min-h-14">
           {rows.map((row) => {
             if (row.kind === 'group') {
               const { group, members } = row
