@@ -97,6 +97,7 @@ import { DEFAULT_FONT, loadFont, nearestWeight, onFontsLoaded } from './text/fon
 import { hasRtlLetters, resolveAlign } from './text/layout.ts'
 import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './text/presets.ts'
 import { useFontsVersion } from './hooks/useFontsVersion.ts'
+import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
 import { changeText, fitText, newTextBox, textLayout, textName } from './text/textLayer.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
@@ -2116,6 +2117,28 @@ export default function App() {
       if (!d) return
       editor.change(t('Copy page'), (doc) => addPage(doc, true), { bytes: documentBytes(d) })
     },
+    everyPage: () => {
+      settle()
+      const d = current()
+      const active = d && activeLayer(d)
+      if (!d || !active) return
+      const on = !active.everyPage
+      editor.change(on ? t('Show on every page') : t('Only on this page'), (doc) => setOnEveryPage(doc, targets(), on))
+      inform(on ? t('It’s on every page now. Change it on any page and it changes on all of them.') : t('It’s on this page only now.'))
+    },
+    pageNumbers: () => {
+      settle()
+      const d = current()
+      if (!d || hasPageNumbers(d)) return
+      const style: TextStyle = { ...newTextStyle(d), size: textSizeFor(d.width, d.height, 0.03), align: 'center' }
+      const margin = d.layout?.margin ?? 0
+      const y = margin > style.size * 2 ? d.height - margin / 2 : d.height - style.size * 1.5
+      const fitted = fitText(textObject(style, newTextBox({ x: d.width / 2, y }, style), '1', false))
+      const layer: TextLayer = { ...fitted, name: t('Page number'), pageNumber: true, everyPage: createId('every'), box: { ...fitted.box, cx: d.width / 2, cy: y } }
+      editor.change(t('Add page numbers'), (doc) => ({ ...insertLayerAboveActive(doc, layer), selection: null }))
+      setTool('move')
+      inform(t('Page numbers are on every page. Move one or change its look, and all of them follow.'))
+    },
     deletePage: () => {
       settle()
       editor.change(t('Delete page'), (d) => removePage(d))
@@ -2706,6 +2729,12 @@ export default function App() {
                 onCopy={commands.copyPage}
                 onMove={commands.movePage}
                 onDelete={commands.deletePage}
+                everyPage={{
+                  label: activeLayer(doc)?.everyPage ? t('Only on this page') : t('Show on every page'),
+                  disabled: !activeLayer(doc) || !canBeOnEveryPage(activeLayer(doc)!),
+                  run: commands.everyPage,
+                }}
+                pageNumbers={{ disabled: hasPageNumbers(doc), run: commands.pageNumbers }}
               />
             </>
           ) : (
@@ -2749,7 +2778,7 @@ export default function App() {
                 onStyle={changeTextStyle}
                 onWrap={changeWrap}
                 flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
-                onContinue={pickedText && !textEdit && pickedTexts <= 1 ? continueInAnotherBox : undefined}
+                onContinue={pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 ? continueInAnotherBox : undefined}
               />
             )}
             {shapeShown && !adjustOn && (
@@ -2828,6 +2857,7 @@ export default function App() {
             onToggleVisibility={layers.toggleVisibility}
             onToggleLock={layers.toggleLock}
             onEditAdjust={layers.editAdjust}
+            onOnlyThisPage={(id) => editor.change(t('Only on this page'), (d) => setOnEveryPage(d, [id], false))}
             onRename={layers.rename}
             onOpacity={layers.opacity}
             onAdd={layers.add}
