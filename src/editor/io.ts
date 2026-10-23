@@ -3,6 +3,7 @@ import { flattenDocument } from './compose.ts'
 import { createCanvas, createDocumentFromImage, getContext2d, MAX_DOCUMENT_SIDE } from './document.ts'
 import { EXPORT_FORMATS, type ExportFormat } from './fileNames.ts'
 import { exportPdf } from './pdfExport.ts'
+import { exportSvg } from './svgExport.ts'
 import type { PdfSettings } from './pdfLayout.ts'
 import { decodeProject, encodeProject, isProjectFile } from './project.ts'
 import type { EditorDocument } from './types.ts'
@@ -78,6 +79,7 @@ export async function exportDocument(doc: EditorDocument, format: ExportFormat, 
   if (format === 'project') return encodeProject(doc)
   await loadDesignFonts(doc)
   if (format === 'pdf') return exportPdf(doc, pdf ?? { purpose: 'print', widthInches: 0, bleed: false, cropMarks: false })
+  if (format === 'svg') return exportSvg(doc)
   // JPG has no transparency, so see-through areas become white instead of black.
   const canvas = flattenDocument(doc, format === 'jpeg' ? '#ffffff' : undefined)
   return new Promise((resolve, reject) => {

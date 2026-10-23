@@ -96,9 +96,13 @@ export function fillRule(geometry: ShapeGeometry): CanvasFillRule {
   return geometry.parts?.length ? 'evenodd' : 'nonzero'
 }
 
+// What a shape's outline can be traced into: a canvas path, or the words of an SVG path.
+export type PathSink = Pick<Path2D, 'moveTo' | 'lineTo' | 'bezierCurveTo' | 'closePath' | 'roundRect' | 'ellipse'>
+
 // The outline of a shape, centered on 0, 0, unturned and unflipped.
-export function shapePath(geometry: ShapeGeometry, w: number, h: number, outlineWidth = 0): Path2D {
-  const path = new Path2D()
+export function shapePath(geometry: ShapeGeometry, w: number, h: number, outlineWidth?: number): Path2D
+export function shapePath<T extends PathSink>(geometry: ShapeGeometry, w: number, h: number, outlineWidth: number, path: T): T
+export function shapePath(geometry: ShapeGeometry, w: number, h: number, outlineWidth = 0, path: PathSink = new Path2D()): PathSink {
   if (geometry.type === 'rectangle') {
     path.roundRect(-w / 2, -h / 2, w, h, (geometry.corners * Math.min(w, h)) / 2)
   } else if (geometry.type === 'ellipse') {

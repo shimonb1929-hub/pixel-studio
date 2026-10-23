@@ -2000,6 +2000,12 @@ export default function App() {
       setExportFormat('pdf')
       setDialog('export')
     },
+    downloadSvg: () => {
+      settle()
+      if (!current()) return
+      setExportFormat('svg')
+      setDialog('export')
+    },
     renameDesign: () => {
       if (current()) setDialog('rename')
     },

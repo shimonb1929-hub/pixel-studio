@@ -114,7 +114,7 @@ export function textReach(layer: TextLayer): number {
 
 // How far the lines sit from the box's left edge. Normally none; if a font arrived after the box
 // was fitted, the text keeps its place by its lined-up side.
-function lineShift(layer: TextLayer, layout: TextLayout): number {
+export function lineShift(layer: TextLayer, layout: TextLayout): number {
   if (layer.wrap) return 0
   const w = Math.abs(layer.box.width)
   const align = resolveAlign(layer.style.align, layout.direction)

@@ -1,11 +1,12 @@
 import { live, msg, t } from '../i18n/i18n.ts'
 // 'project' keeps every layer, so the design can be opened again in Pixel Studio.
-export type ExportFormat = 'png' | 'jpeg' | 'pdf' | 'project'
+export type ExportFormat = 'png' | 'jpeg' | 'pdf' | 'svg' | 'project'
 
 export const EXPORT_FORMATS: Record<ExportFormat, { label: string; mime: string; extension: string }> = live({
   png: { label: 'PNG', mime: 'image/png', extension: 'png' },
   jpeg: { label: 'JPG', mime: 'image/jpeg', extension: 'jpg' },
   pdf: { label: 'PDF', mime: 'application/pdf', extension: 'pdf' },
+  svg: { label: 'SVG', mime: 'image/svg+xml', extension: 'svg' },
   project: { label: msg('Project'), mime: 'application/x-pixel-studio', extension: 'pixel' },
 })
 

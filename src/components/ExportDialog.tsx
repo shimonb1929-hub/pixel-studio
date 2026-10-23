@@ -43,6 +43,13 @@ const FORMATS: { value: ExportFormat; label: string; detail: string; description
       msg('A page that opens the same everywhere and is ready to print or send. Text stays sharp and can be searched and copied, and Hebrew and Yiddish read right to left just as you see them.'),
   },
   {
+    value: 'svg',
+    label: msg('Sharp at any size'),
+    detail: 'SVG',
+    description:
+      msg('Shapes and words stay sharp however big it gets, and can be changed in other design programs. Good for logos, icons and websites. Photos come along as they are.'),
+  },
+  {
     value: 'project',
     label: msg('Project'),
     detail: msg('Keep editing'),

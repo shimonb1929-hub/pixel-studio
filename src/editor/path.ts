@@ -91,7 +91,7 @@ export function mapPath(path: ShapePath, map: (p: Point) => Point): ShapePath {
 }
 
 // Adds the path to a canvas path. `trimEnd` (0 to 1) stops the last curve early, for arrow heads.
-export function tracePath(target: Path2D | CanvasRenderingContext2D, path: ShapePath, trimEnd = 1): void {
+export function tracePath(target: Pick<Path2D, 'moveTo' | 'lineTo' | 'bezierCurveTo' | 'closePath'>, path: ShapePath, trimEnd = 1): void {
   const { nodes } = path
   if (nodes.length === 0) return
   target.moveTo(nodes[0].x, nodes[0].y)

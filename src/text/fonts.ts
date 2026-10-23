@@ -20,7 +20,7 @@ export function fontName(id: string): string {
 
 // The name a font has inside the program, so a copy installed on the computer is never used
 // instead (it could be a different version, with different letter widths).
-function familyName(id: string): string {
+export function familyName(id: string): string {
   return `ps-${id}`
 }
 
@@ -33,9 +33,13 @@ export interface FontChoice {
 
 // The font list: the chosen font, then stand-ins for letters it doesn't have.
 export function fontStack(id: string): string {
+  return [...fontStackIds(id).map((f) => `"${familyName(f)}"`), 'sans-serif'].join(', ')
+}
+
+// The fonts in a font's list that come with Pixel Studio, in order.
+export function fontStackIds(id: string): string[] {
   const ids = [id, ...[LATIN_FALLBACK, HEBREW_FALLBACK].filter((f) => f !== id && byId.has(f))]
-  const known = ids.filter((f) => byId.has(f))
-  return [...known.map((f) => `"${familyName(f)}"`), 'sans-serif'].join(', ')
+  return ids.filter((f) => byId.has(f))
 }
 
 // A CSS font for canvas and the typing box.

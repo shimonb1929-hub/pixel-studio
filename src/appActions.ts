@@ -20,6 +20,7 @@ export interface AppCommands {
   download: () => void
   downloadProject: () => void
   downloadPdf: () => void
+  downloadSvg: () => void
   renameDesign: () => void
   installApp: () => void
   close: () => void
@@ -172,6 +173,15 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       keywords: ['pdf', 'print', 'printer', 'print shop', 'paper', 'bleed', 'crop marks', 'cut', 'send', 'email', 'document'],
       needsDocument: true,
       run: c.downloadPdf,
+    },
+    {
+      id: 'download-svg',
+      group: 'Design',
+      title: t('Download as SVG…'),
+      description: t('Save your design as an SVG file: shapes and words stay sharp at any size and can be changed in other design programs.'),
+      keywords: ['svg', 'vector', 'logo', 'icon', 'sharp', 'scalable', 'illustrator', 'website', 'web'],
+      needsDocument: true,
+      run: c.downloadSvg,
     },
     {
       id: 'download-project',
