@@ -14,9 +14,9 @@ test('a PDF for printing keeps every pixel, with an edge and cut lines for print
   ])
 
   await page.keyboard.press('Control+k')
-  await page.getByRole('combobox').fill('pdf')
-  await expect(page.getByRole('option').first()).toContainText('Download as PDF')
-  await page.getByRole('combobox').press('Enter')
+  await page.getByRole('combobox', { name: 'What do you want to do?' }).fill('pdf')
+  await expect(page.locator('#palette-results').getByRole('option').first()).toContainText('Download as PDF')
+  await page.getByRole('combobox', { name: 'What do you want to do?' }).press('Enter')
   const dialog = page.getByRole('dialog', { name: 'Download your design' })
   await expect(dialog.getByRole('radio', { name: 'PDF' })).toHaveAttribute('aria-checked', 'true')
   await expect(dialog.getByRole('radio', { name: 'Printing' })).toHaveAttribute('aria-checked', 'true')

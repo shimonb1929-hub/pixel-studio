@@ -14,6 +14,7 @@ import type { EditorDocument, Layer, LayerGroup, Point, ShapeGeometry, ShapeOutl
 import type { Gradient, GradientStop } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
 import { msg, t } from '../i18n/i18n.ts'
+import { MAX_PPI } from './units.ts'
 
 // A project keeps everything needed to carry on editing later: the design's size, every layer
 // with its pixels, position and settings, and the selection. The same format is used for
@@ -100,6 +101,8 @@ export interface ProjectManifest {
   height: number
   // The page's color, or null when it's see-through. Older files had a layer for it instead.
   background: string | null
+  // Pixels per inch on paper. Older files don't have it.
+  ppi?: number
   // Which layer was selected, counted from the bottom; -1 when the page was picked.
   activeLayer: number
   selection: Selection | null
@@ -407,7 +410,8 @@ function readSelection(value: unknown): Selection | null {
 export function validateManifest(value: unknown): ProjectManifest {
   if (!isRecord(value) || !Number.isInteger(value.version) || (value.version as number) < 1) damaged()
   if ((value.version as number) > PROJECT_VERSION) throw new ProjectError(t(TOO_NEW))
-  const { name, width, height, activeLayer, layers, background } = value
+  const { name, width, height, activeLayer, layers, background, ppi } = value
+  if (ppi !== undefined && !isBetween(ppi, 1, MAX_PPI)) damaged()
   if (typeof name !== 'string' || typeof width !== 'number' || typeof height !== 'number' || validateDocumentSize(width, height)) damaged()
   if (!Array.isArray(layers) || layers.length > MAX_LAYERS) damaged()
   const checked = layers.map(readLayer)
@@ -420,6 +424,7 @@ export function validateManifest(value: unknown): ProjectManifest {
     width,
     height,
     background: background === undefined || background === null ? null : readColor(background),
+    ...(ppi === undefined ? {} : { ppi }),
     activeLayer,
     selection: readSelection(value.selection),
     layers: checked,
@@ -486,6 +491,7 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
     width: doc.width,
     height: doc.height,
     background: doc.background,
+    ...(doc.ppi ? { ppi: doc.ppi } : {}),
     activeLayer: layers.findIndex((layer) => layer.id === doc.activeLayerId),
     selection: doc.selection,
     layers: layers.map((layer, i) => describeLayer(layer, pictures[i].map((png) => png.size))),
@@ -560,6 +566,7 @@ export async function decodeProject(file: Blob, id = createDesignId()): Promise<
     width: manifest.width,
     height: manifest.height,
     background: manifest.background,
+    ...(manifest.ppi ? { ppi: manifest.ppi } : {}),
     layers: regrouped,
     activeLayerId: regrouped[manifest.activeLayer]?.id ?? '',
     selection: manifest.selection,

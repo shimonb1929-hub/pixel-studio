@@ -244,15 +244,15 @@ test('search understands everyday words for the new actions', async ({ page }) =
     [350, 150],
   ])
   await page.keyboard.press('Control+k')
-  const search = page.getByRole('combobox')
+  const search = page.getByRole('combobox', { name: 'What do you want to do?' })
   await search.fill('oops')
-  await expect(page.getByRole('option').first()).toContainText('Undo brush stroke')
+  await expect(page.locator('#palette-results').getByRole('option').first()).toContainText('Undo brush stroke')
   await search.press('Enter')
   expectColor(await designPixel(page, size, 200, 150), WHITE)
 
   await page.keyboard.press('Control+k')
   await search.fill('rubber')
-  await expect(page.getByRole('option').first()).toContainText('Eraser tool')
+  await expect(page.locator('#palette-results').getByRole('option').first()).toContainText('Eraser tool')
   await search.press('Enter')
   await expect(page.getByRole('button', { name: 'Eraser tool' })).toHaveAttribute('aria-pressed', 'true')
 })
