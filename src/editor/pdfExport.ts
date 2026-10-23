@@ -1,7 +1,8 @@
 import { t } from '../i18n/i18n.ts'
 import { drawLayer } from './compose.ts'
 import { createCanvas, getContext2d } from './document.ts'
-import { buildPdf, type PdfImage } from './pdf.ts'
+import { buildPdf, type PdfImage, type PdfPage } from './pdf.ts'
+import { pageDocuments } from './pages.ts'
 import { pdfLayout, type PdfLayout, type PdfSettings } from './pdfLayout.ts'
 import type { EditorDocument } from './types.ts'
 
@@ -62,23 +63,25 @@ async function losslessPicture(doc: EditorDocument, layout: PdfLayout): Promise<
   return { width, height, data: new Uint8Array(await packed), filter: 'FlateDecode' }
 }
 
+// Every page of the design, one after another, each the same size.
 export async function exportPdf(doc: EditorDocument, settings: PdfSettings): Promise<Blob> {
   const layout = pdfLayout(doc.width, doc.height, settings)
-  // For screens a JPG picture keeps the file small enough to send.
-  const image: PdfImage =
-    settings.purpose === 'print'
-      ? await losslessPicture(doc, layout)
-      : { width: layout.imageWidth, height: layout.imageHeight, data: await canvasToJpeg(drawStrip(doc, layout, 0, layout.imageHeight)), filter: 'DCTDecode' }
   const print = settings.purpose === 'print'
-  const bytes = buildPdf({
-    width: layout.pageWidth,
-    height: layout.pageHeight,
-    image,
-    imageBox: layout.imageBox,
-    trimBox: print ? layout.trimBox : undefined,
-    bleedBox: print ? layout.bleedBox : undefined,
-    marks: layout.marks,
-    title: doc.name,
-  })
-  return new Blob([bytes], { type: 'application/pdf' })
+  const pages: PdfPage[] = []
+  for (const page of pageDocuments(doc)) {
+    // For screens a JPG picture keeps the file small enough to send.
+    const image: PdfImage = print
+      ? await losslessPicture(page, layout)
+      : { width: layout.imageWidth, height: layout.imageHeight, data: await canvasToJpeg(drawStrip(page, layout, 0, layout.imageHeight)), filter: 'DCTDecode' }
+    pages.push({
+      width: layout.pageWidth,
+      height: layout.pageHeight,
+      image,
+      imageBox: layout.imageBox,
+      trimBox: print ? layout.trimBox : undefined,
+      bleedBox: print ? layout.bleedBox : undefined,
+      marks: layout.marks,
+    })
+  }
+  return new Blob([buildPdf(pages, doc.name)], { type: 'application/pdf' })
 }

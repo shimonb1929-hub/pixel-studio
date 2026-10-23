@@ -1,6 +1,7 @@
 import type { Action } from './actions.ts'
 import { LOOKS } from './editor/adjust.ts'
 import { activeLayer } from './editor/layers.ts'
+import { pageCount, pageIndex } from './editor/pages.ts'
 import type { LineUpEdge } from './editor/organize.ts'
 import type { EditorDocument, ToolId } from './editor/types.ts'
 import { shortcut } from './keys.ts'
@@ -37,6 +38,11 @@ export interface AppCommands {
   cropToSelection: () => void
   rotateDesign: (direction: 1 | -1) => void
   flipDesign: (axis: 'horizontal' | 'vertical') => void
+  addPage: () => void
+  copyPage: () => void
+  deletePage: () => void
+  movePage: (direction: 1 | -1) => void
+  goToPage: (direction: 1 | -1) => void
   layerAdd: () => void
   layerDuplicate: () => void
   layerUp: () => void
@@ -93,6 +99,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
   const activeIndex = doc && active ? doc.layers.indexOf(active) : -1
   const noLayerPicked = doc && !active ? t('Pick something on your design first.') : undefined
   const noSelection = doc && !doc.selection ? t(NOTHING_SELECTED) : undefined
+  const onlyPage = doc && pageCount(doc) < 2 ? t('This design has only one page.') : undefined
   const pickSeveral = t('Pick two or more things first: drag a box around them on your design, or hold Shift and click each one.')
 
   return [
@@ -505,6 +512,76 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       keywords: ['rotate', 'turn', 'right', 'clockwise', 'sideways', 'portrait', 'landscape'],
       needsDocument: true,
       run: () => c.rotateDesign(1),
+    },
+    {
+      id: 'add-page',
+      group: 'Pages',
+      title: t('Add page'),
+      description: t('Add an empty page after this one, the same size, for booklets, menus and cards. A PDF download has every page.'),
+      keywords: ['page', 'add page', 'new page', 'pages', 'booklet', 'menu', 'brochure', 'magazine', 'book', 'card', 'multi', 'more pages'],
+      needsDocument: true,
+      run: c.addPage,
+    },
+    {
+      id: 'copy-page',
+      group: 'Pages',
+      title: t('Copy this page'),
+      description: t('Add a copy of this page, with everything on it, right after it.'),
+      keywords: ['page', 'copy page', 'duplicate page', 'same page', 'repeat'],
+      needsDocument: true,
+      run: c.copyPage,
+    },
+    {
+      id: 'page-earlier',
+      group: 'Pages',
+      title: t('Move page earlier'),
+      description: t('Move this page one place toward the start.'),
+      keywords: ['page', 'move page', 'order', 'earlier', 'before', 'reorder'],
+      needsDocument: true,
+      disabledReason: onlyPage ?? (doc && pageIndex(doc) === 0 ? t('This is already the first page.') : undefined),
+      run: () => c.movePage(-1),
+    },
+    {
+      id: 'page-later',
+      group: 'Pages',
+      title: t('Move page later'),
+      description: t('Move this page one place toward the end.'),
+      keywords: ['page', 'move page', 'order', 'later', 'after', 'reorder'],
+      needsDocument: true,
+      disabledReason: onlyPage ?? (doc && pageIndex(doc) === pageCount(doc) - 1 ? t('This is already the last page.') : undefined),
+      run: () => c.movePage(1),
+    },
+    {
+      id: 'next-page',
+      group: 'Pages',
+      title: t('Next page'),
+      description: t('Go to the page after this one.'),
+      keywords: ['page', 'next', 'forward', 'go to page'],
+      shortcut: shortcut('PageDown'),
+      needsDocument: true,
+      disabledReason: onlyPage ?? (doc && pageIndex(doc) === pageCount(doc) - 1 ? t('This is already the last page.') : undefined),
+      run: () => c.goToPage(1),
+    },
+    {
+      id: 'previous-page',
+      group: 'Pages',
+      title: t('Previous page'),
+      description: t('Go to the page before this one.'),
+      keywords: ['page', 'previous', 'back', 'go to page'],
+      shortcut: shortcut('PageUp'),
+      needsDocument: true,
+      disabledReason: onlyPage ?? (doc && pageIndex(doc) === 0 ? t('This is already the first page.') : undefined),
+      run: () => c.goToPage(-1),
+    },
+    {
+      id: 'delete-page',
+      group: 'Pages',
+      title: t('Delete this page'),
+      description: t('Remove this page and everything on it. You can undo it.'),
+      keywords: ['page', 'delete page', 'remove page', 'trash'],
+      needsDocument: true,
+      disabledReason: onlyPage,
+      run: c.deletePage,
     },
     {
       id: 'flip-design-horizontal',

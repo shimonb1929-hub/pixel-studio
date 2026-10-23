@@ -1,4 +1,4 @@
-// Writes a one-page PDF holding a picture of the design, and for print shops the lines that show
+// Writes a PDF with a picture of the design on each page, and for print shops the lines that show
 // where to cut. Sizes are in points (72 to the inch), measured from the page's top-left corner.
 
 export interface PdfBox {
@@ -27,7 +27,6 @@ export interface PdfPage {
   bleedBox?: PdfBox
   // Short black lines, each from (x1, y1) to (x2, y2).
   marks?: [number, number, number, number][]
-  title: string
 }
 
 const encoder = new TextEncoder()
@@ -53,35 +52,16 @@ function pdfDate(date: Date): string {
   return `(D:${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z)`
 }
 
-export function buildPdf(page: PdfPage, date = new Date()): Uint8Array<ArrayBuffer> {
-  const h = page.height
-  const { image, imageBox } = page
-
-  let content = `q ${num(imageBox.width)} 0 0 ${num(imageBox.height)} ${num(imageBox.x)} ${num(h - imageBox.y - imageBox.height)} cm /Im0 Do Q\n`
-  if (page.marks?.length) {
-    content += '0 G 0.25 w\n'
-    for (const [x1, y1, x2, y2] of page.marks) content += `${num(x1)} ${num(h - y1)} m ${num(x2)} ${num(h - y2)} l S\n`
-  }
-
-  const boxes = [
-    `/MediaBox [0 0 ${num(page.width)} ${num(h)}]`,
-    page.bleedBox && `/BleedBox ${rect(page.bleedBox, h)}`,
-    page.trimBox && `/TrimBox ${rect(page.trimBox, h)}`,
-  ].filter(Boolean)
-
-  // Each object is text, or text around binary bytes for the picture.
+export function buildPdf(pages: PdfPage[], title: string, date = new Date()): Uint8Array<ArrayBuffer> {
+  // Objects 1 to 3 are the catalog, the page list and the title; each page then takes three: the
+  // page, what's drawn on it, and its picture.
+  const pageRef = (i: number) => 4 + i * 3
   const objects: (string | [string, Uint8Array, string])[] = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    `<< /Type /Page /Parent 2 0 R ${boxes.join(' ')} /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>`,
-    `<< /Length ${encoder.encode(content).length} >>\nstream\n${content}\nendstream`,
-    [
-      `<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /${image.filter} /Length ${image.data.length} >>\nstream\n`,
-      image.data,
-      '\nendstream',
-    ],
-    `<< /Title ${textString(page.title)} /Producer (Pixel Studio) /CreationDate ${pdfDate(date)} >>`,
+    `<< /Type /Pages /Kids [${pages.map((_, i) => `${pageRef(i)} 0 R`).join(' ')}] /Count ${pages.length} >>`,
+    `<< /Title ${textString(title)} /Producer (Pixel Studio) /CreationDate ${pdfDate(date)} >>`,
   ]
+  pages.forEach((page, i) => objects.push(...pageObjects(page, pageRef(i))))
 
   const chunks: Uint8Array[] = []
   let length = 0
@@ -104,7 +84,7 @@ export function buildPdf(page: PdfPage, date = new Date()): Uint8Array<ArrayBuff
   const xref = length
   add(`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`)
   for (const offset of offsets) add(`${String(offset).padStart(10, '0')} 00000 n \n`)
-  add(`trailer\n<< /Size ${objects.length + 1} /Root 1 0 R /Info ${objects.length} 0 R >>\nstartxref\n${xref}\n%%EOF\n`)
+  add(`trailer\n<< /Size ${objects.length + 1} /Root 1 0 R /Info 3 0 R >>\nstartxref\n${xref}\n%%EOF\n`)
 
   const out = new Uint8Array(length)
   let at = 0
@@ -113,4 +93,32 @@ export function buildPdf(page: PdfPage, date = new Date()): Uint8Array<ArrayBuff
     at += chunk.length
   }
   return out
+}
+
+// A page, what's drawn on it and its picture, numbered from `ref`.
+function pageObjects(page: PdfPage, ref: number): (string | [string, Uint8Array, string])[] {
+  const h = page.height
+  const { image, imageBox } = page
+
+  let content = `q ${num(imageBox.width)} 0 0 ${num(imageBox.height)} ${num(imageBox.x)} ${num(h - imageBox.y - imageBox.height)} cm /Im0 Do Q\n`
+  if (page.marks?.length) {
+    content += '0 G 0.25 w\n'
+    for (const [x1, y1, x2, y2] of page.marks) content += `${num(x1)} ${num(h - y1)} m ${num(x2)} ${num(h - y2)} l S\n`
+  }
+
+  const boxes = [
+    `/MediaBox [0 0 ${num(page.width)} ${num(h)}]`,
+    page.bleedBox && `/BleedBox ${rect(page.bleedBox, h)}`,
+    page.trimBox && `/TrimBox ${rect(page.trimBox, h)}`,
+  ].filter(Boolean)
+
+  return [
+    `<< /Type /Page /Parent 2 0 R ${boxes.join(' ')} /Resources << /XObject << /Im0 ${ref + 2} 0 R >> >> /Contents ${ref + 1} 0 R >>`,
+    `<< /Length ${encoder.encode(content).length} >>\nstream\n${content}\nendstream`,
+    [
+      `<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /${image.filter} /Length ${image.data.length} >>\nstream\n`,
+      image.data,
+      '\nendstream',
+    ],
+  ]
 }

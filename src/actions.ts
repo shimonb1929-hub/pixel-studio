@@ -1,6 +1,6 @@
 import { msg, t } from './i18n/i18n.ts'
 
-export type ActionGroup = 'Design' | 'Edit' | 'Select' | 'Layers' | 'Line up' | 'Whole design' | 'View' | 'Tools' | 'Brush' | 'Looks'
+export type ActionGroup = 'Design' | 'Edit' | 'Select' | 'Layers' | 'Line up' | 'Whole design' | 'Pages' | 'View' | 'Tools' | 'Brush' | 'Looks'
 
 const GROUP_NAMES: Record<ActionGroup, string> = {
   Design: msg('Design'),
@@ -9,6 +9,7 @@ const GROUP_NAMES: Record<ActionGroup, string> = {
   Layers: msg('Layers'),
   'Line up': msg('Line up'),
   'Whole design': msg('Whole design'),
+  Pages: msg('Pages'),
   View: msg('View'),
   Tools: msg('Tools'),
   Brush: msg('Brush'),

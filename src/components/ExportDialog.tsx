@@ -4,6 +4,7 @@ import { exportFileName, formatFileSize, stripExtension, type ExportFormat } fro
 import { exportDocument } from '../editor/io.ts'
 import type { PdfPurpose, PdfSettings } from '../editor/pdfLayout.ts'
 import { documentPpi } from '../editor/units.ts'
+import { pageCount, pageIndex } from '../editor/pages.ts'
 import type { EditorDocument } from '../editor/types.ts'
 import { ChoiceGroup, Dialog, Field } from './Dialog.tsx'
 import { inputClass } from './ui.tsx'
@@ -150,6 +151,15 @@ export function ExportDialog({ doc, initialFormat = 'png', onExport, onClose }: 
 
   const fileName = exportFileName(baseName, format)
 
+  // With several pages, a picture holds only the page being worked on; a PDF holds them all.
+  function pagesNote(): string {
+    const count = pageCount(doc)
+    if (count < 2) return ''
+    if (format === 'pdf') return ` ${t('All {count} pages go into one PDF.', { count })}`
+    if (format === 'project') return ''
+    return ` ${t('A picture holds one page, so this saves page {number} of {count}. Pick Page to get every page.', { number: pageIndex(doc) + 1, count })}`
+  }
+
   function paperSizeNote(): ReactNode {
     if (paperError) return <span className="text-danger">{paperError}</span>
     const cm = (inches: number) => String(Math.round(inches * 25.4) / 10)
@@ -175,7 +185,7 @@ export function ExportDialog({ doc, initialFormat = 'png', onExport, onClose }: 
       <Field
         label={t("File type")}
         help={t("How your design is stored. Best quality keeps everything perfect. Small file is best for photos. Page makes a PDF to print or send. Project keeps every layer so you can keep editing.")}
-        note={FORMATS.find((f) => f.value === format)!.description}
+        note={`${FORMATS.find((f) => f.value === format)!.description}${pagesNote()}`}
       >
         <ChoiceGroup name={t("File type")} value={format} options={FORMATS} onChange={setFormat} />
       </Field>
