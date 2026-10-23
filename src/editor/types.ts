@@ -1,4 +1,4 @@
-import type { TextAlign, TextDirection } from '../text/layout.ts'
+import type { ListKind, TextAlign, TextDirection } from '../text/layout.ts'
 import type { Adjustments } from './adjust.ts'
 import type { BlendMode, LayerEffects } from './effects.ts'
 import type { Gradient } from './gradient.ts'
@@ -142,6 +142,8 @@ export interface TextStyle {
   // Colors fading across all the letters instead of one color (words with their own color keep
   // it). Missing means one color.
   gradient?: Gradient | null
+  // Each paragraph is a point of a list, with a dot, number or letter before it. Missing: no list.
+  list?: ListKind | null
 }
 
 // How some letters look different from the rest of their text: only what differs is kept.

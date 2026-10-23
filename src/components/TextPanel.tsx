@@ -1,11 +1,13 @@
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, Italic, Search, WrapText, type LucideIcon } from 'lucide-react'
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, Italic, List, ListOrdered, Plus, Search, WrapText, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { Gradient } from '../editor/gradient.ts'
 import type { TextStyle } from '../editor/types.ts'
 import type { FontCategory, FontInfo } from '../text/fontCatalog.ts'
-import { allFonts, fontInfo, fontName, fontStack, loadFont, nearestWeight } from '../text/fonts.ts'
+import { allFonts, fontInfo, fontName, fontStack, isOwnFont, loadFont, nearestWeight, ownFonts } from '../text/fonts.ts'
+import { addOwnFont, FontFileError, removeOwnFont } from '../text/ownFonts.ts'
+import { useFontsVersion } from '../hooks/useFontsVersion.ts'
 import { FONT_PURPOSES, type FontPurpose } from '../text/fontPurposes.ts'
-import type { TextAlign, TextDirection } from '../text/layout.ts'
+import type { ListKind, TextAlign, TextDirection } from '../text/layout.ts'
 import { FillKindSwitch, GradientEditor } from './GradientEditor.tsx'
 import { PhotoControls, type ShapePhotoControls } from './ShapePanel.tsx'
 import { Tooltip } from './Tooltip.tsx'
@@ -112,6 +114,7 @@ function FontOption({
   onPreview: () => void
   observe: (el: Element | null, id: string) => void
 }) {
+  const own = isOwnFont(font.id)
   return (
     <div
       ref={(el) => observe(el, font.id)}
@@ -146,6 +149,21 @@ function FontOption({
         </span>
       )}
       {font.yiddish && <span className="shrink-0 rounded bg-subtle px-1.5 py-0.5 text-[10px] font-medium text-ink-2">{t('Yiddish')}</span>}
+      {own && (
+        <Tooltip title={t('Remove from your fonts')} description={t('Takes this font off your list. Designs that already use it keep it.')}>
+          <button
+            type="button"
+            aria-label={t('Remove {font} from your fonts', { font: font.name })}
+            onClick={(event) => {
+              event.stopPropagation()
+              void removeOwnFont(font.id)
+            }}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-3 hover:bg-surface hover:text-ink"
+          >
+            <X size={13} />
+          </button>
+        </Tooltip>
+      )}
     </div>
   )
 }
@@ -186,6 +204,12 @@ function FontPicker({
   const [letters, setLetters] = useState<FontLetters>('any')
   const [purpose, setPurpose] = useState<FontFor>('all')
   const [recent, setRecent] = useState<string[]>([])
+  // A font file being added, and what went wrong with the last one.
+  const [adding, setAdding] = useState(false)
+  const [problem, setProblem] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+  // The list changes when fonts of your own come or go.
+  const fontsVersion = useFontsVersion()
   const listRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const sampleRef = useRef(sample)
@@ -265,11 +289,34 @@ function FontPicker({
       })
       return [{ title: '', fonts }]
     }
-    return KINDS.map((kind) => ({
-      title: kind.label,
-      fonts: allFonts().filter((font) => font.category === kind.value && hasLetters(font, letters)),
-    })).filter((section) => section.fonts.length > 0)
-  }, [query, letters, purpose, hasRtl])
+    return [
+      { title: t('Your fonts'), fonts: ownFonts().filter((font) => hasLetters(font, letters)) },
+      ...KINDS.map((kind) => ({
+        title: kind.label,
+        fonts: allFonts().filter((font) => !isOwnFont(font.id) && font.category === kind.value && hasLetters(font, letters)),
+      })),
+    ].filter((section) => section.fonts.length > 0)
+    // fontsVersion: fonts of your own came or went.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, letters, purpose, hasRtl, fontsVersion])
+
+  // Adds a font file from the computer and uses it right away.
+  const addFile = async (file: File | undefined) => {
+    if (!file) return
+    setAdding(true)
+    setProblem('')
+    try {
+      const font = await addOwnFont(file)
+      if (letters !== 'any' && !hasLetters(font, letters)) setLetters('any')
+      setPurpose('all')
+      setQuery('')
+      pick(font.id)
+    } catch (error) {
+      setProblem(error instanceof FontFileError ? error.message : t('This font couldn’t be added. Try another file.'))
+    } finally {
+      setAdding(false)
+    }
+  }
 
   const count = sections.reduce((sum, section) => sum + section.fonts.length, 0)
 
@@ -344,6 +391,39 @@ function FontPicker({
                   <Chip key={p.value} label={p.label} description={p.description} checked={purpose === p.value} onClick={() => setPurpose(p.value)} />
                 ))}
               </div>
+              <div className="flex flex-col gap-1">
+                <Tooltip
+                  title={t('Add your own font')}
+                  description={t('Use a font file from your computer (.ttf, .otf, .woff or .woff2). It stays in your list for next time, and goes inside your designs and SVG downloads so they look right on any computer. Use only fonts you are allowed to use.')}
+                  className="flex self-start"
+                >
+                  <button
+                    type="button"
+                    disabled={adding}
+                    onClick={() => fileRef.current?.click()}
+                    className="flex h-7 items-center gap-1.5 rounded-lg border border-dashed border-line px-2.5 text-[12px] font-medium text-ink-2 transition-colors hover:border-ink-3 hover:text-ink disabled:opacity-60"
+                  >
+                    <Plus size={14} aria-hidden />
+                    {adding ? t('Adding your font…') : t('Add your own font')}
+                  </button>
+                </Tooltip>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2"
+                  aria-label={t('Font file')}
+                  className="hidden"
+                  onChange={(event) => {
+                    void addFile(event.target.files?.[0])
+                    event.target.value = ''
+                  }}
+                />
+                {problem && (
+                  <p role="alert" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">
+                    {problem}
+                  </p>
+                )}
+              </div>
               {recent.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1">
                   <span className="me-0.5 text-[11px] text-ink-2">{t('Used lately:')}</span>
@@ -411,10 +491,14 @@ function ChoiceRow<T extends string>({
   value,
   choices,
   onChange,
+  keepTyping,
 }: {
   label: string
+  // Clicking leaves the cursor in the text being typed, so typing just goes on.
+  keepTyping?: boolean
   value: T
-  choices: { value: T; label: string; icon?: LucideIcon; description: string }[]
+  // Each choice shows its icon, its `shows` words, or else its name.
+  choices: { value: T; label: string; icon?: LucideIcon; shows?: string; description: string }[]
   onChange: (value: T) => void
 }) {
   return (
@@ -427,11 +511,12 @@ function ChoiceRow<T extends string>({
             aria-checked={value === choice.value}
             aria-label={choice.label}
             onClick={() => onChange(choice.value)}
+            onMouseDown={keepTyping ? (event) => event.preventDefault() : undefined}
             className={`flex h-8 flex-1 items-center justify-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
               value === choice.value ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
             }`}
           >
-            {choice.icon ? <choice.icon size={15} strokeWidth={1.9} /> : choice.label}
+            {choice.icon ? <choice.icon size={15} strokeWidth={1.9} /> : (choice.shows ?? choice.label)}
           </button>
         </Tooltip>
       ))}
@@ -451,6 +536,23 @@ const DIRECTIONS: { value: TextDirection; label: string; description: string }[]
   { value: 'rtl', label: msg('Right to left'), description: msg('For Hebrew and Yiddish, even when a line starts with an English word or a number.') },
   { value: 'ltr', label: msg('Left to right'), description: msg('For English, even when a line starts with a Hebrew word.') },
 ])
+
+type ListChoice = 'none' | ListKind
+
+// Letters show the alphabet the text is written in: א ב ג for Hebrew and Yiddish, a b c for English.
+function listChoices(rtl: boolean): { value: ListChoice; label: string; icon?: LucideIcon; shows?: string; description: string }[] {
+  return [
+    { value: 'none', label: t('No list'), shows: t('None'), description: t('Plain paragraphs, with nothing before them.') },
+    { value: 'bullet', label: t('Dots'), icon: List, description: t('A dot before each paragraph. Press Enter to start the next point.') },
+    { value: 'number', label: t('Numbers'), icon: ListOrdered, description: t('1, 2, 3 before each paragraph. They count by themselves when you add or take away a point.') },
+    {
+      value: 'letter',
+      label: t('Letters'),
+      shows: rtl ? 'א ב ג' : 'a b c',
+      description: t('Letters before each paragraph: א, ב, ג for Hebrew and Yiddish, a, b, c for English.'),
+    },
+  ]
+}
 
 export interface TextPanelProps {
   // "New text" while choosing how the next text looks, or the text's name.
@@ -591,6 +693,13 @@ export function TextPanel(props: TextPanelProps) {
         </div>
 
         <ChoiceRow label={t("Line up")} value={alignShown} choices={ALIGNS} onChange={(align) => props.onStyle({ align }, t('Line up text'))} />
+        <ChoiceRow
+          keepTyping
+          label={t('List')}
+          value={style.list ?? 'none'}
+          choices={listChoices(props.hasRtl)}
+          onChange={(list) => props.onStyle({ list: list === 'none' ? null : list }, list === 'none' ? t('No list') : t('Make a list'))}
+        />
         {props.hasRtl && <ChoiceRow label={t("Reading direction")} value={style.direction} choices={DIRECTIONS} onChange={(direction) => props.onStyle({ direction, align: style.align === 'left' || style.align === 'right' ? 'auto' : style.align }, t('Reading direction'))} />}
 
         {props.flow ? (

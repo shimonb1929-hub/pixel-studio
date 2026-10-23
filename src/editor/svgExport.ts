@@ -6,7 +6,7 @@ import { gradientLine, type Gradient } from './gradient.ts'
 import { arrowLength, canFill, fillRule, hasArrow, isLineShape, layerBounds, outlineDash, photoPlacement, scaledPath, shapePath, type PathSink } from './objects.ts'
 import { endDirection } from './path.ts'
 import type { EditorDocument, Layer, PixelLayer, ShapeLayer, TextLayer } from './types.ts'
-import { cssFont, familyName, fontInfo, fontStack, fontStackIds } from '../text/fonts.ts'
+import { cssFont, familyName, fontFormat, fontInfo, fontStack, fontStackIds } from '../text/fonts.ts'
 import { styledPieces } from '../text/spans.ts'
 import { lineShift, textLayout } from '../text/textLayer.ts'
 
@@ -161,6 +161,21 @@ function textSvg(layer: TextLayer, ids: Ids, defs: string[]): string {
     fill = `url(#${id})`
   }
   const pieces: string[] = []
+  for (const marker of layout.markers ?? []) {
+    const rtl = marker.direction === 'rtl'
+    const attributes = [
+      `x="${n(rtl ? marker.x + marker.width : marker.x)}"`,
+      `y="${n(marker.baseline)}"`,
+      `fill="${fill}"`,
+      `font-family="${escape(fontStack(style.font))}"`,
+      `font-size="${n(style.size)}"`,
+      `font-weight="${style.weight}"`,
+      style.italic ? 'font-style="italic"' : '',
+      rtl ? 'direction="rtl" unicode-bidi="embed"' : '',
+      style.letterSpacing ? `letter-spacing="${n(style.letterSpacing * style.size)}"` : '',
+    ]
+    pieces.push(`<text ${attributes.filter(Boolean).join(' ')}>${escape(marker.text)}</text>`)
+  }
   for (const line of layout.lines) {
     measure.wordSpacing = `${line.wordSpacing}px`
     let x = line.x
@@ -246,13 +261,18 @@ function base64(bytes: ArrayBuffer): string {
   return btoa(text)
 }
 
+const FONT_MIME: Record<string, string> = { woff2: 'font/woff2', woff: 'font/woff', truetype: 'font/ttf', opentype: 'font/otf' }
+
 // The font files the text needs, put inside the file, so it looks the same on any computer.
 async function fontFaces(layers: TextLayer[]): Promise<string> {
   // For each font: the looks used with it and the letters written in it.
   const wanted = new Map<string, { looks: Set<string>; letters: Set<number> }>()
   for (const layer of layers) {
-    for (const look of styledPieces(layer.spans, layer.style, 0, layer.text.length)) {
-      const letters = [...layer.text.slice(look.start, look.end)].map((c) => c.codePointAt(0)!)
+    // A list's numbers and letters are written in the text's main look.
+    const markers = (textLayout(layer).markers ?? []).map((m) => m.text).join('')
+    const looks = [...styledPieces(layer.spans, layer.style, 0, layer.text.length).map((look) => ({ style: look.style, text: layer.text.slice(look.start, look.end) })), { style: layer.style, text: markers }]
+    for (const look of looks) {
+      const letters = [...look.text].map((c) => c.codePointAt(0)!)
       for (const id of fontStackIds(look.style.font)) {
         const entry = wanted.get(id) ?? { looks: new Set(), letters: new Set() }
         entry.looks.add(`${look.style.weight}:${look.style.italic ? 'italic' : 'normal'}`)
@@ -274,7 +294,7 @@ async function fontFaces(layers: TextLayer[]): Promise<string> {
           .then((response) => (response.ok ? response.arrayBuffer() : Promise.reject(new Error(response.statusText))))
           .then(
             (bytes) =>
-              `@font-face{font-family:"${familyName(id)}";src:url(data:font/woff2;base64,${base64(bytes)}) format("woff2");font-weight:${file.weight};font-style:${file.style};${file.unicodeRange ? `unicode-range:${file.unicodeRange};` : ''}}`,
+              `@font-face{font-family:"${familyName(id)}";src:url(data:${FONT_MIME[fontFormat(file.url)] ?? 'font/woff2'};base64,${base64(bytes)}) format("${fontFormat(file.url)}");font-weight:${file.weight};font-style:${file.style};${file.unicodeRange ? `unicode-range:${file.unicodeRange};` : ''}}`,
           )
           // A font that can't be fetched is left out; the text still shows in a stand-in.
           .catch(() => ''),
