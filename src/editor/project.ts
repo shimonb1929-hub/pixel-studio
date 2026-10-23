@@ -8,10 +8,11 @@ import type { Selection, SelectionOp } from './selection.ts'
 import type { TransformBox } from './transform.ts'
 import type { TextAlign, TextDirection } from '../text/layout.ts'
 import { loadDesignFonts } from '../text/textLayer.ts'
+import { tidySpans } from '../text/spans.ts'
 import { tidyGroups } from './layers.ts'
 import { allPages, pageIndex } from './pages.ts'
 import { hasLayout } from './pageLayout.ts'
-import type { DesignPage, EditorDocument, Layer, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, TextStyle } from './types.ts'
+import type { DesignPage, EditorDocument, Layer, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TextSpan, TextStyle } from './types.ts'
 import { paintPage, type Gradient, type GradientStop } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
 import { msg, t } from '../i18n/i18n.ts'
@@ -85,6 +86,7 @@ export interface ProjectTextLayer extends ProjectLayerBase {
   box: TransformBox
   text: string
   style: TextStyle
+  spans?: TextSpan[]
   wrap: boolean
 }
 
@@ -334,6 +336,32 @@ function readTextStyle(value: unknown): TextStyle {
   return { font, size, weight, italic, color: readColor(color), align: align as TextAlign, direction: direction as TextDirection, letterSpacing, lineHeight }
 }
 
+// Words with their own look. Spans that reach past the text are cut to fit it.
+function readSpans(value: unknown, base: TextStyle, length: number): TextSpan[] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.length > MAX_TEXT_LENGTH) damaged()
+  const spans = value.map((span): TextSpan => {
+    if (!isRecord(span) || !Number.isInteger(span.start) || !Number.isInteger(span.end) || !isRecord(span.style)) damaged()
+    const { font, weight, italic, color } = span.style
+    const style: SpanStyle = {}
+    if (font !== undefined) {
+      if (typeof font !== 'string' || font.length === 0 || font.length > 100) damaged()
+      style.font = font
+    }
+    if (weight !== undefined) {
+      if (!isBetween(weight, 1, 1000)) damaged()
+      style.weight = weight
+    }
+    if (italic !== undefined) {
+      if (typeof italic !== 'boolean') damaged()
+      style.italic = italic
+    }
+    if (color !== undefined) style.color = readColor(color)
+    return { start: span.start as number, end: span.end as number, style }
+  })
+  return tidySpans(spans, base, length)
+}
+
 function readGroup(group: unknown): { group?: LayerGroup } {
   if (group === undefined) return {}
   if (!isRecord(group) || typeof group.id !== 'string' || group.id.length > MAX_NAME_LENGTH || typeof group.name !== 'string') damaged()
@@ -361,7 +389,9 @@ function readLayer(layer: unknown): ProjectLayer {
   }
   if (layer.kind === 'text') {
     if (typeof layer.text !== 'string' || layer.text.length > MAX_TEXT_LENGTH || typeof layer.wrap !== 'boolean') damaged()
-    return { ...base, kind: 'text', box: readBox(layer.box), text: layer.text, style: readTextStyle(layer.style), wrap: layer.wrap }
+    const style = readTextStyle(layer.style)
+    const spans = readSpans(layer.spans, style, layer.text.length)
+    return { ...base, kind: 'text', box: readBox(layer.box), text: layer.text, style, ...(spans ? { spans } : {}), wrap: layer.wrap }
   }
   if (
     layer.kind !== 'raster' ||
@@ -488,7 +518,7 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
   if (layer.kind === 'raster') {
     return { ...base, kind: 'raster', x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height, box: layer.box, bytes: sizes[0] }
   }
-  if (layer.kind === 'text') return { ...base, kind: 'text', box: layer.box, text: layer.text, style: layer.style, wrap: layer.wrap }
+  if (layer.kind === 'text') return { ...base, kind: 'text', box: layer.box, text: layer.text, style: layer.style, ...(layer.spans ? { spans: layer.spans } : {}), wrap: layer.wrap }
   const { fill } = layer
   const savedFill: ProjectFill =
     fill.kind === 'photo'
@@ -554,7 +584,7 @@ async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer>
     return { ...layerFromCanvas(name, canvas, info.x, info.y), box: info.box, visible, opacity, locked, adjust, ...extras }
   }
   if (info.kind === 'text') {
-    return { id: createId('layer'), kind: 'text', name, visible, opacity, locked, adjust, ...extras, box: info.box, text: info.text, style: info.style, wrap: info.wrap }
+    return { id: createId('layer'), kind: 'text', name, visible, opacity, locked, adjust, ...extras, box: info.box, text: info.text, style: info.style, ...(info.spans ? { spans: info.spans } : {}), wrap: info.wrap }
   }
   const fill =
     info.fill.kind === 'photo'

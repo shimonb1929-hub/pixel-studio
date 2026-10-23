@@ -111,6 +111,16 @@ export interface TextStyle {
   lineHeight: number
 }
 
+// How some letters look different from the rest of their text: only what differs is kept.
+export type SpanStyle = Partial<Pick<TextStyle, 'font' | 'weight' | 'italic' | 'color'>>
+
+// Letters from `start` up to `end` that look different. Spans never overlap and are in order.
+export interface TextSpan {
+  start: number
+  end: number
+  style: SpanStyle
+}
+
 // Text that stays editable and sharp at any size.
 export interface TextLayer extends LayerBase {
   kind: 'text'
@@ -118,6 +128,8 @@ export interface TextLayer extends LayerBase {
   box: TransformBox
   text: string
   style: TextStyle
+  // Words that have their own font, boldness, slant or color (a bold word, a red name).
+  spans?: TextSpan[]
   // A paragraph box wraps its lines to its width; otherwise lines only break where Enter was pressed.
   wrap: boolean
 }

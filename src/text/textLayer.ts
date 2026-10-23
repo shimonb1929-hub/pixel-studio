@@ -1,7 +1,8 @@
 import { boxPoint, type TransformBox } from '../editor/transform.ts'
 import type { EditorDocument, Point, TextLayer, TextStyle } from '../editor/types.ts'
 import { cssFont, fontReady, fontStack, fontsVersion, loadFont } from './fonts.ts'
-import { indexAt, layoutText, mainDirection, resolveAlign, type TextLayout, type TextMeasure } from './layout.ts'
+import { indexAt, layoutText, mainDirection, plainWidth, resolveAlign, type RangeWidth, type TextLayout, type TextMeasure } from './layout.ts'
+import { styledPieces, tidySpans } from './spans.ts'
 import { t } from '../i18n/i18n.ts'
 
 // Text objects: measuring and laying them out with real fonts, drawing them, and keeping their
@@ -80,6 +81,19 @@ export function textMeasure(style: TextStyle): TextMeasure {
   }
 }
 
+// Measures part of a text, each look with its own font: a bold word is measured bold.
+function textWidth(layer: TextLayer): RangeWidth {
+  if (!layer.spans?.length) return plainWidth(layer.text, textMeasure(layer.style))
+  return (start, end, direction) =>
+    styledPieces(layer.spans, layer.style, start, end).reduce((sum, piece) => sum + textMeasure(piece.style).width(layer.text.slice(piece.start, piece.end), direction), 0)
+}
+
+// Each look's font, so every letter is drawn with a font that has it.
+function eachFont(layer: TextLayer): { style: TextStyle; text: string }[] {
+  if (!layer.spans?.length) return [{ style: layer.style, text: layer.text }]
+  return [{ style: layer.style, text: layer.text }, ...layer.spans.map((span) => ({ style: { ...layer.style, ...span.style }, text: layer.text.slice(span.start, span.end) }))]
+}
+
 const layouts = new WeakMap<TextLayer, { version: number; layout: TextLayout }>()
 
 // The text laid out in lines, worked out again only when the text or a font changes.
@@ -87,7 +101,7 @@ export function textLayout(layer: TextLayer): TextLayout {
   const version = fontsVersion()
   const cached = layouts.get(layer)
   if (cached && cached.version === version) return cached.layout
-  const layout = layoutText(layer.text, layer.style, layer.wrap ? Math.abs(layer.box.width) : null, textMeasure(layer.style))
+  const layout = layoutText(layer.text, layer.style, layer.wrap ? Math.abs(layer.box.width) : null, textMeasure(layer.style), textWidth(layer))
   layouts.set(layer, { version, layout })
   return layout
 }
@@ -109,7 +123,7 @@ function lineShift(layer: TextLayer, layout: TextLayout): number {
 // Draws a text object in design coordinates.
 export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void {
   const { box, style } = layer
-  if (!fontReady(style, layer.text)) void loadFont(style, layer.text)
+  for (const font of eachFont(layer)) if (!fontReady(font.style, font.text)) void loadFont(font.style, font.text)
   const layout = textLayout(layer)
   const w = Math.abs(box.width)
   const h = Math.abs(box.height)
@@ -128,10 +142,22 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
     // Each piece reads one way; they're placed left to right in the order they appear.
     let x = line.x
     for (const run of line.runs) {
-      const piece = layer.text.slice(run.start, run.end)
       ctx.direction = run.rtl ? 'rtl' : 'ltr'
-      ctx.fillText(piece, x, line.baseline)
-      x += ctx.measureText(piece).width
+      // Inside a piece, each look is drawn on its own; right to left, the first one is on the right.
+      const looks = styledPieces(layer.spans, style, run.start, run.end)
+      for (const look of run.rtl ? looks.reverse() : looks) {
+        const piece = layer.text.slice(look.start, look.end)
+        if (look.style !== style) {
+          ctx.font = cssFont(look.style)
+          ctx.fillStyle = look.style.color
+        }
+        ctx.fillText(piece, x, line.baseline)
+        x += ctx.measureText(piece).width
+        if (look.style !== style) {
+          ctx.font = cssFont(style)
+          ctx.fillStyle = style.color
+        }
+      }
     }
   }
   ctx.restore()
@@ -214,7 +240,7 @@ export function textLocalPoint(layer: TextLayer, point: Point): Point {
 export function textIndexAt(layer: TextLayer, point: Point): number {
   const layout = textLayout(layer)
   const local = textLocalPoint(layer, point)
-  return indexAt(layer.text, layout, local.x - lineShift(layer, layout), local.y, textMeasure(layer.style))
+  return indexAt(layer.text, layout, local.x - lineShift(layer, layout), local.y, textMeasure(layer.style), textWidth(layer))
 }
 
 // The side of the box that stays put while the text changes: where lines line up.
@@ -239,9 +265,17 @@ export function fitText(layer: TextLayer): TextLayer {
   return { ...layer, box }
 }
 
-// Changes the text or how it looks, keeping the box fitted.
-export function changeText(layer: TextLayer, patch: Partial<Pick<TextLayer, 'text' | 'wrap'>> & { style?: Partial<TextStyle> }): TextLayer {
-  const next: TextLayer = { ...layer, ...patch, style: { ...layer.style, ...patch.style } }
+// Changes the text or how it looks, keeping the box fitted. A change to the whole text's look
+// reaches every word: a word that had its own color takes the new one too.
+export function changeText(layer: TextLayer, patch: Partial<Pick<TextLayer, 'text' | 'wrap' | 'spans'>> & { style?: Partial<TextStyle> }): TextLayer {
+  const style = { ...layer.style, ...patch.style }
+  let spans = 'spans' in patch ? patch.spans : layer.spans
+  if (patch.style && spans) {
+    const changed = Object.keys(patch.style)
+    spans = spans.map((span) => ({ ...span, style: Object.fromEntries(Object.entries(span.style).filter(([key]) => !changed.includes(key))) }))
+  }
+  const next: TextLayer = { ...layer, ...patch, style, spans: tidySpans(spans, style, (patch.text ?? layer.text).length) }
+  if (!next.spans) delete next.spans
   return fitText(next)
 }
 
@@ -286,5 +320,5 @@ export { mainDirection }
 
 // Waits until every font the design's text uses has loaded, so downloads never show a stand-in.
 export async function loadDesignFonts(doc: EditorDocument): Promise<void> {
-  await Promise.all(doc.layers.map((layer) => (layer.kind === 'text' ? loadFont(layer.style, layer.text) : undefined)))
+  await Promise.all(doc.layers.flatMap((layer) => (layer.kind === 'text' ? eachFont(layer).map((font) => loadFont(font.style, font.text)) : [])))
 }

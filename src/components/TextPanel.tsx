@@ -465,6 +465,9 @@ export interface TextPanelProps {
   onPreviewFont: (id: string | null) => void
   onStyle: (patch: Partial<TextStyle>, label: string, mergeKey?: string) => void
   onWrap: (wrap: boolean) => void
+  // While typing: whether the font, boldness, slant and color change just the picked words or all
+  // of the text. Null when not typing.
+  scope?: 'words' | 'all' | null
 }
 
 // How text looks: font, size, boldness, lining up, which way it reads and spacing.
@@ -489,6 +492,13 @@ export function TextPanel(props: TextPanelProps) {
       </div>
 
       <div className="flex flex-col gap-3">
+        {props.scope && (
+          <p role="note" aria-live="polite" className={`rounded-lg px-2.5 py-2 text-[12px] leading-snug ${props.scope === 'words' ? 'bg-accent-soft text-accent' : 'bg-subtle text-ink-2'}`}>
+            {props.scope === 'words'
+              ? t('Font, boldness, slant and color now change only the words you picked.')
+              : t('Changes go to all the text. To change just some words, pick them with the mouse first.')}
+          </p>
+        )}
         <FontPicker value={style.font} sample={props.sample} hasRtl={props.hasRtl} onPick={props.onFont} onPreview={props.onPreviewFont} />
         {props.hasRtl && font && !font.hebrew && (
           <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">

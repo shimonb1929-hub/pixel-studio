@@ -147,30 +147,32 @@ function trimEnd(text: string): string {
 const FIT_SLACK = 0.01
 
 // Breaks a paragraph into lines no wider than `maxWidth`. Each line keeps the spaces it ends with,
-// so the lines put together give back the paragraph exactly.
-export function wrapParagraph(paragraph: string, maxWidth: number, width: (text: string) => number): string[] {
-  const fits = (text: string) => width(trimEnd(text)) <= maxWidth + FIT_SLACK
+// so the lines put together give back the paragraph exactly. `width` is told where in the paragraph
+// the piece it measures starts, for text whose words look different from each other.
+export function wrapParagraph(paragraph: string, maxWidth: number, width: (text: string, start: number) => number): string[] {
+  let lineStart = 0
+  const fits = (text: string) => width(trimEnd(text), lineStart) <= maxWidth + FIT_SLACK
   const lines: string[] = []
   let line = ''
+  const push = (next: string) => {
+    lines.push(line)
+    lineStart += line.length
+    line = next
+  }
   for (const piece of wrapPieces(paragraph)) {
     if (fits(line + piece)) {
       line += piece
       continue
     }
-    if (line) lines.push(line)
-    line = ''
+    if (line) push('')
     if (fits(piece)) {
       line = piece
       continue
     }
     // A word longer than a whole line wraps between letters.
     for (const letter of graphemes(piece)) {
-      if (line && !fits(line + letter)) {
-        lines.push(line)
-        line = letter
-      } else {
-        line += letter
-      }
+      if (line && !fits(line + letter)) push(letter)
+      else line += letter
     }
   }
   lines.push(line)
@@ -220,9 +222,17 @@ function countSpaces(text: string): number {
   return count
 }
 
+// How wide the text from `start` to `end` is, read in the given direction. Text whose words look
+// different measures each look on its own; plain text just asks the font.
+export type RangeWidth = (start: number, end: number, direction: Direction) => number
+
+export function plainWidth(text: string, measure: TextMeasure): RangeWidth {
+  return (start, end, direction) => measure.width(text.slice(start, end), direction)
+}
+
 // Lays text out. With `wrapWidth`, paragraphs wrap to fit that width; without it, lines only break
 // where Enter was pressed, and the text is as wide as its longest line.
-export function layoutText(text: string, settings: LayoutSettings, wrapWidth: number | null, measure: TextMeasure): TextLayout {
+export function layoutText(text: string, settings: LayoutSettings, wrapWidth: number | null, measure: TextMeasure, rangeWidth = plainWidth(text, measure)): TextLayout {
   const direction = mainDirection(text, settings.direction)
   const lineHeight = settings.size * settings.lineHeight
   const raw: { start: number; full: string; direction: Direction; last: boolean; runs: TextRun[] }[] = []
@@ -231,13 +241,14 @@ export function layoutText(text: string, settings: LayoutSettings, wrapWidth: nu
     // A paragraph with no letters reads like the text as a whole.
     const paragraphDirection = settings.direction === 'auto' ? (firstStrongDirection(paragraph) ?? direction) : settings.direction
     const levels = readingLevels(paragraph, paragraphDirection)
-    const lines = wrapWidth === null ? [paragraph] : wrapParagraph(paragraph, wrapWidth, (t) => measure.width(t, paragraphDirection))
+    const at = offset
+    const lines = wrapWidth === null ? [paragraph] : wrapParagraph(paragraph, wrapWidth, (t, from) => rangeWidth(at + from, at + from + t.length, paragraphDirection))
     let start = 0
     lines.forEach((full, i) => {
       const end = start + trimEnd(full).length
       const runs = visualRuns(levels, start, end).map((run) => {
         const rtl = run.level % 2 === 1
-        return { start: offset + run.start, end: offset + run.end, rtl, width: measure.width(paragraph.slice(run.start, run.end), rtl ? 'rtl' : 'ltr') }
+        return { start: offset + run.start, end: offset + run.end, rtl, width: rangeWidth(offset + run.start, offset + run.end, rtl ? 'rtl' : 'ltr') }
       })
       raw.push({ start: offset + start, full, direction: paragraphDirection, last: i === lines.length - 1, runs })
       start += full.length
@@ -274,7 +285,7 @@ export function layoutText(text: string, settings: LayoutSettings, wrapWidth: nu
 
 // The place in the text nearest a point (from the top-left of the text), for putting the cursor
 // where someone clicked.
-export function indexAt(text: string, layout: TextLayout, x: number, y: number, measure: TextMeasure): number {
+export function indexAt(text: string, layout: TextLayout, x: number, y: number, measure: TextMeasure, rangeWidth = plainWidth(text, measure)): number {
   if (layout.lines.length === 0) return 0
   const row = Math.max(0, Math.min(layout.lines.length - 1, Math.floor(y / layout.lineHeight)))
   const line = layout.lines[row]
@@ -289,7 +300,7 @@ export function indexAt(text: string, layout: TextLayout, x: number, y: number, 
     let index = run.start
     for (const step of [0, ...graphemes(text.slice(run.start, run.end)).map((g) => g.length)]) {
       index += step
-      const before = measure.width(text.slice(run.start, index), run.rtl ? 'rtl' : 'ltr') * scale
+      const before = rangeWidth(run.start, index, run.rtl ? 'rtl' : 'ltr') * scale
       const at = run.rtl ? left + runWidth - before : left + before
       const distance = Math.abs(at - x)
       if (distance < bestDistance) {
