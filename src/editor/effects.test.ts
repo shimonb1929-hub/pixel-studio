@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { distanceToShape } from './distance.ts'
 import {
   blurValues,
-  distanceToShape,
   EFFECT_LOOKS,
   effectPixels,
   effectsLabel,

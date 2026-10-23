@@ -63,8 +63,9 @@ import { startMove, type MoveSession } from './editor/move.ts'
 import { canFill, isLineShape, layerAt, layerBounds, layerPixels, polygonPoints } from './editor/objects.ts'
 import { fitPathToBox, geometryToPath, type ShapePath } from './editor/path.ts'
 import { gradientFrom, type Gradient } from './editor/gradient.ts'
-import { healRegion } from './editor/heal.ts'
-import { layerVersion } from './editor/pixelVersion.ts'
+import { onGapFilled, type GapFill } from './editor/gapFill.ts'
+import { healRegion } from './editor/healRegion.ts'
+import { layerVersion, pixelVersion } from './editor/pixelVersion.ts'
 import { combineFound, maskToOps } from './ai/maskSelection.ts'
 import { AI_PICTURE_SIDE, findThing, onAiProgress, prepareThing } from './ai/segment.ts'
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
@@ -350,6 +351,11 @@ export default function App() {
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('replace')
   const [transformEdit, setTransformEdit] = useState<TransformState | null>(null)
   const [keepProportions, setKeepProportions] = useState(true)
+  // Moving the selected part of a picture fills the gap it leaves (see gapFill.ts).
+  const [fillGap, setFillGap] = useState(true)
+  // Bumped when a gap has been filled, so the preview shows it.
+  const [, setGapsFilled] = useState(0)
+  useEffect(() => onGapFilled(() => setGapsFilled((n) => n + 1)), [])
   const [cropEdit, setCropEdit] = useState<CropState | null>(null)
   const [fillTolerance, setFillTolerance] = useState(0.15)
   const [healSize, setHealSize] = useState(40)
@@ -429,10 +435,10 @@ export default function App() {
   const activeNow = doc ? activeLayer(doc) : undefined
   const transformOn = tool === 'move' && !!doc?.selection
   const session = useMemo(
-    () => (transformOn && doc ? startTransform(doc) : null),
+    () => (transformOn && doc ? startTransform(doc, fillGap) : null),
     // Only the layer and the selection matter; other changes to the design keep the same handles.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [transformOn, activeNow, doc?.selection],
+    [transformOn, activeNow, doc?.selection, fillGap],
   )
   const transform: TransformState | null = session && {
     session,
@@ -1045,6 +1051,7 @@ export default function App() {
       return false
     }
     setTransformEdit(null)
+    fillGapWhenReady(session.layerId, session.gap)
     return true
   }
 
@@ -1316,6 +1323,28 @@ export default function App() {
   function handleMove(session: MoveSession, dx: number, dy: number) {
     const layer = current()?.layers.find((l) => l.id === session.layerId)
     editor.change(session.label, (d) => session.commit(d, dx, dy), { bytes: session.movesSelection && layer ? layerBytes(layer) : 0 })
+    fillGapWhenReady(session.layerId, session.gap)
+  }
+
+  // A part was put down before the gap it left was filled: the gap is filled in a moment later, as
+  // its own step, unless the picture changed in the meantime.
+  function fillGapWhenReady(layerId: string, gap: GapFill | null) {
+    if (!gap || gap.patch) return
+    const layer = current()?.layers.find((l) => l.id === layerId)
+    if (layer?.kind !== 'raster') return
+    const { canvas } = layer
+    const version = pixelVersion(canvas)
+    inform(t('AI is filling the gap…'))
+    void gap.ready.then((patch) => {
+      const now = current()?.layers.find((l) => l.id === layerId)
+      if (!patch || now?.kind !== 'raster' || now.canvas !== canvas || pixelVersion(canvas) !== version) return
+      setNotice(null)
+      editor.paint(t('Fill the gap'), layerId, gap.area, (ctx, l) => {
+        // Only the see-through gap is filled; whatever was put down over it stays on top.
+        ctx.globalCompositeOperation = 'destination-over'
+        ctx.drawImage(patch, gap.area.x - l.x, gap.area.y - l.y)
+      })
+    })
   }
 
   // Memory a layer's pixels take, for the undo history.
@@ -2146,7 +2175,9 @@ export default function App() {
   const hintExtra =
     doc?.selection && (hintTool === 'brush' || hintTool === 'eraser' || hintTool === 'adjust')
       ? t('Only the selected area changes.')
-      : doc?.selection && hintTool === 'move'
+      : doc?.selection && hintTool === 'move' && activeNow?.kind === 'raster' && fillGap
+        ? t('Drag the selected part to move it. On a photo, AI fills the gap it leaves.')
+        : doc?.selection && hintTool === 'move'
         ? t('The selected part moves.')
         : photoMoveOn
           ? t('Drag on the shape to slide its photo.')
@@ -2202,6 +2233,8 @@ export default function App() {
       locked: false,
       blocked: null,
       target: null,
+      fillGap,
+      onFillGap: setFillGap,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
     if (!doc) return { ...base, blocked: t('Click anything on your design to pick it.') }
@@ -2424,6 +2457,7 @@ export default function App() {
                 onStrokeActiveChange={(activeStroke) => (strokeActiveRef.current = activeStroke)}
                 onPickColor={handlePickColor}
                 onMove={handleMove}
+                fillGap={fillGap}
                 onSelect={handleSelect}
                 onMagicSelect={(target, mode) => void magicSelect(target, mode)}
                 onBlocked={problem}

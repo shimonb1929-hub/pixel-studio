@@ -5,6 +5,7 @@ import { coverRect } from '../editor/document.ts'
 import { ellipsePolygon, polygonBounds, rectFromCorners, rectPolygon, squareFromCorners, type Rect } from '../editor/geometry.ts'
 import { activeLayer, pickedWith } from '../editor/layers.ts'
 import { drawShape, hitsLayer, layerAt, photoPlacement, settleLayer } from '../editor/objects.ts'
+import { onGapFilled } from '../editor/gapFill.ts'
 import { startMove, type MoveSession } from '../editor/move.ts'
 import { renderScene, type LayerOverride } from '../editor/render.ts'
 import { sampleColor } from '../editor/sample.ts'
@@ -110,6 +111,8 @@ export interface CanvasViewProps {
   onStrokeActiveChange: (active: boolean) => void
   onPickColor: (hex: string) => void
   onMove: (session: MoveSession, dx: number, dy: number) => void
+  // When on, moving the selected part of a picture fills the gap it leaves from what's around it.
+  fillGap: boolean
   onSelect: (selection: Selection | null, label: string) => void
   // With the magic selection: a click on a thing, or a box dragged around it, for AI to find.
   onMagicSelect: (target: { point: Point } | { box: Rect }, mode: SelectionMode) => void
@@ -767,6 +770,9 @@ export function CanvasView(props: CanvasViewProps) {
     drawOverlay()
   }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box, props.textEditing, props.pen?.version])
 
+  // A gap being filled while a part is dragged shows as soon as it's ready.
+  useEffect(() => onGapFilled(() => moveRef.current && requestScene()), [])
+
   // The dashed outline keeps moving while something is selected, so it's easy to spot.
   useEffect(() => {
     if (!doc.selection) return
@@ -1106,7 +1112,7 @@ export function CanvasView(props: CanvasViewProps) {
 
   function startMoveDrag(event: PointerEvent<HTMLCanvasElement>) {
     if (!usableLayer()) return
-    const session = startMove(doc)
+    const session = startMove(doc, props.fillGap)
     if (!session) {
       props.onBlocked(t('Only pictures and paint can be moved part by part. To move the whole shape, clear the selection first.'))
       return

@@ -1142,5 +1142,10 @@
  "“{name}” is locked, so it doesn't move by accident.": "“{name}” est verrouillé : il ne bouge pas par accident.",
  "“{name}” is locked. Click its lock in the Layers panel to unlock it first.": "“{name}” est verrouillé. Cliquez d’abord sur son cadenas dans le panneau Calques pour le déverrouiller.",
  "“{name}” is text, so you can't {doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.": "“{name}” est un texte : vous ne pouvez pas en {doing} une partie. Modifiez-le avec Disposer et le panneau Texte, ou choisissez un calque de peinture.",
- "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” n’est plus dans ce navigateur. Elle a peut-être été supprimée dans un autre onglet."
+ "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” n’est plus dans ce navigateur. Elle a peut-être été supprimée dans un autre onglet.",
+ "AI is filling the gap…": "L’IA comble le vide…",
+ "Drag the selected part to move it. On a photo, AI fills the gap it leaves.": "Faites glisser la partie sélectionnée pour la déplacer. Sur une photo, l’IA comble le vide qu’elle laisse.",
+ "Fill the gap": "Combler le vide",
+ "Move and fill the gap": "Déplacer et combler le vide",
+ "When on, moving the selected part of a photo fills the place it came from with what is around it, as if it was never there. When off, that place is left see-through.": "Si c’est activé, déplacer la partie sélectionnée d’une photo remplit l’endroit d’où elle vient avec ce qui l’entoure, comme si elle n’y avait jamais été. Sinon, cet endroit reste transparent."
 }

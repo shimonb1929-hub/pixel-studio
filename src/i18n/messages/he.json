@@ -1142,5 +1142,10 @@
  "“{name}” is locked, so it doesn't move by accident.": "“{name}” נעול, כדי שלא יזוז בטעות.",
  "“{name}” is locked. Click its lock in the Layers panel to unlock it first.": "“{name}” נעול. קודם לחץ על המנעול שלו בחלונית השכבות כדי לבטל את הנעילה.",
  "“{name}” is text, so you can't {doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.": "“{name}” הוא טקסט, ולכן אי אפשר {doing} רק חלק ממנו. שנה אותו עם סידור וחלונית הטקסט, או בחר שכבת ציור.",
- "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” כבר לא נמצא בדפדפן הזה. ייתכן שהוא נמחק בכרטיסייה אחרת."
+ "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” כבר לא נמצא בדפדפן הזה. ייתכן שהוא נמחק בכרטיסייה אחרת.",
+ "AI is filling the gap…": "בינה מלאכותית ממלאת את החלל…",
+ "Drag the selected part to move it. On a photo, AI fills the gap it leaves.": "גררו את החלק המסומן כדי להזיז אותו. בתמונה, בינה מלאכותית ממלאת את החלל שהוא משאיר.",
+ "Fill the gap": "מילוי החלל",
+ "Move and fill the gap": "הזזה ומילוי החלל",
+ "When on, moving the selected part of a photo fills the place it came from with what is around it, as if it was never there. When off, that place is left see-through.": "כשזה פועל, הזזת החלק המסומן של תמונה ממלאת את המקום שממנו הוא הגיע במה שמסביב, כאילו הוא מעולם לא היה שם. כשזה כבוי, המקום נשאר שקוף."
 }

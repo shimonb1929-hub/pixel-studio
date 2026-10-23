@@ -1142,5 +1142,10 @@
  "“{name}” is locked, so it doesn't move by accident.": "“{name}” está bloqueado para que no se mueva por accidente.",
  "“{name}” is locked. Click its lock in the Layers panel to unlock it first.": "“{name}” está bloqueado. Primero haz clic en su candado en el panel Capas para desbloquearlo.",
  "“{name}” is text, so you can't {doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.": "“{name}” es un texto, así que no puedes {doing} solo una parte. Cámbialo con Organizar y el panel Texto, o elige una capa de pintura.",
- "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” ya no está en este navegador. Puede que se haya eliminado en otra pestaña."
+ "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” ya no está en este navegador. Puede que se haya eliminado en otra pestaña.",
+ "AI is filling the gap…": "La IA está rellenando el hueco…",
+ "Drag the selected part to move it. On a photo, AI fills the gap it leaves.": "Arrastra la parte seleccionada para moverla. En una foto, la IA rellena el hueco que deja.",
+ "Fill the gap": "Rellenar el hueco",
+ "Move and fill the gap": "Mover y rellenar el hueco",
+ "When on, moving the selected part of a photo fills the place it came from with what is around it, as if it was never there. When off, that place is left see-through.": "Si está activado, al mover la parte seleccionada de una foto, el lugar de donde salió se rellena con lo que hay alrededor, como si nunca hubiera estado allí. Si está desactivado, ese lugar queda transparente."
 }

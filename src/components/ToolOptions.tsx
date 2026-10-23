@@ -1,4 +1,4 @@
-import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, type LucideIcon } from 'lucide-react'
+import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, type LucideIcon } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -284,6 +284,29 @@ export interface SelectionCommands {
   center: () => void
 }
 
+// On or off: when the selected part of a picture is moved, AI fills the gap it leaves behind.
+function FillGapToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <Tooltip
+      title={t('Fill the gap')}
+      description={t('When on, moving the selected part of a photo fills the place it came from with what is around it, as if it was never there. When off, that place is left see-through.')}
+    >
+      <button
+        type="button"
+        aria-pressed={on}
+        aria-label={t('Fill the gap')}
+        onClick={() => onChange(!on)}
+        className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
+          on ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
+        }`}
+      >
+        <Sparkles size={15} />
+        <span className="hidden xl:inline">{t('Fill the gap')}</span>
+      </button>
+    </Tooltip>
+  )
+}
+
 // `roomy` buttons show their word only on very wide screens, where the bar has room for it.
 function BarButton({
   icon: Icon,
@@ -380,6 +403,9 @@ export interface ArrangeBarControls {
   spreadOut: (axis: 'x' | 'y') => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
+  // With a selected part: whether moving it fills the gap it leaves.
+  fillGap: boolean
+  onFillGap: (on: boolean) => void
 }
 
 export type CropShape = 'free' | 'original' | 'square' | 'portrait' | 'wide'
@@ -642,6 +668,7 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
           </button>
         </Tooltip>
       )}
+      {part && <FillGapToggle on={controls.fillGap} onChange={controls.onFillGap} />}
       <Divider />
       <div className="flex shrink-0 items-center">
         <BarButton
