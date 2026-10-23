@@ -1212,6 +1212,9 @@ export default function App() {
   function showDocument(next: EditorDocument, stored = false) {
     editor.load(next)
     autosave.start(next, stored)
+    // Things picked in the design that was open before don't carry over, even when the same
+    // design comes back from a file with the same layers.
+    setPicked(null)
     setTransformEdit(null)
     setCropEdit(null)
     setCursor(null)
