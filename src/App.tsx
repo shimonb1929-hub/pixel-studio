@@ -70,6 +70,7 @@ import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
 import { canFill, isLineShape, layerAt, layerBounds, layerPixels, polygonPoints } from './editor/objects.ts'
 import { fitPathToBox, geometryToPath, type ShapePath } from './editor/path.ts'
+import { combinable, combineAreas, combinedShape, type CombineMode } from './editor/combine.ts'
 import { gradientFrom, type Gradient } from './editor/gradient.ts'
 import { onGapFilled, type GapFill } from './editor/gapFill.ts'
 import { healRegion } from './editor/healRegion.ts'
@@ -229,6 +230,13 @@ function adjustProblem(doc: EditorDocument, layer: Layer): string | null {
 }
 
 const SHAPE_NAMES: Record<ShapeType, string> = live({ rectangle: msg('Rectangle'), ellipse: msg('Oval'), polygon: msg('Polygon'), star: msg('Star'), line: msg('Line'), path: msg('Drawn shape') })
+const COMBINE_LABELS: Record<CombineMode, string> = live({
+  join: msg('Join shapes'),
+  cut: msg('Cut out shapes'),
+  overlap: msg('Keep the overlap'),
+  apart: msg('Cut away the overlap'),
+})
+
 const DRAW_LABELS: Record<ShapeType, string> = live({
   rectangle: msg('Draw rectangle'),
   ellipse: msg('Draw oval'),
@@ -610,6 +618,34 @@ export default function App() {
     onChange: (layerId, patch, label) => editor.change(label, (d) => updateShape(d, layerId, patch)),
     preview: (path) => newPenShape(path, []),
   })
+
+  // Why the picked things can't be made into one shape, or null when they can.
+  function combineProblem(d: EditorDocument, ids: string[]): string | null {
+    const things = d.layers.filter((l) => ids.includes(l.id))
+    if (things.some((l) => l.kind !== 'shape' || !combinable(l))) return t('Only shapes can be made into one shape. Pick just shapes (not lines, text or photos).')
+    if (things.some((l) => l.locked)) return t('Something picked is locked. Unlock it first.')
+    return null
+  }
+
+  // Makes one shape out of the picked shapes. It takes the look of the bottom one and its place.
+  function combineShapes(ids: string[], mode: CombineMode) {
+    const d = current()
+    if (!d) return
+    const reason = combineProblem(d, ids)
+    if (reason) return problem(reason)
+    const shapes = d.layers.filter((l): l is ShapeLayer => ids.includes(l.id) && l.kind === 'shape')
+    const outlines = combineAreas(shapes, mode)
+    const bottom = shapes[0]
+    const shape = combinedShape(bottom, outlines, createId('layer'), nextNumberedName(t('Shape'), d.layers.map((l) => l.name)))
+    if (!shape) return problem(mode === 'overlap' ? t('These shapes don’t overlap, so nothing would be left.') : t('Nothing would be left of the shapes.'))
+    const label = COMBINE_LABELS[mode]
+    editor.change(label, (doc) => {
+      const at = doc.layers.findIndex((l) => l.id === bottom.id)
+      const kept = doc.layers.filter((l, i) => i === at || !ids.includes(l.id)).map((l) => (l.id === bottom.id ? shape : l))
+      return { ...doc, layers: kept, activeLayerId: shape.id, selection: null }
+    })
+    pickOne(shape.id)
+  }
 
   // Turns any shape into a pen shape with the same look, so its points can be changed one by one.
   function editPoints(layerId: string) {
@@ -1233,6 +1269,9 @@ export default function App() {
   function showDocument(next: EditorDocument, stored = false) {
     editor.load(next)
     autosave.start(next, stored)
+    // Things picked in the design that was open before don't carry over, even when the same
+    // design comes back from a file with the same layers.
+    setPicked(null)
     setTransformEdit(null)
     setCropEdit(null)
     setCursor(null)
@@ -2497,6 +2536,8 @@ export default function App() {
         target: { kind: one ? 'group' : 'many', name, ...readBox(frame), angle: 0, place: (change) => placeAll(changeBox(frame, change, keepProportions), describeTyped(change)) },
         flip: (axis) => placeAll(flipBox(frame, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
         rotate90: (direction) => placeAll(rotateBox90(frame, direction), direction > 0 ? t('Turn right') : t('Turn left')),
+        combine: (mode) => combineShapes(picked, mode),
+        combineBlocked: combineProblem(doc, picked),
       }
     }
     if (!activeNow.visible) return { ...base, blocked: t('“{name}” is hidden. Click its eye in the Layers panel to show it.', { name: activeNow.name }) }
@@ -2859,7 +2900,7 @@ export default function App() {
                   setColorTarget('fill')
                   setGradientStop(index)
                 }}
-                onEditPoints={editingShape && pickedShapes < 2 && !(tool === 'pen' && editingShape.geometry.type === 'path') ? () => editPoints(editingShape.id) : undefined}
+                onEditPoints={editingShape && pickedShapes < 2 && !editingShape.geometry.parts && !(tool === 'pen' && editingShape.geometry.type === 'path') ? () => editPoints(editingShape.id) : undefined}
                 onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ shape: editingShape.id }) : undefined}
                 photo={
                   editingShape?.fill.kind === 'photo'

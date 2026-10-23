@@ -1,4 +1,4 @@
-import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, type LucideIcon } from 'lucide-react'
+import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -16,6 +16,7 @@ import {
 } from '../editor/brushes.ts'
 import type { BoxChange } from '../editor/arrange.ts'
 import type { LineUpEdge } from '../editor/organize.ts'
+import type { CombineMode } from '../editor/combine.ts'
 import { signedDecimalInput, formatInUnit, pixelsToUnit, unitToPixels, useUnit, type Unit } from '../editor/units.ts'
 import { UnitPicker } from './UnitPicker.tsx'
 import { unitShort } from './unitWords.ts'
@@ -419,6 +420,9 @@ export interface ArrangeBarControls {
   spreadOut: (axis: 'x' | 'y') => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
+  // Set when several things are picked: makes one shape out of them, or says why it can't.
+  combine?: (mode: CombineMode) => void
+  combineBlocked?: string | null
   // With a selected part: whether moving it fills the gap it leaves.
   fillGap: boolean
   onFillGap: (on: boolean) => void
@@ -697,6 +701,83 @@ function useFloatingMenu(...focusFirst: string[]) {
   return { open, setOpen, position, setPosition, buttonRef, menuRef }
 }
 
+const COMBINES: { mode: CombineMode; label: string; description: string; icon: LucideIcon }[] = live([
+  { mode: 'join', label: msg('Join'), description: msg('Make them one shape, as if they were melted together.'), icon: SquaresUnite },
+  { mode: 'cut', label: msg('Cut out'), description: msg('The shapes on top cut their shape out of the bottom one, like a cookie cutter.'), icon: SquaresSubtract },
+  { mode: 'overlap', label: msg('Overlap'), description: msg('Keep only the part where they all overlap.'), icon: SquaresIntersect },
+  { mode: 'apart', label: msg('Apart'), description: msg('Keep everything except where they overlap, which becomes a hole.'), icon: SquaresExclude },
+])
+
+// Making one shape out of several: a small menu of pictures, each saying what it does.
+function CombineMenu({ blocked, onCombine }: { blocked: string | null; onCombine: (mode: CombineMode) => void }) {
+  const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="menuitem"]:not([disabled])')
+  const item = 'flex flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[11px] font-medium text-ink-2 outline-none hover:bg-subtle hover:text-ink focus-visible:bg-subtle focus-visible:text-ink disabled:pointer-events-none disabled:opacity-40'
+  return (
+    <>
+      <Tooltip title={t('Make one shape')} description={t('Join the picked shapes into one, cut one out of another, or keep just where they overlap. The new shape looks like the bottom one, and stays sharp at any size.')}>
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label={t('Make one shape')}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => {
+            setPosition(null)
+            setOpen(!open)
+          }}
+          className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${open ? 'bg-subtle text-ink' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
+        >
+          <SquaresUnite size={15} />
+          <span className="hidden xl:inline">{t('Make one shape')}</span>
+          <ChevronDown size={13} />
+        </button>
+      </Tooltip>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={t('Make one shape')}
+            onKeyDown={(event) => {
+              const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? [])
+              const index = items.indexOf(document.activeElement as HTMLElement)
+              const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
+              if (step === 0 || items.length === 0) return
+              event.preventDefault()
+              event.stopPropagation()
+              items[(index + step + items.length) % items.length]?.focus()
+            }}
+            className="fixed z-40 w-72 rounded-xl border border-line bg-surface p-2 shadow-float"
+            style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
+          >
+            {blocked && <p role="note" className="px-1 pb-2 text-[12px] leading-snug text-ink-2">{blocked}</p>}
+            <div className="grid grid-cols-4 gap-1">
+              {COMBINES.map(({ mode, label, description, icon: Icon }) => (
+                <Tooltip key={mode} title={label} description={description} className="flex">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!!blocked}
+                    onClick={() => {
+                      setOpen(false)
+                      setPosition(null)
+                      onCombine(mode)
+                    }}
+                    className={`${item} flex-1`}
+                  >
+                    <Icon size={18} />
+                    {label}
+                  </button>
+                </Tooltip>
+              ))}
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
+
 function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineUp: (edge: LineUpEdge) => void; onSpread: (axis: 'x' | 'y') => void }) {
   const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="menuitem"]')
 
@@ -840,6 +921,7 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
             )}
             {target.kind === 'many' && <BarButton icon={LayoutGrid} label={t("Tidy up")} title={t("Tidy up")} description={t("Put them in a neat row or column, with even gaps, lined up through their middles.")} onClick={controls.tidyUp} />}
             {target.kind === 'many' && <LineUpMenu several onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
+            {controls.combine && <CombineMenu blocked={controls.combineBlocked ?? null} onCombine={controls.combine} />}
           </div>
           <Divider />
         </>

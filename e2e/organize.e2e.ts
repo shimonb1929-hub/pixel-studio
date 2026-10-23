@@ -261,3 +261,57 @@ test('several things grow and turn together from the frame around them', async (
   expectColor(await designPixel(page, size, 160, 80), WHITE)
   expectColor(await designPixel(page, size, 160, 150), BLUE)
 })
+
+test('picked shapes become one shape: cut out a hole, undo, and only shapes can', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawRectangle(page, size, [50, 50], [200, 200])
+  await page.keyboard.press('u')
+  await page.getByRole('radio', { name: 'Oval' }).click()
+  await drag(page, size, [
+    [100, 100],
+    [150, 150],
+  ])
+  await page.getByRole('button', { name: 'Red', exact: true }).click()
+  await page.keyboard.press('v')
+  await drag(page, size, [
+    [20, 20],
+    [230, 230],
+  ])
+  await expect(bar(page)).toContainText('2 things')
+
+  // The oval on top cuts a hole in the square.
+  await bar(page).getByRole('button', { name: 'Make one shape' }).click()
+  await page.getByRole('menu', { name: 'Make one shape' }).getByRole('menuitem', { name: 'Cut out' }).click()
+  expect(await layerNames(page)).toEqual(['Shape 1'])
+  expect(await undoLabel(page)).toContain('Undo cut out shapes')
+  expectColor(await designPixel(page, size, 125, 125), WHITE)
+  expectColor(await designPixel(page, size, 70, 70), BLUE)
+  // Once let go, a click in the hole picks nothing; a click on the shape picks it.
+  await clickAt(page, size, 330, 260)
+  await clickAt(page, size, 125, 125)
+  await expect(page.getByRole('button', { name: 'Page', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await clickAt(page, size, 70, 70)
+  await expectPickedSize(page, 150, 150)
+
+  await page.keyboard.press('Control+z')
+  expect(await layerNames(page)).toEqual(['Oval 1', 'Rectangle 1'])
+  expectColor(await designPixel(page, size, 125, 125), RED)
+
+  // Lines can't be joined, and the menu says why.
+  await page.keyboard.press('u')
+  await page.getByRole('radio', { name: 'Line' }).click()
+  await drag(page, size, [
+    [250, 60],
+    [350, 60],
+  ])
+  await page.keyboard.press('v')
+  await drag(page, size, [
+    [20, 20],
+    [380, 230],
+  ])
+  await bar(page).getByRole('button', { name: 'Make one shape' }).click()
+  const menu = page.getByRole('menu', { name: 'Make one shape' })
+  await expect(menu.getByRole('note')).toContainText('Only shapes')
+  await expect(menu.getByRole('menuitem', { name: 'Join' })).toBeDisabled()
+  await page.keyboard.press('Escape')
+})

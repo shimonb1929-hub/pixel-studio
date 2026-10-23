@@ -290,6 +290,10 @@ function readGeometry(value: unknown): ShapeGeometry {
   if (!isBetween(value.corners, 0, 1) || !isWhole(value.sides, 3, 64) || typeof value.arrow !== 'boolean') damaged()
   const geometry: ShapeGeometry = { type: value.type as ShapeType, corners: value.corners, sides: value.sides, arrow: value.arrow }
   if (geometry.type === 'path') geometry.path = readPath(value.path)
+  if (geometry.type === 'path' && value.parts !== undefined) {
+    if (!Array.isArray(value.parts) || value.parts.length > MAX_PATH_NODES) damaged()
+    geometry.parts = value.parts.map(readPath)
+  }
   return geometry
 }
 

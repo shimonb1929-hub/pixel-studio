@@ -91,6 +91,11 @@ export function arrowLength(outlineWidth: number): number {
   return Math.max(outlineWidth * 3.5, 12)
 }
 
+// A shape made by joining or cutting shapes has holes where an even number of its outlines go around.
+export function fillRule(geometry: ShapeGeometry): CanvasFillRule {
+  return geometry.parts?.length ? 'evenodd' : 'nonzero'
+}
+
 // The outline of a shape, centered on 0, 0, unturned and unflipped.
 export function shapePath(geometry: ShapeGeometry, w: number, h: number, outlineWidth = 0): Path2D {
   const path = new Path2D()
@@ -107,6 +112,7 @@ export function shapePath(geometry: ShapeGeometry, w: number, h: number, outline
     // With an arrow head, the path stops short of the tip, as a line does.
     const pen = scaledPath(geometry, w, h)
     tracePath(path, pen, hasArrow(geometry) ? trimForArrow(pen, arrowLength(outlineWidth) * 0.8) : 1)
+    for (const part of geometry.parts ?? []) tracePath(path, mapPath(part, (p) => ({ x: p.x * w, y: p.y * h })))
   } else {
     polygonPoints(geometry, w, h).forEach((p, i) => (i === 0 ? path.moveTo(p.x, p.y) : path.lineTo(p.x, p.y)))
     path.closePath()
@@ -139,14 +145,14 @@ export function drawShape(ctx: CanvasRenderingContext2D, layer: ShapeLayer): voi
   if (canFill(geometry)) {
     if (fill.kind === 'color') {
       ctx.fillStyle = fill.color
-      ctx.fill(path)
+      ctx.fill(path, fillRule(geometry))
     } else if (fill.kind === 'gradient') {
       ctx.fillStyle = canvasGradient(ctx, fill.gradient, w, h)
       // An arrow's path stops short, so the fill uses the whole path.
-      ctx.fill(hasArrow(geometry) ? shapePath({ ...geometry, arrow: false }, w, h) : path)
+      ctx.fill(hasArrow(geometry) ? shapePath({ ...geometry, arrow: false }, w, h) : path, fillRule(geometry))
     } else if (fill.kind === 'photo') {
       ctx.save()
-      ctx.clip(path)
+      ctx.clip(path, fillRule(geometry))
       const place = photoPlacement(fill, w, h)
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
@@ -298,7 +304,7 @@ export function hitsLayer(layer: Layer, point: Point, slack = 0): boolean {
     const y = local.y - 0.5
     const path = shapePath(geometry, w, h, outline?.width ?? 0)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
-    if (canFill(geometry) && fill.kind !== 'none' && ctx.isPointInPath(path, x, y)) return true
+    if (canFill(geometry) && fill.kind !== 'none' && ctx.isPointInPath(path, x, y, fillRule(geometry))) return true
     ctx.lineWidth = (outline?.width ?? 0) + slack * 2
     if (ctx.lineWidth > 0 && ctx.isPointInStroke(path, x, y)) return true
     if (geometry.type === 'line' && geometry.arrow && outline) return Math.hypot(x - w / 2, y) <= arrowLength(outline.width) + slack
