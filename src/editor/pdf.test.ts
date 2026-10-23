@@ -8,7 +8,7 @@ describe('pdf file', () => {
   const image = { width: 2, height: 1, data: new Uint8Array([1, 2, 3, 4, 5, 6]), filter: 'FlateDecode' as const }
 
   it('writes a page with the picture, and an index that points at every part', () => {
-    const bytes = buildPdf({ width: 200, height: 100, image, imageBox: { x: 0, y: 0, width: 200, height: 100 }, title: 'Card' })
+    const bytes = buildPdf([{ width: 200, height: 100, image, imageBox: { x: 0, y: 0, width: 200, height: 100 } }], 'Card')
     const file = text(bytes)
     expect(file.startsWith('%PDF-1.4')).toBe(true)
     expect(file).toContain('/MediaBox [0 0 200 100]')
@@ -18,25 +18,38 @@ describe('pdf file', () => {
     expect(file.slice(xref, xref + 4)).toBe('xref')
     const offsets = [...file.slice(xref).matchAll(/^(\d{10}) 00000 n $/gm)].map((m) => Number(m[1]))
     expect(offsets).toHaveLength(6)
+    expect(file).toContain('/Kids [4 0 R] /Count 1')
     offsets.forEach((offset, i) => expect(file.slice(offset)).toMatch(new RegExp(`^${i + 1} 0 obj`)))
   })
 
+  it('puts each page in order, each with its own picture', () => {
+    const page = { width: 10, height: 10, image, imageBox: { x: 0, y: 0, width: 10, height: 10 } }
+    const file = text(buildPdf([page, page, page], 'Menu'))
+    expect(file).toContain('/Kids [4 0 R 7 0 R 10 0 R] /Count 3')
+    expect(file.match(/\/Type \/Page /g)).toHaveLength(3)
+    expect(file).toContain('/XObject << /Im0 12 0 R >> >> /Contents 11 0 R')
+  })
+
   it('keeps a Hebrew title readable', () => {
-    const file = text(buildPdf({ width: 10, height: 10, image, imageBox: { x: 0, y: 0, width: 10, height: 10 }, title: 'שלום' }))
+    const file = text(buildPdf([{ width: 10, height: 10, image, imageBox: { x: 0, y: 0, width: 10, height: 10 } }], 'שלום'))
     expect(file).toContain('/Title <FEFF05E905DC05D505DD>')
   })
 
   it('turns top-left boxes and lines into PDF coordinates, counted from the bottom', () => {
     const file = text(
-      buildPdf({
-        width: 100,
-        height: 100,
-        image,
-        imageBox: { x: 10, y: 20, width: 50, height: 30 },
-        trimBox: { x: 10, y: 20, width: 50, height: 30 },
-        marks: [[0, 20, 5, 20]],
-        title: '',
-      }),
+      buildPdf(
+        [
+          {
+            width: 100,
+            height: 100,
+            image,
+            imageBox: { x: 10, y: 20, width: 50, height: 30 },
+            trimBox: { x: 10, y: 20, width: 50, height: 30 },
+            marks: [[0, 20, 5, 20]],
+          },
+        ],
+        '',
+      ),
     )
     expect(file).toContain('50 0 0 30 10 50 cm')
     expect(file).toContain('/TrimBox [10 50 60 80]')

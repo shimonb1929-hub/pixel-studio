@@ -5,6 +5,7 @@ import { CanvasView, type ArrangeControls, type BoxEditing, type ShapeDrawing, t
 import { ColorPanel } from './components/ColorPanel.tsx'
 import { CommandPalette } from './components/CommandPalette.tsx'
 import { Dialog } from './components/Dialog.tsx'
+import { PagesBar } from './components/PagesBar.tsx'
 import { ExportDialog, type ExportOptions } from './components/ExportDialog.tsx'
 import { LayersPanel } from './components/LayersPanel.tsx'
 import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocumentDialog.tsx'
@@ -40,6 +41,7 @@ import {
   MAX_DOCUMENT_SIDE,
 } from './editor/document.ts'
 import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocument } from './editor/documentOps.ts'
+import { addPage, changeEveryPage, movePage, pageDocuments, pageIndex, removePage } from './editor/pages.ts'
 import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
 import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
@@ -1064,7 +1066,7 @@ export default function App() {
     const d = current()
     if (!crop || !d || isIdentity(crop.box, fullFrame(d))) return
     const rect = cropRect(crop.box)
-    editor.change(t('Crop'), (doc) => cropDocument(doc, rect))
+    editor.change(t('Crop'), (doc) => changeEveryPage(doc, (page) => cropDocument(page, rect)))
     // Keep the part you kept exactly where it was on screen.
     setViewport((v) => ({ ...v, panX: v.panX + rect.x * v.zoom, panY: v.panY + rect.y * v.zoom }))
     setCropEdit(null)
@@ -1629,11 +1631,14 @@ export default function App() {
   }
 
   // Whole-design changes: the view refits so the whole result is in sight.
-  function changeWholeDesign(label: string, update: (d: EditorDocument) => EditorDocument) {
+  // Size changes apply to every page, so all pages stay the same size; `onePage` keeps a change
+  // (like a flip) to the page being worked on.
+  function changeWholeDesign(label: string, update: (d: EditorDocument) => EditorDocument, onePage = false) {
     settle()
     const d = current()
     if (!d) return
-    editor.change(label, update, { bytes: documentBytes(d) })
+    const bytes = onePage ? documentBytes(d) : pageDocuments(d).reduce((sum, page) => sum + documentBytes(page), 0)
+    editor.change(label, onePage ? update : (doc) => changeEveryPage(doc, update), { bytes })
     const next = current()
     if (next) setViewport(fitted(next, false))
   }
@@ -1956,12 +1961,38 @@ export default function App() {
         return
       }
       settle()
-      editor.change(t('Crop to selection'), (doc) => cropDocument({ ...doc, selection: null }, bounds))
+      editor.change(t('Crop to selection'), (doc) => changeEveryPage({ ...doc, selection: null }, (page) => cropDocument(page, bounds)))
       setViewport((v) => ({ ...v, panX: v.panX + bounds.x * v.zoom, panY: v.panY + bounds.y * v.zoom }))
     },
     rotateDesign: (direction) => changeWholeDesign(direction > 0 ? t('Turn design right') : t('Turn design left'), (d) => rotateDocument(d, direction)),
     flipDesign: (axis) =>
-      changeWholeDesign(axis === 'horizontal' ? t('Flip design left to right') : t('Flip design upside down'), (d) => flipDocument(d, axis)),
+      changeWholeDesign(axis === 'horizontal' ? t('Flip design left to right') : t('Flip design upside down'), (d) => flipDocument(d, axis), true),
+    addPage: () => {
+      settle()
+      editor.change(t('Add page'), (d) => addPage(d))
+      // Like a new design, the empty page starts on Arrange with its first steps showing.
+      setTool('move')
+    },
+    copyPage: () => {
+      settle()
+      const d = current()
+      if (!d) return
+      editor.change(t('Copy page'), (doc) => addPage(doc, true), { bytes: documentBytes(d) })
+    },
+    deletePage: () => {
+      settle()
+      editor.change(t('Delete page'), (d) => removePage(d))
+    },
+    movePage: (direction) => {
+      settle()
+      editor.change(t('Move page'), (d) => movePage(d, direction))
+    },
+    goToPage: (direction) => {
+      const d = current()
+      if (!d) return
+      settle()
+      editor.goToPage(pageIndex(d) + direction)
+    },
     layerAdd: layers.add,
     layerDuplicate: layers.duplicate,
     layerUp: () => layers.move(1),
@@ -2083,6 +2114,8 @@ export default function App() {
       else if (mod && (code === 'Digit0' || code === 'Numpad0') && hasDoc) action = c.fit
       else if (mod && code === 'BracketRight' && hasDoc) action = event.shiftKey ? c.layerToFront : c.layerUp
       else if (mod && code === 'BracketLeft' && hasDoc) action = event.shiftKey ? c.layerToBack : c.layerDown
+      else if (plain && code === 'PageDown' && hasDoc) action = () => c.goToPage(1)
+      else if (plain && code === 'PageUp' && hasDoc) action = () => c.goToPage(-1)
       else if (plain && code === 'BracketRight') action = c.biggerBrush
       else if (plain && code === 'BracketLeft') action = c.smallerBrush
       else if (plain && !event.shiftKey) {
@@ -2509,6 +2542,18 @@ export default function App() {
                 onFit={commands.fit}
               />
               <DesignInfo doc={doc} cursor={cursor} />
+              <PagesBar
+                doc={doc}
+                revision={editor.revision}
+                onGoTo={(index) => {
+                  settle()
+                  editor.goToPage(index)
+                }}
+                onAdd={commands.addPage}
+                onCopy={commands.copyPage}
+                onMove={commands.movePage}
+                onDelete={commands.deletePage}
+              />
             </>
           ) : (
             <WelcomeScreen onPreset={createFromPreset} onCustom={commands.newDesign} onOpen={commands.open} onOpenDesign={openSaved} />
