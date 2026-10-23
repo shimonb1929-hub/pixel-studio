@@ -2,6 +2,7 @@ import type { Action } from './actions.ts'
 import { LOOKS } from './editor/adjust.ts'
 import { activeLayer } from './editor/layers.ts'
 import { pageCount, pageIndex } from './editor/pages.ts'
+import { hasPageNumbers } from './editor/everyPage.ts'
 import type { LineUpEdge } from './editor/organize.ts'
 import type { EditorDocument, ToolId } from './editor/types.ts'
 import { shortcut } from './keys.ts'
@@ -41,6 +42,8 @@ export interface AppCommands {
   addPage: () => void
   pageLayout: () => void
   copyPage: () => void
+  everyPage: () => void
+  pageNumbers: () => void
   deletePage: () => void
   movePage: (direction: 1 | -1) => void
   goToPage: (direction: 1 | -1) => void
@@ -531,6 +534,28 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       keywords: ['margin', 'margins', 'columns', 'column', 'guides', 'guide', 'grid', 'layout', 'gutter', 'edge', 'border', 'line up'],
       needsDocument: true,
       run: c.pageLayout,
+    },
+    {
+      id: 'every-page',
+      group: 'Pages',
+      title: active?.everyPage ? t('Only on this page') : t('Show on every page'),
+      description: active?.everyPage
+        ? t('Keep the picked thing on this page only, and take it off the other pages.')
+        : t('Put the picked thing on every page, like a logo or a heading at the top. Change it on any page and it changes on all of them.'),
+      keywords: ['every page', 'all pages', 'master', 'master page', 'parent page', 'repeat', 'header', 'footer', 'logo', 'same on every page', 'template'],
+      needsDocument: true,
+      disabledReason: noLayerPicked ?? (active?.kind === 'text' && active.flow ? t('Text that runs on from box to box stays on its own page.') : undefined),
+      run: c.everyPage,
+    },
+    {
+      id: 'page-numbers',
+      group: 'Pages',
+      title: t('Add page numbers'),
+      description: t('A number at the bottom of every page that counts itself: 1, 2, 3. Move it, or change its font and color, on any page.'),
+      keywords: ['page number', 'page numbers', 'numbering', 'number pages', 'footer', 'folio', 'count'],
+      needsDocument: true,
+      disabledReason: doc && hasPageNumbers(doc) ? t('This design already has page numbers. To take them off, pick one and delete it.') : undefined,
+      run: c.pageNumbers,
     },
     {
       id: 'copy-page',

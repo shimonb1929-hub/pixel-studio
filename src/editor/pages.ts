@@ -50,11 +50,16 @@ export function addPage(doc: EditorDocument, copy = false): EditorDocument {
   const pages = allPages(doc)
   const index = pageIndex(doc)
   const current = pages[index]
-  let page: DesignPage = { id: createId('page'), background: current.background, pageGradient: current.pageGradient ?? null, layers: [], activeLayerId: '' }
+  // Things on every page are on a new page too.
+  const shared = current.layers.filter((l) => l.everyPage).map((l): Layer => {
+    const { group: _, ...rest } = l
+    return { ...rest, id: createId('layer') } as Layer
+  })
+  let page: DesignPage = { id: createId('page'), background: current.background, pageGradient: current.pageGradient ?? null, layers: shared, activeLayerId: '' }
   if (copy) {
     // Copies keep their names; pixels are copied, since painting changes them in place.
     // Text running on from box to box keeps doing so on the copy, as a story of its own.
-    const layers = renameStories(current.layers.map((layer) => ({ ...duplicateLayer(layer), name: layer.name, locked: layer.locked, ...(layer.kind === 'text' && layer.flow ? { flow: layer.flow } : {}) }) as Layer))
+    const layers = renameStories(current.layers.map((layer) => ({ ...duplicateLayer(layer), name: layer.name, locked: layer.locked, ...(layer.kind === 'text' && layer.flow ? { flow: layer.flow } : {}), ...(layer.everyPage ? { everyPage: layer.everyPage } : {}) }) as Layer))
     const active = current.layers.findIndex((l) => l.id === current.activeLayerId)
     page = { ...page, layers, activeLayerId: layers[active]?.id ?? '' }
   }

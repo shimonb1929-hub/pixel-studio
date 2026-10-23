@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleHelp, Copy, Eye, EyeOff, Grid2x2, Lock, LockOpen, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleHelp, Copy, Eye, EyeOff, Files, Grid2x2, Lock, LockOpen, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { adjustmentName, isNeutral } from '../editor/adjust.ts'
 import { drawLayer } from '../editor/compose.ts'
@@ -142,6 +142,8 @@ interface LayersPanelProps {
   onToggleLock: (layerId: string) => void
   // Opens Adjust for a layer, to change its adjustments.
   onEditAdjust: (layerId: string) => void
+  // Takes a thing that's on every page off the other pages.
+  onOnlyThisPage: (layerId: string) => void
   onRename: (layerId: string, name: string) => void
   onOpacity: (layerId: string, opacity: number) => void
   onAdd: () => void
@@ -311,6 +313,21 @@ export function LayersPanel(props: LayersPanelProps) {
                       <span dir="auto" className="min-w-0 flex-1 truncate text-start">
                         {layer.name}
                       </span>
+                    </button>
+                  </Tooltip>
+                )}
+                {layer.everyPage && (
+                  <Tooltip
+                    title={t('On every page')}
+                    description={t('This is on every page: change it here and it changes on all of them. Click to keep it on this page only.')}
+                  >
+                    <button
+                      type="button"
+                      aria-label={t('Keep {name} on this page only', { name: layer.name })}
+                      onClick={() => props.onOnlyThisPage(layer.id)}
+                      className="flex h-8 w-7 items-center justify-center rounded-lg text-accent transition-colors hover:bg-surface"
+                    >
+                      <Files size={14} />
                     </button>
                   </Tooltip>
                 )}

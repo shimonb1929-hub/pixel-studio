@@ -8,6 +8,7 @@ import { goToPage, pageIndex, pageOfLayer } from '../editor/pages.ts'
 import { markPixelsChanged } from '../editor/pixelVersion.ts'
 import { copyRegion, restoreRegion, type StrokeResult } from '../editor/stroke.ts'
 import type { EditorDocument, PixelLayer } from '../editor/types.ts'
+import { syncEveryPage } from '../editor/everyPage.ts'
 import { reflowText } from '../text/textFlow.ts'
 
 // Everything about a design except its pixels, which change in place and are kept separately.
@@ -134,7 +135,7 @@ export function useEditor(): Editor {
     load(next) {
       history.clear()
       setRenamed(false)
-      setDoc(reflowText(next))
+      setDoc(syncEveryPage(reflowText(next)))
       setRevision((r) => r + 1)
       refresh()
     },
@@ -149,8 +150,9 @@ export function useEditor(): Editor {
     change(label, update, options = {}) {
       const current = docRef.current
       if (!current) return
-      // Text running on from box to box is split over its boxes again after every change.
-      const next = reflowText(update(current))
+      // Text running on from box to box is split over its boxes again after every change, and
+      // things on every page are made the same on all of them.
+      const next = syncEveryPage(reflowText(update(current)))
       if (next === current) return
       history.push({
         label,

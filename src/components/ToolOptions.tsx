@@ -133,7 +133,7 @@ function PresetTile({ preset, chosen, color, mode, big, onChoose }: { preset: Br
         }`}
       >
         <StrokePreview settings={preset.settings} color={color} mode={mode} width={big ? 92 : 58} height={big ? 38 : 24} maxSize={big ? 22 : 14} />
-        <span className="text-[11px] font-medium">{preset.name}</span>
+        <span className={`font-medium ${big ? 'text-[12px]' : 'text-[11px]'}`}>{preset.name}</span>
       </button>
     </Tooltip>
   )
@@ -186,14 +186,14 @@ function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; c
               event.stopPropagation()
               items[(index + step + items.length) % items.length]?.focus()
             }}
-            className="fixed z-40 rounded-xl border border-line bg-surface p-2 shadow-float"
+            className="fixed z-40 rounded-2xl border border-line bg-surface p-3 shadow-float"
             style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
           >
             <div role="radiogroup" aria-label={t("Ready-made brushes")}>
               {groups.map((group) => (
                 <div key={group.title}>
                   <p className="px-1 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{group.title}</p>
-                  <div className="grid grid-cols-5 gap-1 pb-1">
+                  <div className="grid grid-cols-5 gap-1.5 pb-1.5">
                     {group.presets.map((p) => (
                       <PresetTile
                         key={p.id}

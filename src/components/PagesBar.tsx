@@ -50,10 +50,13 @@ interface PagesBarProps {
   onCopy: () => void
   onMove: (direction: 1 | -1) => void
   onDelete: () => void
+  // Puts the picked thing on every page, or back on this page only.
+  everyPage: { label: string; disabled: boolean; run: () => void }
+  pageNumbers: { disabled: boolean; run: () => void }
 }
 
 // The pages of the design, in a row at the bottom. With one page it's just a button to add more.
-export function PagesBar({ doc, revision, onGoTo, onAdd, onCopy, onMove, onDelete }: PagesBarProps) {
+export function PagesBar({ doc, revision, onGoTo, onAdd, onCopy, onMove, onDelete, everyPage, pageNumbers }: PagesBarProps) {
   const pages = allPages(doc)
   const current = pageIndex(doc)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -73,6 +76,8 @@ export function PagesBar({ doc, revision, onGoTo, onAdd, onCopy, onMove, onDelet
     { label: t('Copy this page'), run: onCopy },
     { label: t('Move page earlier'), run: () => onMove(-1), disabled: current === 0 },
     { label: t('Move page later'), run: () => onMove(1), disabled: current === pages.length - 1 },
+    { label: everyPage.label, run: everyPage.run, disabled: everyPage.disabled },
+    { label: t('Add page numbers'), run: pageNumbers.run, disabled: pageNumbers.disabled },
     { label: t('Delete this page'), run: onDelete },
   ]
 
@@ -135,7 +140,7 @@ export function PagesBar({ doc, revision, onGoTo, onAdd, onCopy, onMove, onDelet
             </button>
           </Tooltip>
           {menuOpen && (
-            <div role="menu" className="absolute bottom-10 end-0 w-48 rounded-xl border border-line bg-surface p-1 shadow-float">
+            <div role="menu" className="absolute bottom-10 end-0 w-56 rounded-xl border border-line bg-surface p-1 shadow-float">
               {items.map((item) => (
                 <button
                   key={item.label}
