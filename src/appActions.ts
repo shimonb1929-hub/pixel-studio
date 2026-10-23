@@ -2,6 +2,7 @@ import type { Action } from './actions.ts'
 import { LOOKS } from './editor/adjust.ts'
 import { activeLayer } from './editor/layers.ts'
 import { pageCount, pageIndex } from './editor/pages.ts'
+import { photoSources } from './editor/palette.ts'
 import { hasPageNumbers } from './editor/everyPage.ts'
 import type { LineUpEdge } from './editor/organize.ts'
 import type { EditorDocument, ToolId } from './editor/types.ts'
@@ -74,6 +75,10 @@ export interface AppCommands {
   // Opens the Effects panel for what is picked.
   showEffects: () => void
   removeBackground: () => void
+  // The design helpers (src/hooks/useSmartDesign.ts): each shows its result first.
+  matchPhotoColors: () => void
+  tidyPage: () => void
+  makeReadable: () => void
 }
 
 interface ActionState {
@@ -723,6 +728,35 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
       run: c.removeBackground,
+    },
+    {
+      id: 'match-photo-colors',
+      group: 'Whole design',
+      title: t('Match design to photo'),
+      description: t('Give the shapes and words on the page the main colors of your photos, with words kept easy to read (pro: recolor to color theme). You see it first; press Apply to keep it.'),
+      keywords: ['match', 'photo colors', 'palette', 'color theme', 'theme', 'recolor', 'color scheme', 'harmony', 'extract colors', 'colors from photo', 'matching colors'],
+      needsDocument: true,
+      disabledReason: doc && !photoSources(doc).canvases.length ? t('Add a photo first: its colors are used for the design.') : undefined,
+      run: c.matchPhotoColors,
+    },
+    {
+      id: 'tidy-page',
+      group: 'Line up',
+      title: t('Tidy the whole page'),
+      description: t('Find things that are almost lined up or almost evenly spaced, and nudge them a few pixels so they line up exactly. You see what moves before you keep it.'),
+      keywords: ['tidy', 'neat', 'clean up', 'align', 'auto align', 'snap', 'straighten', 'line up', 'even spacing', 'distribute', 'messy', 'page'],
+      needsDocument: true,
+      run: c.tidyPage,
+    },
+    {
+      id: 'make-readable',
+      group: 'Layers',
+      title: t('Make words readable'),
+      description: t('When the picked words are hard to read over a photo or a color, give them a clearer color, a soft shadow or a box behind them (pro: contrast check). You see it first.'),
+      keywords: ['readable', 'contrast', 'legible', 'hard to read', 'text over photo', 'text over image', 'accessibility', 'wcag', 'stand out', 'shadow', 'backing'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'text' ? t('Pick some words on your design first.') : undefined,
+      run: c.makeReadable,
     },
     ...LOOKS.filter((look) => look.id !== 'original').map(
       (look): Action => ({

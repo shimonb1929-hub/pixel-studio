@@ -1,5 +1,5 @@
 import { CircleHelp, Pipette } from 'lucide-react'
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { hexToHsv, hsvToHex, normalizeHex, SWATCHES, type Hsv } from '../editor/color.ts'
 import { shortcut } from '../keys.ts'
 import { Tooltip } from './Tooltip.tsx'
@@ -10,6 +10,8 @@ interface ColorPanelProps {
   recent: string[]
   onChange: (hex: string) => void
   onPickFromDesign: () => void
+  // The colors of the photos on the design, under the ready colors.
+  photoColors?: ReactNode
 }
 
 function clamp01(value: number): number {
@@ -33,7 +35,7 @@ function Swatch({ hex, name, selected, onClick }: { hex: string; name: string; s
   )
 }
 
-export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorPanelProps) {
+export function ColorPanel({ color, recent, onChange, onPickFromDesign, photoColors }: ColorPanelProps) {
   // Kept separately from the hex color so the hue doesn't jump when a color is gray or black.
   const [hsv, setHsv] = useState<Hsv>(() => hexToHsv(color))
   const [syncedColor, setSyncedColor] = useState(color)
@@ -150,6 +152,7 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
           <Swatch key={swatch.hex} hex={swatch.hex} name={swatch.name} selected={swatch.hex === color} onClick={() => onChange(swatch.hex)} />
         ))}
       </div>
+      {photoColors}
 
       <Tooltip
         title={t("Shade")}
