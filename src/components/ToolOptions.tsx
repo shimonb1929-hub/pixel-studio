@@ -1,4 +1,4 @@
-import { Aperture, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
+import { Aperture, Shapes, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -427,6 +427,8 @@ export interface ArrangeBarControls {
   // it. While that's being tried out, `blurSession` holds its slider and the bar shows only that.
   blurBackground?: () => void
   blurSession?: BlurBackgroundControls | null
+  // Set when one photo or drawing is picked: makes sharp shapes out of it (pro: Image Trace).
+  turnIntoShapes?: () => void
   // Set when several things are picked: makes one shape out of them, or says why it can't.
   combine?: (mode: CombineMode) => void
   combineBlocked?: string | null
@@ -995,6 +997,16 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
             roomy
             description={t('AI finds the main thing in “{name}” and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You choose how much and see it before you keep it. The first time, the AI is downloaded, which takes a moment.', { name: target.name })}
             onClick={controls.blurBackground}
+          />
+        )}
+        {controls.turnIntoShapes && (
+          <BarButton
+            icon={Shapes}
+            label={t('Into shapes')}
+            title={t('Turn into shapes')}
+            roomy
+            description={t('Makes sharp shapes out of “{name}” that stay crisp at any size and can be recolored. Best for logos, drawings, signatures and sketches. You see the shapes first. (pro: Image Trace)', { name: target.name })}
+            onClick={controls.turnIntoShapes}
           />
         )}
         {!part && (
