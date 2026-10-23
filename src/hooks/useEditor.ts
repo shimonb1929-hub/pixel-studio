@@ -8,6 +8,7 @@ import { goToPage, pageIndex, pageOfLayer } from '../editor/pages.ts'
 import { markPixelsChanged } from '../editor/pixelVersion.ts'
 import { copyRegion, restoreRegion, type StrokeResult } from '../editor/stroke.ts'
 import type { EditorDocument, PixelLayer } from '../editor/types.ts'
+import { reflowText } from '../text/textFlow.ts'
 
 // Everything about a design except its pixels, which change in place and are kept separately.
 type DocState = Pick<EditorDocument, 'width' | 'height' | 'background' | 'pageGradient' | 'layers' | 'activeLayerId' | 'selection' | 'pages' | 'pageIndex' | 'layout' | 'ppi'>
@@ -52,6 +53,8 @@ export interface Editor {
   change: (label: string, update: (doc: EditorDocument) => EditorDocument, options?: ChangeOptions) => void
   select: (layerId: string) => void
   goToPage: (index: number) => void
+  // Splits text running on from box to box again, for when fonts arrived. Not an undo step.
+  reflow: () => void
   rename: (name: string) => void
   // A finished brush stroke. `grown` is the layer it was painted on, if it had to be enlarged first.
   commitStroke: (label: string, layerId: string, result: StrokeResult, grown?: PixelLayer) => void
@@ -131,7 +134,7 @@ export function useEditor(): Editor {
     load(next) {
       history.clear()
       setRenamed(false)
-      setDoc(next)
+      setDoc(reflowText(next))
       setRevision((r) => r + 1)
       refresh()
     },
@@ -146,7 +149,8 @@ export function useEditor(): Editor {
     change(label, update, options = {}) {
       const current = docRef.current
       if (!current) return
-      const next = update(current)
+      // Text running on from box to box is split over its boxes again after every change.
+      const next = reflowText(update(current))
       if (next === current) return
       history.push({
         label,
@@ -163,6 +167,12 @@ export function useEditor(): Editor {
     goToPage(index) {
       const current = docRef.current
       if (current) setDoc(goToPage(current, index))
+    },
+
+    reflow() {
+      const current = docRef.current
+      const next = current && reflowText(current)
+      if (next && next !== current) setDoc(next)
     },
 
     // Choosing a layer isn't something you'd want to undo, so it skips history.

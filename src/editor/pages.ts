@@ -1,5 +1,6 @@
 import { createId, duplicateLayer } from './document.ts'
-import type { DesignPage, EditorDocument } from './types.ts'
+import { renameStories } from '../text/textFlow.ts'
+import type { DesignPage, EditorDocument, Layer } from './types.ts'
 
 // Designs with several pages, like a booklet or a menu. Only the page being worked on is "open":
 // its content sits on the design itself, so every tool works on it unchanged. The other pages wait
@@ -52,7 +53,8 @@ export function addPage(doc: EditorDocument, copy = false): EditorDocument {
   let page: DesignPage = { id: createId('page'), background: current.background, pageGradient: current.pageGradient ?? null, layers: [], activeLayerId: '' }
   if (copy) {
     // Copies keep their names; pixels are copied, since painting changes them in place.
-    const layers = current.layers.map((layer) => ({ ...duplicateLayer(layer), name: layer.name, locked: layer.locked }))
+    // Text running on from box to box keeps doing so on the copy, as a story of its own.
+    const layers = renameStories(current.layers.map((layer) => ({ ...duplicateLayer(layer), name: layer.name, locked: layer.locked, ...(layer.kind === 'text' && layer.flow ? { flow: layer.flow } : {}) }) as Layer))
     const active = current.layers.findIndex((l) => l.id === current.activeLayerId)
     page = { ...page, layers, activeLayerId: layers[active]?.id ?? '' }
   }

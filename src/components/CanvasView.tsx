@@ -37,6 +37,7 @@ import {
 import type { EditorDocument, Layer, PixelLayer, Point, ShapeLayer, ToolId, Viewport } from '../editor/types.ts'
 import { nextZoomLevel, panBy, screenToDocument, zoomAtPoint } from '../editor/viewport.ts'
 import { useFontsVersion } from '../hooks/useFontsVersion.ts'
+import { hasRtlLetters } from '../text/layout.ts'
 import { textIndexAt } from '../text/textLayer.ts'
 import { TextEditBox, type TextEditing } from './TextEditBox.tsx'
 import type { PenControls } from '../hooks/usePen.ts'
@@ -458,7 +459,43 @@ function drawBox(ctx: CanvasRenderingContext2D, box: Pick<BoxEditing, 'kind' | '
 
 // Text only has handles on its left and right sides: its height always fits its lines.
 function edgesOf(layer: Layer | undefined): EdgeHandles {
-  return layer?.kind === 'text' ? 'sides' : true
+  // A box text runs on through is sized freely; other text fits its words, so only its width changes.
+  return layer?.kind === 'text' && !layer.flow ? 'sides' : true
+}
+
+// Boxes text runs on through: a faint dashed outline, so even an empty one can be seen and found,
+// and its number in the story at its top corner.
+function drawFlowBoxes(ctx: CanvasRenderingContext2D, doc: EditorDocument, viewport: Viewport) {
+  const boxes = doc.layers.filter((l) => l.kind === 'text' && l.flow && l.visible)
+  if (!boxes.length) return
+  ctx.save()
+  ctx.lineWidth = 1
+  ctx.font = '600 11px system-ui, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  for (const layer of boxes) {
+    if (layer.kind !== 'text' || !layer.flow) continue
+    const corners = boxCorners(layer.box).map((point) => toScreen(point, viewport))
+    ctx.strokeStyle = LAYOUT_COLOR
+    ctx.setLineDash([4, 3])
+    ctx.beginPath()
+    corners.forEach((point, i) => (i ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y)))
+    ctx.closePath()
+    ctx.stroke()
+    ctx.setLineDash([])
+    const corner = layer.style.direction === 'rtl' || (layer.style.direction === 'auto' && hasRtlLetters(layer.flow.full)) ? corners[1] : corners[0]
+    // Just outside the corner, clear of the handle there.
+    const center = toScreen({ x: layer.box.cx, y: layer.box.cy }, viewport)
+    const away = Math.hypot(corner.x - center.x, corner.y - center.y) || 1
+    const top = { x: corner.x + ((corner.x - center.x) / away) * 14, y: corner.y + ((corner.y - center.y) / away) * 14 }
+    ctx.fillStyle = LAYOUT_COLOR
+    ctx.beginPath()
+    ctx.arc(top.x, top.y, 8, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(String(layer.flow.index + 1), top.x, top.y + 0.5)
+  }
+  ctx.restore()
 }
 
 // Margins and columns: faint dashed lines, under everything else on the overlay.
@@ -709,6 +746,7 @@ export function CanvasView(props: CanvasViewProps) {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     drawLayoutLines(ctx, p.doc, p.viewport)
+    drawFlowBoxes(ctx, p.doc, p.viewport)
     drawSelection(ctx, p)
     if (p.box) drawBox(ctx, p.box, p.viewport, p.width, p.height)
     if (p.arrange && !p.doc.selection) {

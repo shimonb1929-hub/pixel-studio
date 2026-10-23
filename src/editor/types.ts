@@ -77,10 +77,14 @@ export type ShapeFill =
   // x, y (-1 to 1) slide it to show another part of it.
   | { kind: 'photo'; canvas: HTMLCanvasElement; zoom: number; x: number; y: number }
 
+export type OutlineDash = 'solid' | 'dashed' | 'dotted'
+
 export interface ShapeOutline {
   color: string
   // In design pixels.
   width: number
+  // A line of dashes or dots instead of a solid one. Missing means solid.
+  dash?: OutlineDash
 }
 
 // A shape that stays sharp at any size and stays editable.
@@ -132,6 +136,20 @@ export interface TextLayer extends LayerBase {
   spans?: TextSpan[]
   // A paragraph box wraps its lines to its width; otherwise lines only break where Enter was pressed.
   wrap: boolean
+  // Set when the text runs on from box to box: what doesn't fit in one box continues in the next.
+  flow?: TextFlow
+}
+
+export interface TextFlow {
+  // Boxes with the same story share one text, shown in order of `index`.
+  story: string
+  index: number
+  // The whole text of the story, and which part of it this box shows (from `start` to `end`).
+  full: string
+  start: number
+  end: number
+  // The box's own height; the last box grows to show everything that's left.
+  height: number
 }
 
 // One object in the design. Bottom layer first.

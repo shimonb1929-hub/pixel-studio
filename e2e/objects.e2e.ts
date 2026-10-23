@@ -445,3 +445,53 @@ test('with the Shapes tool, clicking a shape picks it instead of adding another'
   await clickAt(page, size, 300, 60)
   expect(await layerNames(page)).toEqual(['Rectangle 2', 'Rectangle 1'])
 })
+
+test('outlines and lines can be dashed or dotted, and stay that way in a project file', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.keyboard.press('u')
+  await drag(page, size, [
+    [50, 50],
+    [350, 250],
+  ])
+  await shapePanel(page).getByRole('button', { name: 'Outline color' }).click()
+  await page.getByRole('button', { name: 'Green', exact: true }).click()
+  await shapePanel(page).getByRole('slider', { name: 'Outline width' }).focus()
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight')
+
+  // Along the top edge: how much of it is outline.
+  const greenAlongTop = async () => {
+    let green = 0
+    for (let x = 100; x < 300; x += 2) {
+      const [r, g, b] = await designPixel(page, size, x, 50)
+      if (g > 150 && r < 120 && b < 150) green++
+    }
+    return green / 100
+  }
+  const style = shapePanel(page).getByRole('radiogroup', { name: 'Outline style' })
+  await expect(style.getByRole('radio', { name: 'Solid' })).toHaveAttribute('aria-checked', 'true')
+  expect(await greenAlongTop()).toBeGreaterThan(0.95)
+
+  await style.getByRole('radio', { name: 'Dashed' }).click()
+  expect(await undoLabel(page)).toContain('Undo dashed line')
+  const dashed = await greenAlongTop()
+  expect(dashed).toBeGreaterThan(0.4)
+  expect(dashed).toBeLessThan(0.8)
+
+  await style.getByRole('radio', { name: 'Dotted' }).click()
+  const dotted = await greenAlongTop()
+  expect(dotted).toBeGreaterThan(0.1)
+  expect(dotted).toBeLessThan(0.7)
+
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: 'Download project…' }).click()
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('dialog', { name: 'Download your design' }).getByRole('button', { name: 'Download' }).click(),
+  ])
+  const bytes = readFileSync((await download.path())!)
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: 'Close design' }).click()
+  await page.locator('input[type=file]').setInputFiles({ name: 'Dots.pixel', mimeType: '', buffer: bytes })
+  await expect(page.locator('header')).toContainText('My design 1')
+  await expect.poll(greenAlongTop).toBeCloseTo(dotted, 1)
+})

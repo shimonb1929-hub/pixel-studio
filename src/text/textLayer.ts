@@ -282,6 +282,9 @@ export function changeText(layer: TextLayer, patch: Partial<Pick<TextLayer, 'tex
 // The text placed in a box dragged with the handles: corners make the letters bigger or smaller,
 // the side handles change where lines wrap.
 export function textInBox(layer: TextLayer, box: TransformBox): TextLayer {
+  // A box text runs on from keeps its letters' size: any handle just makes the box itself
+  // bigger or smaller, and the text shared between the boxes moves along.
+  if (layer.flow) return { ...layer, box, flow: { ...layer.flow, height: Math.max(1, Math.abs(box.height)) } }
   const oldWidth = Math.abs(layer.box.width) || 1
   const oldHeight = Math.abs(layer.box.height) || 1
   const scale = Math.abs(box.height) / oldHeight

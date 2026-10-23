@@ -1,4 +1,4 @@
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Italic, Search, WrapText, type LucideIcon } from 'lucide-react'
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, Italic, Search, WrapText, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { TextStyle } from '../editor/types.ts'
 import type { FontCategory, FontInfo } from '../text/fontCatalog.ts'
@@ -468,11 +468,18 @@ export interface TextPanelProps {
   // While typing: whether the font, boldness, slant and color change just the picked words or all
   // of the text. Null when not typing.
   scope?: 'words' | 'all' | null
+  // Where the text sits when it runs on from box to box: this box's place and how many there are.
+  flow?: { box: number; boxes: number } | null
+  // Adds a box for the text to continue in. Missing while typing or with several things picked.
+  onContinue?: () => void
 }
 
 // How text looks: font, size, boldness, lining up, which way it reads and spacing.
 export function TextPanel(props: TextPanelProps) {
   const { style } = props
+  // The spacing sliders (and reading direction, for text without Hebrew) wait under "More", so
+  // the panel shows only what most text needs.
+  const [more, setMore] = useState(false)
   const font = fontInfo(style.font)
   const weights = font?.weights ?? [style.weight]
   const weightIndex = Math.max(0, weights.indexOf(nearestWeight(style.font, style.weight)))
@@ -559,44 +566,84 @@ export function TextPanel(props: TextPanelProps) {
         </div>
 
         <ChoiceRow label={t("Line up")} value={alignShown} choices={ALIGNS} onChange={(align) => props.onStyle({ align }, t('Line up text'))} />
-        <ChoiceRow label={t("Reading direction")} value={style.direction} choices={DIRECTIONS} onChange={(direction) => props.onStyle({ direction, align: style.align === 'left' || style.align === 'right' ? 'auto' : style.align }, t('Reading direction'))} />
+        {props.hasRtl && <ChoiceRow label={t("Reading direction")} value={style.direction} choices={DIRECTIONS} onChange={(direction) => props.onStyle({ direction, align: style.align === 'left' || style.align === 'right' ? 'auto' : style.align }, t('Reading direction'))} />}
 
-        <Slider
-          label={t("Letter spacing")}
-          help={t("Space between the letters. Headlines in capitals often look best a little wider.")}
-          value={(style.letterSpacing - MIN_SPACING) / (MAX_SPACING - MIN_SPACING)}
-          origin={-MIN_SPACING / (MAX_SPACING - MIN_SPACING)}
-          display={`${style.letterSpacing > 0 ? '+' : ''}${Math.round(style.letterSpacing * 100)}%`}
-          onChange={(position) =>
-            props.onStyle({ letterSpacing: Math.round((MIN_SPACING + position * (MAX_SPACING - MIN_SPACING)) * 100) / 100 }, t('Letter spacing'), 'text-spacing')
-          }
-        />
-        <Slider
-          label={t("Line spacing")}
-          help={t("Space between lines, as a multiple of the size.")}
-          value={(style.lineHeight - MIN_LINE) / (MAX_LINE - MIN_LINE)}
-          display={`${style.lineHeight.toFixed(2)}×`}
-          onChange={(position) => props.onStyle({ lineHeight: Math.round((MIN_LINE + position * (MAX_LINE - MIN_LINE)) * 20) / 20 }, t('Line spacing'), 'text-lines')}
-        />
-
-        <Tooltip
-          title={t("Wrap in a box")}
-          description={t("On: lines wrap at the box's width; drag the box's side handles to change it. Off: the box fits the text, and lines break only where you press Enter.")}
-          className="flex"
-        >
-          <button
-            type="button"
-            aria-label={t("Wrap in a box")}
-            aria-pressed={props.wrap}
-            onClick={() => props.onWrap(!props.wrap)}
-            className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
-              props.wrap ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
-            }`}
+        {props.flow ? (
+          <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">
+            {t('Box {box} of {boxes}. The text runs on from one box to the next: what doesn’t fit here continues in the next box.', { box: props.flow.box, boxes: props.flow.boxes })}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap gap-1">
+          {!props.flow && (
+          <Tooltip
+            title={t("Wrap in a box")}
+            description={t("On: lines wrap at the box's width; drag the box's side handles to change it. Off: the box fits the text, and lines break only where you press Enter.")}
+            className="flex"
           >
-            <WrapText size={15} />
-            {t('Wrap in a box')}
-          </button>
-        </Tooltip>
+            <button
+              type="button"
+              aria-label={t("Wrap in a box")}
+              aria-pressed={props.wrap}
+              onClick={() => props.onWrap(!props.wrap)}
+              className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
+                props.wrap ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
+              }`}
+            >
+              <WrapText size={15} />
+              {t('Wrap in a box')}
+            </button>
+          </Tooltip>
+          )}
+          {props.onContinue && (
+            <Tooltip
+              title={t('Continue in another box')}
+              description={t('Adds an empty box next to this one. Words that don’t fit here run on into it, like a story in a newspaper that goes on in the next column. Move and size each box as you like.')}
+              className="flex"
+            >
+              <button
+                type="button"
+                aria-label={t('Continue in another box')}
+                onClick={props.onContinue}
+                className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+              >
+                <Columns2 size={15} />
+                {t('Continue in another box')}
+              </button>
+            </Tooltip>
+          )}
+        </div>
+
+        <button
+          type="button"
+          aria-expanded={more}
+          onClick={() => setMore(!more)}
+          className="flex h-8 items-center gap-1.5 self-start rounded-lg px-2.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+        >
+          <ChevronDown size={15} className={`transition-transform ${more ? 'rotate-180' : ''}`} aria-hidden />
+          {t('More')}
+        </button>
+        {more && (
+          <div className="flex flex-col gap-3 border-t border-line pt-3">
+            {!props.hasRtl && <ChoiceRow label={t("Reading direction")} value={style.direction} choices={DIRECTIONS} onChange={(direction) => props.onStyle({ direction, align: style.align === 'left' || style.align === 'right' ? 'auto' : style.align }, t('Reading direction'))} />}
+            <Slider
+              label={t("Letter spacing")}
+              help={t("Space between the letters. Headlines in capitals often look best a little wider.")}
+              value={(style.letterSpacing - MIN_SPACING) / (MAX_SPACING - MIN_SPACING)}
+              origin={-MIN_SPACING / (MAX_SPACING - MIN_SPACING)}
+              display={`${style.letterSpacing > 0 ? '+' : ''}${Math.round(style.letterSpacing * 100)}%`}
+              onChange={(position) =>
+                props.onStyle({ letterSpacing: Math.round((MIN_SPACING + position * (MAX_SPACING - MIN_SPACING)) * 100) / 100 }, t('Letter spacing'), 'text-spacing')
+              }
+            />
+            <Slider
+              label={t("Line spacing")}
+              help={t("Space between lines, as a multiple of the size.")}
+              value={(style.lineHeight - MIN_LINE) / (MAX_LINE - MIN_LINE)}
+              display={`${style.lineHeight.toFixed(2)}×`}
+              onChange={(position) => props.onStyle({ lineHeight: Math.round((MIN_LINE + position * (MAX_LINE - MIN_LINE)) * 20) / 20 }, t('Line spacing'), 'text-lines')}
+            />
+          </div>
+        )}
       </div>
     </section>
   )
