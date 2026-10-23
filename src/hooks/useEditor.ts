@@ -9,7 +9,7 @@ import { markPixelsChanged } from '../editor/pixelVersion.ts'
 import { copyRegion, restoreRegion, type StrokeResult } from '../editor/stroke.ts'
 import type { EditorDocument, PixelLayer } from '../editor/types.ts'
 import { syncEveryPage } from '../editor/everyPage.ts'
-import { reflowText } from '../text/textFlow.ts'
+import { settleText } from '../text/wrapAround.ts'
 
 // Everything about a design except its pixels, which change in place and are kept separately.
 type DocState = Pick<EditorDocument, 'width' | 'height' | 'background' | 'pageGradient' | 'layers' | 'activeLayerId' | 'selection' | 'pages' | 'pageIndex' | 'layout' | 'ppi'>
@@ -54,7 +54,8 @@ export interface Editor {
   change: (label: string, update: (doc: EditorDocument) => EditorDocument, options?: ChangeOptions) => void
   select: (layerId: string) => void
   goToPage: (index: number) => void
-  // Splits text running on from box to box again, for when fonts arrived. Not an undo step.
+  // Lays text running on from box to box, or flowing around things, out again, for when fonts
+  // arrived. Not an undo step.
   reflow: () => void
   rename: (name: string) => void
   // A finished brush stroke. `grown` is the layer it was painted on, if it had to be enlarged first.
@@ -135,7 +136,7 @@ export function useEditor(): Editor {
     load(next) {
       history.clear()
       setRenamed(false)
-      setDoc(syncEveryPage(reflowText(next)))
+      setDoc(settleText(syncEveryPage(settleText(next))))
       setRevision((r) => r + 1)
       refresh()
     },
@@ -150,9 +151,10 @@ export function useEditor(): Editor {
     change(label, update, options = {}) {
       const current = docRef.current
       if (!current) return
-      // Text running on from box to box is split over its boxes again after every change, and
-      // things on every page are made the same on all of them.
-      const next = syncEveryPage(reflowText(update(current)))
+      // Text running on from box to box is split over its boxes again after every change, text
+      // flows around pictures and shapes again, and things on every page are made the same on all
+      // of them (and text on the other pages flows around them too).
+      const next = settleText(syncEveryPage(settleText(update(current))))
       if (next === current) return
       history.push({
         label,
@@ -173,7 +175,7 @@ export function useEditor(): Editor {
 
     reflow() {
       const current = docRef.current
-      const next = current && reflowText(current)
+      const next = current && settleText(current)
       if (next && next !== current) setDoc(next)
     },
 

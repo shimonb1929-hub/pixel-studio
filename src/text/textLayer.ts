@@ -4,6 +4,7 @@ import type { EditorDocument, Point, TextLayer, TextStyle } from '../editor/type
 import { cssFont, fontReady, fontStack, fontsVersion, loadFont } from './fonts.ts'
 import { indexAt, layoutText, listStartAt, mainDirection, plainWidth, resolveAlign, type RangeWidth, type TextLayout, type TextMeasure } from './layout.ts'
 import { styledPieces, tidySpans } from './spans.ts'
+import { avoidSlots } from './avoid.ts'
 import { t } from '../i18n/i18n.ts'
 
 // Text objects: measuring and laying them out with real fonts, drawing them, and keeping their
@@ -108,7 +109,10 @@ export function textLayout(layer: TextLayer): TextLayout {
   if (cached && cached.version === version) return cached.layout
   // A list in a box the text runs on into keeps counting from the boxes before.
   const listStart = layer.style.list && layer.flow ? listStartAt(layer.flow.full, layer.flow.start) : undefined
-  const layout = layoutText(layer.text, layer.style, layer.wrap ? Math.abs(layer.box.width) : null, textMeasure(layer.style), textWidth(layer), listStart)
+  const width = Math.abs(layer.box.width)
+  // A paragraph box keeps out of the pictures and shapes it flows around.
+  const rows = layer.wrap && layer.avoid?.length ? avoidSlots(layer.avoid, width, layer.style.size * layer.style.lineHeight, layer.style.size) : undefined
+  const layout = layoutText(layer.text, layer.style, layer.wrap ? width : null, textMeasure(layer.style), textWidth(layer), listStart, rows)
   layouts.set(layer, { version, layout })
   return layout
 }

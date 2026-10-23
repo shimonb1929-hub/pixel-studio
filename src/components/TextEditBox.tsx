@@ -5,6 +5,7 @@ import { fontStack } from '../text/fonts.ts'
 import { resolveAlign } from '../text/layout.ts'
 import { editSpans, styledPieces, tidySpans } from '../text/spans.ts'
 import { textLayout } from '../text/textLayer.ts'
+import { avoidMargins } from '../text/avoid.ts'
 import { t } from '../i18n/i18n.ts'
 
 export interface TextEditing {
@@ -25,6 +26,7 @@ export interface TextEditing {
 // Words with their own look show it while typing, so what you see is what you get.
 export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewport: Viewport }) {
   const ref = useRef<HTMLDivElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
   const { layer } = editing
   const { box, style } = layer
   const layout = textLayout(layer)
@@ -74,8 +76,8 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
 
   // The box never scrolls: it always grows to fit the text.
   useLayoutEffect(() => {
-    const el = ref.current
-    if (el) {
+    for (const el of [ref.current, frameRef.current]) {
+      if (!el) continue
       el.scrollTop = 0
       el.scrollLeft = 0
     }
@@ -113,6 +115,10 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
   const offset = align === 'right' ? -room : align === 'center' ? -room / 2 : 0
 
   const matrix = `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`
+  // Text that flows around pictures and shapes: blocks floating at the sides of each row keep the
+  // same room free as on the design, so the lines wrap the same way while typing.
+  const lineHeight = style.size * style.lineHeight
+  const margins = layer.wrap && layer.avoid?.length ? avoidMargins(layer.avoid, width, lineHeight, style.size) : []
 
   return (
     <>
@@ -126,7 +132,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
             className="absolute whitespace-pre"
             style={{
               left: marker.x,
-              top: marker.line * layout.lineHeight,
+              top: layout.lines[marker.line].row * layout.lineHeight,
               fontFamily: fontStack(style.font),
               fontSize: `${style.size}px`,
               fontWeight: style.weight,
@@ -142,66 +148,79 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
       </div>
     ) : null}
     <div
-      ref={ref}
-      role="textbox"
-      aria-multiline="true"
-      aria-label={t('Type your text')}
-      contentEditable="plaintext-only"
-      suppressContentEditableWarning
-      dir={layout.direction}
-      spellCheck={false}
-      autoCorrect="off"
-      autoCapitalize="off"
-      onInput={(event) => {
-        // Letters still being put together by the keyboard (accents, some input methods) are read
-        // once they're finished.
-        if (!(event.nativeEvent as InputEvent).isComposing) typed()
-      }}
-      onCompositionEnd={typed}
-      onBeforeInput={(event) => {
-        // Only plain letters: bold, italic and the like come from the Text panel, never from
-        // the browser's own shortcuts.
-        const type = (event.nativeEvent as InputEvent).inputType
-        if (type?.startsWith('format')) event.preventDefault()
-      }}
-      onPaste={(event) => {
-        event.preventDefault()
-        document.execCommand('insertText', false, event.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n'))
-      }}
-      onDrop={(event) => event.preventDefault()}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape' || (event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
-          event.preventDefault()
-          editing.onDone()
-        }
-      }}
-      className="absolute left-0 top-0 m-0 select-text overflow-hidden border-0 bg-transparent p-0 outline-none"
+      ref={frameRef}
+      className="absolute left-0 top-0 overflow-hidden"
       style={{
         transformOrigin: '0 0',
         transform: `${matrix} translateX(${offset}px)`,
         width: width + room,
         height,
-        fontFamily: fontStack(style.font),
-        fontSize: `${style.size}px`,
-        fontWeight: style.weight,
-        fontStyle: style.italic ? 'italic' : 'normal',
-        letterSpacing: `${style.letterSpacing * style.size}px`,
-        lineHeight: `${style.size * style.lineHeight}px`,
-        color: style.gradient ? 'transparent' : style.color,
-        caretColor: style.gradient ? style.gradient.stops[0].color : style.color,
-        // A gradient shows through the letters, like on the design.
-        ...(style.gradient ? { backgroundImage: cssGradient(style.gradient), backgroundClip: 'text', WebkitBackgroundClip: 'text' } : {}),
-        whiteSpace: layer.wrap ? 'pre-wrap' : 'pre',
-        overflowWrap: 'break-word',
-        textAlign: style.align === 'auto' ? 'start' : style.align,
-        direction: layout.direction,
-        // With no direction chosen, each paragraph reads the way its first letter does.
-        unicodeBidi: style.direction === 'auto' ? 'plaintext' : 'normal',
-        fontKerning: 'normal',
-        // A list keeps room for its markers at the side lines start from.
-        paddingInlineStart: layout.indent ?? 0,
       }}
-    />
+    >
+      {margins.map((margin, row) => [
+        <div key={`l${row}`} aria-hidden="true" className="pointer-events-none" style={{ float: 'left', clear: 'left', width: margin.left, height: lineHeight }} />,
+        <div key={`r${row}`} aria-hidden="true" className="pointer-events-none" style={{ float: 'right', clear: 'right', width: margin.right, height: lineHeight }} />,
+      ])}
+      <div
+        ref={ref}
+        role="textbox"
+        aria-multiline="true"
+        aria-label={t('Type your text')}
+        contentEditable="plaintext-only"
+        suppressContentEditableWarning
+        dir={layout.direction}
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="off"
+        onInput={(event) => {
+          // Letters still being put together by the keyboard (accents, some input methods) are read
+          // once they're finished.
+          if (!(event.nativeEvent as InputEvent).isComposing) typed()
+        }}
+        onCompositionEnd={typed}
+        onBeforeInput={(event) => {
+          // Only plain letters: bold, italic and the like come from the Text panel, never from
+          // the browser's own shortcuts.
+          const type = (event.nativeEvent as InputEvent).inputType
+          if (type?.startsWith('format')) event.preventDefault()
+        }}
+        onPaste={(event) => {
+          event.preventDefault()
+          document.execCommand('insertText', false, event.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n'))
+        }}
+        onDrop={(event) => event.preventDefault()}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' || (event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
+            event.preventDefault()
+            editing.onDone()
+          }
+        }}
+        className="m-0 block select-text border-0 bg-transparent p-0 outline-none"
+        style={{
+          width: width + room,
+          height,
+          fontFamily: fontStack(style.font),
+          fontSize: `${style.size}px`,
+          fontWeight: style.weight,
+          fontStyle: style.italic ? 'italic' : 'normal',
+          letterSpacing: `${style.letterSpacing * style.size}px`,
+          lineHeight: `${style.size * style.lineHeight}px`,
+          color: style.gradient ? 'transparent' : style.color,
+          caretColor: style.gradient ? style.gradient.stops[0].color : style.color,
+          // A gradient shows through the letters, like on the design.
+          ...(style.gradient ? { backgroundImage: cssGradient(style.gradient), backgroundClip: 'text', WebkitBackgroundClip: 'text' } : {}),
+          whiteSpace: layer.wrap ? 'pre-wrap' : 'pre',
+          overflowWrap: 'break-word',
+          textAlign: style.align === 'auto' ? 'start' : style.align,
+          direction: layout.direction,
+          // With no direction chosen, each paragraph reads the way its first letter does.
+          unicodeBidi: style.direction === 'auto' ? 'plaintext' : 'normal',
+          fontKerning: 'normal',
+          // A list keeps room for its markers at the side lines start from.
+          paddingInlineStart: layout.indent ?? 0,
+        }}
+      />
+    </div>
     </>
   )
 }

@@ -38,6 +38,29 @@ interface LayerBase {
   blend?: BlendMode
   // Set when it's on every page: each page has a copy with the same `everyPage`, kept the same.
   everyPage?: string
+  // Pictures and shapes: set when text in a box nearby flows around it instead of running under
+  // it. Missing means text ignores it.
+  textWrap?: TextWrap | null
+}
+
+// How text flows around a picture or shape (what design programs call text wrap): close around
+// its outline, around the box it sits in, or only above and below it, with some space kept free.
+export type TextWrapMode = 'shape' | 'box' | 'jump'
+
+export interface TextWrap {
+  mode: TextWrapMode
+  // Space kept free between it and the text, in design pixels.
+  gap: number
+}
+
+// Something a text flows around, in the text's own coordinates: from the top-left of its box,
+// unturned and unflipped. Worked out again after every change, from the things the text overlaps.
+export interface AvoidArea {
+  // Its outlines; text keeps out of everything between their leftmost and rightmost points, row by row.
+  outlines: Point[][]
+  gap: number
+  // Which side of it the text runs down, or 'none' when text only goes above and below it.
+  side: 'left' | 'right' | 'none'
 }
 
 // A layer of pixels: a photo, a painting, a pasted picture.
@@ -150,6 +173,8 @@ export interface TextLayer extends LayerBase {
   flow?: TextFlow
   // A page number: its text is always the number of the page it's on.
   pageNumber?: boolean
+  // Pictures and shapes this paragraph box flows around. Missing when there are none.
+  avoid?: AvoidArea[]
 }
 
 export interface TextFlow {

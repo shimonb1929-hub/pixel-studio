@@ -74,7 +74,10 @@ export function reflowText(doc: EditorDocument): EditorDocument {
       const shaped: TextLayer = { ...layer, style, wrap: true, text: rest, spans: spansFor(start, full.length, rest.length) }
       const layout = textLayout(shaped)
       const fits = Math.max(1, Math.floor((layer.flow.height + 0.5) / layout.lineHeight))
-      const end = last || layout.lines.length <= fits ? full.length : start + layout.lines[fits].start
+      // The first line in a row past the box's height starts the next box (rows can be skipped
+      // where the text flows around something).
+      const over = layout.lines.findIndex((line) => line.row >= fits)
+      const end = last || over < 0 ? full.length : start + layout.lines[over].start
       const text = shownPart(full, start, end)
       const flow = { ...layer.flow, index: i, start, end }
       // Names follow the words each box shows, unless a box was given a name of its own.

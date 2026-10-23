@@ -13,7 +13,7 @@ import { tidySpans } from '../text/spans.ts'
 import { tidyGroups } from './layers.ts'
 import { allPages, pageIndex } from './pages.ts'
 import { hasLayout } from './pageLayout.ts'
-import type { DesignPage, EditorDocument, Layer, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TextFlow, TextSpan, TextStyle } from './types.ts'
+import type { DesignPage, EditorDocument, Layer, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TextFlow, TextSpan, TextStyle, TextWrap } from './types.ts'
 import type { Gradient, GradientStop } from './gradient.ts'
 import { paintPage } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
@@ -36,9 +36,10 @@ import { MAX_PPI } from './units.ts'
 // added margins and columns (layout). Version 10 added text that runs on from box to box (flow).
 // Version 11 added things on every page (everyPage) and page numbers (pageNumber). Version 12 added
 // lists (a text's style.list) and fonts of your own (fonts): their files come after the pictures.
+// Version 13 added text flowing around pictures and shapes (textWrap).
 // Older files still open.
 
-export const PROJECT_VERSION = 12
+export const PROJECT_VERSION = 13
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -60,6 +61,7 @@ interface ProjectLayerBase {
   effects?: LayerEffects | null
   blend?: BlendMode
   everyPage?: string
+  textWrap?: TextWrap
 }
 
 export interface ProjectPixelLayer extends ProjectLayerBase {
@@ -446,6 +448,11 @@ function readLayer(layer: unknown): ProjectLayer {
     if (typeof layer.everyPage !== 'string' || !layer.everyPage || layer.everyPage.length > 100) damaged()
     base.everyPage = layer.everyPage
   }
+  if (layer.textWrap !== undefined && layer.textWrap !== null) {
+    const wrap = layer.textWrap
+    if (!isRecord(wrap) || (wrap.mode !== 'shape' && wrap.mode !== 'box' && wrap.mode !== 'jump') || !isBetween(wrap.gap, 0, 1e6)) damaged()
+    base.textWrap = { mode: wrap.mode, gap: wrap.gap as number }
+  }
   if (layer.kind === 'shape') {
     return { ...base, kind: 'shape', box: readBox(layer.box), geometry: readGeometry(layer.geometry), fill: readFill(layer.fill), outline: readOutline(layer.outline) }
   }
@@ -593,6 +600,7 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
     effects: hasEffects(layer.effects) ? layer.effects : null,
     blend: layer.blend && layer.blend !== 'normal' ? layer.blend : undefined,
     ...(layer.everyPage ? { everyPage: layer.everyPage } : {}),
+    ...(layer.textWrap && layer.kind !== 'text' ? { textWrap: layer.textWrap } : {}),
   }
   if (layer.kind === 'raster') {
     return { ...base, kind: 'raster', x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height, box: layer.box, bytes: sizes[0] }
@@ -662,8 +670,9 @@ async function decodeLayer(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
 
 async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
   const { name, visible, opacity, locked, adjust } = info
-  const extras: Pick<Layer, 'effects' | 'blend' | 'everyPage'> = {}
+  const extras: Pick<Layer, 'effects' | 'blend' | 'everyPage' | 'textWrap'> = {}
   if (info.everyPage) extras.everyPage = info.everyPage
+  if (info.textWrap && info.kind !== 'text') extras.textWrap = info.textWrap
   if (info.effects) extras.effects = info.effects
   if (info.blend) extras.blend = info.blend
   if (info.kind === 'raster') {

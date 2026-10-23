@@ -74,6 +74,8 @@ export interface AppCommands {
   // Opens the Effects panel for what is picked.
   showEffects: () => void
   removeBackground: () => void
+  // Makes text in boxes flow around the picked picture or shape.
+  textWrap: () => void
 }
 
 interface ActionState {
@@ -723,6 +725,16 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
       run: c.removeBackground,
+    },
+    {
+      id: 'text-wrap',
+      group: 'Layers',
+      title: t('Text around it (text wrap)'),
+      description: t('Make text in a box flow around this, instead of running over or under it. It works on text in a box: drag a box with the Text tool.'),
+      keywords: ['text wrap', 'wrap text', 'wrap', 'flow around', 'runaround', 'around picture', 'around shape', 'magazine', 'float'],
+      needsDocument: true,
+      disabledReason: doc && (!active || active.kind === 'text') ? t('Pick a picture or shape first: click it on your design.') : undefined,
+      run: c.textWrap,
     },
     ...LOOKS.filter((look) => look.id !== 'original').map(
       (look): Action => ({
