@@ -5,12 +5,16 @@ import { SIZE_PRESETS } from '../presets.ts'
 import { ChoiceGroup, Dialog, Field } from './Dialog.tsx'
 import { Button, inputClass } from './ui.tsx'
 import { live, msg, t } from '../i18n/i18n.ts'
+import { DEFAULT_PPI, MAX_PPI, decimalInput, formatInUnit, unitToPixels, useUnit, type Unit } from '../editor/units.ts'
+import { UNIT_CHOICES } from './unitWords.ts'
 
 export interface NewDocumentOptions {
   name: string
   width: number
   height: number
   background: BackgroundFill
+  // Pixels per inch, for counting the design in inches, centimeters or millimeters.
+  ppi: number
 }
 
 const BACKGROUNDS: { value: BackgroundFill; label: string; description: string }[] = live([
@@ -24,25 +28,23 @@ const BACKGROUNDS: { value: BackgroundFill; label: string; description: string }
   },
 ])
 
-type SizeUnit = 'pixels' | 'inches'
+// How each unit is named in the size boxes.
+const SIZE_WORDS: Record<Unit, { size: string; width: string; height: string }> = live({
+  px: { size: msg('Size in pixels'), width: msg('Width in pixels'), height: msg('Height in pixels') },
+  in: { size: msg('Size in inches'), width: msg('Width in inches'), height: msg('Height in inches') },
+  cm: { size: msg('Size in centimeters'), width: msg('Width in centimeters'), height: msg('Height in centimeters') },
+  mm: { size: msg('Size in millimeters'), width: msg('Width in millimeters'), height: msg('Height in millimeters') },
+})
 
-const UNITS: { value: SizeUnit; label: string; description: string }[] = live([
-  { value: 'pixels', label: msg('Pixels'), description: msg('Type the size in pixels. Best for screens, posts and websites.') },
-  { value: 'inches', label: msg('Inches'), description: msg('Type the size in inches. Best for things you will print.') },
-])
-
-// 300 pixels per inch is sharp on paper; the printed-page presets are made at it.
-const DEFAULT_PPI = '300'
-
-// Keeps digits and the first dot, so "8.5" can be typed but "8.5.1" can't.
-function decimalInput(value: string): string {
-  const [whole, ...rest] = value.replace(/[^\d.]/g, '').split('.')
-  return rest.length ? `${whole}.${rest.join('')}` : whole
+function inUnit(pixels: string, unit: Unit, ppi: number): string {
+  if (pixels === '' || !(ppi > 0)) return ''
+  return formatInUnit(Number(pixels), unit, ppi)
 }
 
-function toInches(pixels: string, ppi: number): string {
-  if (pixels === '' || !(ppi > 0)) return ''
-  return String(Math.round((Number(pixels) / ppi) * 100) / 100)
+// A size that suits the unit: a screen in pixels, a printed page otherwise.
+function startingSize(unit: Unit): { width: number; height: number } {
+  if (unit === 'px') return { width: 1920, height: 1080 }
+  return SIZE_PRESETS.find((p) => p.id === (unit === 'in' ? 'letter' : 'a4'))!
 }
 
 interface NewDocumentDialogProps {
@@ -61,37 +63,39 @@ export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumen
   // Follows the suggested name until you type your own.
   const [typedName, setTypedName] = useState<string | null>(null)
   const name = typedName ?? defaultName
-  const [width, setWidth] = useState('1920')
-  const [height, setHeight] = useState('1080')
+  const [unit, setUnit] = useUnit()
+  const [start] = useState(() => startingSize(unit))
+  const [width, setWidth] = useState(String(start.width))
+  const [height, setHeight] = useState(String(start.height))
   const [background, setBackground] = useState<BackgroundFill>('white')
-  const [unit, setUnit] = useState<SizeUnit>('pixels')
-  const [widthInches, setWidthInches] = useState('')
-  const [heightInches, setHeightInches] = useState('')
-  const [ppi, setPpi] = useState(DEFAULT_PPI)
+  const [ppi, setPpi] = useState(String(DEFAULT_PPI))
+  const [widthTyped, setWidthTyped] = useState(() => inUnit(String(start.width), unit, DEFAULT_PPI))
+  const [heightTyped, setHeightTyped] = useState(() => inUnit(String(start.height), unit, DEFAULT_PPI))
 
-  const inches = unit === 'inches'
+  const print = unit !== 'px'
+  const words = SIZE_WORDS[unit]
   const ppiValue = Number(ppi)
-  // Untouched inches keep the exact pixels they came from, not a rounded copy (A4 stays 2480 wide).
-  const inchesEdited = widthInches !== toInches(width, ppiValue) || heightInches !== toInches(height, ppiValue)
-  const fromInches = inches && inchesEdited
-  const widthValue = fromInches ? Math.round(Number(widthInches) * ppiValue) : Number(width)
-  const heightValue = fromInches ? Math.round(Number(heightInches) * ppiValue) : Number(height)
+  // Untouched sizes keep the exact pixels they came from, not a rounded copy (A4 stays 2480 wide).
+  const typedEdited = widthTyped !== inUnit(width, unit, ppiValue) || heightTyped !== inUnit(height, unit, ppiValue)
+  const fromTyped = print && typedEdited
+  const widthValue = fromTyped ? unitToPixels(Number(widthTyped), unit, ppiValue) : Number(width)
+  const heightValue = fromTyped ? unitToPixels(Number(heightTyped), unit, ppiValue) : Number(height)
   const sizeError =
-    (inches ? widthInches === '' || heightInches === '' : width === '' || height === '')
+    (print ? widthTyped === '' || heightTyped === '' : width === '' || height === '')
       ? t('Type a width and a height.')
-      : inches && !(ppiValue > 0)
-        ? t('Type how many pixels go in each inch.')
+      : print && !(ppiValue > 0 && ppiValue <= MAX_PPI)
+        ? t('Type how many pixels go in each inch, up to {max}.', { max: MAX_PPI })
         : validateDocumentSize(widthValue, heightValue)
-  // In inches a preset is found by its rounded inches, so A4 (8.27 × 11.69) still shows as A4.
+  // In print units a preset is found by its rounded size, so A4 (8.27 × 11.69 in) still shows as A4.
   const preset = SIZE_PRESETS.find((p) =>
-    inches
-      ? toInches(String(p.width), ppiValue) === widthInches && toInches(String(p.height), ppiValue) === heightInches
+    print
+      ? inUnit(String(p.width), unit, ppiValue) === widthTyped && inUnit(String(p.height), unit, ppiValue) === heightTyped
       : p.width === widthValue && p.height === heightValue,
   )
 
   function handleSubmit() {
     if (sizeError) return
-    onCreate({ name: name.trim() || defaultName, width: widthValue, height: heightValue, background })
+    onCreate({ name: name.trim() || defaultName, width: widthValue, height: heightValue, background, ppi: print ? ppiValue : DEFAULT_PPI })
   }
 
   return (
@@ -122,8 +126,8 @@ export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumen
             if (!next) return
             setWidth(String(next.width))
             setHeight(String(next.height))
-            setWidthInches(toInches(String(next.width), ppiValue))
-            setHeightInches(toInches(String(next.height), ppiValue))
+            setWidthTyped(inUnit(String(next.width), unit, ppiValue))
+            setHeightTyped(inUnit(String(next.height), unit, ppiValue))
           }}
         >
           <option value="custom" disabled>
@@ -137,30 +141,31 @@ export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumen
         </select>
       </Field>
 
-      <Field label={t("Measure in")} help={t("Type the size in pixels for screens, or in inches for print.")} note={UNITS.find((u) => u.value === unit)!.description}>
+      <Field label={t("Measure in")} help={t("Type the size in pixels for screens, or in inches, centimeters or millimeters for print.")} note={UNIT_CHOICES.find((u) => u.value === unit)!.description}>
         <ChoiceGroup
           name={t("Measure in")}
           value={unit}
-          options={UNITS}
+          options={UNIT_CHOICES}
           onChange={(next) => {
             if (next === unit) return
             // Carry the size across so switching never loses what was typed.
-            if (next === 'inches') {
-              setWidthInches(toInches(width, ppiValue))
-              setHeightInches(toInches(height, ppiValue))
-            } else if (!sizeError && inchesEdited) {
-              setWidth(String(widthValue))
-              setHeight(String(heightValue))
+            const w = sizeError ? width : String(widthValue)
+            const h = sizeError ? height : String(heightValue)
+            if (fromTyped && !sizeError) {
+              setWidth(w)
+              setHeight(h)
             }
+            setWidthTyped(inUnit(w, next, ppiValue))
+            setHeightTyped(inUnit(h, next, ppiValue))
             setUnit(next)
           }}
         />
       </Field>
 
       <Field
-        label={inches ? t("Size in inches") : t("Size in pixels")}
+        label={words.size}
         help={
-          inches
+          print
             ? t('How big it will be on paper. It is turned into pixels using the pixels per inch below.')
             : t('Pixels are the tiny colored squares every digital picture is made of. More pixels means more detail and a bigger file. Up to {max} on each side.', { max: MAX_DOCUMENT_SIDE.toLocaleString('en-US') })
         }
@@ -175,11 +180,11 @@ export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumen
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <input
-              aria-label={inches ? t("Width in inches") : t("Width in pixels")}
+              aria-label={words.width}
               className={`${inputClass} pe-14`}
-              inputMode={inches ? 'decimal' : 'numeric'}
-              value={inches ? widthInches : width}
-              onChange={(e) => (inches ? setWidthInches(decimalInput(e.target.value)) : setWidth(e.target.value.replace(/\D/g, '')))}
+              inputMode={print ? 'decimal' : 'numeric'}
+              value={print ? widthTyped : width}
+              onChange={(e) => (print ? setWidthTyped(decimalInput(e.target.value)) : setWidth(e.target.value.replace(/\D/g, '')))}
             />
             <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">{t('wide')}</span>
           </div>
@@ -190,8 +195,8 @@ export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumen
             onClick={() => {
               setWidth(height)
               setHeight(width)
-              setWidthInches(heightInches)
-              setHeightInches(widthInches)
+              setWidthTyped(heightTyped)
+              setHeightTyped(widthTyped)
             }}
             tip={{
               title: t('Swap width and height'),
@@ -202,18 +207,18 @@ export function NewDocumentDialog({ defaultName, onCreate, onClose }: NewDocumen
           </Button>
           <div className="relative flex-1">
             <input
-              aria-label={inches ? t("Height in inches") : t("Height in pixels")}
+              aria-label={words.height}
               className={`${inputClass} pe-12`}
-              inputMode={inches ? 'decimal' : 'numeric'}
-              value={inches ? heightInches : height}
-              onChange={(e) => (inches ? setHeightInches(decimalInput(e.target.value)) : setHeight(e.target.value.replace(/\D/g, '')))}
+              inputMode={print ? 'decimal' : 'numeric'}
+              value={print ? heightTyped : height}
+              onChange={(e) => (print ? setHeightTyped(decimalInput(e.target.value)) : setHeight(e.target.value.replace(/\D/g, '')))}
             />
             <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">{t('tall')}</span>
           </div>
         </div>
       </Field>
 
-      {inches && (
+      {print && (
         <Field
           label={t("Pixels per inch")}
           htmlFor="new-ppi"

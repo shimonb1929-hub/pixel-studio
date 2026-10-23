@@ -101,7 +101,8 @@ test('a layer can mix with what is below it, and it all comes back from a projec
   await page.locator('input[type=file]').setInputFiles({ name: 'Mixed.pixel', mimeType: '', buffer: bytes })
 
   await expect(page.locator('header')).toContainText('My design 1')
-  expectColor(await designPixel(page, size, 175, 150), mixed as [number, number, number], 3)
+  // The opened design is drawn on the next frame, once the panels around it are in place.
+  await expect.poll(async () => Math.max(...(await designPixel(page, size, 175, 150)).slice(0, 3).map((c, i) => Math.abs(c - mixed[i])))).toBeLessThanOrEqual(3)
   expect(Math.abs(darkness(await designPixel(page, size, 225, 255)) - shadowed)).toBeLessThan(3)
   await page.keyboard.press('v')
   await page.getByRole('button', { name: 'Layer: Rectangle 2' }).click()

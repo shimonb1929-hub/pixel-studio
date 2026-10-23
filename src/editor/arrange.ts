@@ -125,3 +125,37 @@ export function previewInFrame(layer: Layer, from: TransformBox, to: TransformBo
   const box = arrangeBox(layer)
   return box ? previewInBox(layer, boxInFrame(box, from, to)) : layer
 }
+
+// A size, place or angle typed in for something picked, in pixels and degrees. Left out means unchanged.
+export interface BoxChange {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  angle?: number
+}
+
+// The box after a typed change. The place is its top-left corner before turning, and stays put when
+// only the size changes. With `keepShape`, typing one side changes the other to match.
+export function changeBox(box: TransformBox, change: BoxChange, keepShape: boolean): TransformBox {
+  const width = Math.abs(box.width)
+  const height = Math.abs(box.height)
+  let nextWidth = change.width ?? width
+  let nextHeight = change.height ?? height
+  if (keepShape && width > 0 && height > 0) {
+    if (change.width !== undefined && change.height === undefined) nextHeight = (nextWidth * height) / width
+    if (change.height !== undefined && change.width === undefined) nextWidth = (nextHeight * width) / height
+  }
+  nextWidth = Math.max(1, nextWidth)
+  nextHeight = Math.max(1, nextHeight)
+  const left = change.x ?? box.cx - width / 2
+  const top = change.y ?? box.cy - height / 2
+  return {
+    cx: left + nextWidth / 2,
+    cy: top + nextHeight / 2,
+    // Something flipped stays flipped.
+    width: box.width < 0 ? -nextWidth : nextWidth,
+    height: box.height < 0 ? -nextHeight : nextHeight,
+    rotation: change.angle === undefined ? box.rotation : (change.angle * Math.PI) / 180,
+  }
+}

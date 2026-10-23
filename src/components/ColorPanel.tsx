@@ -24,7 +24,7 @@ function Swatch({ hex, name, selected, onClick }: { hex: string; name: string; s
         aria-label={name}
         aria-pressed={selected}
         onClick={onClick}
-        className={`h-6 w-6 rounded-md border border-[rgb(16_24_40/0.12)] transition-transform hover:scale-110 ${
+        className={`h-6 w-6 rounded-lg border border-[rgb(16_24_40/0.1)] transition-transform hover:scale-110 ${
           selected ? 'ring-2 ring-accent ring-offset-1' : ''
         }`}
         style={{ background: hex }}
@@ -143,11 +143,19 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
         </Tooltip>
       </div>
 
+      {/* Ready colors first: one click and you have a color. Below them, the square and the strip
+          fine-tune it. */}
+      <div className="mt-3 grid grid-cols-9 gap-1.5">
+        {SWATCHES.map((swatch) => (
+          <Swatch key={swatch.hex} hex={swatch.hex} name={swatch.name} selected={swatch.hex === color} onClick={() => onChange(swatch.hex)} />
+        ))}
+      </div>
+
       <Tooltip
         title={t("Shade")}
         description={t("Drag left for paler, right for more vivid. Drag up for lighter, down for darker.")}
         keepOpenOnPress
-        className="mt-3 flex"
+        className="mt-4 flex"
       >
         <div
           ref={shadeRef}
@@ -162,7 +170,7 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
           }}
           onPointerMove={(event) => event.currentTarget.hasPointerCapture(event.pointerId) && shadeFromPointer(event)}
           onKeyDown={shadeKeys}
-          className="relative h-28 w-full cursor-crosshair touch-none rounded-lg outline-none focus-visible:ring-4 focus-visible:ring-accent/25 [@media(max-height:960px)]:h-24 [@media(max-height:820px)]:h-20"
+          className="relative h-24 w-full cursor-crosshair touch-none rounded-xl outline-none focus-visible:ring-4 focus-visible:ring-accent/25 [@media(max-height:820px)]:h-20"
           style={{ background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${pure})` }}
         >
           <span
@@ -187,7 +195,7 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
           }}
           onPointerMove={(event) => event.currentTarget.hasPointerCapture(event.pointerId) && hueFromPointer(event)}
           onKeyDown={hueKeys}
-          className="relative h-3 w-full cursor-pointer touch-none rounded-full outline-none focus-visible:ring-4 focus-visible:ring-accent/25"
+          className="relative h-2.5 w-full cursor-pointer touch-none rounded-full outline-none focus-visible:ring-4 focus-visible:ring-accent/25"
           style={{ background: 'linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)' }}
         >
           <span
@@ -197,11 +205,6 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
         </div>
       </Tooltip>
 
-      <div className="mt-3 grid grid-cols-9 gap-1.5">
-        {SWATCHES.map((swatch) => (
-          <Swatch key={swatch.hex} hex={swatch.hex} name={swatch.name} selected={swatch.hex === color} onClick={() => onChange(swatch.hex)} />
-        ))}
-      </div>
 
       {recent.length > 0 && (
         <div className="mt-3">

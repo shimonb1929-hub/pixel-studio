@@ -125,6 +125,15 @@ export interface TextLayer extends LayerBase {
 // One object in the design. Bottom layer first.
 export type Layer = PixelLayer | ShapeLayer | TextLayer
 
+// One page of a design with several pages. All pages share the design's size.
+export interface DesignPage {
+  id: string
+  background: string | null
+  // Bottom layer first.
+  layers: Layer[]
+  activeLayerId: string
+}
+
 export interface EditorDocument {
   id: string
   name: string
@@ -138,6 +147,15 @@ export interface EditorDocument {
   activeLayerId: string
   // The selected area; painting and editing stay inside it. Null means nothing is selected.
   selection: Selection | null
+  // How many pixels make an inch on paper, for showing sizes in inches, centimeters or millimeters.
+  // Missing means 300.
+  ppi?: number
+  // Every page of a design with several pages, in order. The page being worked on is the one at
+  // `pageIndex`: its entry here is out of date, since its content lives in `background`, `layers`
+  // and `activeLayerId` above, so everything else keeps working on one page. Missing for a design
+  // with one page.
+  pages?: DesignPage[]
+  pageIndex?: number
 }
 
 // Where the document sits on screen: a screen point equals

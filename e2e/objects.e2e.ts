@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { clickAt, designPixel, drag, expectColor, INK, newDesign, screenPoint, WHITE, type Size } from './helpers.ts'
+import { clickAt, designPixel, drag, expectColor, expectPickedSize, INK, newDesign, screenPoint, WHITE, type Size } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 const BLUE: [number, number, number] = [59, 91, 253]
@@ -78,7 +78,7 @@ test('draw a shape, then color it, outline it and empty it', async ({ page }) =>
   expect(await layerNames(page)).toEqual(['Rectangle 1'])
   // Right away it can be moved and resized.
   await expect(page.getByRole('button', { name: 'Arrange tool' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByRole('toolbar')).toContainText('100 × 80 px')
+  await expectPickedSize(page, 100, 80)
   expectColor(await designPixel(page, size, 150, 140), BLUE)
   expectColor(await designPixel(page, size, 95, 140), WHITE)
   expect(await undoLabel(page)).toContain('Undo draw rectangle')
@@ -114,7 +114,7 @@ test('stars, polygons and lines with arrow heads', async ({ page }) => {
   // A click drops a shape of a handy size.
   await clickAt(page, size, 200, 150)
   expect(await layerNames(page)).toEqual(['Star 1'])
-  await expect(page.getByRole('toolbar')).toContainText('75 × 75 px')
+  await expectPickedSize(page, 75, 75)
   expectColor(await designPixel(page, size, 200, 150), BLUE)
   expectColor(await designPixel(page, size, 165, 115), WHITE)
   const points = shapePanel(page).getByRole('slider', { name: 'Points' })
@@ -136,18 +136,18 @@ test('stars, polygons and lines with arrow heads', async ({ page }) => {
 test('shapes stay sharp when resized, and Delete removes the picked one', async ({ page }) => {
   const size = await newDesign(page)
   await drawShape(page, size, 'Oval', [190, 140], [210, 160])
-  await expect(page.getByRole('toolbar')).toContainText('20 × 20 px')
+  await expectPickedSize(page, 20, 20)
   // Pull the corner far out: a circle 280 pixels across, with a clean edge.
   await drag(page, size, [
     [210, 160],
     [330, 280],
   ])
-  await expect(page.getByRole('toolbar')).toContainText('140 × 140 px')
+  await expectPickedSize(page, 140, 140)
   await drag(page, size, [
     [330, 280],
     [470, 420],
   ])
-  await expect(page.getByRole('toolbar')).toContainText('280 × 280 px')
+  await expectPickedSize(page, 280, 280)
   expectColor(await designPixel(page, size, 330, 280), BLUE)
   // The top of the circle: solid just inside, nothing just outside.
   expectColor(await designPixel(page, size, 330, 141), BLUE)
@@ -212,7 +212,7 @@ test('a photo added to a design keeps all its detail, however it is resized', as
   await addPhoto(page, await photo(page))
   expect(await layerNames(page)).toEqual(['beach'])
   await expect(page.getByRole('button', { name: 'Arrange tool' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByRole('toolbar')).toContainText('200 × 100 px')
+  await expectPickedSize(page, 200, 100)
   expectColor(await designPixel(page, size, 150, 150), RED)
   expectColor(await designPixel(page, size, 250, 150), GREEN)
 
@@ -220,12 +220,12 @@ test('a photo added to a design keeps all its detail, however it is resized', as
     [300, 200],
     [110, 105],
   ])
-  await expect(page.getByRole('toolbar')).toContainText('10 × 5 px')
+  await expectPickedSize(page, 10, 5)
   await drag(page, size, [
     [110, 105],
     [300, 200],
   ])
-  await expect(page.getByRole('toolbar')).toContainText('200 × 100 px')
+  await expectPickedSize(page, 200, 100)
   expectColor(await designPixel(page, size, 197, 150), RED)
   expectColor(await designPixel(page, size, 203, 150), GREEN)
   expectColor(await designPixel(page, size, 200, 104), BLUE)
@@ -258,7 +258,7 @@ test('drop a photo onto a shape to fill it, then zoom and slide it inside', asyn
   ])
   expectColor(await designPixel(page, size, 230, 150), RED)
   expect(await undoLabel(page)).toContain('Undo move photo')
-  await expect(page.getByRole('toolbar')).toContainText('200 × 200 px')
+  await expectPickedSize(page, 200, 200)
 
   await shapePanel(page).getByRole('button', { name: 'Remove photo' }).click()
   expectColor(await designPixel(page, size, 150, 150), BLUE)
@@ -286,7 +286,7 @@ test('shapes, photos in shapes and resized photos come back from a project file'
     [300, 200],
     [110, 105],
   ])
-  await expect(page.getByRole('toolbar')).toContainText('10 × 5 px')
+  await expectPickedSize(page, 10, 5)
 
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Download project…' }).click()
@@ -309,7 +309,7 @@ test('shapes, photos in shapes and resized photos come back from a project file'
 
   await page.keyboard.press('v')
   await page.getByRole('button', { name: 'Layer: beach' }).click()
-  await expect(page.getByRole('toolbar')).toContainText('10 × 5 px')
+  await expectPickedSize(page, 10, 5)
   await drag(page, size, [
     [110, 105],
     [300, 200],
@@ -437,7 +437,7 @@ test('with the Shapes tool, clicking a shape picks it instead of adding another'
   await clickAt(page, size, 150, 150)
   expect(await layerNames(page)).toEqual(['Rectangle 1'])
   await expect(page.getByRole('button', { name: 'Arrange tool' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByRole('toolbar')).toContainText('100 × 100 px')
+  await expectPickedSize(page, 100, 100)
   // Clicking empty paper still drops a new one.
   await page.keyboard.press('u')
   await clickAt(page, size, 300, 60)

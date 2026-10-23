@@ -5,6 +5,7 @@ import { CanvasView, type ArrangeControls, type BoxEditing, type ShapeDrawing, t
 import { ColorPanel } from './components/ColorPanel.tsx'
 import { CommandPalette } from './components/CommandPalette.tsx'
 import { Dialog } from './components/Dialog.tsx'
+import { PagesBar } from './components/PagesBar.tsx'
 import { ExportDialog, type ExportOptions } from './components/ExportDialog.tsx'
 import { LayersPanel } from './components/LayersPanel.tsx'
 import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocumentDialog.tsx'
@@ -24,7 +25,8 @@ import { effectThumbnails, flattenDocument } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
 import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, type Adjustments } from './editor/adjust.ts'
 import { adjustArea, lookThumbnails, paintAdjusted, previewParts } from './editor/adjustSession.ts'
-import { arrangeBox, frameOf, layerInFrame, placeInBox } from './editor/arrange.ts'
+import { DEFAULT_PPI, documentPpi } from './editor/units.ts'
+import { arrangeBox, changeBox, frameOf, layerInFrame, placeInBox, type BoxChange } from './editor/arrange.ts'
 import { BRUSH_PRESETS, ERASER_PRESETS, stepBrushSize, type BrushSettings } from './editor/brushes.ts'
 import { getClipboard, ownCopyCheck, setClipboard } from './editor/clipboard.ts'
 import {
@@ -39,6 +41,7 @@ import {
   MAX_DOCUMENT_SIDE,
 } from './editor/document.ts'
 import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocument } from './editor/documentOps.ts'
+import { addPage, changeEveryPage, movePage, pageDocuments, pageIndex, removePage } from './editor/pages.ts'
 import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
 import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
@@ -1063,7 +1066,7 @@ export default function App() {
     const d = current()
     if (!crop || !d || isIdentity(crop.box, fullFrame(d))) return
     const rect = cropRect(crop.box)
-    editor.change(t('Crop'), (doc) => cropDocument(doc, rect))
+    editor.change(t('Crop'), (doc) => changeEveryPage(doc, (page) => cropDocument(page, rect)))
     // Keep the part you kept exactly where it was on screen.
     setViewport((v) => ({ ...v, panX: v.panX + rect.x * v.zoom, panY: v.panY + rect.y * v.zoom }))
     setCropEdit(null)
@@ -1223,9 +1226,9 @@ export default function App() {
     }
   }
 
-  function createDocument({ name, width, height, background }: NewDocumentOptions) {
+  function createDocument({ name, width, height, background, ppi }: Omit<NewDocumentOptions, 'ppi'> & { ppi?: number }) {
     try {
-      const next = createBlankDocument(name, width, height, background)
+      const next = createBlankDocument(name, width, height, background, ppi)
       setDialog(null)
       void leaveDesign(() => {
         setTool('move')
@@ -1628,11 +1631,14 @@ export default function App() {
   }
 
   // Whole-design changes: the view refits so the whole result is in sight.
-  function changeWholeDesign(label: string, update: (d: EditorDocument) => EditorDocument) {
+  // Size changes apply to every page, so all pages stay the same size; `onePage` keeps a change
+  // (like a flip) to the page being worked on.
+  function changeWholeDesign(label: string, update: (d: EditorDocument) => EditorDocument, onePage = false) {
     settle()
     const d = current()
     if (!d) return
-    editor.change(label, update, { bytes: documentBytes(d) })
+    const bytes = onePage ? documentBytes(d) : pageDocuments(d).reduce((sum, page) => sum + documentBytes(page), 0)
+    editor.change(label, onePage ? update : (doc) => changeEveryPage(doc, update), { bytes })
     const next = current()
     if (next) setViewport(fitted(next, false))
   }
@@ -1955,12 +1961,38 @@ export default function App() {
         return
       }
       settle()
-      editor.change(t('Crop to selection'), (doc) => cropDocument({ ...doc, selection: null }, bounds))
+      editor.change(t('Crop to selection'), (doc) => changeEveryPage({ ...doc, selection: null }, (page) => cropDocument(page, bounds)))
       setViewport((v) => ({ ...v, panX: v.panX + bounds.x * v.zoom, panY: v.panY + bounds.y * v.zoom }))
     },
     rotateDesign: (direction) => changeWholeDesign(direction > 0 ? t('Turn design right') : t('Turn design left'), (d) => rotateDocument(d, direction)),
     flipDesign: (axis) =>
-      changeWholeDesign(axis === 'horizontal' ? t('Flip design left to right') : t('Flip design upside down'), (d) => flipDocument(d, axis)),
+      changeWholeDesign(axis === 'horizontal' ? t('Flip design left to right') : t('Flip design upside down'), (d) => flipDocument(d, axis), true),
+    addPage: () => {
+      settle()
+      editor.change(t('Add page'), (d) => addPage(d))
+      // Like a new design, the empty page starts on Arrange with its first steps showing.
+      setTool('move')
+    },
+    copyPage: () => {
+      settle()
+      const d = current()
+      if (!d) return
+      editor.change(t('Copy page'), (doc) => addPage(doc, true), { bytes: documentBytes(d) })
+    },
+    deletePage: () => {
+      settle()
+      editor.change(t('Delete page'), (d) => removePage(d))
+    },
+    movePage: (direction) => {
+      settle()
+      editor.change(t('Move page'), (d) => movePage(d, direction))
+    },
+    goToPage: (direction) => {
+      const d = current()
+      if (!d) return
+      settle()
+      editor.goToPage(pageIndex(d) + direction)
+    },
     layerAdd: layers.add,
     layerDuplicate: layers.duplicate,
     layerUp: () => layers.move(1),
@@ -2082,6 +2114,8 @@ export default function App() {
       else if (mod && (code === 'Digit0' || code === 'Numpad0') && hasDoc) action = c.fit
       else if (mod && code === 'BracketRight' && hasDoc) action = event.shiftKey ? c.layerToFront : c.layerUp
       else if (mod && code === 'BracketLeft' && hasDoc) action = event.shiftKey ? c.layerToBack : c.layerDown
+      else if (plain && code === 'PageDown' && hasDoc) action = () => c.goToPage(1)
+      else if (plain && code === 'PageUp' && hasDoc) action = () => c.goToPage(-1)
       else if (plain && code === 'BracketRight') action = c.biggerBrush
       else if (plain && code === 'BracketLeft') action = c.smallerBrush
       else if (plain && !event.shiftKey) {
@@ -2235,8 +2269,12 @@ export default function App() {
       target: null,
       fillGap,
       onFillGap: setFillGap,
+      ppi: doc ? documentPpi(doc) : DEFAULT_PPI,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
+    // Its size and top-left corner before turning, as shown in the boxes.
+    const readBox = (box: TransformBox) => ({ width: Math.abs(box.width), height: Math.abs(box.height), x: box.cx - Math.abs(box.width) / 2, y: box.cy - Math.abs(box.height) / 2 })
+    const describeTyped = (change: BoxChange) => (change.angle !== undefined ? t('Turn') : change.width !== undefined || change.height !== undefined ? t('Resize') : t('Move'))
     if (!doc) return { ...base, blocked: t('Click anything on your design to pick it.') }
     if (!activeNow) return { ...base, blocked: t('The page is picked: choose its color in the Color panel. Click anything on your design to pick it.') }
     if (doc.selection) {
@@ -2252,7 +2290,7 @@ export default function App() {
       const part = transform.box
       return {
         ...base,
-        target: { kind: 'part', name: activeNow.name, width: part.width, height: part.height, angle: degrees(part) },
+        target: { kind: 'part', name: activeNow.name, ...readBox(part), angle: degrees(part), place: (change) => applyTransform(changeBox(part, change, keepProportions)) },
         flip: (axis) => applyTransform(flipBox(part, axis)),
         rotate90: (direction) => applyTransform(rotateBox90(part, direction)),
       }
@@ -2267,7 +2305,7 @@ export default function App() {
       return {
         ...base,
         kept: groups.length > 0,
-        target: { kind: one ? 'group' : 'many', name, width: frame.width, height: frame.height, angle: 0 },
+        target: { kind: one ? 'group' : 'many', name, ...readBox(frame), angle: 0, place: (change) => placeAll(changeBox(frame, change, keepProportions), describeTyped(change)) },
         flip: (axis) => placeAll(flipBox(frame, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
         rotate90: (direction) => placeAll(rotateBox90(frame, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       }
@@ -2278,7 +2316,13 @@ export default function App() {
     if (!objectBox) return { ...base, blocked: t('There is nothing on “{name}” yet. Paint something, or click something else on your design to pick it.', { name: activeNow.name }) }
     return {
       ...base,
-      target: { kind: 'object', name: activeNow.name, width: objectBox.width, height: objectBox.height, angle: degrees(objectBox) },
+      target: {
+        kind: 'object',
+        name: activeNow.name,
+        ...readBox(objectBox),
+        angle: degrees(objectBox),
+        place: (change) => placeLayer(activeNow.id, changeBox(objectBox, change, keepProportions), describeTyped(change)),
+      },
       flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
       rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
@@ -2404,6 +2448,7 @@ export default function App() {
         crop={{
           width: crop ? cropRect(crop.box).width : 0,
           height: crop ? cropRect(crop.box).height : 0,
+          ppi: doc ? documentPpi(doc) : DEFAULT_PPI,
           shape: crop?.shape ?? 'free',
           onShape: changeCropShape,
           changed: cropChanged,
@@ -2430,8 +2475,9 @@ export default function App() {
 
         <main
           ref={workspaceRef}
-          className="relative min-w-0 flex-1 overflow-hidden rounded-card border border-line bg-workspace shadow-card"
-          style={DOT_BACKGROUND}
+          // The start screen sits on the bright room itself; the table with its dots appears with a design.
+          className={`relative min-w-0 flex-1 overflow-hidden ${doc ? 'rounded-card border border-line bg-workspace shadow-card' : ''}`}
+          style={doc ? DOT_BACKGROUND : undefined}
         >
           {doc ? (
             <>
@@ -2496,6 +2542,18 @@ export default function App() {
                 onFit={commands.fit}
               />
               <DesignInfo doc={doc} cursor={cursor} />
+              <PagesBar
+                doc={doc}
+                revision={editor.revision}
+                onGoTo={(index) => {
+                  settle()
+                  editor.goToPage(index)
+                }}
+                onAdd={commands.addPage}
+                onCopy={commands.copyPage}
+                onMove={commands.movePage}
+                onDelete={commands.deletePage}
+              />
             </>
           ) : (
             <WelcomeScreen onPreset={createFromPreset} onCustom={commands.newDesign} onOpen={commands.open} onOpenDesign={openSaved} />
@@ -2659,10 +2717,11 @@ export default function App() {
         <ResizeDialog
           width={doc.width}
           height={doc.height}
+          ppi={documentPpi(doc)}
           onClose={() => setDialog(null)}
-          onResize={(width, height) => {
+          onResize={(width, height, ppi) => {
             setDialog(null)
-            changeWholeDesign(t('Resize design'), (d) => resizeDocument(d, width, height))
+            changeWholeDesign(t('Resize design'), (d) => ({ ...resizeDocument(d, width, height), ppi }))
           }}
         />
       )}

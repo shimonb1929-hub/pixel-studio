@@ -4,12 +4,13 @@ import type { Rect } from '../editor/geometry.ts'
 import { History } from '../editor/history.ts'
 import { insertLayerAboveActive, selectLayer, updatePixelLayer } from '../editor/layers.ts'
 import { settleLayer } from '../editor/objects.ts'
+import { goToPage, pageIndex, pageOfLayer } from '../editor/pages.ts'
 import { markPixelsChanged } from '../editor/pixelVersion.ts'
 import { copyRegion, restoreRegion, type StrokeResult } from '../editor/stroke.ts'
 import type { EditorDocument, PixelLayer } from '../editor/types.ts'
 
 // Everything about a design except its pixels, which change in place and are kept separately.
-type DocState = Pick<EditorDocument, 'width' | 'height' | 'background' | 'layers' | 'activeLayerId' | 'selection'>
+type DocState = Pick<EditorDocument, 'width' | 'height' | 'background' | 'layers' | 'activeLayerId' | 'selection' | 'pages' | 'pageIndex'>
 
 // What one undo step remembers: pixels that changed on a layer, the design's structure, or a
 // few of those together (like growing a layer and then painting on it).
@@ -22,8 +23,8 @@ function mergeChanges(earlier: Change, later: Change): Change {
   return earlier.kind === 'structure' && later.kind === 'structure' ? { kind: 'structure', before: earlier.before, after: later.after } : later
 }
 
-function docState({ width, height, background, layers, activeLayerId, selection }: EditorDocument): DocState {
-  return { width, height, background, layers, activeLayerId, selection }
+function docState({ width, height, background, layers, activeLayerId, selection, pages, pageIndex }: EditorDocument): DocState {
+  return { width, height, background, layers, activeLayerId, selection, pages, pageIndex }
 }
 
 function regionBytes(region: HTMLCanvasElement): number {
@@ -50,6 +51,7 @@ export interface Editor {
   close: () => void
   change: (label: string, update: (doc: EditorDocument) => EditorDocument, options?: ChangeOptions) => void
   select: (layerId: string) => void
+  goToPage: (index: number) => void
   rename: (name: string) => void
   // A finished brush stroke. `grown` is the layer it was painted on, if it had to be enlarged first.
   commitStroke: (label: string, layerId: string, result: StrokeResult, grown?: PixelLayer) => void
@@ -88,9 +90,15 @@ export function useEditor(): Editor {
       for (const step of steps) apply(step, side)
       return
     }
-    const current = docRef.current
+    let current = docRef.current
     if (!current) return
     if (change.kind === 'pixels') {
+      // Painting on another page: undo goes back to that page, so the change can be seen.
+      const page = pageOfLayer(current, change.layerId)
+      if (page >= 0 && page !== pageIndex(current)) {
+        current = goToPage(current, page)
+        setDoc(current)
+      }
       const layer = current.layers.find((l) => l.id === change.layerId)
       if (layer?.kind === 'raster') {
         restoreRegion(layer.canvas, change[side], change.x, change.y)
@@ -148,6 +156,13 @@ export function useEditor(): Editor {
       })
       setDoc(next)
       refresh()
+    },
+
+    // Going to another page isn't an undo step either. Undo still brings back changes made on
+    // other pages, and goes to their page to show them.
+    goToPage(index) {
+      const current = docRef.current
+      if (current) setDoc(goToPage(current, index))
     },
 
     // Choosing a layer isn't something you'd want to undo, so it skips history.
