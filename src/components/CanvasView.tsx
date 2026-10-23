@@ -80,6 +80,8 @@ export interface ArrangeControls {
 export interface TextTool {
   onNew: (point: Point, area: { x: number; y: number; width: number; height: number } | null) => void
   onEdit: (layerId: string, caret: number) => void
+  // Typing in the cell of a table under a design point.
+  onEditTable: (layerId: string, point: Point) => void
 }
 
 // Drawing new shapes with the Shapes tool: `draft` dresses a box in the current shape settings.
@@ -146,6 +148,7 @@ export interface CanvasViewProps {
   textEditing: TextEditing | null
   // Double-clicking text with Arrange starts typing in it.
   onEditText: (layerId: string, caret: number) => void
+  onEditTable: (layerId: string, point: Point) => void
   // Double-clicking a pen shape with Arrange shows its points, to reshape it.
   onEditShape: (layerId: string) => void
 }
@@ -513,7 +516,8 @@ function drawBox(ctx: CanvasRenderingContext2D, box: Pick<BoxEditing, 'kind' | '
 // Text only has handles on its left and right sides: its height always fits its lines.
 function edgesOf(layer: Layer | undefined): EdgeHandles {
   // A box text runs on through is sized freely; other text fits its words, so only its width changes.
-  return layer?.kind === 'text' && !layer.flow ? 'sides' : true
+  // A table's rows fit their words too: its sides make columns wider, its corners make it all bigger.
+  return (layer?.kind === 'text' && !layer.flow) || layer?.kind === 'table' ? 'sides' : true
 }
 
 // Boxes text runs on through: a faint dashed outline, so even an empty one can be seen and found,
@@ -1216,6 +1220,7 @@ export function CanvasView(props: CanvasViewProps) {
     // Clicking text puts the cursor there; clicking anywhere else starts new text.
     const hit = layerAt(p.doc, drag.start, 2 / p.viewport.zoom)
     if (hit?.kind === 'text') p.textTool.onEdit(hit.id, textIndexAt(hit, drag.start))
+    else if (hit?.kind === 'table') p.textTool.onEditTable(hit.id, drag.start)
     else p.textTool.onNew(drag.start, null)
   }
 
@@ -1830,6 +1835,7 @@ export function CanvasView(props: CanvasViewProps) {
           const point = documentPoint(event.clientX, event.clientY)
           const hit = layerAt(doc, point, 2 / viewport.zoom)
           if (hit?.kind === 'text') props.onEditText(hit.id, textIndexAt(hit, point))
+          else if (hit?.kind === 'table' && (!hit.group || doc.activeLayerId === hit.id)) props.onEditTable(hit.id, point)
           else if (hit?.kind === 'shape' && hit.geometry.type === 'path' && (!hit.group || doc.activeLayerId === hit.id)) props.onEditShape(hit.id)
           // Inside something kept together, a double-click picks just the one part.
           else if (hit?.group) props.arrange?.onPick(hit.id)

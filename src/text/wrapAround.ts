@@ -3,6 +3,7 @@ import { rings } from '../editor/combine.ts'
 import { canFill } from '../editor/objects.ts'
 import { pageIndex } from '../editor/pages.ts'
 import { pixelVersion } from '../editor/pixelVersion.ts'
+import { fitTable } from '../editor/table.ts'
 import { applyAffine, boxCorners, boxMatrix, translateAffine, type Affine } from '../editor/transform.ts'
 import type { AvoidArea, EditorDocument, Layer, PixelLayer, Point, TextLayer, TextWrap } from '../editor/types.ts'
 import { outlineBounds } from './avoid.ts'
@@ -185,15 +186,27 @@ export function wrapLayers(layers: Layer[]): Layer[] {
 
 // The design with text flowing around pictures and shapes on every page, and text running from box
 // to box split again. The same design when nothing changes.
+// Tables fitted to their rows again (a font that arrived can make the words taller).
+function fitTables(layers: Layer[]): Layer[] {
+  let changed = false
+  const fitted = layers.map((layer) => {
+    if (layer.kind !== 'table') return layer
+    const next = fitTable(layer)
+    if (next !== layer) changed = true
+    return next
+  })
+  return changed ? fitted : layers
+}
+
 export function settleText(doc: EditorDocument): EditorDocument {
-  const layers = wrapLayers(doc.layers)
+  const layers = wrapLayers(fitTables(doc.layers))
   let next = reflowText(layers === doc.layers ? doc : { ...doc, layers })
   const index = pageIndex(doc)
   if (next.pages) {
     let changed = false
     const pages = next.pages.map((page, i) => {
       if (i === index) return page
-      const wrapped = wrapLayers(page.layers)
+      const wrapped = wrapLayers(fitTables(page.layers))
       if (wrapped === page.layers) return page
       changed = true
       return { ...page, layers: reflowText({ ...next, layers: wrapped, pages: undefined, pageIndex: undefined }).layers }
