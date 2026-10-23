@@ -112,7 +112,35 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
   const room = layer.wrap ? 0 : style.size
   const offset = align === 'right' ? -room : align === 'center' ? -room / 2 : 0
 
+  const matrix = `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`
+
   return (
+    <>
+    {layout.markers?.length ? (
+      // A list's dots, numbers or letters, beside the words being typed, just where they'll be drawn.
+      <div aria-hidden className="pointer-events-none absolute left-0 top-0" style={{ transformOrigin: '0 0', transform: matrix, width, height }}>
+        {layout.markers.map((marker, i) => (
+          <span
+            key={i}
+            dir={marker.direction}
+            className="absolute whitespace-pre"
+            style={{
+              left: marker.x,
+              top: marker.line * layout.lineHeight,
+              fontFamily: fontStack(style.font),
+              fontSize: `${style.size}px`,
+              fontWeight: style.weight,
+              fontStyle: style.italic ? 'italic' : 'normal',
+              lineHeight: `${layout.lineHeight}px`,
+              letterSpacing: `${style.letterSpacing * style.size}px`,
+              color: style.gradient ? style.gradient.stops[0].color : style.color,
+            }}
+          >
+            {marker.text}
+          </span>
+        ))}
+      </div>
+    ) : null}
     <div
       ref={ref}
       role="textbox"
@@ -150,7 +178,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
       className="absolute left-0 top-0 m-0 select-text overflow-hidden border-0 bg-transparent p-0 outline-none"
       style={{
         transformOrigin: '0 0',
-        transform: `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f}) translateX(${offset}px)`,
+        transform: `${matrix} translateX(${offset}px)`,
         width: width + room,
         height,
         fontFamily: fontStack(style.font),
@@ -170,8 +198,11 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
         // With no direction chosen, each paragraph reads the way its first letter does.
         unicodeBidi: style.direction === 'auto' ? 'plaintext' : 'normal',
         fontKerning: 'normal',
+        // A list keeps room for its markers at the side lines start from.
+        paddingInlineStart: layout.indent ?? 0,
       }}
     />
+    </>
   )
 }
 
