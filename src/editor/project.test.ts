@@ -188,6 +188,18 @@ describe('project files', () => {
     expect(images).toHaveLength(1)
   })
 
+  it('keeps text that runs on from box to box, and turns away a damaged one', async () => {
+    const flow = { story: 'story-1', index: 0, full: 'One two three four', start: 0, end: 8, height: 30 }
+    const original = manifest({ layers: [words({ wrap: true, text: 'One two', flow }), words({ wrap: true, text: 'three four', flow: { ...flow, index: 1, start: 8, end: 18 } })], activeLayer: 0 })
+    const { manifest: read } = await unpackProject(packProject(original, []))
+    expect(read).toEqual(original)
+    const bad = [{ ...flow, end: 99 }, { ...flow, start: 9 }, { ...flow, height: 0 }, { ...flow, index: -1 }, { ...flow, story: 5 }, 'flow']
+    for (const wrong of bad) {
+      const layer = words({ flow: wrong as unknown as typeof flow })
+      expect(() => validateManifest(manifest({ layers: [layer], activeLayer: 0 })), JSON.stringify(wrong)).toThrow(ProjectError)
+    }
+  })
+
   it('refuses text settings that cannot be right', () => {
     const style = (words() as Extract<ProjectLayer, { kind: 'text' }>).style
     const bad = [

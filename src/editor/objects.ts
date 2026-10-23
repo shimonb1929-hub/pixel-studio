@@ -5,7 +5,7 @@ import { polygonBounds, snapRect, type Rect } from './geometry.ts'
 import { canvasGradient } from './gradient.ts'
 import { endDirection, mapPath, segmentCount, trimForArrow, tracePath, type ShapePath } from './path.ts'
 import { applyAffine, boxCorners, boxMatrix, invertAffine, type TransformBox } from './transform.ts'
-import type { EditorDocument, Layer, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, TextLayer } from './types.ts'
+import type { EditorDocument, Layer, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, ShapeOutline, TextLayer } from './types.ts'
 
 // What every kind of layer can do: be drawn, be measured, be picked on the design, and be turned
 // into plain pixels for the tools that work on pixels.
@@ -159,7 +159,13 @@ export function drawShape(ctx: CanvasRenderingContext2D, layer: ShapeLayer): voi
     ctx.strokeStyle = outline.color
     ctx.lineJoin = 'round'
     ctx.lineCap = isLineShape(geometry) ? 'round' : 'butt'
+    const dash = outlineDash(outline)
+    if (dash) {
+      ctx.setLineDash(dash.pattern)
+      ctx.lineCap = dash.cap
+    }
     ctx.stroke(path)
+    ctx.setLineDash([])
     if (hasArrow(geometry)) {
       const length = arrowLength(outline.width)
       // The tip is at the end, pointing the way the line goes there.
@@ -182,6 +188,15 @@ export function drawShape(ctx: CanvasRenderingContext2D, layer: ShapeLayer): voi
     }
   }
   ctx.restore()
+}
+
+// The gaps in a dashed or dotted outline, sized by its thickness so it looks the same at any size:
+// dashes three times as long as the line is thick, and round dots with room between them.
+export function outlineDash(outline: ShapeOutline): { pattern: number[]; cap: CanvasLineCap } | null {
+  const w = outline.width
+  if (outline.dash === 'dashed') return { pattern: [w * 3, w * 2], cap: 'butt' }
+  if (outline.dash === 'dotted') return { pattern: [0, w * 2], cap: 'round' }
+  return null
 }
 
 // Draws what's on a layer (without its adjustments or opacity), in design coordinates.

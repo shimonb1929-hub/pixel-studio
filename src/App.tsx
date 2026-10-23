@@ -12,7 +12,7 @@ import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocu
 import { RenameDialog } from './components/RenameDialog.tsx'
 import { ResizeDialog } from './components/ResizeDialog.tsx'
 import { PageLayoutDialog } from './components/PageLayoutDialog.tsx'
-import { hasLayout } from './editor/pageLayout.ts'
+import { defaultGap, hasLayout } from './editor/pageLayout.ts'
 import { ShapePanel, type ColorTarget } from './components/ShapePanel.tsx'
 import type { TextEditing } from './components/TextEditBox.tsx'
 import { TextPanel } from './components/TextPanel.tsx'
@@ -83,7 +83,7 @@ import { invertSelection, selectAll, selectionInfo, type Selection, type Selecti
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
-import type { EditorDocument, Layer, PageLayout, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
+import type { EditorDocument, Layer, PageLayout, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, OutlineDash, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
 import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
@@ -96,6 +96,8 @@ import type { SizePreset } from './presets.ts'
 import { DEFAULT_FONT, loadFont, nearestWeight, onFontsLoaded } from './text/fonts.ts'
 import { hasRtlLetters, resolveAlign } from './text/layout.ts'
 import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './text/presets.ts'
+import { useFontsVersion } from './hooks/useFontsVersion.ts'
+import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
 import { changeText, fitText, newTextBox, textLayout, textName } from './text/textLayer.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
@@ -686,8 +688,8 @@ export default function App() {
     if (shapeTarget === 'outline') {
       changeShape(
         shapeIsLine ? t('Line color') : t('Outline color'),
-        (s) => ({ outline: { color: hex, width: s.outline?.width || NEW_OUTLINE_WIDTH } }),
-        (d) => (shapeIsLine ? { ...d, line: { ...d.line, color: hex } } : { ...d, outline: { color: hex, width: d.outline?.width || NEW_OUTLINE_WIDTH } }),
+        (s) => ({ outline: { ...s.outline, color: hex, width: s.outline?.width || NEW_OUTLINE_WIDTH } }),
+        (d) => (shapeIsLine ? { ...d, line: { ...d.line, color: hex } } : { ...d, outline: { ...d.outline, color: hex, width: d.outline?.width || NEW_OUTLINE_WIDTH } }),
         'shape-outline-color',
       )
     } else if (shapeShown?.fill.kind === 'gradient') {
@@ -709,7 +711,7 @@ export default function App() {
     const colored = (l: Layer): Layer => {
       if (l.kind === 'text') return changeText(l, { style: { color: hex } })
       if (l.kind !== 'shape') return l
-      if (isLineShape(l.geometry) || shapeTarget === 'outline') return { ...l, outline: { color: hex, width: l.outline?.width || NEW_OUTLINE_WIDTH } }
+      if (isLineShape(l.geometry) || shapeTarget === 'outline') return { ...l, outline: { ...l.outline, color: hex, width: l.outline?.width || NEW_OUTLINE_WIDTH } }
       return l.fill.kind === 'photo' || l.fill.kind === 'gradient' ? l : { ...l, fill: { kind: 'color', color: hex } }
     }
     editor.change(t('Color'), (doc) => ({ ...doc, layers: doc.layers.map((l) => (many.includes(l.id) ? colored(l) : l)) }), { mergeKey: `color:${many.join()}` })
@@ -723,9 +725,20 @@ export default function App() {
   function changeOutlineWidth(width: number) {
     changeShape(
       shapeIsLine ? t('Line thickness') : t('Outline width'),
-      (s) => ({ outline: width > 0 || shapeIsLine ? { color: s.outline?.color ?? '#1b1d23', width } : null }),
-      (d) => (shapeIsLine ? { ...d, line: { ...d.line, width } } : { ...d, outline: width > 0 ? { color: d.outline?.color ?? '#1b1d23', width } : null }),
+      (s) => ({ outline: width > 0 || shapeIsLine ? { ...s.outline, color: s.outline?.color ?? '#1b1d23', width } : null }),
+      (d) => (shapeIsLine ? { ...d, line: { ...d.line, width } } : { ...d, outline: width > 0 ? { ...d.outline, color: d.outline?.color ?? '#1b1d23', width } : null }),
       'shape-outline-width',
+    )
+  }
+
+  // Solid, dashed or dotted, for the outline (or the line itself).
+  function changeOutlineDash(dash: OutlineDash) {
+    const label = dash === 'dashed' ? t('Dashed line') : dash === 'dotted' ? t('Dotted line') : t('Solid line')
+    const withDash = (outline: ShapeOutline): ShapeOutline => (dash === 'solid' ? { color: outline.color, width: outline.width } : { ...outline, dash })
+    changeShape(
+      label,
+      (s) => ({ outline: s.outline ? withDash(s.outline) : null }),
+      (d) => (shapeIsLine ? { ...d, line: withDash(d.line) } : { ...d, outline: d.outline ? withDash(d.outline) : null }),
     )
   }
 
@@ -1003,6 +1016,17 @@ export default function App() {
       setToolState('move')
       return
     }
+    // A box the text runs on from is never removed for being empty: the story fills it again.
+    if (original?.flow) {
+      if (sameText({ ...layer, box: original.box, wrap: original.wrap }, original)) return
+      editor.change(t('Edit text'), (d) => {
+        const next = editFlowPart(d, layer.id, layer.text, layer.spans)
+        // A look chosen for all of the text while typing goes to every box of it.
+        if (layer.style === original.style) return next
+        return storyBoxes(next, layer).reduce((doc, box) => replaceLayer(doc, { ...box, style: layer.style }), next)
+      })
+      return
+    }
     if (empty) editor.change(t('Delete text'), (d) => removeLayer(d, layer.id))
     else if (!original || !sameText(layer, original) || named.name !== original.name) editor.change(t('Edit text'), (d) => replaceLayer(d, named))
   }
@@ -1025,7 +1049,9 @@ export default function App() {
     if (layer?.kind === 'text' && (tool === 'move' || tool === 'text')) {
       // With several things picked, every text among them changes.
       const many = manyIn(d)
-      const texts = many && d ? d.layers.filter((l): l is TextLayer => many.includes(l.id) && l.kind === 'text') : [layer]
+      const chosen = many && d ? d.layers.filter((l): l is TextLayer => many.includes(l.id) && l.kind === 'text') : [layer]
+      // Boxes the text runs on through all look the same.
+      const texts = [...new Map(chosen.flatMap((l) => (d ? storyBoxes(d, l) : [l])).map((l) => [l.id, l])).values()]
       editor.change(label, (doc) => texts.reduce((next, t) => replaceLayer(next, changeText(t, { style: patch })), doc), {
         mergeKey: mergeKey && `${mergeKey}:${texts.map((t) => t.id).join()}`,
       })
@@ -1075,6 +1101,24 @@ export default function App() {
     }
     if (pickedText) editor.change(label, (d) => replaceLayer(d, changeText(pickedText, { wrap })))
   }
+
+  // An empty box after the picked text, for the words to run on into.
+  function continueInAnotherBox() {
+    const d = current()
+    if (!d || !pickedText) return
+    const gap = d.layout && d.layout.columns > 1 ? d.layout.gap : defaultGap(d.width, d.height)
+    let added: string | null = null
+    editor.change(t('Continue in another box'), (doc) => {
+      const result = continueText(doc, pickedText.id, gap)
+      added = result?.id ?? null
+      return result?.doc ?? doc
+    })
+    if (added) pickOne(added)
+  }
+
+  // Letters can change size when their font arrives, so text running on from box to box is split again.
+  const fontsVersion = useFontsVersion()
+  useEffect(() => editor.reflow(), [fontsVersion])
 
   // The font the program starts with is ready before anyone types.
   const hasDoc = !!doc
@@ -2704,6 +2748,8 @@ export default function App() {
                 onPreviewFont={previewFont}
                 onStyle={changeTextStyle}
                 onWrap={changeWrap}
+                flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
+                onContinue={pickedText && !textEdit && pickedTexts <= 1 ? continueInAnotherBox : undefined}
               />
             )}
             {shapeShown && !adjustOn && (
@@ -2722,6 +2768,7 @@ export default function App() {
                 onNoFill={() => changeShape(t('No fill'), () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
                 onNoOutline={() => changeShape(t('No outline'), () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
                 onOutlineWidth={changeOutlineWidth}
+              onOutlineDash={changeOutlineDash}
                 onFillKind={changeFillKind}
                 onGradient={changeGradient}
                 gradientStop={gradientStop}
