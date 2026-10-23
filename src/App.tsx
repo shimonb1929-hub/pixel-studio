@@ -17,6 +17,7 @@ import { TextPanel } from './components/TextPanel.tsx'
 import { Toast, type Notice } from './components/Toast.tsx'
 import { ToolDock } from './components/ToolDock.tsx'
 import { ToolOptions, type ArrangeBarControls, type CropShape } from './components/ToolOptions.tsx'
+import { ScrollRegion } from './components/ui.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { DesignInfo, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
@@ -383,6 +384,8 @@ export default function App() {
   // Text being typed: new text (not in the design until it has words) or text already there.
   const [textEdit, setTextEditState] = useState<TextEditState | null>(null)
   const textEditRef = useRef<TextEditState | null>(null)
+  // The part last nudged with the arrow keys, to keep moving it from where it was picked up.
+  const nudgeRef = useRef<{ session: MoveSession; dx: number; dy: number; layer: Layer; selection: Selection; fillGap: boolean } | null>(null)
   // How the next new text looks. Its size fits the design unless one was chosen.
   const [textDefaults, setTextDefaults] = useState<TextDefaults>({ ...DEFAULT_TEXT_STYLE, size: null })
   const workspaceRef = useRef<HTMLElement>(null)
@@ -1624,9 +1627,36 @@ export default function App() {
       problem(t('Only pictures and paint can be moved part by part. To move the whole thing, clear the selection first.'))
       return
     }
-    editor.change(d.selection ? t('Move selected area') : t('Move layer'), (doc) => startMove(doc)?.commit(doc, dx, dy) ?? doc, {
-      mergeKey,
-      bytes: d.selection ? layerBytes(layer) : 0,
+    if (!d.selection) {
+      editor.change(t('Move layer'), (doc) => startMove(doc)?.commit(doc, dx, dy) ?? doc, { mergeKey })
+      return
+    }
+    // Nudging the same part again keeps going from where it was first picked up, so the gap it
+    // left is filled once and nothing of the picture is lost along the way.
+    const last = nudgeRef.current
+    const going = last && last.layer === layer && last.selection === d.selection && last.fillGap === fillGap
+    const session = going ? last.session : startMove(d, fillGap)
+    if (!session) return
+    const total = { dx: (going ? last.dx : 0) + dx, dy: (going ? last.dy : 0) + dy }
+    const put = () => {
+      editor.change(session.label, (doc) => session.commit(doc, total.dx, total.dy), { mergeKey, bytes: layerBytes(layer) })
+      const now = current()
+      const moved = now?.layers.find((l) => l.id === session.layerId)
+      nudgeRef.current = moved && now?.selection ? { session, ...total, layer: moved, selection: now.selection, fillGap } : null
+    }
+    put()
+    const { gap } = session
+    if (!gap || gap.patch) return
+    inform(t('AI is filling the gap…'))
+    // Once the gap is filled, the part is put down again the same way, now with the gap filled in,
+    // unless something else changed in the meantime.
+    void gap.ready.then((patch) => {
+      const latest = nudgeRef.current
+      const now = current()
+      if (!patch || latest?.session !== session || latest.dx !== total.dx || latest.dy !== total.dy) return
+      if (now?.selection !== latest.selection || !now.layers.includes(latest.layer)) return
+      setNotice(null)
+      put()
     })
   }
 
@@ -2567,92 +2597,97 @@ export default function App() {
           )}
         </main>
 
-        <div className={`hidden w-[288px] shrink-0 flex-col gap-3 overflow-y-auto ${doc ? 'md:flex' : ''}`}>
-          {adjustOn && doc ? (
-            <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
-          ) : (
-            <ColorPanel
-              color={panelColor ?? color}
-              recent={recentColors}
-              onChange={onPanelColor}
-              onPickFromDesign={() => setTool('picker')}
-            />
-          )}
-          {textPanelOn && !adjustOn && doc && (
-            <TextPanel
-              title={pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
-              style={textTarget?.style ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
-              wrap={textTarget?.wrap ?? false}
-              hasRtl={!!textTarget && hasRtlLetters(textTarget.text)}
-              sample={fontSample(textTarget?.text ?? '')}
-              resolvedAlign={textTarget ? resolveAlign(textTarget.style.align, textLayout(textTarget).direction) : 'left'}
-              onFont={(id) => void changeFont(id)}
-              onStyle={changeTextStyle}
-              onWrap={changeWrap}
-            />
-          )}
-          {shapeShown && !adjustOn && (
-            <ShapePanel
-              title={pickedShapes > 1 ? t('{count} shapes', { count: pickedShapes }) : editingShape ? editingShape.name : t('New shapes')}
-              editing={editingShape !== null}
-              geometry={shapeShown.geometry}
-              fill={shapeShown.fill}
-              outline={shapeShown.outline}
-              colorTarget={shapeTarget}
-              onColorTarget={(target) => {
-                setEffectColor(null)
-                setColorTarget(target)
-              }}
-              onGeometry={changeGeometry}
-              onNoFill={() => changeShape(t('No fill'), () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
-              onNoOutline={() => changeShape(t('No outline'), () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
-              onOutlineWidth={changeOutlineWidth}
-              onFillKind={changeFillKind}
-              onGradient={changeGradient}
-              gradientStop={gradientStop}
-              onGradientStop={(index) => {
-                setEffectColor(null)
-                setColorTarget('fill')
-                setGradientStop(index)
-              }}
-              onEditPoints={editingShape && pickedShapes < 2 && !(tool === 'pen' && editingShape.geometry.type === 'path') ? () => editPoints(editingShape.id) : undefined}
-              onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ shape: editingShape.id }) : undefined}
-              photo={
-                editingShape?.fill.kind === 'photo'
-                  ? {
-                      zoom: editingShape.fill.zoom,
-                      moving: photoMoving,
-                      onZoom: (zoom) => setPhotoFill({ zoom }, t('Photo size')),
-                      onToggleMove: () => setPhotoMoving(!photoMoving),
-                      onRemove: () => editor.change(t('Remove photo'), (d) => updateShape(d, editingShape.id, { fill: { kind: 'color', color: DEFAULT_SHAPES.fill! } })),
-                    }
-                  : null
-              }
-            />
-          )}
-          {effectsLayer && (
-            <EffectsPanel
-              title={effectsLayer.name}
-              open={effectsOpen}
-              onOpen={(open) => {
-                if (!open) setEffectColor(null)
-                setEffectsOpen(open)
-              }}
-              effects={effectsLayer.effects ?? null}
-              blend={effectsLayer.blend ?? 'normal'}
-              unit={unit}
-              thumbnails={effectPictures}
-              colorTarget={effectTarget}
-              onColorTarget={(kind) => setEffectColor(kind && { layerId: effectsLayer.id, kind })}
-              onLook={(look) => {
-                setEffectColor(null)
-                const effects = look.effects(unit)
-                changeEffects(effects, effectsLabel(effects, unit))
-              }}
-              onChange={changeEffects}
-              onBlend={changeBlend}
-            />
-          )}
+        <div className={`hidden w-[288px] shrink-0 flex-col gap-3 ${doc ? 'md:flex' : ''}`}>
+          {/* The panels for what is picked take the room they need, up to about two thirds of the
+              column (then they scroll); the Layers panel always keeps the rest, so it never slips
+              off a short screen. */}
+          <ScrollRegion className="max-h-[64%] shrink-0 gap-3">
+            {adjustOn && doc ? (
+              <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
+            ) : (
+              <ColorPanel
+                color={panelColor ?? color}
+                recent={recentColors}
+                onChange={onPanelColor}
+                onPickFromDesign={() => setTool('picker')}
+              />
+            )}
+            {textPanelOn && !adjustOn && doc && (
+              <TextPanel
+                title={pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
+                style={textTarget?.style ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
+                wrap={textTarget?.wrap ?? false}
+                hasRtl={!!textTarget && hasRtlLetters(textTarget.text)}
+                sample={fontSample(textTarget?.text ?? '')}
+                resolvedAlign={textTarget ? resolveAlign(textTarget.style.align, textLayout(textTarget).direction) : 'left'}
+                onFont={(id) => void changeFont(id)}
+                onStyle={changeTextStyle}
+                onWrap={changeWrap}
+              />
+            )}
+            {shapeShown && !adjustOn && (
+              <ShapePanel
+                title={pickedShapes > 1 ? t('{count} shapes', { count: pickedShapes }) : editingShape ? editingShape.name : t('New shapes')}
+                editing={editingShape !== null}
+                geometry={shapeShown.geometry}
+                fill={shapeShown.fill}
+                outline={shapeShown.outline}
+                colorTarget={shapeTarget}
+                onColorTarget={(target) => {
+                  setEffectColor(null)
+                  setColorTarget(target)
+                }}
+                onGeometry={changeGeometry}
+                onNoFill={() => changeShape(t('No fill'), () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
+                onNoOutline={() => changeShape(t('No outline'), () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
+                onOutlineWidth={changeOutlineWidth}
+                onFillKind={changeFillKind}
+                onGradient={changeGradient}
+                gradientStop={gradientStop}
+                onGradientStop={(index) => {
+                  setEffectColor(null)
+                  setColorTarget('fill')
+                  setGradientStop(index)
+                }}
+                onEditPoints={editingShape && pickedShapes < 2 && !(tool === 'pen' && editingShape.geometry.type === 'path') ? () => editPoints(editingShape.id) : undefined}
+                onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ shape: editingShape.id }) : undefined}
+                photo={
+                  editingShape?.fill.kind === 'photo'
+                    ? {
+                        zoom: editingShape.fill.zoom,
+                        moving: photoMoving,
+                        onZoom: (zoom) => setPhotoFill({ zoom }, t('Photo size')),
+                        onToggleMove: () => setPhotoMoving(!photoMoving),
+                        onRemove: () => editor.change(t('Remove photo'), (d) => updateShape(d, editingShape.id, { fill: { kind: 'color', color: DEFAULT_SHAPES.fill! } })),
+                      }
+                    : null
+                }
+              />
+            )}
+            {effectsLayer && (
+              <EffectsPanel
+                title={effectsLayer.name}
+                open={effectsOpen}
+                onOpen={(open) => {
+                  if (!open) setEffectColor(null)
+                  setEffectsOpen(open)
+                }}
+                effects={effectsLayer.effects ?? null}
+                blend={effectsLayer.blend ?? 'normal'}
+                unit={unit}
+                thumbnails={effectPictures}
+                colorTarget={effectTarget}
+                onColorTarget={(kind) => setEffectColor(kind && { layerId: effectsLayer.id, kind })}
+                onLook={(look) => {
+                  setEffectColor(null)
+                  const effects = look.effects(unit)
+                  changeEffects(effects, effectsLabel(effects, unit))
+                }}
+                onChange={changeEffects}
+                onBlend={changeBlend}
+              />
+            )}
+          </ScrollRegion>
           <LayersPanel
             doc={doc}
             revision={editor.revision}

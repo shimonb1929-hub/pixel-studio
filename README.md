@@ -87,7 +87,11 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   real size (300 pixels to the inch, so an A4 design is an A4 page) or any size you type, in inches
   with centimeters shown. Text and shapes are drawn again at full print detail, so they stay sharp
   however big it prints, and Hebrew and Yiddish come out exactly as on screen. Print shops get an
-  extra edge for cutting (bleed) and cut lines, tucked under "For print shops".
+  extra edge for cutting (bleed) and cut lines, tucked under "For print shops". Text in the PDF can
+  be searched and copied: the letters lie invisibly over the picture, right-to-left words included.
+- **Pages.** A design can have many pages (a menu, a booklet). A small row of pages sits at the
+  bottom: + adds one, ⋯ copies, moves or deletes, Page Up and Page Down go between them. All pages
+  share one size, undo works across them, and a PDF download holds every page.
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 
@@ -245,8 +249,8 @@ pulling in see-through pixels, so blurred photos keep solid edges.
 8. **More text** — different fonts and colors inside one text, text along a path, text effects
    (outline, shadow, fill with a photo), your own font files, lists and columns.
 9. **Pages and print** (InDesign) — multi-page documents, master pages, margins, columns and
-   guides, text that flows from box to box, print-ready PDF (one page with bleed and cut lines
-   is done; several pages and selectable text are next).
+   guides, text that flows from box to box, print-ready PDF (several pages, bleed, cut lines and
+   selectable text are done).
 10. **Pro layers and photo tools** (Photoshop) — blend modes, effects (shadow, glow,
    outline), curves and levels, clone and heal, select by color and select subject, and an easy
    way to fade or hide parts of a layer (with a brush, never a mask to learn).

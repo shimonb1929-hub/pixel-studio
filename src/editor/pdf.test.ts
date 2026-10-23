@@ -30,6 +30,37 @@ describe('pdf file', () => {
     expect(file).toContain('/XObject << /Im0 12 0 R >> >> /Contents 11 0 R')
   })
 
+  it('lays text invisibly over the picture, so it can be selected and copied', () => {
+    const page = {
+      width: 100,
+      height: 100,
+      image,
+      imageBox: { x: 0, y: 0, width: 100, height: 100 },
+      text: [
+        {
+          matrix: [1, 0, 0, 1, 10, 50] as [number, number, number, number, number, number],
+          size: 20,
+          // Right to left: the last letter comes first.
+          glyphs: [
+            { text: 'ם', x: 0, width: 10 },
+            { text: 'ו', x: 10, width: 5 },
+            { text: 'ל', x: 15, width: 10 },
+            { text: 'ש', x: 25, width: 12 },
+            { text: 'ם', x: 40, width: 10 },
+          ],
+        },
+      ],
+    }
+    const file = new TextDecoder().decode(buildPdf([page], ''))
+    expect(file).toContain('3 Tr')
+    expect(file).toContain('/F1 20 Tf 1 0 0 1 10 50 Tm')
+    // Letters sit where they're drawn: one gap of 3 units before the last letter.
+    expect(file).toContain('[<0001><0002><0003><0004> -150 <0001>] TJ')
+    expect(file).toContain('/W [1 [500 250 500 600]]')
+    expect(file).toContain('<0004> <05E9>')
+    expect(file).toContain('/FontFile2')
+  })
+
   it('keeps a Hebrew title readable', () => {
     const file = text(buildPdf([{ width: 10, height: 10, image, imageBox: { x: 0, y: 0, width: 10, height: 10 } }], 'שלום'))
     expect(file).toContain('/Title <FEFF05E905DC05D505DD>')

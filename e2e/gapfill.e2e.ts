@@ -97,3 +97,24 @@ test('resizing a selected part with Arrange fills the gap behind it too', async 
   await expect.poll(async () => (await designPixel(page, size, 135, 135))[1]).toBeGreaterThan(130)
   expectColor(await designPixel(page, size, 135, 135), GRASS, 16)
 })
+
+test('nudging a selected thing with the arrow keys fills the gap too, and one Undo takes it back', async ({ page }) => {
+  const size = await newDesign(page)
+  await addField(page)
+  await selectHouse(page, size)
+  for (let i = 0; i < 8; i++) await page.keyboard.press('Shift+ArrowRight')
+  expectColor(await designPixel(page, size, 200, 120), HOUSE)
+  await expect.poll(async () => (await designPixel(page, size, 120, 120))[1]).toBeGreaterThan(130)
+  expectColor(await designPixel(page, size, 102, 120), GRASS, 16)
+  expect(await undoLabel(page)).toMatch(/Undo (move and fill the gap|fill the gap)/)
+
+  const labels: string[] = []
+  for (let i = 0; i < 4 && (await designPixel(page, size, 120, 120))[1] > 100; i++) {
+    labels.push((await undoLabel(page)) ?? '')
+    await page.keyboard.press('Control+z')
+  }
+  // One step, or two if the gap took more than a moment to fill.
+  expect(labels.length).toBeLessThanOrEqual(2)
+  expectColor(await designPixel(page, size, 120, 120), HOUSE)
+  expectColor(await designPixel(page, size, 200, 120), GRASS)
+})

@@ -1,7 +1,8 @@
 import { t } from '../i18n/i18n.ts'
 import { drawLayer } from './compose.ts'
 import { createCanvas, getContext2d } from './document.ts'
-import { buildPdf, type PdfImage, type PdfPage } from './pdf.ts'
+import { placeText } from '../text/textLayer.ts'
+import { buildPdf, type PdfImage, type PdfPage, type PdfTextLine } from './pdf.ts'
 import { pageDocuments } from './pages.ts'
 import { pdfLayout, type PdfLayout, type PdfSettings } from './pdfLayout.ts'
 import type { EditorDocument } from './types.ts'
@@ -63,6 +64,25 @@ async function losslessPicture(doc: EditorDocument, layout: PdfLayout): Promise<
   return { width, height, data: new Uint8Array(await packed), filter: 'FlateDecode' }
 }
 
+// The text objects of a page, to lay invisibly over its picture so the text can be selected,
+// searched and copied, Hebrew and Yiddish included.
+function pageText(doc: EditorDocument, layout: PdfLayout): PdfTextLine[] {
+  const { area, imageBox, pageHeight } = layout
+  const k = imageBox.width / area.width
+  const toPage = new DOMMatrix([k, 0, 0, -k, imageBox.x - area.x * k, pageHeight - imageBox.y + area.y * k])
+  const lines: PdfTextLine[] = []
+  for (const layer of doc.layers) {
+    if (layer.kind !== 'text' || !layer.visible || layer.opacity <= 0 || !layer.text.trim()) continue
+    const placed = placeText(layer)
+    for (const line of placed.lines) {
+      if (line.glyphs.length === 0) continue
+      const m = toPage.multiply(placed.matrix).multiply(new DOMMatrix([1, 0, 0, -1, 0, line.baseline]))
+      lines.push({ matrix: [m.a, m.b, m.c, m.d, m.e, m.f], size: layer.style.size, glyphs: line.glyphs })
+    }
+  }
+  return lines
+}
+
 // Every page of the design, one after another, each the same size.
 export async function exportPdf(doc: EditorDocument, settings: PdfSettings): Promise<Blob> {
   const layout = pdfLayout(doc.width, doc.height, settings)
@@ -81,6 +101,7 @@ export async function exportPdf(doc: EditorDocument, settings: PdfSettings): Pro
       trimBox: print ? layout.trimBox : undefined,
       bleedBox: print ? layout.bleedBox : undefined,
       marks: layout.marks,
+      text: pageText(page, layout),
     })
   }
   return new Blob([buildPdf(pages, doc.name)], { type: 'application/pdf' })
