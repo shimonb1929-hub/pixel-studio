@@ -1357,5 +1357,16 @@
   "Things that were almost in line move a few pixels, to line up exactly. Things moving: {count}.": "דברים שהיו כמעט מיושרים זזים כמה פיקסלים, כדי להתיישר בדיוק. דברים שזזים: {count}.",
   "Tidy the whole page": "סידור כל העמוד",
   "When the picked words are hard to read over a photo or a color, give them a clearer color, a soft shadow or a box behind them (pro: contrast check). You see it first.": "כשקשה לקרוא את המילים שנבחרו על תמונה או צבע, תן להן צבע ברור יותר, צל רך או תיבה מאחוריהן (במקצועי: בדיקת ניגודיות). רואים את זה קודם.",
-  "White words": "מילים לבנות"
+  "White words": "מילים לבנות",
+  "Blur the background": "טשטוש הרקע",
+  "AI finds the main thing in the picked photo and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You see it first; press Apply to keep it.": "בינה מלאכותית מוצאת את הדבר העיקרי בתמונה שנבחרה ומטשטשת בעדינות את כל מה שמאחוריו, כמו תמונת פורטרט ממצלמה יקרה (במקצועי: Lens Blur, עומק שדה). קודם תראה את זה; לחץ על החלה כדי לשמור.",
+  "AI finds the main thing in “{name}” and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You choose how much and see it before you keep it. The first time, the AI is downloaded, which takes a moment.": "בינה מלאכותית מוצאת את הדבר העיקרי ב־“{name}” ומטשטשת בעדינות את כל מה שמאחוריו, כמו תמונת פורטרט ממצלמה יקרה (במקצועי: Lens Blur, עומק שדה). אתה בוחר כמה, ורואה את זה לפני שאתה שומר. בפעם הראשונה הבינה המלאכותית יורדת למחשב, וזה לוקח רגע.",
+  "“{name}” stays sharp where the main thing is; everything behind it goes soft.": "“{name}” נשאר חד איפה שהדבר העיקרי נמצא; כל מה שמאחוריו נעשה רך.",
+  "How much blur": "כמה טשטוש",
+  "How soft the background gets, like a photo from an expensive camera. The main thing always stays sharp. You see it on your design as you move the slider.": "כמה רך נעשה הרקע, כמו בתמונה ממצלמה יקרה. הדבר העיקרי תמיד נשאר חד. אתה רואה את זה על העיצוב שלך בזמן שאתה מזיז את המחוון.",
+  "Keep the blurred background. You can undo it.": "לשמור את הרקע המטושטש. אפשר לבטל את זה.",
+  "Finding the main thing…": "מחפש את הדבר העיקרי…",
+  "Background blurred. Press Undo if you want it sharp again.": "הרקע טושטש. לחץ על ביטול פעולה אם אתה רוצה אותו חד שוב.",
+  "The AI could not tell what the main thing in this photo is, so there is nothing to keep sharp.": "הבינה המלאכותית לא הצליחה לזהות מה הדבר העיקרי בתמונה הזאת, אז אין מה להשאיר חד.",
+  "Blur the background couldn't start. Check that you're online, then try again.": "טשטוש הרקע לא הצליח להתחיל. בדוק שאתה מחובר לאינטרנט, ונסה שוב."
 }

@@ -8,6 +8,8 @@ export interface SegmentPoint {
 }
 
 export type SegmentRequest =
+  // Sent first: the page's address, so the AI's files come from our own site wherever it lives.
+  | { type: 'setup'; siteBase: string }
   | {
       type: 'prepare'
       id: number

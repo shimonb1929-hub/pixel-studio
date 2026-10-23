@@ -118,6 +118,14 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Tidy the whole page.** With one action, things that are almost lined up (edges or middles a few
   pixels apart, with each other or the page) or almost evenly spaced move the few pixels to line up
   exactly. Nothing moves far, things already lined up stay, and you see it before you keep it.
+- **AI comes from our own site.** Magic select, Remove background and Blur the background use a
+  small AI that ships with the site (`public/models`, refreshed by `node scripts/models/fetch.mjs`),
+  engine included, so they work behind filters like NetFree that block other sites. Nothing is
+  fetched from anywhere else; a browser test blocks every other site and checks the AI still works.
+- **Blur the background.** With a photo picked, Arrange › Blur the background (pro: Lens Blur,
+  depth of field, portrait mode): the AI finds the main thing, which stays sharp, and everything
+  behind it goes soft with a gentle edge, like a photo from an expensive camera. A slider sets how
+  much, shown live; Apply keeps it as one undo step. Only the user's own pixels are used.
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 

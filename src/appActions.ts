@@ -79,6 +79,7 @@ export interface AppCommands {
   matchPhotoColors: () => void
   tidyPage: () => void
   makeReadable: () => void
+  blurBackground: () => void
 }
 
 interface ActionState {
@@ -757,6 +758,16 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'text' ? t('Pick some words on your design first.') : undefined,
       run: c.makeReadable,
+    },
+    {
+      id: 'blur-background',
+      group: 'Layers',
+      title: t('Blur the background'),
+      description: t('AI finds the main thing in the picked photo and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You see it first; press Apply to keep it.'),
+      keywords: ['blur background', 'background blur', 'lens blur', 'depth of field', 'dof', 'portrait mode', 'portrait', 'bokeh', 'soft background', 'focus', 'tilt shift', 'ai'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
+      run: c.blurBackground,
     },
     ...LOOKS.filter((look) => look.id !== 'original').map(
       (look): Action => ({

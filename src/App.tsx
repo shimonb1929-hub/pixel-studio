@@ -79,6 +79,7 @@ import { healRegion } from './editor/healRegion.ts'
 import { layerVersion, pixelVersion } from './editor/pixelVersion.ts'
 import { combineFound, maskToOps } from './ai/maskSelection.ts'
 import { AI_PICTURE_SIDE, findThing, onAiProgress, prepareThing } from './ai/segment.ts'
+import { useBlurBackground } from './ai/useBlurBackground.ts'
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
@@ -463,6 +464,8 @@ export default function App() {
   // With Arrange and a selection, handles are ready around the selected part of the layer.
   // A new layer or selection, including one brought back by undo, starts fresh handles.
   const activeNow = doc ? activeLayer(doc) : undefined
+  // Blur the background: its slider shows in the Arrange bar until Apply or Cancel.
+  const blurBackground = useBlurBackground({ editor, active: activeNow, showing: tool === 'move', setNotice })
   const transformOn = tool === 'move' && !!doc?.selection
   const session = useMemo(
     () => (transformOn && doc ? startTransform(doc, fillGap) : null),
@@ -2163,6 +2166,7 @@ export default function App() {
       if (pickedText && tool === 'move' && !doc?.selection && !picked) return editText(pickedText.id, 'all'), true
       if (tool === 'crop' && cropChanged) return applyCrop(), true
       if (adjustChanged) return applyAdjust(), true
+      if (blurBackground.apply()) return true
       return false
     },
     cancelPending: () => {
@@ -2173,6 +2177,7 @@ export default function App() {
       if (picked) return pickOne(''), true
       if (tool === 'crop' && cropChanged) return setCropEdit(null), true
       if (adjustChanged) return cancelAdjust(), true
+      if (blurBackground.cancel()) return true
       return false
     },
     pageLayout: () => {
@@ -2284,6 +2289,12 @@ export default function App() {
     matchPhotoColors: smart.matchDesign,
     tidyPage: smart.tidyPage,
     makeReadable: smart.makeReadable,
+    blurBackground: () => {
+      const layer = current() && activeLayer(current()!)
+      if (layer?.kind !== 'raster') return
+      setTool('move')
+      void blurBackground.start(layer.id)
+    },
   }
 
   const actions = buildActions(
@@ -2359,7 +2370,8 @@ export default function App() {
       else if (plain && (code === 'Delete' || code === 'Backspace') && c.hasSelection()) action = c.deleteArea
       else if (plain && (code === 'Delete' || code === 'Backspace') && hasDoc && currentTool === 'move') action = c.deleteObject
       else if (code === 'Escape' && c.hasSelection()) action = c.deselect
-      else if (!mod && !event.altKey && ARROWS[event.key] && hasDoc && currentTool === 'move') {
+      // A slider that took the arrow keys already used them (defaultPrevented); they don't also move things.
+      else if (!mod && !event.altKey && ARROWS[event.key] && hasDoc && currentTool === 'move' && !event.defaultPrevented) {
         const step = event.shiftKey ? 10 : 1
         const [dx, dy] = ARROWS[event.key]
         action = () => c.nudge(dx * step, dy * step)
@@ -2501,7 +2513,7 @@ export default function App() {
       ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) }
       : adjustPreview && !comparing
         ? adjustPreview
-        : null
+        : blurBackground.override
 
   // The Arrange bar: the selected part, or the selected object, or why nothing can be arranged.
   const arrangeBar = ((): ArrangeBarControls => {
@@ -2527,6 +2539,7 @@ export default function App() {
       fillGap,
       onFillGap: setFillGap,
       ppi: doc ? documentPpi(doc) : DEFAULT_PPI,
+      blurSession: blurBackground.controls,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
     // Its size and top-left corner before turning, as shown in the boxes.
@@ -2585,6 +2598,7 @@ export default function App() {
       flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
       rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
+      blurBackground: activeNow.kind === 'raster' ? () => void blurBackground.start(activeNow.id) : undefined,
     }
   })()
 

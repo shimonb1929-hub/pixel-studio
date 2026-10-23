@@ -1357,5 +1357,16 @@
   "Things that were almost in line move a few pixels, to line up exactly. Things moving: {count}.": "Ce qui était presque aligné bouge de quelques pixels pour s’aligner exactement. Éléments déplacés : {count}.",
   "Tidy the whole page": "Ranger toute la page",
   "When the picked words are hard to read over a photo or a color, give them a clearer color, a soft shadow or a box behind them (pro: contrast check). You see it first.": "Quand le texte choisi se lit mal sur une photo ou une couleur, donnez-lui une couleur plus nette, une ombre douce ou un cadre derrière (pro : vérification du contraste). Vous le voyez d’abord.",
-  "White words": "Texte blanc"
+  "White words": "Texte blanc",
+  "Blur the background": "Flouter l’arrière-plan",
+  "AI finds the main thing in the picked photo and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You see it first; press Apply to keep it.": "L’IA trouve le sujet principal de la photo choisie et floute en douceur tout ce qui est derrière, comme un portrait pris avec un appareil coûteux (pro : Lens Blur, profondeur de champ). Vous le voyez d’abord ; appuyez sur Appliquer pour le garder.",
+  "AI finds the main thing in “{name}” and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You choose how much and see it before you keep it. The first time, the AI is downloaded, which takes a moment.": "L’IA trouve le sujet principal de “{name}” et floute en douceur tout ce qui est derrière, comme un portrait pris avec un appareil coûteux (pro : Lens Blur, profondeur de champ). Vous choisissez l’intensité et vous le voyez avant de le garder. La première fois, l’IA est téléchargée, ce qui prend un moment.",
+  "“{name}” stays sharp where the main thing is; everything behind it goes soft.": "“{name}” reste net là où se trouve le sujet principal ; tout ce qui est derrière devient doux.",
+  "How much blur": "Intensité du flou",
+  "How soft the background gets, like a photo from an expensive camera. The main thing always stays sharp. You see it on your design as you move the slider.": "À quel point l’arrière-plan devient doux, comme sur une photo prise avec un appareil coûteux. Le sujet principal reste toujours net. Vous le voyez sur votre création pendant que vous bougez le curseur.",
+  "Keep the blurred background. You can undo it.": "Garder l’arrière-plan flouté. Vous pouvez annuler.",
+  "Finding the main thing…": "Recherche du sujet principal…",
+  "Background blurred. Press Undo if you want it sharp again.": "Arrière-plan flouté. Appuyez sur Annuler si vous le voulez net à nouveau.",
+  "The AI could not tell what the main thing in this photo is, so there is nothing to keep sharp.": "L’IA n’a pas pu savoir quel est le sujet principal de cette photo, il n’y a donc rien à garder net.",
+  "Blur the background couldn't start. Check that you're online, then try again.": "Flouter l’arrière-plan n’a pas pu démarrer. Vérifiez que vous êtes en ligne, puis réessayez."
 }
