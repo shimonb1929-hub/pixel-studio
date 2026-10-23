@@ -739,6 +739,87 @@ const COMBINES: { mode: CombineMode; label: string; description: string; icon: L
   { mode: 'apart', label: msg('Apart'), description: msg('Keep everything except where they overlap, which becomes a hole.'), icon: SquaresExclude },
 ])
 
+interface PhotoTool {
+  icon: LucideIcon
+  label: string
+  description: string
+  run: () => void
+}
+
+// The smart one-click helpers for a picked photo, in one small menu so the bar stays calm however
+// many there are. Each one says what it does, and none changes anything until it's kept.
+function PhotoToolsMenu({ name, items }: { name: string; items: (PhotoTool | false | undefined)[] }) {
+  const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="menuitem"]')
+  const tools = items.filter((item): item is PhotoTool => !!item)
+  return (
+    <>
+      <Tooltip
+        title={t('Photo tools')}
+        description={t('Smart one-click helpers for “{name}”: straighten it, remove or blur the background, turn it into shapes and more. You see each result before you keep it.', { name })}
+      >
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label={t('Photo tools')}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => {
+            setPosition(null)
+            setOpen(!open)
+          }}
+          className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${open ? 'bg-subtle text-ink' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
+        >
+          <WandSparkles size={15} />
+          <span className="hidden 2xl:inline">{t('Photo tools')}</span>
+          <ChevronDown size={13} />
+        </button>
+      </Tooltip>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={t('Photo tools')}
+            onKeyDown={(event) => {
+              const choices = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])
+              const index = choices.indexOf(document.activeElement as HTMLElement)
+              const step = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0
+              if (step === 0 || choices.length === 0) return
+              event.preventDefault()
+              event.stopPropagation()
+              choices[(index + step + choices.length) % choices.length]?.focus()
+            }}
+            className="fixed z-40 w-80 rounded-xl border border-line bg-surface p-1.5 shadow-float"
+            style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
+          >
+            {tools.map(({ icon: Icon, label, description, run }) => (
+              // Two lines of the description fit in the menu; the tip shows all of it.
+              <Tooltip key={label} title={label} description={description} className="flex">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setOpen(false)
+                    setPosition(null)
+                    run()
+                  }}
+                  className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-start outline-none hover:bg-subtle focus-visible:bg-subtle"
+                >
+                  <Icon size={16} className="mt-0.5 shrink-0 text-ink-2" />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-[13px] font-medium text-ink">{label}</span>
+                    <span className="line-clamp-2 text-[12px] leading-snug text-ink-3">{description}</span>
+                  </span>
+                </button>
+              </Tooltip>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
+
 // Making one shape out of several: a small menu of pictures, each saying what it does.
 function CombineMenu({ blocked, onCombine }: { blocked: string | null; onCombine: (mode: CombineMode) => void }) {
   const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="menuitem"]:not([disabled])')
@@ -1088,48 +1169,36 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
           onClick={controls.center}
         />
         {!part && target.kind !== 'many' && <LineUpMenu several={false} onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
-        {controls.straighten && (
-          // Only where the bar has room: below 1280 every button is just an icon, and from about 1360
-          // there's space again once the other buttons show their names. Menu and search always have it.
-          <span className="hidden max-xl:flex min-[1360px]:flex">
-            <BarButton
-              icon={Ruler}
-              label={t('Straighten')}
-              title={t('Straighten')}
-              roomy
-              description={t('Finds the horizon, walls or other long straight lines in “{name}” and turns it so they are level (pro: Auto Straighten). You see it first and can fine-tune it.', { name: target.name })}
-              onClick={controls.straighten}
-            />
-          </span>
-        )}
         {controls.textWrap && <TextWrapMenu controls={controls.textWrap} />}
-        {controls.removeBackground && (
-          <BarButton
-            icon={Eraser}
-            label={t("Remove background")}
-            title={t("Remove background")}
-            roomy
-            description={t('AI finds the main thing in “{name}” and makes everything around it see-through. The first time, the AI is downloaded, which takes a moment. You can undo it.', { name: target.name })}
-            onClick={controls.removeBackground}
-          />
-        )}
-        {controls.blurBackground && (
-          <BarButton
-            icon={Aperture}
-            label={t('Blur the background')}
-            roomy
-            description={t('AI finds the main thing in “{name}” and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You choose how much and see it before you keep it. The first time, the AI is downloaded, which takes a moment.', { name: target.name })}
-            onClick={controls.blurBackground}
-          />
-        )}
-        {controls.turnIntoShapes && (
-          <BarButton
-            icon={Shapes}
-            label={t('Into shapes')}
-            title={t('Turn into shapes')}
-            roomy
-            description={t('Makes sharp shapes out of “{name}” that stay crisp at any size and can be recolored. Best for logos, drawings, signatures and sketches. You see the shapes first. (pro: Image Trace)', { name: target.name })}
-            onClick={controls.turnIntoShapes}
+        {(controls.straighten || controls.removeBackground || controls.blurBackground || controls.turnIntoShapes) && (
+          <PhotoToolsMenu
+            name={target.name}
+            items={[
+              controls.straighten && {
+                icon: Ruler,
+                label: t('Straighten'),
+                description: t('Finds the horizon, walls or other long straight lines in “{name}” and turns it so they are level (pro: Auto Straighten). You see it first and can fine-tune it.', { name: target.name }),
+                run: controls.straighten,
+              },
+              controls.removeBackground && {
+                icon: Eraser,
+                label: t('Remove background'),
+                description: t('AI finds the main thing in “{name}” and makes everything around it see-through. The first time, the AI is downloaded, which takes a moment. You can undo it.', { name: target.name }),
+                run: controls.removeBackground,
+              },
+              controls.blurBackground && {
+                icon: Aperture,
+                label: t('Blur the background'),
+                description: t('AI finds the main thing in “{name}” and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You choose how much and see it before you keep it. The first time, the AI is downloaded, which takes a moment.', { name: target.name }),
+                run: controls.blurBackground,
+              },
+              controls.turnIntoShapes && {
+                icon: Shapes,
+                label: t('Turn into shapes'),
+                description: t('Makes sharp shapes out of “{name}” that stay crisp at any size and can be recolored. Best for logos, drawings, signatures and sketches. You see the shapes first. (pro: Image Trace)', { name: target.name }),
+                run: controls.turnIntoShapes,
+              },
+            ]}
           />
         )}
         {!part && (

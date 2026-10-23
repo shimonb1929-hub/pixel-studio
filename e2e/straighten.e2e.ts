@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { clickAt, designPixel, drag, expectColor, expectDesignSize, newDesign, screenPoint, WHITE, type Size } from './helpers.ts'
+import { clickAt, designPixel, drag, expectColor, expectDesignSize, newDesign, screenPoint, WHITE, type Size, photoTool } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 // Test pictures are drawn in code: plain shapes and colors, never real photos.
@@ -87,7 +87,7 @@ test('Straighten finds a leaning horizon, shows it level, and keeps it with one 
 
   await page.keyboard.press('v')
   await clickAt(page, size, 200, 150)
-  await page.getByRole('toolbar').getByRole('button', { name: 'Straighten' }).click()
+  await photoTool(page, 'Straighten')
   await expect(panel(page)).toContainText(/Turned \u2066?−(5\.[89]|6\.[01])°/)
   // The preview is level already, and the photo still fills its frame: no empty corners, and
   // nothing sticks out past it.
@@ -138,7 +138,7 @@ test('Straighten says so when a photo has no clear straight lines', async ({ pag
   await addPhoto(page, 'ball')
   await page.keyboard.press('v')
   await clickAt(page, size, 200, 150)
-  await page.getByRole('toolbar').getByRole('button', { name: 'Straighten' }).click()
+  await photoTool(page, 'Straighten')
   await expect(panel(page)).toContainText('No clear straight lines')
   await panel(page).getByRole('button', { name: 'Cancel' }).click()
   await expect(panel(page)).toBeHidden()

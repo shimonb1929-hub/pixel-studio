@@ -114,3 +114,9 @@ export async function expectPickedSize(page: Page, width: number, height: number
 export async function expectPickedAngle(page: Page, degrees: number) {
   await expect(page.getByRole('toolbar')).toContainText(`${degrees}°`)
 }
+
+// The smart helpers for a picked photo live in the Arrange bar's Photo tools menu.
+export async function photoTool(page: Page, name: string) {
+  await page.getByRole('toolbar').getByRole('button', { name: 'Photo tools' }).click()
+  await page.getByRole('menu', { name: 'Photo tools' }).getByRole('menuitem', { name }).click()
+}

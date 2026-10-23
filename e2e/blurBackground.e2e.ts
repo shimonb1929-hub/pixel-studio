@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { addBallPhoto, AI_TIMEOUT, BALL } from './aiPhoto.ts'
-import { clickAt, designPixel, expectColor, newDesign, type Size } from './helpers.ts'
+import { clickAt, designPixel, expectColor, newDesign, type Size, photoTool } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 // The striped sky photo is placed at 80% size from (40, 30). In the photo, x 16–24 is a dark
@@ -19,7 +19,7 @@ test('Blur the background keeps the main thing sharp and softens what is behind 
 
   await page.keyboard.press('v')
   await clickAt(page, size, 200, 150)
-  await page.getByRole('button', { name: 'Blur the background' }).click()
+  await photoTool(page, 'Blur the background')
   const slider = page.getByRole('slider', { name: 'How much blur' })
   await expect(slider).toBeVisible({ timeout: AI_TIMEOUT })
 
@@ -37,7 +37,7 @@ test('Blur the background keeps the main thing sharp and softens what is behind 
   await expect.poll(() => stripeContrast(page, size)).toBeGreaterThan(90)
 
   // More blur, then Apply: one step to undo.
-  await page.getByRole('button', { name: 'Blur the background' }).click()
+  await photoTool(page, 'Blur the background')
   await expect(slider).toBeVisible({ timeout: AI_TIMEOUT })
   await slider.focus()
   await page.keyboard.press('Shift+ArrowRight')

@@ -1,6 +1,6 @@
 import type { BrowserContext } from '@playwright/test'
 import { addBallPhoto, AI_TIMEOUT, BALL, SKY } from './aiPhoto.ts'
-import { clickAt, designPixel, expectColor, newDesign, WHITE } from './helpers.ts'
+import { clickAt, designPixel, expectColor, newDesign, WHITE, photoTool } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 // Pixel Studio is used behind NetFree, a filter that blocks or holds outside sites. These tests
@@ -35,7 +35,7 @@ test('Remove background works with every outside site blocked', async ({ page, c
 
   await page.keyboard.press('v')
   await clickAt(page, size, 200, 150)
-  await page.getByRole('button', { name: 'Remove background' }).click()
+  await photoTool(page, 'Remove background')
   await expect.poll(async () => (await designPixel(page, size, 60, 50))[0], { timeout: AI_TIMEOUT }).toBe(WHITE[0])
   expectColor(await designPixel(page, size, 200, 150), BALL)
 

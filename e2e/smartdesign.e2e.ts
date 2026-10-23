@@ -39,7 +39,10 @@ async function addPhoto(page: Page, width: number, height: number, name = 'sunse
 async function drawRectangle(page: Page, size: Size, from: [number, number], to: [number, number]) {
   await page.keyboard.press('u')
   await page.getByRole('radio', { name: 'Rectangle' }).click()
+  // Alt places it freely, so smart guides don't line it up before Tidy gets the chance.
+  await page.keyboard.down('Alt')
   await drag(page, size, [from, to])
+  await page.keyboard.up('Alt')
 }
 
 async function undoLabel(page: Page) {

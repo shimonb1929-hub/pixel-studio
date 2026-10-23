@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { clickAt, designPixel, expectColor, newDesign, WHITE, type Size } from './helpers.ts'
+import { clickAt, designPixel, expectColor, newDesign, WHITE, type Size, photoTool } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 // A drawn logo: a black ring and a red square on cream paper. No people, just shapes.
@@ -39,7 +39,7 @@ async function addLogo(page: Page) {
 async function openTrace(page: Page, size: Size) {
   await page.keyboard.press('v')
   await clickAt(page, size, 200, 60)
-  await page.getByRole('button', { name: 'Turn into shapes' }).click()
+  await photoTool(page, 'Turn into shapes')
   const dialog = page.getByRole('dialog', { name: 'Turn into shapes' })
   await expect(dialog).toBeVisible()
   return dialog
