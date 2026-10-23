@@ -74,6 +74,9 @@ export interface AppCommands {
   // Opens the Effects panel for what is picked.
   showEffects: () => void
   removeBackground: () => void
+  // Open Bigger and sharper, or Words from a picture, for the picked photo.
+  upscale: () => void
+  findWords: () => void
 }
 
 interface ActionState {
@@ -723,6 +726,26 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
       run: c.removeBackground,
+    },
+    {
+      id: 'upscale',
+      group: 'Layers',
+      title: t('Bigger and sharper…'),
+      description: t('Give the picked photo two or four times as many pixels, so a small photo prints sharp. It stays the same size on your design. Plain math, no AI: nothing is made up. You see it first. (pro: Super Resolution, Preserve Details upscale)'),
+      keywords: ['upscale', 'super resolution', 'preserve details', 'enlarge', 'enhance', 'bigger', 'sharper', 'sharpen', 'resolution', 'more pixels', 'blurry', 'pixelated', 'print', 'dpi', 'ppi', 'hd', 'high resolution', 'quality'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
+      run: c.upscale,
+    },
+    {
+      id: 'find-words',
+      group: 'Layers',
+      title: t('Words from a picture…'),
+      description: t('Find the words in the picked photo (a scanned flyer, a photo of a sign) and turn them into real text you can change, in English, Hebrew or Yiddish. (pro: OCR, text recognition)'),
+      keywords: ['ocr', 'text recognition', 'recognize text', 'scan', 'scanned', 'read text', 'copy text', 'extract text', 'image to text', 'picture to text', 'words', 'letters', 'flyer', 'sign', 'document', 'hebrew', 'yiddish', 'editable text'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
+      run: c.findWords,
     },
     ...LOOKS.filter((look) => look.id !== 'original').map(
       (look): Action => ({

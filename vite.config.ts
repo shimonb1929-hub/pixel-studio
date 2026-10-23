@@ -7,7 +7,8 @@ import { defineConfig, type Plugin } from 'vite'
 // Writes the offline helper (sw.js) with a list of every file of this build, so the installed
 // app opens without internet. Only for the finished site, never while developing. Fonts (in
 // public/fonts) aren't on the list: there are too many to fetch up front, so each one is kept
-// the first time it's used.
+// the first time it's used. Neither are the big files of Words from a picture (in public/ocr),
+// for the same reason.
 const AI_FILES = /(^|\/)(ort-wasm|segmentWorker)/
 
 function offlineHelper(): Plugin {
@@ -40,5 +41,6 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), offlineHelper()],
   // The AI library is only used inside a worker, which the dev server doesn't look into ahead of
   // time. Without this, the first AI use prepares it late and reloads every open page.
-  optimizeDeps: { include: ['@huggingface/transformers'] },
+  // The same for the text reader (Words from a picture), which is loaded only when first used.
+  optimizeDeps: { include: ['@huggingface/transformers', 'tesseract.js'] },
 })

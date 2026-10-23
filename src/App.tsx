@@ -77,6 +77,7 @@ import { healRegion } from './editor/healRegion.ts'
 import { layerVersion, pixelVersion } from './editor/pixelVersion.ts'
 import { combineFound, maskToOps } from './ai/maskSelection.ts'
 import { AI_PICTURE_SIDE, findThing, onAiProgress, prepareThing } from './ai/segment.ts'
+import { PictureHelper, type PictureHelperKind } from './components/PictureHelpers.tsx'
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
@@ -350,6 +351,8 @@ export default function App() {
   const [tool, setToolState] = useState<ToolId>('move')
   const [cursor, setCursor] = useState<Point | null>(null)
   const [dialog, setDialog] = useState<DialogId | null>(null)
+  // Bigger and sharper, or Words from a picture, open for a photo.
+  const [pictureHelper, setPictureHelper] = useState<{ kind: PictureHelperKind; layerId: string } | null>(null)
   const [exportFormat, setExportFormat] = useState<ExportFormat>('png')
   // Margins and columns being chosen, shown on the design before they're kept.
   const [layoutPreview, setLayoutPreview] = useState<PageLayout | null>(null)
@@ -2277,6 +2280,14 @@ export default function App() {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') void removeBackground(layer.id)
     },
+    upscale: () => {
+      const layer = current() && activeLayer(current()!)
+      if (layer?.kind === 'raster') setPictureHelper({ kind: 'upscale', layerId: layer.id })
+    },
+    findWords: () => {
+      const layer = current() && activeLayer(current()!)
+      if (layer?.kind === 'raster') setPictureHelper({ kind: 'words', layerId: layer.id })
+    },
   }
 
   const actions = buildActions(
@@ -2294,10 +2305,10 @@ export default function App() {
   // A layout effect updates them together with the screen, so a key pressed right after a drag
   // acts on what is shown, not on the step before.
   const commandsRef = useRef(commands)
-  const stateRef = useRef({ hasDoc: !!doc, dialogOpen: dialog !== null, tool })
+  const stateRef = useRef({ hasDoc: !!doc, dialogOpen: dialog !== null || pictureHelper !== null, tool })
   useLayoutEffect(() => {
     commandsRef.current = commands
-    stateRef.current = { hasDoc: !!doc, dialogOpen: dialog !== null, tool }
+    stateRef.current = { hasDoc: !!doc, dialogOpen: dialog !== null || pictureHelper !== null, tool }
   })
 
   useEffect(() => {
@@ -2578,6 +2589,8 @@ export default function App() {
       flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
       rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
+      upscale: activeNow.kind === 'raster' ? () => setPictureHelper({ kind: 'upscale', layerId: activeNow.id }) : undefined,
+      findWords: activeNow.kind === 'raster' ? () => setPictureHelper({ kind: 'words', layerId: activeNow.id }) : undefined,
     }
   })()
 
@@ -3082,6 +3095,12 @@ export default function App() {
           }}
         />
       )}
+      {pictureHelper && doc && (() => {
+        const layer = doc.layers.find((l) => l.id === pictureHelper.layerId)
+        return layer?.kind === 'raster' ? (
+          <PictureHelper kind={pictureHelper.kind} doc={doc} layer={layer} change={editor.change} inform={inform} problem={problem} onClose={() => setPictureHelper(null)} />
+        ) : null
+      })()}
 
       {notice && <Toast notice={notice} onDismiss={() => setNotice(null)} />}
     </div>

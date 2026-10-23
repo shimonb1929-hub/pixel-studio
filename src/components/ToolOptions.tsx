@@ -1,4 +1,4 @@
-import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
+import { Spline, ImageUpscale, ScanText, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -421,6 +421,9 @@ export interface ArrangeBarControls {
   spreadOut: (axis: 'x' | 'y') => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
+  // Set with one photo or drawing picked: open Bigger and sharper, or Words from a picture.
+  upscale?: () => void
+  findWords?: () => void
   // Set when several things are picked: makes one shape out of them, or says why it can't.
   combine?: (mode: CombineMode) => void
   combineBlocked?: string | null
@@ -979,6 +982,26 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
             roomy
             description={t('AI finds the main thing in “{name}” and makes everything around it see-through. The first time, the AI is downloaded, which takes a moment. You can undo it.', { name: target.name })}
             onClick={controls.removeBackground}
+          />
+        )}
+        {controls.upscale && (
+          <BarButton
+            icon={ImageUpscale}
+            label={t("Bigger and sharper")}
+            title={t("Bigger and sharper")}
+            roomy
+            description={t('Gives “{name}” more pixels so it prints sharp, especially a small photo printed big. It stays the same size on your design. No AI: nothing is made up. You see it before you keep it.', { name: target.name })}
+            onClick={controls.upscale}
+          />
+        )}
+        {controls.findWords && (
+          <BarButton
+            icon={ScanText}
+            label={t("Words from picture")}
+            title={t("Words from a picture")}
+            roomy
+            description={t('Finds the words in “{name}” (a scanned flyer, a sign) and turns them into real text you can change, in English, Hebrew or Yiddish.', { name: target.name })}
+            onClick={controls.findWords}
           />
         )}
         {!part && (
