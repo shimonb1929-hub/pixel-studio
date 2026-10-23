@@ -831,7 +831,7 @@ function PenOptions({ controls }: { controls: PenBarControls }) {
           <Trash2 size={15} />
           {t('Delete point')}
         </Button>
-        <Hint>Drag the point to move it, or its round handles to change the curve. Hold {ALT_LABEL} on a handle to bend one side only.</Hint>
+        <Hint>{t('Drag the point to move it, or its round handles to change the curve. Hold {key} on a handle to bend one side only.', { key: ALT_LABEL })}</Hint>
       </>
     )
   }

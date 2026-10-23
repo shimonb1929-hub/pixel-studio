@@ -51,7 +51,7 @@ test('click to type English; it starts where you clicked and grows to the right'
   await clickAt(page, size, 60, 100)
   await expect(typingBox(page)).toBeFocused()
   await page.keyboard.type('Hello')
-  await expect(typingBox(page)).toHaveValue('Hello')
+  await expect(typingBox(page)).toHaveText('Hello')
   await page.keyboard.press('Escape')
   await expect(typingBox(page)).toHaveCount(0)
   expect(await layerNames(page)).toEqual(['Hello'])
@@ -128,7 +128,7 @@ async function compareShots(page: Page, a: string, b: string) {
 
 test('what you see while typing is exactly what you get: Hebrew, Yiddish, English, numbers and punctuation', async ({ page }) => {
   const size = await newDesign(page, 500, 400)
-  await page.addStyleTag({ content: 'textarea { caret-color: transparent !important; }' })
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
   await page.keyboard.press('t')
   // A paragraph box that wraps its lines.
   await drag(page, size, [
@@ -172,11 +172,11 @@ test('a quick heading starts with its words picked; typing replaces them and it 
   await page.keyboard.press('t')
   await page.getByRole('button', { name: 'Heading', exact: true }).click()
   const box = typingBox(page)
-  await expect(box).toHaveValue('Your heading')
-  expect(await box.evaluate((el: HTMLTextAreaElement) => [el.selectionStart, el.selectionEnd])).toEqual([0, 12])
+  await expect(box).toHaveText('Your heading')
+  expect(await page.evaluate(() => document.getSelection()?.toString())).toBe('Your heading')
   // Letters that are also tool shortcuts just type.
   await page.keyboard.type('Move the big text')
-  await expect(box).toHaveValue('Move the big text')
+  await expect(box).toHaveText('Move the big text')
   await expect(page.getByRole('button', { name: 'Text tool' })).toHaveAttribute('aria-pressed', 'true')
   await page.keyboard.press('Escape')
   expect((await layerNames(page))[0]).toBe('Move the big text')
@@ -194,7 +194,7 @@ test('click text to change it, double-click it with Arrange, and taking every le
   // Double-click with Arrange puts the cursor where you clicked.
   const point = await screenPoint(page, size, 100, 100)
   await page.mouse.dblclick(point.x, point.y)
-  await expect(typingBox(page)).toHaveValue('Hello')
+  await expect(typingBox(page)).toHaveText('Hello')
   await page.keyboard.press('End')
   await page.keyboard.type(' world')
   await page.keyboard.press('Escape')
@@ -204,7 +204,7 @@ test('click text to change it, double-click it with Arrange, and taking every le
   // With the Text tool, a click on the text edits it.
   await page.keyboard.press('t')
   await clickAt(page, size, 80, 100)
-  await expect(typingBox(page)).toHaveValue('Hello world')
+  await expect(typingBox(page)).toHaveText('Hello world')
   await page.keyboard.press('Control+a')
   await page.keyboard.press('Backspace')
   await page.keyboard.press('Escape')
@@ -307,7 +307,7 @@ test('Yiddish with its vowel points types and is kept', async ({ page }) => {
   await page.keyboard.press('t')
   await clickAt(page, size, 350, 150)
   await page.keyboard.insertText('אַ גוטן טאָג, װאָס מאַכסטו?')
-  await expect(typingBox(page)).toHaveValue('אַ גוטן טאָג, װאָס מאַכסטו?')
+  await expect(typingBox(page)).toHaveText('אַ גוטן טאָג, װאָס מאַכסטו?')
   await page.keyboard.press('Escape')
   expect((await layerNames(page))[0]).toBe('אַ גוטן טאָג, װאָס מאַכסטו?')
   const ink = (await inkBounds(page, size, 0, 100, 400, 100))!
@@ -363,8 +363,95 @@ test('while typing, picking a font and pressing Backspace never deletes the text
   await textPanel(page).getByRole('button', { name: /^Font:/ }).click()
   await page.keyboard.press('Backspace')
   await page.keyboard.press('ArrowLeft')
-  await expect(typingBox(page)).toHaveValue('Keep me')
+  await expect(typingBox(page)).toHaveText('Keep me')
   await page.keyboard.press('Escape')
   await expect(typingBox(page)).toHaveCount(0)
   expect(await layerNames(page)).toEqual(['Keep me'])
+})
+
+// How many clearly red pixels a part of the design has.
+async function redPixels(page: Page, size: Size, x: number, y: number, width: number, height: number) {
+  return page.evaluate(
+    ([w, h, rx, ry, rw, rh]) => {
+      const main = document.querySelector('main')!
+      const canvas = main.querySelector('canvas')
+      if (!canvas) return 0
+      const dpr = devicePixelRatio
+      const left = Math.round(((main.clientWidth - w) / 2) * dpr)
+      const top = Math.round(((main.clientHeight - h) / 2) * dpr)
+      const data = canvas.getContext('2d')!.getImageData(left + Math.round(rx * dpr), top + Math.round(ry * dpr), Math.round(rw * dpr), Math.round(rh * dpr)).data
+      let count = 0
+      for (let i = 0; i < data.length; i += 4) if (data[i] > 180 && data[i + 1] < 120 && data[i + 2] < 120) count++
+      return count
+    },
+    [size.width, size.height, x, y, width, height] as const,
+  )
+}
+
+test('picked words get their own font, boldness and color, exactly as shown while typing', async ({ page }) => {
+  const size = await newDesign(page, 500, 300)
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.keyboard.press('t')
+  await clickAt(page, size, 30, 100)
+  const box = typingBox(page)
+  await page.keyboard.insertText('Sale שבת שלום today only')
+  // With nothing picked, the panel says changes go to all the text.
+  await expect(textPanel(page).getByRole('note')).toContainText('all the text')
+
+  // "only" turns red and bold.
+  for (let i = 0; i < 4; i++) await page.keyboard.press('Shift+ArrowLeft')
+  await expect(textPanel(page).getByRole('note')).toContainText('only the words you picked')
+  await page.getByRole('button', { name: 'Red', exact: true }).click()
+  const boldness = textPanel(page).getByRole('slider', { name: 'Boldness' })
+  await boldness.focus()
+  await page.keyboard.press('End')
+  await expect(box.locator('[data-look]')).toHaveText('only')
+
+  // "Sale" gets a font of its own.
+  await box.focus()
+  await page.keyboard.press('Home')
+  for (let i = 0; i < 4; i++) await page.keyboard.press('Shift+ArrowRight')
+  await textPanel(page).getByRole('button', { name: /^Font:/ }).click()
+  await textPanel(page).getByLabel('Find a font').fill('frank')
+  await textPanel(page).getByRole('option', { name: 'Frank Ruhl Libre' }).click()
+  await expect(box.locator('[data-look]')).toHaveText(['Sale', 'only'])
+  // Typing more at the end of a red word keeps it red.
+  await box.focus()
+  await page.keyboard.press('End')
+  await page.keyboard.insertText('!')
+  await expect(box.locator('[data-look]')).toHaveText(['Sale', 'only!'])
+  await expect(box).toHaveText('Sale שבת שלום today only!')
+
+  // Inside the dashed frame drawn around text being typed.
+  const typed = (await box.boundingBox())!
+  const inside = { x: typed.x + 3, y: typed.y + 3, width: typed.width - 6, height: typed.height - 6 }
+  const whileTyping = (await page.screenshot({ clip: inside })).toString('base64')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('b')
+  await page.mouse.move(5, 5)
+  const afterwards = (await page.screenshot({ clip: inside })).toString('base64')
+  const { ink, different } = await compareShots(page, whileTyping, afterwards)
+  expect(ink).toBeGreaterThan(800)
+  expect(different / ink, `${different} of ${ink} ink pixels moved`).toBeLessThan(0.01)
+  // Only the end is red.
+  const ends = (await inkBounds(page, size, 0, 50, 500, 120))!
+  const middle = (ends.left + ends.right) / 2
+  expect(await redPixels(page, size, middle, 50, ends.right - middle + 2, 120)).toBeGreaterThan(100)
+  expect(await redPixels(page, size, 0, 50, middle, 120)).toBe(0)
+
+  // Kept in a project file too.
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: 'Download project…' }).click()
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('dialog', { name: 'Download your design' }).getByRole('button', { name: 'Download' }).click(),
+  ])
+  const { readFileSync } = await import('node:fs')
+  const bytes = readFileSync((await download.path())!)
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: 'Close design' }).click()
+  await page.locator('input[type=file]').setInputFiles({ name: 'sale.pixel', mimeType: '', buffer: bytes })
+  await expect(page.locator('header')).toContainText('My design 1')
+  await expect.poll(() => redPixels(page, size, middle, 50, ends.right - middle + 2, 120), { timeout: 15000 }).toBeGreaterThan(100)
+  expect(await redPixels(page, size, 0, 50, middle, 120)).toBe(0)
 })

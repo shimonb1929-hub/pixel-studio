@@ -90,6 +90,7 @@ import { DEFAULT_FONT, loadFont, nearestWeight, onFontsLoaded } from './text/fon
 import { hasRtlLetters, resolveAlign } from './text/layout.ts'
 import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './text/presets.ts'
 import { changeText, fitText, newTextBox, textLayout, textName } from './text/textLayer.ts'
+import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
 import { live, msg, t, useLanguage } from './i18n/i18n.ts'
 
@@ -292,7 +293,7 @@ type TextDefaults = Omit<TextStyle, 'size'> & { size: number | null }
 // True if typing changed nothing worth an undo step.
 function sameText(a: TextLayer, b: TextLayer): boolean {
   const round = (box: TransformBox) => [box.cx, box.cy, box.width, box.height, box.rotation].map((n) => n.toFixed(3)).join()
-  return a.text === b.text && a.wrap === b.wrap && JSON.stringify(a.style) === JSON.stringify(b.style) && round(a.box) === round(b.box)
+  return a.text === b.text && a.wrap === b.wrap && JSON.stringify(a.style) === JSON.stringify(b.style) && JSON.stringify(a.spans) === JSON.stringify(b.spans) && round(a.box) === round(b.box)
 }
 
 interface TransformState {
@@ -373,6 +374,9 @@ export default function App() {
   // Text being typed: new text (not in the design until it has words) or text already there.
   const [textEdit, setTextEditState] = useState<TextEditState | null>(null)
   const textEditRef = useRef<TextEditState | null>(null)
+  // The letters picked while typing: the Text and Color panels change just those words.
+  const [textPick, setTextPickState] = useState<{ start: number; end: number } | null>(null)
+  const textPickRef = useRef<{ start: number; end: number } | null>(null)
   // How the next new text looks. Its size fits the design unless one was chosen.
   const [textDefaults, setTextDefaults] = useState<TextDefaults>({ ...DEFAULT_TEXT_STYLE, size: null })
   const workspaceRef = useRef<HTMLElement>(null)
@@ -397,15 +401,25 @@ export default function App() {
     return () => window.clearTimeout(timer)
   }, [notice])
 
-  // When the window changes size, keep whatever was in the middle of the view in the middle.
-  const lastWorkspaceRef = useRef(workspace)
+  // When the window changes size, keep whatever was in the middle of the view in the middle. The
+  // start screen has no tools or panels, so the space for the design shrinks once one opens: a
+  // design measured on the start screen is fitted again to the space it really has.
+  const lastWorkspaceRef = useRef({ ...workspace, withDesign: false })
+  const docOpen = !!editor.doc
   useLayoutEffect(() => {
     const last = lastWorkspaceRef.current
-    lastWorkspaceRef.current = workspace
+    lastWorkspaceRef.current = { ...workspace, withDesign: docOpen }
     if (!last.width || !last.height) return
+    const doc = editor.getDoc()
+    if (doc && !last.withDesign) {
+      setViewport(fitViewport(doc.width, doc.height, workspace.width, workspace.height, { allowUpscale: false, padding: FIT_PADDING }))
+      return
+    }
     const dx = (workspace.width - last.width) / 2
     const dy = (workspace.height - last.height) / 2
     if (dx || dy) setViewport((v) => panBy(v, dx, dy))
+    // Only a new measurement counts, so not when a design opens (its space is measured next).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspace])
 
   // Closing the tab asks first while changes are still being saved, or if they couldn't be saved
@@ -889,7 +903,13 @@ export default function App() {
   const textTarget: TextLayer | null = textEdit?.layer ?? pickedText
   const textPanelOn = !!doc && (textTarget !== null || tool === 'text')
 
+  function setTextPick(next: { start: number; end: number } | null) {
+    textPickRef.current = next
+    setTextPickState(next)
+  }
+
   function setTextEdit(next: TextEditState | null) {
+    if (next?.layer.id !== textEditRef.current?.layer.id) setTextPick(null)
     textEditRef.current = next
     setTextEditState(next)
   }
@@ -981,7 +1001,15 @@ export default function App() {
 
   function changeTextStyle(patch: Partial<TextStyle>, label: string, mergeKey?: string) {
     if (textEditRef.current) {
-      updateTextEdit((layer) => changeText(layer, { style: patch }))
+      const pick = textPickRef.current
+      // With some words picked, their font, boldness, slant and color change; everything else
+      // (size, spacing, lining up) is for the whole text.
+      const own = Object.keys(patch).every((key) => key === 'font' || key === 'weight' || key === 'italic' || key === 'color')
+      if (pick && pick.end > pick.start && own) {
+        updateTextEdit((layer) => changeText(layer, { spans: styleRange(layer.spans, layer.style, layer.text.length, pick.start, pick.end, patch) }))
+      } else {
+        updateTextEdit((layer) => changeText(layer, { style: patch }))
+      }
       return
     }
     const d = current()
@@ -2272,12 +2300,26 @@ export default function App() {
 
   const textTool: TextTool | null = tool === 'text' && doc ? { onNew: newTextAt, onEdit: editText } : null
   const textEditing: TextEditing | null = textEdit
-    ? { layer: textEdit.layer, caret: textEdit.caret, onChange: (text) => updateTextEdit((layer) => changeText(layer, { text })), onDone: finishText }
+    ? {
+        layer: textEdit.layer,
+        caret: textEdit.caret,
+        onChange: (text, spans) => updateTextEdit((layer) => changeText(layer, { text, spans })),
+        onSelect: (start, end) => setTextPick({ start, end }),
+        onDone: finishText,
+      }
+    : null
+  // How the picked words look, for the Text and Color panels (a setting they don't share keeps the
+  // whole text's).
+  const pickedWords = textEdit && textPick && textPick.end > textPick.start ? textPick : null
+  const textShown: TextStyle | null = textTarget
+    ? pickedWords
+      ? { ...textTarget.style, ...sharedStyle(textTarget.spans, textTarget.style, pickedWords.start, pickedWords.end) }
+      : textTarget.style
     : null
 
   // The color the Color panel shows and changes: the text's, a shape's, the page's (when it's
   // picked with Arrange), or the painting color.
-  const textColor = textPanelOn ? (textTarget?.style.color ?? textDefaults.color) : null
+  const textColor = textPanelOn ? (textShown?.color ?? textDefaults.color) : null
   const pageColorOn = !!doc && !activeNow && tool === 'move' && !textEdit
   const effectColorShown = effectTarget ? (effectsLayer?.effects?.[effectTarget]?.color ?? null) : null
   // With several things picked, the Shape and Text panels change all the shapes or texts among them.
@@ -2482,7 +2524,8 @@ export default function App() {
           {textPanelOn && !adjustOn && doc && (
             <TextPanel
               title={pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
-              style={textTarget?.style ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
+              style={textShown ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
+              scope={textEdit ? (pickedWords ? 'words' : 'all') : null}
               wrap={textTarget?.wrap ?? false}
               hasRtl={!!textTarget && hasRtlLetters(textTarget.text)}
               sample={fontSample(textTarget?.text ?? '')}
