@@ -37,11 +37,13 @@ export function ToolDock({ tool, onToolChange, onAddPhoto }: ToolDockProps) {
   return (
     <nav
       aria-label={t("Tools")}
-      className="flex w-[72px] shrink-0 flex-col items-center gap-0.5 overflow-y-auto rounded-card border border-line bg-surface p-1.5 shadow-card"
+      // On a short screen (a small laptop) the column would not fit, so the tools stand in two columns
+      // instead, still all in view.
+      className="flex w-[72px] shrink-0 flex-col items-center gap-0.5 overflow-y-auto rounded-card border border-line bg-surface p-1.5 shadow-card [@media(max-height:820px)]:grid [@media(max-height:820px)]:w-[136px] [@media(max-height:820px)]:grid-cols-2 [@media(max-height:820px)]:content-start"
     >
       {TOOLS.map(({ id, name, label, key, icon: Icon, description, group }, index) => (
         <Fragment key={id}>
-          {index > 0 && TOOLS[index - 1].group !== group && <div role="separator" className="my-1 h-px w-8 shrink-0 bg-line [@media(min-height:1000px)]:hidden" />}
+          {index > 0 && TOOLS[index - 1].group !== group && <div role="separator" className="my-1 h-px w-8 shrink-0 bg-line [@media(min-height:1000px)]:hidden [@media(max-height:820px)]:hidden" />}
           {(index === 0 || TOOLS[index - 1].group !== group) && (
             <span aria-hidden className="hidden whitespace-nowrap pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wide text-ink-3 [@media(min-height:1000px)]:block">
               {groupCaption(group)}

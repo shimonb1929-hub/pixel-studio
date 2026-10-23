@@ -130,8 +130,14 @@ export function DesignInfo({ doc, cursor }: { doc: EditorDocument; cursor: Point
           {shown(doc.width)} × {shown(doc.height)} {short}
         </span>
       </Tooltip>
-      <span className="h-3.5 w-px bg-line" />
-      <Tooltip side="top" title={t("Pointer position")} description={t('Where your pointer is on the design, counted in {unit} from the top-left corner.', { unit: short })}>
+      {/* The pointer position needs a wide screen; on a small laptop it would run into the zoom buttons. */}
+      <span className="hidden h-3.5 w-px bg-line 2xl:block" />
+      <Tooltip
+        side="top"
+        title={t("Pointer position")}
+        description={t('Where your pointer is on the design, counted in {unit} from the top-left corner.', { unit: short })}
+        className="hidden 2xl:inline-flex"
+      >
         <span dir="ltr" className="min-w-24 cursor-default whitespace-pre">
           {inside ? `X ${shown(Math.floor(cursor.x))}   Y ${shown(Math.floor(cursor.y))}` : 'X –   Y –'}
         </span>
