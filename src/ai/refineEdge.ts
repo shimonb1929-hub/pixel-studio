@@ -60,7 +60,10 @@ export function refineEdge(chance: Float32Array, rgb: ArrayLike<number>, width: 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const c = chance[y * width + x]
-      if (c > 0.02 && c < 0.98) {
+      // Where the AI's answer changes from yes to no (or isn't sure) is the edge.
+      const right = x + 1 < width ? chance[y * width + x + 1] : c
+      const below = y + 1 < height ? chance[(y + 1) * width + x] : c
+      if ((c > 0.02 && c < 0.98) || Math.abs(c - right) > 0.5 || Math.abs(c - below) > 0.5) {
         if (x < x0) x0 = x
         if (x > x1) x1 = x
         if (y < y0) y0 = y

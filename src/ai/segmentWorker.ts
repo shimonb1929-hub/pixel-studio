@@ -142,14 +142,16 @@ async function segment(request: Extract<SegmentRequest, { type: 'segment' }>) {
     }
   }
   // The edge is moved onto where the picture's colors really change, so fine detail is followed.
-  const chance = new Float32Array(size)
-  for (let i = 0; i < size; i++) chance[i] = 1 / (1 + Math.exp(-data[pick * size + i]))
-  const refined = image.width === width && image.height === height ? refineEdge(chance, image.data, width, height) : chance
+  // (The AI's yes/no is used, not how sure it is: it can be unsure in the middle of a thing too.)
+  const found = new Float32Array(size)
+  for (let i = 0; i < size; i++) found[i] = data[pick * size + i] > 0 ? 1 : 0
+  const refined = image.width === width && image.height === height ? refineEdge(found, image.data, width, height) : found
   const mask = new Uint8Array(size)
   const alpha = new Uint8Array(size)
   for (let i = 0; i < size; i++) {
     mask[i] = refined[i] >= 0.5 ? 1 : 0
-    alpha[i] = Math.round(refined[i] * 255)
+    // Nearly-whole pixels count as whole, so only the very edge is soft.
+    alpha[i] = Math.round(Math.min(1, Math.max(0, (refined[i] - 0.1) / 0.8)) * 255)
   }
   post({ type: 'mask', id: request.id, mask, alpha, width, height })
 }

@@ -51,6 +51,16 @@ describe('refineEdge', () => {
     expect(after).toBeLessThan(before / 5)
   })
 
+  it('also moves a hard yes/no edge that is off by a few pixels', () => {
+    const width = 120
+    const height = 80
+    const { rgb, truth, chance } = scene(width, height)
+    const hard = chance.map((c) => (c >= 0.5 ? 1 : 0))
+    const before = wrong(hard, truth)
+    const after = wrong(refineEdge(hard, rgb, width, height, { radius: 5 }), truth)
+    expect(after).toBeLessThan(before / 3)
+  })
+
   it('leaves a picture with nothing uncertain as it was', () => {
     const chance = new Float32Array(16).fill(1)
     expect(Array.from(refineEdge(chance, new Uint8Array(48), 4, 4))).toEqual(Array.from(chance))
