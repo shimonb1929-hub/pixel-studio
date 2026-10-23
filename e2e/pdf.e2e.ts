@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { inflateSync } from 'node:zlib'
-import { drag, expectColor, newDesign, WHITE } from './helpers.ts'
+import { clickAt, drag, expectColor, newDesign, WHITE } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 const RED: [number, number, number] = [239, 68, 68]
@@ -81,4 +81,21 @@ test('a PDF for screens is small and needs no print settings', async ({ page }) 
   expect(file).toContain('/Width 800 /Height 600')
   expect(file).toContain('/DCTDecode')
   expect(file).not.toContain('/TrimBox')
+})
+
+test('text in a PDF can be found and copied, Hebrew included', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.keyboard.press('t')
+  await clickAt(page, size, 340, 100)
+  await page.keyboard.type('שלום Pixel')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Control+s')
+  const dialog = page.getByRole('dialog', { name: 'Download your design' })
+  await dialog.getByRole('radio', { name: /PDF/ }).click()
+  const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download' }).click()])
+  const file = readFileSync((await download.path())!).toString('latin1')
+  // Invisible letters over the picture, and a list saying which letter each one is.
+  expect(file).toContain('3 Tr')
+  expect(file).toContain('/ToUnicode')
+  for (const letter of 'שלוםPixel') expect(file).toContain(` <${letter.charCodeAt(0).toString(16).padStart(4, '0').toUpperCase()}>`)
 })

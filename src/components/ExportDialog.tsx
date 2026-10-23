@@ -40,7 +40,7 @@ const FORMATS: { value: ExportFormat; label: string; detail: string; description
     label: msg('Page'),
     detail: 'PDF',
     description:
-      msg('A page that opens the same everywhere and is ready to print or send. Text stays sharp, and Hebrew and Yiddish read right to left just as you see them.'),
+      msg('A page that opens the same everywhere and is ready to print or send. Text stays sharp and can be searched and copied, and Hebrew and Yiddish read right to left just as you see them.'),
   },
   {
     value: 'project',
