@@ -413,9 +413,12 @@ export default function App() {
   // design measured on the start screen is fitted again to the space it really has.
   const lastWorkspaceRef = useRef({ ...workspace, withDesign: false })
   const docOpen = !!editor.doc
+  // The space a design had last time, so a design opened again is fitted to it straight away.
+  const designSpaceRef = useRef<{ width: number; height: number } | null>(null)
   useLayoutEffect(() => {
     const last = lastWorkspaceRef.current
     lastWorkspaceRef.current = { ...workspace, withDesign: docOpen }
+    if (docOpen && workspace.width && workspace.height) designSpaceRef.current = workspace
     if (!last.width || !last.height) return
     const doc = editor.getDoc()
     if (doc && !last.withDesign) {
@@ -1137,19 +1140,24 @@ export default function App() {
     setToolState(next)
   }
 
-  function fitted(next: { width: number; height: number }, allowUpscale = true): Viewport {
-    return fitViewport(next.width, next.height, workspace.width, workspace.height, { allowUpscale, padding: FIT_PADDING })
+  // `space` is where the design will be shown, when it isn't the space on screen right now.
+  function fitted(next: { width: number; height: number }, allowUpscale = true, space = workspace): Viewport {
+    return fitViewport(next.width, next.height, space.width, space.height, { allowUpscale, padding: FIT_PADDING })
   }
 
   // `stored` means the design is already kept in this browser (it was opened from Your designs).
   function showDocument(next: EditorDocument, stored = false) {
+    const fromStart = !current()
     editor.load(next)
     autosave.start(next, stored)
     setTransformEdit(null)
     setCropEdit(null)
     setCursor(null)
     setNotice(null)
-    setViewport(fitted(next, false))
+    // From the start screen, the design gets the space it had last time, beside the tools and panels.
+    const space = fromStart && designSpaceRef.current ? designSpaceRef.current : workspace
+    setViewport(fitted(next, false, space))
+    if (space !== workspace) lastWorkspaceRef.current = { ...space, withDesign: true }
   }
 
   // Before leaving the open design, its latest changes are saved in the browser. If that doesn't
