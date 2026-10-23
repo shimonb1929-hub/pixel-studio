@@ -262,8 +262,8 @@ test('cut removes the selected part and remembers it', async ({ page }) => {
   await page.keyboard.press('Control+x')
   expectColor(await designPixel(page, size, 100, 150), WHITE)
   await page.keyboard.press('Control+k')
-  await page.getByRole('combobox').fill('paste')
-  await page.getByRole('combobox').press('Enter')
+  await page.getByRole('combobox', { name: 'What do you want to do?' }).fill('paste')
+  await page.getByRole('combobox', { name: 'What do you want to do?' }).press('Enter')
   expectColor(await designPixel(page, size, 100, 150), INK)
 })
 

@@ -103,3 +103,12 @@ export function paintedIn(page: Page, size: Size, band: { x: number; y: number; 
     [size.width, size.height, band.x, band.y, band.width, band.height],
   )
 }
+
+// The size of what's picked, as the Arrange bar shows it.
+export async function expectPickedSize(page: Page, width: number, height: number) {
+  await expect(page.getByRole('toolbar').getByRole('button', { name: 'Size and place' })).toHaveText(`${width} × ${height} px`)
+}
+
+export async function expectPickedAngle(page: Page, degrees: number) {
+  await expect(page.getByRole('toolbar')).toContainText(`${degrees}°`)
+}

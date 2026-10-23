@@ -1,0 +1,98 @@
+import { drag, expectDesignSize, type Size } from './helpers.ts'
+import { expect, test } from './setup.ts'
+
+test('work in inches or centimeters: new design, typed sizes and places, resize, kept for next time', async ({ page }) => {
+  // A new design in centimeters starts as a printed page, at 300 pixels per inch.
+  await page.getByRole('button', { name: /Custom size/ }).click()
+  const dialog = page.getByRole('dialog', { name: 'New design' })
+  await dialog.getByRole('radio', { name: 'Centimeters' }).click()
+  await dialog.getByLabel('Ready-made size').selectOption('a4')
+  await expect(dialog.getByLabel('Width in centimeters')).toHaveValue('21')
+  await expect(dialog.getByLabel('Height in centimeters')).toHaveValue('29.7')
+  await dialog.getByLabel('Width in centimeters').fill('10')
+  await dialog.getByLabel('Height in centimeters').fill('5')
+  await expect(dialog).toContainText('1,181 pixels wide and 591 pixels tall')
+  await dialog.getByRole('radio', { name: 'Inches' }).click()
+  await expect(dialog.getByLabel('Width in inches')).toHaveValue('3.94')
+  await dialog.getByLabel('Width in inches').fill('4')
+  await dialog.getByLabel('Height in inches').fill('2')
+  await dialog.getByRole('button', { name: 'Create design' }).click()
+  await expectDesignSize(page, 1200, 600)
+  await expect(page.getByText('4 × 2 in')).toBeVisible()
+
+  // Draw a shape, then type its size and place in inches.
+  await page.getByRole('button', { name: 'Fit on screen' }).click()
+  const size: Size = { width: 1200, height: 600 }
+  await page.keyboard.press('u')
+  await drag(page, size, [
+    [150, 150],
+    [450, 300],
+  ])
+  const bar = page.getByRole('toolbar')
+  const sizeButton = bar.getByRole('button', { name: 'Size and place' })
+  await expect(sizeButton).toHaveText(/^1\.\d\d? × 0\.\d\d? in$/)
+  await sizeButton.click()
+  const box = page.getByRole('dialog', { name: 'Size and place' })
+  const field = (name: string) => box.getByLabel(name, { exact: true })
+  // With Keep shape on, typing the width changes the height to match.
+  const before = await field('Height').inputValue()
+  await field('Width').fill('4')
+  await field('Width').press('Enter')
+  await expect(field('Height')).not.toHaveValue(before)
+  // With it off, each side is typed on its own.
+  await bar.getByRole('button', { name: 'Keep shape' }).click()
+  await expect(box).toBeHidden()
+  await sizeButton.click()
+  await field('Width').fill('2')
+  await field('Width').press('Enter')
+  await field('Height').fill('1')
+  await field('Height').press('Enter')
+  await field('From the left').fill('1')
+  await field('From the left').press('Enter')
+  await field('From the top').fill('0.25')
+  // Clicking away keeps what was typed.
+  await page.mouse.click(5, 450)
+  await expect(box).toBeHidden()
+  await expect(sizeButton).toHaveText('2 × 1 in')
+
+  // The same numbers in pixels: 2 inches is 600 pixels at 300 pixels per inch.
+  await page.getByRole('button', { name: 'Arrange tool' }).click()
+  await sizeButton.click()
+  await box.getByLabel('Measure in').selectOption('px')
+  await expect(field('Width')).toHaveValue('600')
+  await expect(field('Height')).toHaveValue('300')
+  await expect(field('From the left')).toHaveValue('300')
+  await expect(field('From the top')).toHaveValue('75')
+  await expect(page.getByText('1200 × 600 px')).toBeVisible()
+  // Arrow keys change it a step at a time; Esc puts back what was there, and Esc again closes.
+  await field('Width').press('ArrowUp')
+  await expect(field('Width')).toHaveValue('601')
+  await field('Width').fill('9')
+  await field('Width').press('Escape')
+  await expect(field('Width')).toHaveValue('601')
+  await page.keyboard.press('Escape')
+  await expect(box).toBeHidden()
+  await expect(sizeButton).toHaveText('601 × 300 px')
+
+  // Resize the whole design in inches.
+  await page.getByLabel('Measure in').selectOption('in')
+  await page.keyboard.press('Control+k')
+  const search = page.getByRole('combobox', { name: 'What do you want to do?' })
+  await search.fill('print size')
+  await expect(page.locator('#palette-results').getByRole('option').first()).toContainText('Resize design')
+  await search.press('Enter')
+  const resize = page.getByRole('dialog', { name: 'Resize design' })
+  await expect(resize.getByLabel('New width in inches')).toHaveValue('4')
+  await resize.getByLabel('New width in inches').fill('8')
+  await expect(resize.getByLabel('New height in inches')).toHaveValue('4')
+  await expect(resize).toContainText('That is 2400 × 1200 pixels.')
+  await resize.getByRole('button', { name: 'Resize' }).click()
+  await expectDesignSize(page, 2400, 1200)
+  await expect(page.getByText('8 × 4 in')).toBeVisible()
+
+  // The unit is kept for the next visit.
+  await page.reload()
+  await page.getByRole('button', { name: /Custom size/ }).click()
+  await expect(page.getByRole('dialog', { name: 'New design' }).getByRole('radio', { name: 'Inches' })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByRole('dialog', { name: 'New design' }).getByLabel('Width in inches')).toHaveValue('8.5')
+})

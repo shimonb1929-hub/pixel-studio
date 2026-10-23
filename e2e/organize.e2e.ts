@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { clickAt, designPixel, drag, expectColor, newDesign, screenPoint, WHITE, type Size } from './helpers.ts'
+import { clickAt, designPixel, drag, expectColor, expectPickedSize, newDesign, screenPoint, WHITE, type Size } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 const BLUE: [number, number, number] = [59, 91, 253]
@@ -40,7 +40,7 @@ test('drag a box to pick several things and move them together', async ({ page }
     [130, 120],
   ])
   await expect(bar(page)).toContainText('2 things')
-  await expect(bar(page)).toContainText('120 × 60 px')
+  await expectPickedSize(page, 120, 60)
   await expect(layerList(page).getByRole('button', { name: 'Layer: Rectangle 1' })).toHaveAttribute('aria-pressed', 'true')
   await expect(layerList(page).getByRole('button', { name: 'Layer: Rectangle 2' })).toHaveAttribute('aria-pressed', 'true')
   await expect(layerList(page).getByRole('button', { name: 'Layer: Rectangle 3' })).toHaveAttribute('aria-pressed', 'false')
@@ -114,7 +114,7 @@ test('keep things together: they pick and move as one; double-click picks one pa
   await clickAt(page, size, 200, 280)
   await clickAt(page, size, 60, 60)
   await expect(bar(page)).toContainText('Rectangle 2 + Rectangle 1')
-  await expect(bar(page)).toContainText('120 × 60 px')
+  await expectPickedSize(page, 120, 60)
   await dragFreely(page, size, [140, 80], [140, 180])
   expectColor(await designPixel(page, size, 60, 160), BLUE)
   expectColor(await designPixel(page, size, 140, 180), BLUE)
@@ -123,7 +123,7 @@ test('keep things together: they pick and move as one; double-click picks one pa
   // A double-click picks just one part, which then moves on its own; the panel opens to show it.
   const one = await screenPoint(page, size, 60, 160)
   await page.mouse.dblclick(one.x, one.y)
-  await expect(bar(page)).toContainText('40 × 40 px')
+  await expectPickedSize(page, 40, 40)
   await expect(layerList(page).getByRole('button', { name: 'Layer: Rectangle 1' })).toHaveAttribute('aria-pressed', 'true')
   await dragFreely(page, size, [60, 160], [60, 260])
   expectColor(await designPixel(page, size, 60, 260), BLUE)
@@ -240,10 +240,10 @@ test('several things grow and turn together from the frame around them', async (
     [20, 20],
     [180, 100],
   ])
-  await expect(bar(page)).toContainText('120 × 40 px')
+  await expectPickedSize(page, 120, 40)
   // Pulling the corner makes everything twice as big, gaps too; the opposite corner stays put.
   await dragFreely(page, size, [160, 80], [280, 120])
-  await expect(bar(page)).toContainText('240 × 80 px')
+  await expectPickedSize(page, 240, 80)
   expectColor(await designPixel(page, size, 42, 42), BLUE)
   expectColor(await designPixel(page, size, 118, 118), BLUE)
   expectColor(await designPixel(page, size, 160, 80), WHITE)
@@ -253,7 +253,7 @@ test('several things grow and turn together from the frame around them', async (
 
   // A quarter turn turns the whole arrangement: side by side becomes one above the other.
   await bar(page).getByRole('button', { name: 'Turn right' }).click()
-  await expect(bar(page)).toContainText('80 × 240 px')
+  await expectPickedSize(page, 80, 240)
   // The frame turns around its middle (160, 80): it now runs from y -40 to 200 at x 120 to 200.
   expectColor(await designPixel(page, size, 160, 10), BLUE)
   expectColor(await designPixel(page, size, 160, 80), WHITE)

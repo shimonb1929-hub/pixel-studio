@@ -95,9 +95,10 @@ export function createBlankDocument(
   width: number,
   height: number,
   background: BackgroundFill,
+  ppi?: number,
 ): EditorDocument {
   const color = background === 'transparent' ? null : BACKGROUND_COLORS[background]
-  return { id: createDesignId(), name, width, height, background: color, layers: [], activeLayerId: '', selection: null }
+  return { id: createDesignId(), name, width, height, background: color, layers: [], activeLayerId: '', selection: null, ...(ppi ? { ppi } : {}) }
 }
 
 // A picture opened as a design sits on a see-through page, so its own see-through parts stay that

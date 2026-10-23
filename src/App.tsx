@@ -24,7 +24,8 @@ import { effectThumbnails, flattenDocument } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
 import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, type Adjustments } from './editor/adjust.ts'
 import { adjustArea, lookThumbnails, paintAdjusted, previewParts } from './editor/adjustSession.ts'
-import { arrangeBox, frameOf, layerInFrame, placeInBox } from './editor/arrange.ts'
+import { DEFAULT_PPI, documentPpi } from './editor/units.ts'
+import { arrangeBox, changeBox, frameOf, layerInFrame, placeInBox, type BoxChange } from './editor/arrange.ts'
 import { BRUSH_PRESETS, ERASER_PRESETS, stepBrushSize, type BrushSettings } from './editor/brushes.ts'
 import { getClipboard, ownCopyCheck, setClipboard } from './editor/clipboard.ts'
 import {
@@ -1223,9 +1224,9 @@ export default function App() {
     }
   }
 
-  function createDocument({ name, width, height, background }: NewDocumentOptions) {
+  function createDocument({ name, width, height, background, ppi }: Omit<NewDocumentOptions, 'ppi'> & { ppi?: number }) {
     try {
-      const next = createBlankDocument(name, width, height, background)
+      const next = createBlankDocument(name, width, height, background, ppi)
       setDialog(null)
       void leaveDesign(() => {
         setTool('move')
@@ -2235,8 +2236,12 @@ export default function App() {
       target: null,
       fillGap,
       onFillGap: setFillGap,
+      ppi: doc ? documentPpi(doc) : DEFAULT_PPI,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
+    // Its size and top-left corner before turning, as shown in the boxes.
+    const readBox = (box: TransformBox) => ({ width: Math.abs(box.width), height: Math.abs(box.height), x: box.cx - Math.abs(box.width) / 2, y: box.cy - Math.abs(box.height) / 2 })
+    const describeTyped = (change: BoxChange) => (change.angle !== undefined ? t('Turn') : change.width !== undefined || change.height !== undefined ? t('Resize') : t('Move'))
     if (!doc) return { ...base, blocked: t('Click anything on your design to pick it.') }
     if (!activeNow) return { ...base, blocked: t('The page is picked: choose its color in the Color panel. Click anything on your design to pick it.') }
     if (doc.selection) {
@@ -2252,7 +2257,7 @@ export default function App() {
       const part = transform.box
       return {
         ...base,
-        target: { kind: 'part', name: activeNow.name, width: part.width, height: part.height, angle: degrees(part) },
+        target: { kind: 'part', name: activeNow.name, ...readBox(part), angle: degrees(part), place: (change) => applyTransform(changeBox(part, change, keepProportions)) },
         flip: (axis) => applyTransform(flipBox(part, axis)),
         rotate90: (direction) => applyTransform(rotateBox90(part, direction)),
       }
@@ -2267,7 +2272,7 @@ export default function App() {
       return {
         ...base,
         kept: groups.length > 0,
-        target: { kind: one ? 'group' : 'many', name, width: frame.width, height: frame.height, angle: 0 },
+        target: { kind: one ? 'group' : 'many', name, ...readBox(frame), angle: 0, place: (change) => placeAll(changeBox(frame, change, keepProportions), describeTyped(change)) },
         flip: (axis) => placeAll(flipBox(frame, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
         rotate90: (direction) => placeAll(rotateBox90(frame, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       }
@@ -2278,7 +2283,13 @@ export default function App() {
     if (!objectBox) return { ...base, blocked: t('There is nothing on “{name}” yet. Paint something, or click something else on your design to pick it.', { name: activeNow.name }) }
     return {
       ...base,
-      target: { kind: 'object', name: activeNow.name, width: objectBox.width, height: objectBox.height, angle: degrees(objectBox) },
+      target: {
+        kind: 'object',
+        name: activeNow.name,
+        ...readBox(objectBox),
+        angle: degrees(objectBox),
+        place: (change) => placeLayer(activeNow.id, changeBox(objectBox, change, keepProportions), describeTyped(change)),
+      },
       flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
       rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
@@ -2404,6 +2415,7 @@ export default function App() {
         crop={{
           width: crop ? cropRect(crop.box).width : 0,
           height: crop ? cropRect(crop.box).height : 0,
+          ppi: doc ? documentPpi(doc) : DEFAULT_PPI,
           shape: crop?.shape ?? 'free',
           onShape: changeCropShape,
           changed: cropChanged,
@@ -2660,10 +2672,11 @@ export default function App() {
         <ResizeDialog
           width={doc.width}
           height={doc.height}
+          ppi={documentPpi(doc)}
           onClose={() => setDialog(null)}
-          onResize={(width, height) => {
+          onResize={(width, height, ppi) => {
             setDialog(null)
-            changeWholeDesign(t('Resize design'), (d) => resizeDocument(d, width, height))
+            changeWholeDesign(t('Resize design'), (d) => ({ ...resizeDocument(d, width, height), ppi }))
           }}
         />
       )}

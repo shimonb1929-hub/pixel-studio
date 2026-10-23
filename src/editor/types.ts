@@ -138,6 +138,9 @@ export interface EditorDocument {
   activeLayerId: string
   // The selected area; painting and editing stay inside it. Null means nothing is selected.
   selection: Selection | null
+  // How many pixels make an inch on paper, for showing sizes in inches, centimeters or millimeters.
+  // Missing means 300.
+  ppi?: number
 }
 
 // Where the document sits on screen: a screen point equals

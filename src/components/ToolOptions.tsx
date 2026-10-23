@@ -14,7 +14,11 @@ import {
   type BrushPreset,
   type BrushSettings,
 } from '../editor/brushes.ts'
+import type { BoxChange } from '../editor/arrange.ts'
 import type { LineUpEdge } from '../editor/organize.ts'
+import { signedDecimalInput, formatInUnit, pixelsToUnit, unitToPixels, useUnit, type Unit } from '../editor/units.ts'
+import { UnitPicker } from './UnitPicker.tsx'
+import { unitShort } from './unitWords.ts'
 import type { SelectionMode, SelectionShape } from '../editor/selection.ts'
 import type { ShapeType, ToolId } from '../editor/types.ts'
 import { ALT_LABEL } from '../keys.ts'
@@ -379,7 +383,19 @@ function SelectOptions({
 export interface ArrangeBarControls {
   // What the handles are on: a whole object, the selected part, several things picked together,
   // or one thing kept together. Null when nothing can be arranged.
-  target: { kind: 'object' | 'part' | 'many' | 'group'; name: string; width: number; height: number; angle: number } | null
+  // Its size and top-left corner before turning, in pixels. `place` sets any of them, or the angle.
+  target: {
+    kind: 'object' | 'part' | 'many' | 'group'
+    name: string
+    width: number
+    height: number
+    x: number
+    y: number
+    angle: number
+    place: (change: BoxChange) => void
+  } | null
+  // The design's pixels per inch, for showing sizes in inches, centimeters or millimeters.
+  ppi: number
   // Why nothing can be arranged, in plain words.
   blocked: string | null
   // The selected layer is locked; the bar offers to unlock it.
@@ -413,6 +429,7 @@ export type CropShape = 'free' | 'original' | 'square' | 'portrait' | 'wide'
 export interface CropControls {
   width: number
   height: number
+  ppi: number
   shape: CropShape
   onShape: (shape: CropShape) => void
   changed: boolean
@@ -425,6 +442,188 @@ function Readout({ title, description, children }: { title: string; description:
     <Tooltip title={title} description={description}>
       <span dir="auto" className="shrink-0 cursor-default whitespace-nowrap rounded-lg bg-subtle px-2.5 py-1.5 text-[12px] font-medium tabular-nums text-ink">{children}</span>
     </Tooltip>
+  )
+}
+
+// How much the arrow keys change a number box: one pixel, a tenth of an inch or centimeter, one
+// millimeter. Shift makes the step ten times bigger.
+const UNIT_STEP: Record<Unit, number> = { px: 1, in: 0.1, cm: 0.1, mm: 1 }
+
+interface NumberBoxProps {
+  label: string
+  description: string
+  // The number shown, already in the chosen unit.
+  value: string
+  // Written after the number, like "wide" or "°".
+  suffix: string
+  step: number
+  min?: number
+  onCommit: (value: number) => void
+}
+
+// A number you can type over. It's kept when you press Enter or click away, and Esc puts back what
+// was there. The arrow keys change it a step at a time.
+function NumberBox({ label, description, value, suffix, step, min, onCommit }: NumberBoxProps) {
+  const [draft, setDraft] = useState<string | null>(null)
+  // Set by Esc, so leaving the box then doesn't keep what was typed.
+  const cancelled = useRef(false)
+  const commit = (text: string) => {
+    setDraft(null)
+    if (cancelled.current) {
+      cancelled.current = false
+      return
+    }
+    const number = Number(text)
+    if (text === '' || text === '.' || !Number.isFinite(number) || text === value) return
+    onCommit(min === undefined ? number : Math.max(min, number))
+  }
+  return (
+    <Tooltip title={label} description={description}>
+      <label className="relative flex items-center">
+        <input
+          aria-label={label}
+          dir="ltr"
+          inputMode="decimal"
+          value={draft ?? value}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => setDraft(signedDecimalInput(e.target.value))}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              e.currentTarget.blur()
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              e.stopPropagation()
+              cancelled.current = true
+              e.currentTarget.blur()
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault()
+              const by = (e.key === 'ArrowUp' ? 1 : -1) * step * (e.shiftKey ? 10 : 1)
+              const next = Math.round((Number(draft ?? value) + by) * 1000) / 1000
+              setDraft(null)
+              onCommit(min === undefined ? next : Math.max(min, next))
+            }
+          }}
+          className="h-8 w-full rounded-lg border border-transparent bg-subtle pe-10 ps-2 text-[12px] font-medium tabular-nums text-ink outline-none transition-colors hover:border-line focus:border-accent focus:bg-surface"
+        />
+        <span className="pointer-events-none absolute end-2 text-[11px] text-ink-3">{suffix}</span>
+      </label>
+    </Tooltip>
+  )
+}
+
+// Size, place and angle of what's picked. The bar shows the size; a click opens boxes to type an
+// exact size, place and angle, in the unit chosen there.
+function SizeMenu({ target, ppi, showAngle }: { target: NonNullable<ArrangeBarControls['target']>; ppi: number; showAngle: boolean }) {
+  const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('input')
+  const [unit] = useUnit()
+  const shown = (pixels: number) => formatInUnit(pixels, unit, ppi)
+  const toPixels = (value: number) => unitToPixels(value, unit, ppi)
+  const step = UNIT_STEP[unit]
+  const short = unitShort(unit)
+  const smallest = pixelsToUnit(1, unit, ppi) || undefined
+  const heading = 'px-0.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-3'
+  return (
+    <>
+      <Tooltip
+        title={t('Size')}
+        description={t('How big it is. Click to type an exact size, place and angle, in pixels, inches, centimeters or millimeters.')}
+      >
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label={t('Size and place')}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => {
+            setPosition(null)
+            setOpen(!open)
+          }}
+          className={`flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-[12px] font-medium tabular-nums transition-colors ${open ? 'bg-line text-ink' : 'bg-subtle text-ink hover:bg-line'}`}
+        >
+          <span dir="ltr">
+            {shown(target.width)} × {shown(target.height)} {short}
+          </span>
+          <ChevronDown size={13} className="text-ink-3" />
+        </button>
+      </Tooltip>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="dialog"
+            aria-label={t('Size and place')}
+            className="fixed z-40 w-64 space-y-3 rounded-xl border border-line bg-surface p-3 shadow-float"
+            style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
+          >
+            <div>
+              <p className={heading}>{t('Size')}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <NumberBox
+                  label={t('Width')}
+                  description={t('How wide it is, in {unit}. Type a number and press Enter. With Keep shape on, the height changes to match.', { unit: short })}
+                  value={shown(target.width)}
+                  suffix={t('wide')}
+                  step={step}
+                  min={smallest}
+                  onCommit={(value) => target.place({ width: Math.max(1, toPixels(value)) })}
+                />
+                <NumberBox
+                  label={t('Height')}
+                  description={t('How tall it is, in {unit}. Type a number and press Enter. With Keep shape on, the width changes to match.', { unit: short })}
+                  value={shown(target.height)}
+                  suffix={t('tall')}
+                  step={step}
+                  min={smallest}
+                  onCommit={(value) => target.place({ height: Math.max(1, toPixels(value)) })}
+                />
+              </div>
+            </div>
+            <div>
+              <p className={heading}>{t('Place')}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <NumberBox
+                  label={t('From the left')}
+                  description={t('How far its left edge is from the left edge of your design, in {unit}.', { unit: short })}
+                  value={shown(target.x)}
+                  suffix={t('left')}
+                  step={step}
+                  onCommit={(value) => target.place({ x: toPixels(value) })}
+                />
+                <NumberBox
+                  label={t('From the top')}
+                  description={t('How far its top edge is from the top edge of your design, in {unit}.', { unit: short })}
+                  value={shown(target.y)}
+                  suffix={t('top')}
+                  step={step}
+                  onCommit={(value) => target.place({ y: toPixels(value) })}
+                />
+              </div>
+            </div>
+            <div className="flex items-end gap-2">
+              {showAngle && (
+                <div className="flex-1">
+                  <p className={heading}>{t('Angle')}</p>
+                  <NumberBox
+                    label={t('Angle')}
+                    description={t('How far it is turned, in degrees. Type a number and press Enter, or hold Shift while turning to go in neat 15° steps.')}
+                    value={String(target.angle)}
+                    suffix="°"
+                    step={1}
+                    onCommit={(value) => target.place({ angle: value })}
+                  />
+                </div>
+              )}
+              <div className="flex-1">
+                <p className={heading}>{t('Measure in')}</p>
+                <UnitPicker className="h-8 w-full rounded-lg border border-line px-2 text-[12px]" />
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
   )
 }
 
@@ -469,11 +668,16 @@ function useFloatingMenu(...focusFirst: string[]) {
     if (!open) return
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node
-      if (!menuRef.current?.contains(target) && !buttonRef.current?.contains(target)) setOpen(false)
+      if (menuRef.current?.contains(target) || buttonRef.current?.contains(target)) return
+      // A number being typed is kept, as it is when clicking away anywhere else.
+      if (menuRef.current?.contains(document.activeElement)) (document.activeElement as HTMLElement).blur()
+      setOpen(false)
     }
     // Esc closes just the menu, before anything else hears it (it would let go of what's picked).
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
+      // In a number box, Esc first puts back what was there; the next Esc closes the menu.
+      if (event.target instanceof HTMLInputElement && menuRef.current?.contains(event.target) && document.activeElement === event.target) return
       event.preventDefault()
       event.stopPropagation()
       setOpen(false)
@@ -619,9 +823,7 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
           <span dir="auto">{target.name}</span>
         </Readout>
       )}
-      <Readout title={t("Size")} description={part ? t('How big the selected part is, in pixels.') : several ? t('How big the frame around them is, in pixels.') : t('How big “{name}” is on your design, in pixels.', { name: target.name })}>
-        {Math.round(Math.abs(target.width))} × {Math.round(Math.abs(target.height))} px
-      </Readout>
+      <SizeMenu target={target} ppi={controls.ppi} showAngle={!several} />
       {!several && (
         <Readout title={t("Angle")} description={t("How far it is turned. Hold Shift while turning to go in neat 15° steps.")}>
           {target.angle}°
@@ -718,12 +920,16 @@ const CROP_SHAPES: Choice<CropShape>[] = live([
 ])
 
 function CropOptions({ controls }: { controls: CropControls }) {
+  const [unit] = useUnit()
+  const shown = (pixels: number) => formatInUnit(pixels, unit, controls.ppi)
   const notYet = controls.changed ? undefined : t('Drag the frame first.')
   return (
     <>
       <Segmented label={t("Crop shape")} value={controls.shape} choices={CROP_SHAPES} onChange={controls.onShape} />
-      <Readout title={t("New size")} description={t("How big your design will be after cropping, in pixels.")}>
-        {controls.width} × {controls.height} px
+      <Readout title={t("New size")} description={t('How big your design will be after cropping, in {unit}.', { unit: unitShort(unit) })}>
+        <span dir="ltr">
+          {shown(controls.width)} × {shown(controls.height)} {unitShort(unit)}
+        </span>
       </Readout>
       <Divider />
       <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" disabled={!controls.changed} onClick={controls.reset} tip={{ title: t('Start over'), shortcut: 'Esc', description: t('Put the frame back around the whole design.'), note: notYet }}>
