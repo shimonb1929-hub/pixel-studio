@@ -106,6 +106,14 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   every page; changing it on any page changes it on all of them, and new pages get it too. Pages ›
   Add page numbers puts a number at the bottom of every page that counts itself. The Layers panel
   marks these, and one click keeps a thing on its own page again.
+- **Ready layouts.** Invitations, flyers and posters to start from, on the start screen and under
+  Menu › Ready layouts…. Each is made only of shapes, words and colors (never pictures), so every part
+  can be clicked, moved and retyped, and each can be tried in six color sets before it's kept.
+- **The design's own colors and text styles.** Colors kept under "This design's colors" are one click
+  away anywhere in the design, and "Change it everywhere…" changes a color in every place it's used, on
+  every page, live as you pick. A text's look can be saved as a style ("Title", "Details"); one click
+  gives another text that look, and updating the style changes every text that uses it. A ready
+  layout comes with its colors and text styles already kept.
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 

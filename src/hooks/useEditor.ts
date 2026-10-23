@@ -12,7 +12,7 @@ import { syncEveryPage } from '../editor/everyPage.ts'
 import { reflowText } from '../text/textFlow.ts'
 
 // Everything about a design except its pixels, which change in place and are kept separately.
-type DocState = Pick<EditorDocument, 'width' | 'height' | 'background' | 'pageGradient' | 'layers' | 'activeLayerId' | 'selection' | 'pages' | 'pageIndex' | 'layout' | 'ppi'>
+type DocState = Pick<EditorDocument, 'width' | 'height' | 'background' | 'pageGradient' | 'layers' | 'activeLayerId' | 'selection' | 'pages' | 'pageIndex' | 'layout' | 'ppi' | 'colors' | 'textStyles'>
 
 // What one undo step remembers: pixels that changed on a layer, the design's structure, or a
 // few of those together (like growing a layer and then painting on it).
@@ -25,8 +25,8 @@ function mergeChanges(earlier: Change, later: Change): Change {
   return earlier.kind === 'structure' && later.kind === 'structure' ? { kind: 'structure', before: earlier.before, after: later.after } : later
 }
 
-function docState({ width, height, background, pageGradient, layers, activeLayerId, selection, pages, pageIndex, layout, ppi }: EditorDocument): DocState {
-  return { width, height, background, pageGradient, layers, activeLayerId, selection, pages, pageIndex, layout, ppi }
+function docState({ width, height, background, pageGradient, layers, activeLayerId, selection, pages, pageIndex, layout, ppi, colors, textStyles }: EditorDocument): DocState {
+  return { width, height, background, pageGradient, layers, activeLayerId, selection, pages, pageIndex, layout, ppi, colors, textStyles }
 }
 
 function regionBytes(region: HTMLCanvasElement): number {
@@ -36,6 +36,8 @@ function regionBytes(region: HTMLCanvasElement): number {
 export interface ChangeOptions {
   // Quick repeated changes with the same key become one undo step (like dragging a slider).
   mergeKey?: string
+  // Joins the last step with the same key however long ago it was.
+  mergeAlways?: boolean
   // Memory the change keeps alive, such as a deleted layer's pixels.
   bytes?: number
 }
@@ -159,6 +161,7 @@ export function useEditor(): Editor {
         change: { kind: 'structure', before: docState(current), after: docState(next) },
         bytes: options.bytes ?? 0,
         mergeKey: options.mergeKey,
+        mergeAlways: options.mergeAlways,
       })
       setDoc(next)
       refresh()

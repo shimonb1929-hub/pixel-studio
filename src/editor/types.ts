@@ -148,6 +148,8 @@ export interface TextLayer extends LayerBase {
   flow?: TextFlow
   // A page number: its text is always the number of the page it's on.
   pageNumber?: boolean
+  // Set when the text uses one of the design's saved text styles: changing the style changes it.
+  styleId?: string
 }
 
 export interface TextFlow {
@@ -202,6 +204,17 @@ export interface EditorDocument {
   pageIndex?: number
   // Margins and columns: faint lines things line up with. Shared by every page; never printed.
   layout?: PageLayout
+  // The design's own colors, kept to use again anywhere in it. Shared by every page.
+  colors?: string[]
+  // The design's own text styles ("Title", "Details"): texts that use one change with it.
+  textStyles?: SavedTextStyle[]
+}
+
+// A look for text kept under a name. `direction` is never taken from it.
+export interface SavedTextStyle {
+  id: string
+  name: string
+  style: TextStyle
 }
 
 // In design pixels.

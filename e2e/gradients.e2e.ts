@@ -57,7 +57,7 @@ test('the page can be a gradient, turned with the dots on it, and it comes back 
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Close design' }).click()
   // The design takes a moment to close; opening the file before then would race it.
-  await expect(page.getByRole('main').locator('canvas')).toHaveCount(0)
+  await expect(page.getByRole('main').locator('canvas:not([data-preview])')).toHaveCount(0)
   await page.locator('input[type=file]').setInputFiles({ name: 'Faded.pixel', mimeType: '', buffer: bytes })
   await expectDesignSize(page, size.width, size.height)
   await expect.poll(async () => distance(await designPixel(page, size, 10, 150), left)).toBeLessThan(4)
@@ -179,7 +179,7 @@ test('letters can have a gradient, turned with the dots, kept while typing and i
   const bytes = readFileSync((await download.path())!)
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Close design' }).click()
-  await expect(page.getByRole('main').locator('canvas')).toHaveCount(0)
+  await expect(page.getByRole('main').locator('canvas:not([data-preview])')).toHaveCount(0)
   await page.locator('input[type=file]').setInputFiles({ name: 'Letters.pixel', mimeType: '', buffer: bytes })
   await expectDesignSize(page, size.width, size.height)
   await expect.poll(async () => {

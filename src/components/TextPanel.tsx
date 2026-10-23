@@ -7,6 +7,7 @@ import { allFonts, fontInfo, fontName, fontStack, loadFont, nearestWeight } from
 import { FONT_PURPOSES, type FontPurpose } from '../text/fontPurposes.ts'
 import type { TextAlign, TextDirection } from '../text/layout.ts'
 import { FillKindSwitch, GradientEditor } from './GradientEditor.tsx'
+import { TextStyles, type TextStylesProps } from './TextStyles.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { Slider } from './ui.tsx'
 import { live, msg, t } from '../i18n/i18n.ts'
@@ -479,6 +480,8 @@ export interface TextPanelProps {
   flow?: { box: number; boxes: number } | null
   // Adds a box for the text to continue in. Missing while typing or with several things picked.
   onContinue?: () => void
+  // The design's text styles.
+  styles?: TextStylesProps | null
 }
 
 // How text looks: font, size, boldness, lining up, which way it reads and spacing.
@@ -513,6 +516,7 @@ export function TextPanel(props: TextPanelProps) {
               : t('Changes go to all the text. To change just some words, pick them with the mouse first.')}
           </p>
         )}
+        {props.styles && <TextStyles {...props.styles} />}
         <FontPicker value={style.font} sample={props.sample} hasRtl={props.hasRtl} onPick={props.onFont} onPreview={props.onPreviewFont} />
         {props.hasRtl && font && !font.hebrew && (
           <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">

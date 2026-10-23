@@ -21,7 +21,7 @@ export async function newDesign(page: Page, width = 400, height = 300): Promise<
 
 // The design's size, read from the canvas's own label (tool settings can show sizes too).
 export async function expectDesignSize(page: Page, width: number, height: number) {
-  await expect(page.getByRole('main').locator('canvas[aria-label]')).toHaveAttribute('aria-label', new RegExp(`, ${width} by ${height} pixels$`))
+  await expect(page.getByRole('main').locator('canvas[aria-label]:not([data-preview])')).toHaveAttribute('aria-label', new RegExp(`, ${width} by ${height} pixels$`))
 }
 
 // Where a point of the design is on the screen.

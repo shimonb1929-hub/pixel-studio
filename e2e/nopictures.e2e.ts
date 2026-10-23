@@ -44,3 +44,18 @@ test('no pictures on the start screen or in a new design', async ({ page }) => {
 
   expect(downloaded, 'pictures downloaded').toEqual([])
 })
+
+test('ready layouts are drawn from shapes and words, never pictures', async ({ page }) => {
+  const downloaded: string[] = []
+  page.on('request', (request) => {
+    if (request.resourceType() === 'image' && !ICONS.test(new URL(request.url()).pathname)) downloaded.push(request.url())
+  })
+  await page.getByRole('button', { name: /All layouts/ }).click()
+  const dialog = page.getByRole('dialog', { name: 'Ready layouts' })
+  await expect(dialog.getByRole('option')).toHaveCount(9)
+  expect(await picturesOnScreen(page), 'ready layouts').toEqual([])
+  await dialog.getByRole('button', { name: 'Use this layout' }).click()
+  await expect(page.getByRole('list', { name: 'Layer list' })).toBeVisible()
+  expect(await picturesOnScreen(page), 'a design from a layout').toEqual([])
+  expect(downloaded, 'pictures downloaded').toEqual([])
+})

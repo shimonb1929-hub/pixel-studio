@@ -254,4 +254,19 @@ describe('effects in projects', () => {
     expect(() => validateManifest(manifest({ activeLayer: 0, layers: [shape({ blend: 'sparkle' as never })] }))).toThrow(ProjectError)
     expect(() => validateManifest(manifest({ activeLayer: 0, layers: [shape({ effects: { shadow: null, glow: { color: 'red', opacity: 1, size: 3 }, outline: null } })] }))).toThrow(ProjectError)
   })
+
+  it("keeps the design's colors and text styles, and which texts use them", async () => {
+    const look = (words() as Extract<ProjectLayer, { kind: 'text' }>).style
+    const original = { ...manifest({ layers: [words({ styleId: 'style-1' })], activeLayer: 0 }), colors: ['#c4320a', '#ffffff'], textStyles: [{ id: 'style-1', name: 'כותרת', style: look }] }
+    const { manifest: read } = await unpackProject(packProject(original, []))
+    expect(read).toEqual(original)
+    const bad = [
+      { colors: ['red'] },
+      { colors: Array(40).fill('#ffffff') },
+      { textStyles: [{ id: '', name: 'x', style: look }] },
+      { textStyles: [{ id: 'a', name: 'x', style: { ...look, size: -1 } }] },
+    ]
+    for (const patch of bad) expect(() => validateManifest({ ...original, ...patch }), JSON.stringify(patch)).toThrow(ProjectError)
+    expect(() => validateManifest(manifest({ layers: [words({ styleId: 5 as never })], activeLayer: 0 }))).toThrow(ProjectError)
+  })
 })

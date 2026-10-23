@@ -1,5 +1,5 @@
 import { FolderOpen, Plus } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import type { SavedDesign } from '../editor/library.ts'
 import { useSavedDesigns } from '../hooks/useSavedDesigns.ts'
 import { shortcut } from '../keys.ts'
@@ -7,7 +7,10 @@ import { SIZE_PRESETS, type SizePreset } from '../presets.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button } from './ui.tsx'
 import { YourDesigns } from './YourDesigns.tsx'
-import { t } from '../i18n/i18n.ts'
+import { t, useLanguage } from '../i18n/i18n.ts'
+import { LAYOUT_KINDS, LAYOUTS, buildLayout, loadLayoutFonts, type LayoutKind } from '../layouts/layouts.ts'
+import { useFontsVersion } from '../hooks/useFontsVersion.ts'
+import { DesignPreview } from './LayoutsDialog.tsx'
 
 const PREVIEW_MAX = 40
 
@@ -40,15 +43,69 @@ function Tile({ label, detail, preview, onClick }: { label: string; detail: stri
   )
 }
 
+// One ready layout of each kind, drawn from its own shapes and words, and a way to see them all.
+function ReadyLayouts({ onLayouts }: { onLayouts: (kind: 'all' | LayoutKind, layoutId?: string) => void }) {
+  const fonts = useFontsVersion()
+  const language = useLanguage()
+  const firsts = LAYOUT_KINDS.map((kind) => LAYOUTS.find((l) => l.kind === kind.value)!)
+  useEffect(() => {
+    for (const layout of firsts) void loadLayoutFonts(layout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const previews = useMemo(() => firsts.map((layout) => buildLayout(layout)), [fonts, language])
+
+  return (
+    <>
+      <h2 className="mt-10 text-[15px] font-semibold tracking-tight text-ink">{t('Or start from a ready layout')}</h2>
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {firsts.map((layout, i) => {
+          const kind = LAYOUT_KINDS[i]
+          return (
+            <Tooltip key={layout.id} title={kind.label} description={t('{description} Made of shapes, words and colors you can change.', { description: kind.description })} className="flex">
+              <Tile
+                label={kind.label}
+                detail={layout.name}
+                preview={
+                  <div className="flex h-24 items-center justify-center">
+                    <DesignPreview doc={previews[i]} maxWidth={90} maxHeight={96} label={t('Preview of {name}', { name: layout.name })} />
+                  </div>
+                }
+                onClick={() => onLayouts(kind.value, layout.id)}
+              />
+            </Tooltip>
+          )
+        })}
+        <Tooltip title={t('All layouts')} description={t('See every ready layout and try their colors.')} className="flex">
+          <Tile
+            label={t('All layouts')}
+            detail={t('{count} to choose from', { count: LAYOUTS.length })}
+            preview={
+              <div className="grid h-24 w-20 grid-cols-2 place-content-center gap-1.5">
+                {[0, 1, 2, 3].map((n) => (
+                  <div key={n} className="h-9 rounded-[3px] border-[1.5px] border-ink-3/45 bg-subtle transition-colors group-hover:border-accent group-hover:bg-accent-soft" />
+                ))}
+              </div>
+            }
+            onClick={() => onLayouts('all')}
+          />
+        </Tooltip>
+      </div>
+    </>
+  )
+}
+
 interface WelcomeScreenProps {
   // `taken` are the names of the designs already kept, so the new one can be told apart.
   onPreset: (preset: SizePreset, taken: string[]) => void
   onCustom: () => void
   onOpen: () => void
   onOpenDesign: (design: SavedDesign) => Promise<void>
+  // Opens the ready layouts, showing a kind (and a layout) first.
+  onLayouts: (kind: 'all' | LayoutKind, layoutId?: string) => void
 }
 
-export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign }: WelcomeScreenProps) {
+export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign, onLayouts }: WelcomeScreenProps) {
   const { designs, loadedAt, refresh } = useSavedDesigns()
   // People coming back see their designs first, then the ways to start something new.
   const returning = designs.length > 0
@@ -104,6 +161,8 @@ export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign }: Welc
             />
           </Tooltip>
         </div>
+
+        <ReadyLayouts onLayouts={onLayouts} />
 
         <div className="mt-9 flex flex-col items-center gap-2.5">
           <Button

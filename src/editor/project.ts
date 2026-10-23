@@ -12,12 +12,13 @@ import { tidySpans } from '../text/spans.ts'
 import { tidyGroups } from './layers.ts'
 import { allPages, pageIndex } from './pages.ts'
 import { hasLayout } from './pageLayout.ts'
-import type { DesignPage, EditorDocument, Layer, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TextFlow, TextSpan, TextStyle } from './types.ts'
+import type { DesignPage, EditorDocument, Layer, PageLayout, LayerGroup, SavedTextStyle, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TextFlow, TextSpan, TextStyle } from './types.ts'
 import type { Gradient, GradientStop } from './gradient.ts'
 import { paintPage } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
 import { msg, t } from '../i18n/i18n.ts'
 import { MAX_PPI } from './units.ts'
+import { MAX_DESIGN_COLORS, MAX_TEXT_STYLES } from './designStyles.ts'
 
 // A project keeps everything needed to carry on editing later: the design's size, every layer
 // with its pixels, position and settings, and the selection. The same format is used for
@@ -36,7 +37,7 @@ import { MAX_PPI } from './units.ts'
 // Version 11 added things on every page (everyPage) and page numbers (pageNumber).
 // Older files still open.
 
-export const PROJECT_VERSION = 11
+export const PROJECT_VERSION = 12
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -94,6 +95,7 @@ export interface ProjectTextLayer extends ProjectLayerBase {
   wrap: boolean
   flow?: TextFlow
   pageNumber?: boolean
+  styleId?: string
 }
 
 export type ProjectLayer = ProjectPixelLayer | ProjectShapeLayer | ProjectTextLayer
@@ -125,6 +127,9 @@ export interface ProjectManifest {
   pages?: ProjectPage[]
   page?: number
   layout?: PageLayout
+  // The design's own colors and text styles. Older files don't have them.
+  colors?: string[]
+  textStyles?: SavedTextStyle[]
 }
 
 export interface ProjectPage {
@@ -436,6 +441,10 @@ function readLayer(layer: unknown): ProjectLayer {
       if (layer.pageNumber !== true) damaged()
       text.pageNumber = true
     }
+    if (layer.styleId !== undefined) {
+      if (typeof layer.styleId !== 'string' || !layer.styleId || layer.styleId.length > 100) damaged()
+      text.styleId = layer.styleId
+    }
     return text
   }
   if (
@@ -505,7 +514,22 @@ export function validateManifest(value: unknown): ProjectManifest {
     selection: readSelection(value.selection),
     ...(pages ? { pages, page } : {}),
     ...(value.layout === undefined ? {} : { layout: readLayout(value.layout) }),
+    ...(value.colors === undefined ? {} : { colors: readColors(value.colors) }),
+    ...(value.textStyles === undefined ? {} : { textStyles: readTextStyles(value.textStyles) }),
   }
+}
+
+function readColors(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length > MAX_DESIGN_COLORS) damaged()
+  return value.map(readColor)
+}
+
+function readTextStyles(value: unknown): SavedTextStyle[] {
+  if (!Array.isArray(value) || value.length > MAX_TEXT_STYLES) damaged()
+  return value.map((saved): SavedTextStyle => {
+    if (!isRecord(saved) || typeof saved.id !== 'string' || !saved.id || saved.id.length > 100 || typeof saved.name !== 'string') damaged()
+    return { id: saved.id, name: saved.name.slice(0, MAX_NAME_LENGTH), style: readTextStyle(saved.style) }
+  })
 }
 
 function readLayout(value: unknown): PageLayout {
@@ -564,7 +588,7 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
   if (layer.kind === 'raster') {
     return { ...base, kind: 'raster', x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height, box: layer.box, bytes: sizes[0] }
   }
-  if (layer.kind === 'text') return { ...base, kind: 'text', box: layer.box, text: layer.text, style: layer.style, ...(layer.spans ? { spans: layer.spans } : {}), wrap: layer.wrap, ...(layer.flow ? { flow: layer.flow } : {}), ...(layer.pageNumber ? { pageNumber: true } : {}) }
+  if (layer.kind === 'text') return { ...base, kind: 'text', box: layer.box, text: layer.text, style: layer.style, ...(layer.spans ? { spans: layer.spans } : {}), wrap: layer.wrap, ...(layer.flow ? { flow: layer.flow } : {}), ...(layer.pageNumber ? { pageNumber: true } : {}), ...(layer.styleId ? { styleId: layer.styleId } : {}) }
   const { fill } = layer
   const savedFill: ProjectFill =
     fill.kind === 'photo'
@@ -594,6 +618,8 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
     selection: doc.selection,
     ...(several ? { pages: described, page: pageIndex(doc) } : {}),
     ...(hasLayout(doc.layout) ? { layout: doc.layout } : {}),
+    ...(doc.colors?.length ? { colors: doc.colors } : {}),
+    ...(doc.textStyles?.length ? { textStyles: doc.textStyles } : {}),
   }
   return packProject(manifest, pictures.flat(2))
 }
@@ -631,7 +657,7 @@ async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer>
     return { ...layerFromCanvas(name, canvas, info.x, info.y), box: info.box, visible, opacity, locked, adjust, ...extras }
   }
   if (info.kind === 'text') {
-    return { id: createId('layer'), kind: 'text', name, visible, opacity, locked, adjust, ...extras, box: info.box, text: info.text, style: info.style, ...(info.spans ? { spans: info.spans } : {}), wrap: info.wrap, ...(info.flow ? { flow: info.flow } : {}), ...(info.pageNumber ? { pageNumber: true } : {}) }
+    return { id: createId('layer'), kind: 'text', name, visible, opacity, locked, adjust, ...extras, box: info.box, text: info.text, style: info.style, ...(info.spans ? { spans: info.spans } : {}), wrap: info.wrap, ...(info.flow ? { flow: info.flow } : {}), ...(info.pageNumber ? { pageNumber: true } : {}), ...(info.styleId ? { styleId: info.styleId } : {}) }
   }
   const fill =
     info.fill.kind === 'photo'
@@ -681,6 +707,8 @@ export async function decodeProject(file: Blob, id = createDesignId()): Promise<
     selection: manifest.selection,
     ...(pages.length > 1 ? { pages, pageIndex: index } : {}),
     ...(manifest.layout ? { layout: manifest.layout } : {}),
+    ...(manifest.colors ? { colors: manifest.colors } : {}),
+    ...(manifest.textStyles ? { textStyles: manifest.textStyles } : {}),
   }
 }
 

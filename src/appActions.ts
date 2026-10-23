@@ -12,6 +12,7 @@ import { inSentence, msg, t } from './i18n/i18n.ts'
 
 export interface AppCommands {
   newDesign: () => void
+  readyLayouts: () => void
   open: () => void
   addPhoto: () => void
   addText: (kind: TextKind) => void
@@ -116,6 +117,14 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       keywords: ['new', 'blank', 'start', 'create', 'canvas', 'empty', 'begin', 'make', 'size'],
       shortcut: shortcut('mod', 'alt', 'N'),
       run: c.newDesign,
+    },
+    {
+      id: 'ready-layouts',
+      group: 'Design',
+      title: t('Ready layouts…'),
+      description: t('Start from a ready-made invitation, flyer or poster, made of shapes, words and colors you can change.'),
+      keywords: ['template', 'templates', 'layout', 'invitation', 'invite', 'flyer', 'poster', 'card', 'ready', 'design', 'example', 'start'],
+      run: c.readyLayouts,
     },
     {
       id: 'open',

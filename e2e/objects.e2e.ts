@@ -298,7 +298,7 @@ test('shapes, photos in shapes and resized photos come back from a project file'
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Close design' }).click()
   // The design takes a moment to close; opening the file before then would race it.
-  await expect(page.getByRole('main').locator('canvas')).toHaveCount(0)
+  await expect(page.getByRole('main').locator('canvas:not([data-preview])')).toHaveCount(0)
   await page.locator('input[type=file]').setInputFiles({ name: 'My design 1.pixel', mimeType: '', buffer: bytes })
 
   await expect(page.locator('header')).toContainText('My design 1')
@@ -346,7 +346,7 @@ test('bring forward and send backward, with the buttons and the keyboard', async
 test('an opened photo is locked: painting goes on a drawing above it, and the eraser leaves it alone', async ({ page }) => {
   await page.locator('input[type=file]').setInputFiles({ name: 'beach.png', mimeType: 'image/png', buffer: await photo(page) })
   const size = { width: 200, height: 100 }
-  await expect(page.getByRole('main').locator('canvas[aria-label]')).toHaveAttribute('aria-label', /200 by 100 pixels$/)
+  await expect(page.getByRole('main').locator('canvas[aria-label]:not([data-preview])')).toHaveAttribute('aria-label', /200 by 100 pixels$/)
   await page.keyboard.press('Control+Alt+0')
   expect(await layerNames(page)).toEqual(['Picture'])
   await expect(page.getByRole('button', { name: 'Unlock Picture' })).toBeVisible()

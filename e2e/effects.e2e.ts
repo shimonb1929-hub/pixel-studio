@@ -99,7 +99,7 @@ test('a layer can mix with what is below it, and it all comes back from a projec
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Close design' }).click()
   // The design takes a moment to close; opening the file before then would race it.
-  await expect(page.getByRole('main').locator('canvas')).toHaveCount(0)
+  await expect(page.getByRole('main').locator('canvas:not([data-preview])')).toHaveCount(0)
   await page.locator('input[type=file]').setInputFiles({ name: 'Mixed.pixel', mimeType: '', buffer: bytes })
 
   await expect(page.locator('header')).toContainText('My design 1')
