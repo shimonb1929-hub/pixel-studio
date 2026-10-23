@@ -16,6 +16,7 @@ import { TextPanel } from './components/TextPanel.tsx'
 import { Toast, type Notice } from './components/Toast.tsx'
 import { ToolDock } from './components/ToolDock.tsx'
 import { ToolOptions, type ArrangeBarControls, type CropShape } from './components/ToolOptions.tsx'
+import { ScrollRegion } from './components/ui.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { DesignInfo, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
@@ -2510,92 +2511,97 @@ export default function App() {
           )}
         </main>
 
-        <div className={`hidden w-[288px] shrink-0 flex-col gap-3 overflow-y-auto ${doc ? 'md:flex' : ''}`}>
-          {adjustOn && doc ? (
-            <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
-          ) : (
-            <ColorPanel
-              color={panelColor ?? color}
-              recent={recentColors}
-              onChange={onPanelColor}
-              onPickFromDesign={() => setTool('picker')}
-            />
-          )}
-          {textPanelOn && !adjustOn && doc && (
-            <TextPanel
-              title={pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
-              style={textTarget?.style ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
-              wrap={textTarget?.wrap ?? false}
-              hasRtl={!!textTarget && hasRtlLetters(textTarget.text)}
-              sample={fontSample(textTarget?.text ?? '')}
-              resolvedAlign={textTarget ? resolveAlign(textTarget.style.align, textLayout(textTarget).direction) : 'left'}
-              onFont={(id) => void changeFont(id)}
-              onStyle={changeTextStyle}
-              onWrap={changeWrap}
-            />
-          )}
-          {shapeShown && !adjustOn && (
-            <ShapePanel
-              title={pickedShapes > 1 ? t('{count} shapes', { count: pickedShapes }) : editingShape ? editingShape.name : t('New shapes')}
-              editing={editingShape !== null}
-              geometry={shapeShown.geometry}
-              fill={shapeShown.fill}
-              outline={shapeShown.outline}
-              colorTarget={shapeTarget}
-              onColorTarget={(target) => {
-                setEffectColor(null)
-                setColorTarget(target)
-              }}
-              onGeometry={changeGeometry}
-              onNoFill={() => changeShape(t('No fill'), () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
-              onNoOutline={() => changeShape(t('No outline'), () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
-              onOutlineWidth={changeOutlineWidth}
-              onFillKind={changeFillKind}
-              onGradient={changeGradient}
-              gradientStop={gradientStop}
-              onGradientStop={(index) => {
-                setEffectColor(null)
-                setColorTarget('fill')
-                setGradientStop(index)
-              }}
-              onEditPoints={editingShape && pickedShapes < 2 && !(tool === 'pen' && editingShape.geometry.type === 'path') ? () => editPoints(editingShape.id) : undefined}
-              onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ shape: editingShape.id }) : undefined}
-              photo={
-                editingShape?.fill.kind === 'photo'
-                  ? {
-                      zoom: editingShape.fill.zoom,
-                      moving: photoMoving,
-                      onZoom: (zoom) => setPhotoFill({ zoom }, t('Photo size')),
-                      onToggleMove: () => setPhotoMoving(!photoMoving),
-                      onRemove: () => editor.change(t('Remove photo'), (d) => updateShape(d, editingShape.id, { fill: { kind: 'color', color: DEFAULT_SHAPES.fill! } })),
-                    }
-                  : null
-              }
-            />
-          )}
-          {effectsLayer && (
-            <EffectsPanel
-              title={effectsLayer.name}
-              open={effectsOpen}
-              onOpen={(open) => {
-                if (!open) setEffectColor(null)
-                setEffectsOpen(open)
-              }}
-              effects={effectsLayer.effects ?? null}
-              blend={effectsLayer.blend ?? 'normal'}
-              unit={unit}
-              thumbnails={effectPictures}
-              colorTarget={effectTarget}
-              onColorTarget={(kind) => setEffectColor(kind && { layerId: effectsLayer.id, kind })}
-              onLook={(look) => {
-                setEffectColor(null)
-                const effects = look.effects(unit)
-                changeEffects(effects, effectsLabel(effects, unit))
-              }}
-              onChange={changeEffects}
-              onBlend={changeBlend}
-            />
-          )}
+        <div className={`hidden w-[288px] shrink-0 flex-col gap-3 ${doc ? 'md:flex' : ''}`}>
+          {/* The panels for what is picked take the room they need, up to about two thirds of the
+              column (then they scroll); the Layers panel always keeps the rest, so it never slips
+              off a short screen. */}
+          <ScrollRegion className="max-h-[64%] shrink-0 gap-3">
+            {adjustOn && doc ? (
+              <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
+            ) : (
+              <ColorPanel
+                color={panelColor ?? color}
+                recent={recentColors}
+                onChange={onPanelColor}
+                onPickFromDesign={() => setTool('picker')}
+              />
+            )}
+            {textPanelOn && !adjustOn && doc && (
+              <TextPanel
+                title={pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
+                style={textTarget?.style ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
+                wrap={textTarget?.wrap ?? false}
+                hasRtl={!!textTarget && hasRtlLetters(textTarget.text)}
+                sample={fontSample(textTarget?.text ?? '')}
+                resolvedAlign={textTarget ? resolveAlign(textTarget.style.align, textLayout(textTarget).direction) : 'left'}
+                onFont={(id) => void changeFont(id)}
+                onStyle={changeTextStyle}
+                onWrap={changeWrap}
+              />
+            )}
+            {shapeShown && !adjustOn && (
+              <ShapePanel
+                title={pickedShapes > 1 ? t('{count} shapes', { count: pickedShapes }) : editingShape ? editingShape.name : t('New shapes')}
+                editing={editingShape !== null}
+                geometry={shapeShown.geometry}
+                fill={shapeShown.fill}
+                outline={shapeShown.outline}
+                colorTarget={shapeTarget}
+                onColorTarget={(target) => {
+                  setEffectColor(null)
+                  setColorTarget(target)
+                }}
+                onGeometry={changeGeometry}
+                onNoFill={() => changeShape(t('No fill'), () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
+                onNoOutline={() => changeShape(t('No outline'), () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
+                onOutlineWidth={changeOutlineWidth}
+                onFillKind={changeFillKind}
+                onGradient={changeGradient}
+                gradientStop={gradientStop}
+                onGradientStop={(index) => {
+                  setEffectColor(null)
+                  setColorTarget('fill')
+                  setGradientStop(index)
+                }}
+                onEditPoints={editingShape && pickedShapes < 2 && !(tool === 'pen' && editingShape.geometry.type === 'path') ? () => editPoints(editingShape.id) : undefined}
+                onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ shape: editingShape.id }) : undefined}
+                photo={
+                  editingShape?.fill.kind === 'photo'
+                    ? {
+                        zoom: editingShape.fill.zoom,
+                        moving: photoMoving,
+                        onZoom: (zoom) => setPhotoFill({ zoom }, t('Photo size')),
+                        onToggleMove: () => setPhotoMoving(!photoMoving),
+                        onRemove: () => editor.change(t('Remove photo'), (d) => updateShape(d, editingShape.id, { fill: { kind: 'color', color: DEFAULT_SHAPES.fill! } })),
+                      }
+                    : null
+                }
+              />
+            )}
+            {effectsLayer && (
+              <EffectsPanel
+                title={effectsLayer.name}
+                open={effectsOpen}
+                onOpen={(open) => {
+                  if (!open) setEffectColor(null)
+                  setEffectsOpen(open)
+                }}
+                effects={effectsLayer.effects ?? null}
+                blend={effectsLayer.blend ?? 'normal'}
+                unit={unit}
+                thumbnails={effectPictures}
+                colorTarget={effectTarget}
+                onColorTarget={(kind) => setEffectColor(kind && { layerId: effectsLayer.id, kind })}
+                onLook={(look) => {
+                  setEffectColor(null)
+                  const effects = look.effects(unit)
+                  changeEffects(effects, effectsLabel(effects, unit))
+                }}
+                onChange={changeEffects}
+                onBlend={changeBlend}
+              />
+            )}
+          </ScrollRegion>
           <LayersPanel
             doc={doc}
             revision={editor.revision}

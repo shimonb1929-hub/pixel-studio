@@ -1,4 +1,4 @@
-import { useId, type ButtonHTMLAttributes, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { Tooltip, type TipContent } from './Tooltip.tsx'
 
 type Variant = 'primary' | 'secondary' | 'ghost'
@@ -102,5 +102,37 @@ export function Slider({ label, help, value, display, note, onChange, className 
         style={{ '--from': `${Math.min(origin, position) * 100}%`, '--fill': `${Math.max(origin, position) * 100}%` } as CSSProperties}
       />
     </Tooltip>
+  )
+}
+
+// A column that scrolls when its panels don't fit. While more waits below, its bottom fades out,
+// so a cut-off panel never looks broken.
+export function ScrollRegion({ className = '', children }: { className?: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [moreBelow, setMoreBelow] = useState(false)
+
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const check = () => setMoreBelow(element.scrollHeight - element.scrollTop - element.clientHeight > 2)
+    check()
+    const observer = new ResizeObserver(check)
+    observer.observe(element)
+    for (const child of Array.from(element.children)) observer.observe(child)
+    element.addEventListener('scroll', check)
+    return () => {
+      observer.disconnect()
+      element.removeEventListener('scroll', check)
+    }
+  })
+
+  return (
+    <div
+      ref={ref}
+      className={`flex flex-col overflow-y-auto ${className}`}
+      style={moreBelow ? { maskImage: 'linear-gradient(to bottom, black calc(100% - 28px), transparent)' } : undefined}
+    >
+      {children}
+    </div>
   )
 }
