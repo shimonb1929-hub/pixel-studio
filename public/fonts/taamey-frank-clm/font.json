@@ -1,0 +1,25 @@
+{
+  "name": "Taamey Frank CLM",
+  "license": "GPL-2.0-with-font-exception",
+  "version": "0.0.20240129.1",
+  "faces": [
+    {
+      "file": "taamey-frank-clm-500-normal.woff2",
+      "weight": "500",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+0020-007E,U+0307-0308,U+030A,U+034F,U+0591-05C7,U+05D0-05EA,U+05F0-05F4,U+2009-200A,U+200C-200F,U+2018-201A,U+201C-201E,U+20AA,U+20AC,U+25CC,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    },
+    {
+      "file": "taamey-frank-clm-700-normal.woff2",
+      "weight": "700",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+0020-007E,U+0307-0308,U+030A,U+034F,U+0591-05C7,U+05D0-05EA,U+05F0-05F4,U+2009-200A,U+200C-200F,U+2018-201A,U+201C-201E,U+20AA,U+20AC,U+25CC,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    },
+    {
+      "file": "taamey-frank-clm-500-italic.woff2",
+      "weight": "500",
+      "style": "italic",
+      "unicodeRange": "U+0000,U+0020-007E,U+0307-0308,U+030A,U+034F,U+0591-05C7,U+05D0-05EA,U+05F0-05F4,U+2009-200A,U+200C-200F,U+2018-201A,U+201C-201E,U+20AA,U+20AC,U+25CC,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    }
+  ]
+}

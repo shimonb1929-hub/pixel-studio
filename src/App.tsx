@@ -419,28 +419,15 @@ export default function App() {
     return () => window.clearTimeout(timer)
   }, [notice])
 
-  // When the window changes size, keep whatever was in the middle of the view in the middle. The
-  // start screen has no tools or panels, so the space for the design shrinks once one opens: a
-  // design measured on the start screen is fitted again to the space it really has.
-  const lastWorkspaceRef = useRef({ ...workspace, withDesign: false })
-  const docOpen = !!editor.doc
-  // The space a design had last time, so a design opened again is fitted to it straight away.
-  const designSpaceRef = useRef<{ width: number; height: number } | null>(null)
+  // When the window changes size, keep whatever was in the middle of the view in the middle.
+  const lastWorkspaceRef = useRef(workspace)
   useLayoutEffect(() => {
     const last = lastWorkspaceRef.current
-    lastWorkspaceRef.current = { ...workspace, withDesign: docOpen }
-    if (docOpen && workspace.width && workspace.height) designSpaceRef.current = workspace
+    lastWorkspaceRef.current = workspace
     if (!last.width || !last.height) return
-    const doc = editor.getDoc()
-    if (doc && !last.withDesign) {
-      setViewport(fitViewport(doc.width, doc.height, workspace.width, workspace.height, { allowUpscale: false, padding: FIT_PADDING }))
-      return
-    }
     const dx = (workspace.width - last.width) / 2
     const dy = (workspace.height - last.height) / 2
     if (dx || dy) setViewport((v) => panBy(v, dx, dy))
-    // Only a new measurement counts, so not when a design opens (its space is measured next).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspace])
 
   // Closing the tab asks first while changes are still being saved, or if they couldn't be saved
@@ -1059,6 +1046,27 @@ export default function App() {
     changeTextStyle({ font: id, weight }, t('Change font'))
   }
 
+  // A font pointed at in the font list, shown on the picked text (once it has loaded) until the
+  // pointer moves on. Nothing is changed until a font is clicked.
+  const [fontPreview, setFontPreview] = useState<string | null>(null)
+  const fontPreviewWanted = useRef<string | null>(null)
+  function previewFont(id: string | null) {
+    fontPreviewWanted.current = id
+    if (!id) return setFontPreview(null)
+    const target = pickedText
+    if (!target) return
+    void loadFont({ ...target.style, font: id, weight: nearestWeight(id, target.style.weight) }, target.text || 'Aא').then(() => {
+      if (fontPreviewWanted.current === id) setFontPreview(id)
+    })
+  }
+  const fontPreviewLayer = useMemo(
+    () =>
+      fontPreview && pickedText && fontPreview !== pickedText.style.font
+        ? changeText(pickedText, { style: { font: fontPreview, weight: nearestWeight(fontPreview, pickedText.style.weight) } })
+        : null,
+    [fontPreview, pickedText],
+  )
+
   function changeWrap(wrap: boolean) {
     const label = wrap ? t('Wrap text in a box') : t('Fit box to text')
     if (textEditRef.current) {
@@ -1151,25 +1159,35 @@ export default function App() {
     setToolState(next)
   }
 
-  // `space` is where the design will be shown, when it isn't the space on screen right now.
-  function fitted(next: { width: number; height: number }, allowUpscale = true, space = workspace): Viewport {
-    return fitViewport(next.width, next.height, space.width, space.height, { allowUpscale, padding: FIT_PADDING })
+  function fitted(next: { width: number; height: number }, allowUpscale = true): Viewport {
+    return fitViewport(next.width, next.height, workspace.width, workspace.height, { allowUpscale, padding: FIT_PADDING })
   }
 
   // `stored` means the design is already kept in this browser (it was opened from Your designs).
   function showDocument(next: EditorDocument, stored = false) {
-    const fromStart = !current()
     editor.load(next)
     autosave.start(next, stored)
     setTransformEdit(null)
     setCropEdit(null)
     setCursor(null)
     setNotice(null)
-    // From the start screen, the design gets the space it had last time, beside the tools and panels.
-    const space = fromStart && designSpaceRef.current ? designSpaceRef.current : workspace
-    setViewport(fitted(next, false, space))
-    if (space !== workspace) lastWorkspaceRef.current = { ...space, withDesign: true }
+    setFitPending(next)
   }
+
+  // A design just opened is fitted once the screen has settled around it: the tools and panels
+  // only appear with a design, which makes the workspace smaller, so fitting it any earlier would
+  // leave the design off-center.
+  const [fitPending, setFitPending] = useState<{ width: number; height: number } | null>(null)
+  useLayoutEffect(() => {
+    // Measured here and now: the size kept in `workspace` only catches up a moment later.
+    const element = workspaceRef.current
+    const size = element ? { width: element.clientWidth, height: element.clientHeight } : workspace
+    if (!fitPending || !size.width || !size.height) return
+    setViewport(fitViewport(fitPending.width, fitPending.height, size.width, size.height, { allowUpscale: false, padding: FIT_PADDING }))
+    // When `workspace` catches up, the view is already right for it.
+    lastWorkspaceRef.current = size
+    setFitPending(null)
+  }, [fitPending, workspace])
 
   // Before leaving the open design, its latest changes are saved in the browser. If that doesn't
   // work and they haven't been downloaded either, it asks first.
@@ -2315,6 +2333,8 @@ export default function App() {
   const override: LayerOverride | null =
     textEdit && !textEdit.isNew
       ? { layerId: textEdit.layer.id, layer: { ...textEdit.layer, visible: false } }
+      : fontPreviewLayer
+      ? { layerId: fontPreviewLayer.id, layer: fontPreviewLayer }
       : tool === 'move' && transform && transformChanged
       ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) }
       : adjustPreview && !comparing
@@ -2681,6 +2701,7 @@ export default function App() {
                 sample={fontSample(textTarget?.text ?? '')}
                 resolvedAlign={textTarget ? resolveAlign(textTarget.style.align, textLayout(textTarget).direction) : 'left'}
                 onFont={(id) => void changeFont(id)}
+                onPreviewFont={previewFont}
                 onStyle={changeTextStyle}
                 onWrap={changeWrap}
               />

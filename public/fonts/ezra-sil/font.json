@@ -1,0 +1,13 @@
+{
+  "name": "Ezra SIL",
+  "license": "OFL-1.1",
+  "version": "2.51",
+  "faces": [
+    {
+      "file": "ezra-sil-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+000D,U+0020-007E,U+00A0-00FF,U+0152-0153,U+0160-0161,U+0178,U+017D-017E,U+0192,U+02C6,U+02C9,U+02DC,U+0307-0308,U+0323,U+034F,U+03BC,U+0591-05C7,U+05D0-05EA,U+05F0-05F4,U+2000-2011,U+2013-2014,U+2018-201A,U+201C-201E,U+2020-2022,U+2026,U+202A-202E,U+2030,U+2039-203A,U+20AA,U+20AC,U+2122,U+2212,U+2219,U+25CC,U+FB1D-FB20,U+FB29-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F,U+FEFF"
+    }
+  ]
+}
