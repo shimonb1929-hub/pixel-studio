@@ -1,5 +1,4 @@
-import { createCanvas, getContext2d } from './document.ts'
-import { distanceToShape } from './effects.ts'
+import { distanceToShape } from './distance.ts'
 
 // Fixing spots: the marked part of a picture is filled in from what's around it, so a spot, a
 // scratch or a small thing disappears and the picture looks as if it was never there.
@@ -12,7 +11,7 @@ import { distanceToShape } from './effects.ts'
 
 const RADIUS = 3
 // How far past the marks the fill reaches, in pixels.
-const MARK_GROWTH = 2
+export const MARK_GROWTH = 2
 const SIZE = RADIUS * 2 + 1
 
 interface Level {
@@ -338,31 +337,4 @@ export function healPixels(data: Uint8ClampedArray, width: number, height: numbe
     for (let c = 0; c < 4; c++) data[i * 4 + c] = finest.pixels[i * 4 + c]
   }
   return true
-}
-
-// Fills in what `marks` covers (anything not see-through in it), on a layer's canvas, using the
-// picture within `area` (design pixels). Marks are grown a little, so the soft edge of a spot goes too.
-export function healRegion(
-  ctx: CanvasRenderingContext2D,
-  layer: { x: number; y: number; canvas: HTMLCanvasElement },
-  area: { x: number; y: number; width: number; height: number },
-  marks: { canvas: HTMLCanvasElement; x: number; y: number },
-): void {
-  const x = Math.max(0, Math.floor(area.x - layer.x))
-  const y = Math.max(0, Math.floor(area.y - layer.y))
-  const width = Math.min(layer.canvas.width, Math.ceil(area.x + area.width - layer.x)) - x
-  const height = Math.min(layer.canvas.height, Math.ceil(area.y + area.height - layer.y)) - y
-  if (width <= 0 || height <= 0) return
-  const markCanvas = createCanvas(width, height)
-  const markCtx = markCanvas.getContext('2d', { willReadFrequently: true }) ?? getContext2d(markCanvas)
-  markCtx.drawImage(marks.canvas, marks.x - layer.x - x, marks.y - layer.y - y)
-  const markAlpha = markCtx.getImageData(0, 0, width, height).data
-  const marked = new Uint8Array(width * height)
-  for (let i = 0; i < marked.length; i++) marked[i] = markAlpha[i * 4 + 3] > 0 ? 1 : 0
-  const distance = distanceToShape(marked, width, height)
-  const hole = new Uint8Array(width * height)
-  for (let i = 0; i < hole.length; i++) hole[i] = distance[i] <= MARK_GROWTH ? 1 : 0
-  const image = ctx.getImageData(x, y, width, height)
-  healPixels(image.data, width, height, hole)
-  ctx.putImageData(image, x, y)
 }

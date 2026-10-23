@@ -1,4 +1,5 @@
 import { createCanvas, getContext2d, layerRect } from './document.ts'
+import { cutGap, gapFor, type GapFill } from './gapFill.ts'
 import { polygonBounds, snapRect, unionRect } from './geometry.ts'
 import { activeLayer, replaceLayer } from './layers.ts'
 import { settleLayer } from './objects.ts'
@@ -19,12 +20,14 @@ export interface TransformSession {
   selection: Selection
   // The layer with the selected part lifted out.
   base: HTMLCanvasElement
+  // The gap the part leaves, when it's being filled in from what's around it.
+  gap: GapFill | null
   // The picture being transformed, and where it started.
   source: HTMLCanvasElement
   original: TransformBox
 }
 
-export function startTransform(doc: EditorDocument): TransformSession | null {
+export function startTransform(doc: EditorDocument, fillGap = false): TransformSession | null {
   const active = activeLayer(doc)
   if (!doc.selection || active?.kind !== 'raster') return null
   const layer = settleLayer(active)
@@ -35,18 +38,28 @@ export function startTransform(doc: EditorDocument): TransformSession | null {
   sctx.drawImage(layer.canvas, layer.x - bounds.x, layer.y - bounds.y)
   sctx.globalCompositeOperation = 'destination-in'
   sctx.drawImage(mask, -bounds.x, -bounds.y)
-  const base = createCanvas(layer.canvas.width, layer.canvas.height)
-  const bctx = getContext2d(base)
-  bctx.drawImage(layer.canvas, 0, 0)
-  bctx.globalCompositeOperation = 'destination-out'
-  bctx.drawImage(mask, -layer.x, -layer.y)
-  return { layerId: layer.id, layer, selection: doc.selection, base, source, original: boxFromRect(bounds) }
+  const gap = fillGap ? gapFor(active, layer, doc.selection, doc.width, doc.height) : null
+  const base = gap ? cutGap(layer, gap) : createCanvas(layer.canvas.width, layer.canvas.height)
+  if (!gap) {
+    const bctx = getContext2d(base)
+    bctx.drawImage(layer.canvas, 0, 0)
+    bctx.globalCompositeOperation = 'destination-out'
+    bctx.drawImage(mask, -layer.x, -layer.y)
+  }
+  return { layerId: layer.id, layer, selection: doc.selection, base, gap, source, original: boxFromRect(bounds) }
+}
+
+// The filled-in gap, once it's ready.
+function patchParts(session: TransformSession): RenderPart[] {
+  const { gap } = session
+  return gap?.patch ? [{ canvas: gap.patch, x: gap.area.x, y: gap.area.y }] : []
 }
 
 // What to draw for the layer while its handles are being dragged.
 export function transformParts(session: TransformSession, box: TransformBox): RenderPart[] {
   return [
     { canvas: session.base, x: session.layer.x, y: session.layer.y },
+    ...patchParts(session),
     { canvas: session.source, x: 0, y: 0, transform: boxMatrix(box, session.source.width, session.source.height) },
   ]
 }
@@ -62,6 +75,7 @@ export function commitTransform(doc: EditorDocument, session: TransformSession, 
   const canvas = createCanvas(target.width, target.height)
   const ctx = getContext2d(canvas)
   ctx.drawImage(base, layer.x - target.x, layer.y - target.y)
+  for (const part of patchParts(session)) ctx.drawImage(part.canvas, part.x - target.x, part.y - target.y)
   const m = multiplyAffine(translateAffine(-target.x, -target.y), matrix)
   ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f)
   ctx.imageSmoothingQuality = 'high'

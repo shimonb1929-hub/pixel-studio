@@ -1143,5 +1143,10 @@
  "“{name}” is locked, so it doesn't move by accident.": "“{name}” איז פארשלאסן, כדי עס זאל זיך נישט צופעליג רירן.",
  "“{name}” is locked. Click its lock in the Layers panel to unlock it first.": "“{name}” איז פארשלאסן. קליקט קודם אויף זיין שלאס אינעם לעיערס פאנעל עס אויפצושליסן.",
  "“{name}” is text, so you can't {doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.": "“{name}” איז טעקסט, דערפאר קענט איר נישט {doing} א טייל דערפון. טוישט עס מיט ארדענען און דעם טעקסט פאנעל, אדער קלויבט אויס א מאל-לעיער.",
- "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” איז מער נישט אין דעם בראוזער. עס איז אפשר אויסגעמעקט געווארן אין אן אנדער טאב."
+ "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” איז מער נישט אין דעם בראוזער. עס איז אפשר אויסגעמעקט געווארן אין אן אנדער טאב.",
+ "AI is filling the gap…": "AI פילט אויס דעם ליידיגן ארט…",
+ "Drag the selected part to move it. On a photo, AI fills the gap it leaves.": "שלעפט דעם אויסגעקליבענעם טייל כדי אים צו רירן. אויף א פאטא פילט AI אויס דעם ליידיגן ארט וואס ער לאזט איבער.",
+ "Fill the gap": "אויספילן דעם ליידיגן ארט",
+ "Move and fill the gap": "רירן און אויספילן דעם ליידיגן ארט",
+ "When on, moving the selected part of a photo fills the place it came from with what is around it, as if it was never there. When off, that place is left see-through.": "ווען עס איז אן, ווערט דער ארט פון וואו דער אויסגעקליבענער טייל פון א פאטא איז געקומען אויסגעפילט מיט דעם וואס איז ארום, ווי ער וואלט דארט קיינמאל נישט געווען. ווען עס איז אויס, בלייבט יענער ארט דורכזיכטיג."
 }
