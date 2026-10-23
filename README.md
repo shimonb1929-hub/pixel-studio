@@ -92,6 +92,9 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Pages.** A design can have many pages (a menu, a booklet). A small row of pages sits at the
   bottom: + adds one, ⋯ copies, moves or deletes, Page Up and Page Down go between them. All pages
   share one size, undo works across them, and a PDF download holds every page.
+- **Margins and columns.** Pages › Margins and columns… draws faint lines for space around the edge
+  (None, Small, Medium, Large, or any size) and up to six columns. Things click to them while being
+  moved, the choice shows live before it's kept, and the lines are never printed or downloaded.
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 
@@ -248,8 +251,8 @@ pulling in see-through pixels, so blurred photos keep solid edges.
    fills (done); outline dashes and ends; combine shapes (join, cut out, overlap); SVG export.
 8. **More text** — different fonts and colors inside one text, text along a path, text effects
    (outline, shadow, fill with a photo), your own font files, lists and columns.
-9. **Pages and print** (InDesign) — multi-page documents, master pages, margins, columns and
-   guides, text that flows from box to box, print-ready PDF (several pages, bleed, cut lines and
+9. **Pages and print** (InDesign) — multi-page documents (done), margins and columns (done),
+   master pages, text that flows from box to box, print-ready PDF (several pages, bleed, cut lines and
    selectable text are done).
 10. **Pro layers and photo tools** (Photoshop) — blend modes, effects (shadow, glow,
    outline), curves and levels, clone and heal, select by color and select subject, and an easy

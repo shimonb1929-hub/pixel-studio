@@ -11,6 +11,8 @@ import { LayersPanel } from './components/LayersPanel.tsx'
 import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocumentDialog.tsx'
 import { RenameDialog } from './components/RenameDialog.tsx'
 import { ResizeDialog } from './components/ResizeDialog.tsx'
+import { PageLayoutDialog } from './components/PageLayoutDialog.tsx'
+import { hasLayout } from './editor/pageLayout.ts'
 import { ShapePanel, type ColorTarget } from './components/ShapePanel.tsx'
 import type { TextEditing } from './components/TextEditBox.tsx'
 import { TextPanel } from './components/TextPanel.tsx'
@@ -81,7 +83,7 @@ import { invertSelection, selectAll, selectionInfo, type Selection, type Selecti
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
-import type { EditorDocument, Layer, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
+import type { EditorDocument, Layer, PageLayout, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
 import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
@@ -98,7 +100,7 @@ import { changeText, fitText, newTextBox, textLayout, textName } from './text/te
 import { TOOLS } from './tools.ts'
 import { live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename'
+type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -335,6 +337,9 @@ export default function App() {
   const [cursor, setCursor] = useState<Point | null>(null)
   const [dialog, setDialog] = useState<DialogId | null>(null)
   const [exportFormat, setExportFormat] = useState<ExportFormat>('png')
+  // Margins and columns being chosen, shown on the design before they're kept.
+  const [layoutPreview, setLayoutPreview] = useState<PageLayout | null>(null)
+  const shownDoc = useMemo(() => (doc && layoutPreview ? { ...doc, layout: layoutPreview } : null), [doc, layoutPreview])
   const [notice, setNotice] = useState<Notice | null>(null)
   const [dropActive, setDropActive] = useState(false)
   const [spaceHeld, setSpaceHeld] = useState(false)
@@ -1979,6 +1984,10 @@ export default function App() {
       if (adjustChanged) return cancelAdjust(), true
       return false
     },
+    pageLayout: () => {
+      settle()
+      if (current()) setDialog('layout')
+    },
     resizeDesign: () => {
       settle()
       if (current()) setDialog('resize')
@@ -2512,7 +2521,7 @@ export default function App() {
           {doc ? (
             <>
               <CanvasView
-                doc={doc}
+                doc={shownDoc ?? doc}
                 revision={editor.revision}
                 viewport={viewport}
                 onViewportChange={setViewport}
@@ -2748,6 +2757,23 @@ export default function App() {
         />
       )}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
+      {dialog === 'layout' && doc && (
+        <PageLayoutDialog
+          doc={doc}
+          onPreview={setLayoutPreview}
+          onClose={() => setDialog(null)}
+          onApply={(layout) => {
+            setDialog(null)
+            setLayoutPreview(null)
+            editor.change(t('Margins and columns'), (d) => {
+              const next = { ...d }
+              if (hasLayout(layout)) next.layout = layout
+              else delete next.layout
+              return next
+            })
+          }}
+        />
+      )}
       {dialog === 'resize' && doc && (
         <ResizeDialog
           width={doc.width}

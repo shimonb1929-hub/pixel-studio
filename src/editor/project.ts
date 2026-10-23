@@ -10,7 +10,8 @@ import type { TextAlign, TextDirection } from '../text/layout.ts'
 import { loadDesignFonts } from '../text/textLayer.ts'
 import { tidyGroups } from './layers.ts'
 import { allPages, pageIndex } from './pages.ts'
-import type { DesignPage, EditorDocument, Layer, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, TextStyle } from './types.ts'
+import { hasLayout } from './pageLayout.ts'
+import type { DesignPage, EditorDocument, Layer, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, TextStyle } from './types.ts'
 import type { Gradient, GradientStop } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
 import { msg, t } from '../i18n/i18n.ts'
@@ -28,10 +29,10 @@ import { MAX_PPI } from './units.ts'
 // Version 3 added text. Version 4 added the page color, and designs with nothing on the page yet.
 // Version 5 added things kept together (group). Version 6 added effects (shadow, glow, outline) and
 // blend modes. Version 7 added pen paths and gradient fills. Version 8 added designs with several
-// pages (pages): then each page has its own layers, and the pictures come page by page. Older files
-// still open.
+// pages (pages): then each page has its own layers, and the pictures come page by page. Version 9
+// added margins and columns (layout). Older files still open.
 
-export const PROJECT_VERSION = 8
+export const PROJECT_VERSION = 9
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -114,6 +115,7 @@ export interface ProjectManifest {
   // being worked on.
   pages?: ProjectPage[]
   page?: number
+  layout?: PageLayout
 }
 
 export interface ProjectPage {
@@ -424,7 +426,13 @@ export function validateManifest(value: unknown): ProjectManifest {
     ...(ppi === undefined ? {} : { ppi }),
     selection: readSelection(value.selection),
     ...(pages ? { pages, page } : {}),
+    ...(value.layout === undefined ? {} : { layout: readLayout(value.layout) }),
   }
+}
+
+function readLayout(value: unknown): PageLayout {
+  if (!isRecord(value) || !isBetween(value.margin, 0, 100_000) || !isWhole(value.columns, 1, 24) || !isBetween(value.gap, 0, 100_000)) damaged()
+  return { margin: value.margin as number, columns: value.columns as number, gap: value.gap as number }
 }
 
 function readPage(value: Record<string, unknown>): ProjectPage {
@@ -504,6 +512,7 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
     ...(doc.ppi ? { ppi: doc.ppi } : {}),
     selection: doc.selection,
     ...(several ? { pages: described, page: pageIndex(doc) } : {}),
+    ...(hasLayout(doc.layout) ? { layout: doc.layout } : {}),
   }
   return packProject(manifest, pictures.flat(2))
 }
@@ -588,6 +597,7 @@ export async function decodeProject(file: Blob, id = createDesignId()): Promise<
     activeLayerId: open.activeLayerId,
     selection: manifest.selection,
     ...(pages.length > 1 ? { pages, pageIndex: index } : {}),
+    ...(manifest.layout ? { layout: manifest.layout } : {}),
   }
 }
 

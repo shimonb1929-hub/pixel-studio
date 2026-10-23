@@ -65,7 +65,9 @@ export function resizeDocument(doc: EditorDocument, width: number, height: numbe
     const [fw, fh] = layer.kind === 'text' ? [even, even] : straight ? [sx, sy] : sideways ? [sy, sx] : [even, even]
     return withBox(layer, { ...box, cx: box.cx * sx, cy: box.cy * sy, width: box.width * fw, height: box.height * fh }, even)
   })
-  return { ...doc, width, height, layers, selection: null }
+  // Margins and column gaps grow with the design, so the layout keeps its look.
+  const layout = doc.layout && { ...doc.layout, margin: Math.round(doc.layout.margin * even), gap: Math.round(doc.layout.gap * even) }
+  return { ...doc, width, height, layers, selection: null, ...(layout ? { layout } : {}) }
 }
 
 // Turns the whole design a quarter turn: 1 is clockwise, -1 counterclockwise.
