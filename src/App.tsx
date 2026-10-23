@@ -2480,8 +2480,9 @@ export default function App() {
 
         <main
           ref={workspaceRef}
-          className="relative min-w-0 flex-1 overflow-hidden rounded-card border border-line bg-workspace shadow-card"
-          style={DOT_BACKGROUND}
+          // The start screen sits on the bright room itself; the table with its dots appears with a design.
+          className={`relative min-w-0 flex-1 overflow-hidden ${doc ? 'rounded-card border border-line bg-workspace shadow-card' : ''}`}
+          style={doc ? DOT_BACKGROUND : undefined}
         >
           {doc ? (
             <>

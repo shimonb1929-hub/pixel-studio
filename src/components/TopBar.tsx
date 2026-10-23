@@ -225,7 +225,7 @@ export function TopBar({
         <button
           type="button"
           onClick={onSearch}
-          className="flex h-9 w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3 text-sm text-ink-3 shadow-sm transition-colors hover:border-[#cdd2db] hover:text-ink-2"
+          className="flex h-9 w-full items-center gap-2.5 rounded-xl border border-transparent bg-surface px-3 text-sm text-ink-3 shadow-card transition-colors hover:border-line hover:text-ink-2"
         >
           <Search size={16} className="shrink-0" />
           <span className="flex-1 truncate text-start">{t('What do you want to do?')}</span>
