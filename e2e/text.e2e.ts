@@ -382,7 +382,7 @@ test('text comes back from a project file with its font, direction and color', a
   await page.locator('input[type=file]').setInputFiles({ name: 'card.pixel', mimeType: '', buffer: bytes })
 
   await expect(page.locator('header')).toContainText('My design 1')
-  expect((await layerNames(page))[0]).toBe('שבת שלום, Shabbat!')
+  await expect.poll(async () => (await layerNames(page))[0]).toBe('שבת שלום, Shabbat!')
   // The font loads again first, which can take a moment on a busy computer.
   await expect
     .poll(
