@@ -118,7 +118,12 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
   // Text that flows around pictures and shapes: blocks floating at the sides of each row keep the
   // same room free as on the design, so the lines wrap the same way while typing.
   const lineHeight = style.size * style.lineHeight
-  const margins = layer.wrap && layer.avoid?.length ? avoidMargins(layer.avoid, width, lineHeight, style.size) : []
+  // A list's markers go inside the room each row has, so a row with something beside it starts
+  // its words that much further in.
+  const indent = layout.indent ?? 0
+  const margins = (layer.wrap && layer.avoid?.length ? avoidMargins(layer.avoid, width, lineHeight, style.size) : []).map((m) =>
+    layout.direction === 'ltr' ? { ...m, left: m.left > 0 && m.left < width ? m.left + indent : m.left } : { ...m, right: m.right > 0 ? m.right + indent : m.right },
+  )
 
   return (
     <>

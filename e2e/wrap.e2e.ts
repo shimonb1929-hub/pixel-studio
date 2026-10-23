@@ -177,3 +177,35 @@ test('Hebrew flows around a box, and can stop above and go on below', async ({ p
   expect(await inkIn(page, size, 200, 95, 250, 70)).toBe(0)
   expect(await inkIn(page, size, 40, 180, 420, 60)).toBeGreaterThan(200)
 })
+
+test('a numbered list flows around a shape too, exactly as shown while typing', async ({ page }) => {
+  const size = await newDesign(page, 500, 500)
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await drawShape(page, size, 'Rectangle', [40, 90], [170, 170])
+  await wrapAround(page, 'Its box')
+  await page.keyboard.press('t')
+  await drag(page, size, [
+    [40, 40],
+    [460, 80],
+  ])
+  const box = typingBox(page)
+  await expect(box).toBeFocused()
+  await page.getByRole('region', { name: 'Text' }).getByRole('radio', { name: 'Numbers' }).click()
+  await box.focus()
+  await page.keyboard.insertText('Fresh bread every morning')
+  await page.keyboard.press('Enter')
+  await page.keyboard.insertText('Soup of the day with a side of rice and salad')
+  await page.keyboard.press('Enter')
+  await page.keyboard.insertText('Tea and cake')
+  const typed = (await box.boundingBox())!
+  const height = Math.round(typed.height)
+  const whileTyping = await shot(page, size, 44, 44, 412, height - 8)
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('b')
+  await page.mouse.move(5, 5)
+  const afterwards = await shot(page, size, 44, 44, 412, height - 8)
+  const { ink, different } = await compareShots(page, whileTyping, afterwards)
+  expect(ink).toBeGreaterThan(1000)
+  expect(different / ink, `${different} of ${ink} ink pixels moved`).toBeLessThan(0.01)
+  expect(await inkIn(page, size, 40, 90, 130, 80)).toBe(0)
+})

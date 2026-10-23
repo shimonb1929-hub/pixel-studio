@@ -372,15 +372,12 @@ function layoutList(text: string, settings: LayoutSettings, wrapWidth: number | 
   const indent = listIndent(kind, direction, measure, settings.size)
   const shift = direction === 'ltr' ? indent : 0
   const innerWidth = wrapWidth === null ? null : Math.max(1, wrapWidth - indent)
-  // Beside things the text flows around, each row's room is measured from where the words start.
+  // Beside things the text flows around, each row keeps room for the markers inside the room it has.
   const innerRows: RowSlots | undefined =
     rows && innerWidth !== null
       ? (row) => {
           const slot = rows(row)
-          if (!slot) return null
-          const x = Math.max(0, slot.x - shift)
-          const width = Math.min(innerWidth, slot.x + slot.width - shift) - x
-          return width > 0 ? { x, width, narrowed: slot.narrowed } : null
+          return slot && slot.width > indent ? { x: slot.x, width: slot.width - indent, narrowed: slot.narrowed } : null
         }
       : undefined
   const inner = layoutText(text, { ...settings, list: null }, innerWidth, measure, rangeWidth, undefined, innerRows)
