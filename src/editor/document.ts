@@ -61,12 +61,14 @@ export function createLayer(name: string, width: number, height: number): PixelL
 
 // An exact copy, placed in the same spot. Shapes, text and photos inside shapes never change in place,
 // so their copy can share them; pixels are copied, since painting changes them.
-export function duplicateLayer(layer: Layer): Layer {
+export function duplicateLayer(original: Layer): Layer {
+  // A copy is its own thing, on this page only.
+  const { everyPage: _, ...layer } = original
   const id = createId('layer')
   const name = t('{name} copy', { name: layer.name })
   if (layer.kind === 'text' && layer.flow) {
     // A copy of a box the text runs on through is ordinary text holding what the box showed.
-    const { flow: _, ...plain } = layer
+    const { flow: __, ...plain } = layer
     return { ...plain, id, name, locked: false }
   }
   if (layer.kind !== 'raster') return { ...layer, id, name, locked: false }

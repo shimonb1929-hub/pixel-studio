@@ -36,6 +36,8 @@ interface LayerBase {
   effects?: LayerEffects | null
   // How the layer mixes with what's below it. Missing means normal.
   blend?: BlendMode
+  // Set when it's on every page: each page has a copy with the same `everyPage`, kept the same.
+  everyPage?: string
 }
 
 // A layer of pixels: a photo, a painting, a pasted picture.
@@ -141,6 +143,8 @@ export interface TextLayer extends LayerBase {
   wrap: boolean
   // Set when the text runs on from box to box: what doesn't fit in one box continues in the next.
   flow?: TextFlow
+  // A page number: its text is always the number of the page it's on.
+  pageNumber?: boolean
 }
 
 export interface TextFlow {

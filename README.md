@@ -102,6 +102,10 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   beside the text (on the left for Hebrew and Yiddish); what doesn't fit in one box continues in the
   next, like newspaper columns. Typing, sizes and fonts follow the whole story; removing a box puts
   its words back. Faint numbered outlines show the boxes, even empty ones.
+- **Same on every page.** Pages › Show on every page puts the picked thing (a logo, a heading) on
+  every page; changing it on any page changes it on all of them, and new pages get it too. Pages ›
+  Add page numbers puts a number at the bottom of every page that counts itself. The Layers panel
+  marks these, and one click keeps a thing on its own page again.
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 
@@ -261,7 +265,7 @@ pulling in see-through pixels, so blurred photos keep solid edges.
 8. **More text** — different fonts and colors inside one text, text along a path, text effects
    (outline, shadow, fill with a photo), your own font files, lists and columns.
 9. **Pages and print** (InDesign) — multi-page documents (done), margins and columns (done),
-   text that flows from box to box (done), master pages, print-ready PDF (several pages, bleed, cut lines and
+   text that flows from box to box (done), things and page numbers on every page (done), print-ready PDF (several pages, bleed, cut lines and
    selectable text are done).
 10. **Pro layers and photo tools** (Photoshop) — blend modes, effects (shadow, glow,
    outline), curves and levels, clone and heal, select by color and select subject, and an easy

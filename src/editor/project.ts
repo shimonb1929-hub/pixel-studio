@@ -32,9 +32,10 @@ import { MAX_PPI } from './units.ts'
 // blend modes. Version 7 added pen paths and gradient fills. Version 8 added designs with several
 // pages (pages): then each page has its own layers, and the pictures come page by page. Version 9
 // added margins and columns (layout). Version 10 added text that runs on from box to box (flow).
+// Version 11 added things on every page (everyPage) and page numbers (pageNumber).
 // Older files still open.
 
-export const PROJECT_VERSION = 10
+export const PROJECT_VERSION = 11
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -55,6 +56,7 @@ interface ProjectLayerBase {
   group?: LayerGroup
   effects?: LayerEffects | null
   blend?: BlendMode
+  everyPage?: string
 }
 
 export interface ProjectPixelLayer extends ProjectLayerBase {
@@ -90,6 +92,7 @@ export interface ProjectTextLayer extends ProjectLayerBase {
   spans?: TextSpan[]
   wrap: boolean
   flow?: TextFlow
+  pageNumber?: boolean
 }
 
 export type ProjectLayer = ProjectPixelLayer | ProjectShapeLayer | ProjectTextLayer
@@ -401,6 +404,10 @@ function readLayer(layer: unknown): ProjectLayer {
   if (effects) base.effects = effects
   const blend = readBlend(layer.blend)
   if (blend) base.blend = blend
+  if (layer.everyPage !== undefined) {
+    if (typeof layer.everyPage !== 'string' || !layer.everyPage || layer.everyPage.length > 100) damaged()
+    base.everyPage = layer.everyPage
+  }
   if (layer.kind === 'shape') {
     return { ...base, kind: 'shape', box: readBox(layer.box), geometry: readGeometry(layer.geometry), fill: readFill(layer.fill), outline: readOutline(layer.outline) }
   }
@@ -410,6 +417,10 @@ function readLayer(layer: unknown): ProjectLayer {
     const spans = readSpans(layer.spans, style, layer.text.length)
     const text: ProjectTextLayer = { ...base, kind: 'text', box: readBox(layer.box), text: layer.text, style, ...(spans ? { spans } : {}), wrap: layer.wrap }
     if (layer.flow !== undefined) text.flow = readFlow(layer.flow)
+    if (layer.pageNumber !== undefined) {
+      if (layer.pageNumber !== true) damaged()
+      text.pageNumber = true
+    }
     return text
   }
   if (
@@ -532,11 +543,12 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
     ...(layer.group ? { group: layer.group } : {}),
     effects: hasEffects(layer.effects) ? layer.effects : null,
     blend: layer.blend && layer.blend !== 'normal' ? layer.blend : undefined,
+    ...(layer.everyPage ? { everyPage: layer.everyPage } : {}),
   }
   if (layer.kind === 'raster') {
     return { ...base, kind: 'raster', x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height, box: layer.box, bytes: sizes[0] }
   }
-  if (layer.kind === 'text') return { ...base, kind: 'text', box: layer.box, text: layer.text, style: layer.style, ...(layer.spans ? { spans: layer.spans } : {}), wrap: layer.wrap, ...(layer.flow ? { flow: layer.flow } : {}) }
+  if (layer.kind === 'text') return { ...base, kind: 'text', box: layer.box, text: layer.text, style: layer.style, ...(layer.spans ? { spans: layer.spans } : {}), wrap: layer.wrap, ...(layer.flow ? { flow: layer.flow } : {}), ...(layer.pageNumber ? { pageNumber: true } : {}) }
   const { fill } = layer
   const savedFill: ProjectFill =
     fill.kind === 'photo'
@@ -593,7 +605,8 @@ async function decodeLayer(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
 
 async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
   const { name, visible, opacity, locked, adjust } = info
-  const extras: Pick<Layer, 'effects' | 'blend'> = {}
+  const extras: Pick<Layer, 'effects' | 'blend' | 'everyPage'> = {}
+  if (info.everyPage) extras.everyPage = info.everyPage
   if (info.effects) extras.effects = info.effects
   if (info.blend) extras.blend = info.blend
   if (info.kind === 'raster') {
@@ -601,7 +614,7 @@ async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer>
     return { ...layerFromCanvas(name, canvas, info.x, info.y), box: info.box, visible, opacity, locked, adjust, ...extras }
   }
   if (info.kind === 'text') {
-    return { id: createId('layer'), kind: 'text', name, visible, opacity, locked, adjust, ...extras, box: info.box, text: info.text, style: info.style, ...(info.spans ? { spans: info.spans } : {}), wrap: info.wrap, ...(info.flow ? { flow: info.flow } : {}) }
+    return { id: createId('layer'), kind: 'text', name, visible, opacity, locked, adjust, ...extras, box: info.box, text: info.text, style: info.style, ...(info.spans ? { spans: info.spans } : {}), wrap: info.wrap, ...(info.flow ? { flow: info.flow } : {}), ...(info.pageNumber ? { pageNumber: true } : {}) }
   }
   const fill =
     info.fill.kind === 'photo'
