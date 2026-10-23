@@ -1324,5 +1324,16 @@
   "Copied. {hint}": "Copiado. {hint}",
   "Cut. {hint}": "Cortado. {hint}",
   "Effects: {name}": "Efectos: {name}",
-  "Shows the spacing between letters and lines, and the reading direction.": "Muestra el espacio entre letras y líneas, y la dirección de lectura."
+  "Shows the spacing between letters and lines, and the reading direction.": "Muestra el espacio entre letras y líneas, y la dirección de lectura.",
+  "Blur the background": "Desenfocar el fondo",
+  "AI finds the main thing in the picked photo and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You see it first; press Apply to keep it.": "La IA encuentra lo principal en la foto elegida y desenfoca suavemente todo lo que hay detrás, como un retrato hecho con una cámara cara (profesional: Lens Blur, profundidad de campo). Primero lo ves; pulsa Aplicar para quedártelo.",
+  "AI finds the main thing in “{name}” and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You choose how much and see it before you keep it. The first time, the AI is downloaded, which takes a moment.": "La IA encuentra lo principal en “{name}” y desenfoca suavemente todo lo que hay detrás, como un retrato hecho con una cámara cara (profesional: Lens Blur, profundidad de campo). Tú eliges cuánto y lo ves antes de quedártelo. La primera vez se descarga la IA, lo que tarda un momento.",
+  "“{name}” stays sharp where the main thing is; everything behind it goes soft.": "“{name}” queda nítido donde está lo principal; todo lo que hay detrás se vuelve suave.",
+  "How much blur": "Cuánto desenfoque",
+  "How soft the background gets, like a photo from an expensive camera. The main thing always stays sharp. You see it on your design as you move the slider.": "Lo suave que queda el fondo, como en una foto de una cámara cara. Lo principal siempre queda nítido. Lo ves en tu diseño mientras mueves el control.",
+  "Keep the blurred background. You can undo it.": "Quedarte con el fondo desenfocado. Puedes deshacerlo.",
+  "Finding the main thing…": "Buscando lo principal…",
+  "Background blurred. Press Undo if you want it sharp again.": "Fondo desenfocado. Pulsa Deshacer si lo quieres nítido otra vez.",
+  "The AI could not tell what the main thing in this photo is, so there is nothing to keep sharp.": "La IA no pudo saber qué es lo principal en esta foto, así que no hay nada que dejar nítido.",
+  "Blur the background couldn't start. Check that you're online, then try again.": "Desenfocar el fondo no pudo empezar. Comprueba que tienes conexión y vuelve a intentarlo."
 }

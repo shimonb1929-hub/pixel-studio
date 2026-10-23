@@ -106,6 +106,14 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   every page; changing it on any page changes it on all of them, and new pages get it too. Pages ›
   Add page numbers puts a number at the bottom of every page that counts itself. The Layers panel
   marks these, and one click keeps a thing on its own page again.
+- **AI comes from our own site.** Magic select, Remove background and Blur the background use a
+  small AI that ships with the site (`public/models`, refreshed by `node scripts/models/fetch.mjs`),
+  engine included, so they work behind filters like NetFree that block other sites. Nothing is
+  fetched from anywhere else; a browser test blocks every other site and checks the AI still works.
+- **Blur the background.** With a photo picked, Arrange › Blur the background (pro: Lens Blur,
+  depth of field, portrait mode): the AI finds the main thing, which stays sharp, and everything
+  behind it goes soft with a gentle edge, like a photo from an expensive camera. A slider sets how
+  much, shown live; Apply keeps it as one undo step. Only the user's own pixels are used.
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 

@@ -1324,5 +1324,16 @@
   "Copied. {hint}": "קאפירט. {hint}",
   "Cut. {hint}": "אויסגעשניטן. {hint}",
   "Effects: {name}": "עפעקטן: {name}",
-  "Shows the spacing between letters and lines, and the reading direction.": "ווייזט דעם אפשטאנד צווישן אותיות און שורות, און די ליין-ריכטונג."
+  "Shows the spacing between letters and lines, and the reading direction.": "ווייזט דעם אפשטאנד צווישן אותיות און שורות, און די ליין-ריכטונג.",
+  "Blur the background": "פארשוואומען דעם הינטערגרונט",
+  "AI finds the main thing in the picked photo and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You see it first; press Apply to keep it.": "AI געפינט די הויפט זאך אינעם אויסגעקליבענעם בילד און פארשוואומט ווייך אלעס הינטער איר, ווי א פארטרעט פון א טייערן אפאראט (פראפעסיאנעל: Lens Blur, טיפקייט פון פעלד). איר זעט עס פריער; דריקט באשטעטיגן כדי עס צו האלטן.",
+  "AI finds the main thing in “{name}” and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You choose how much and see it before you keep it. The first time, the AI is downloaded, which takes a moment.": "AI געפינט די הויפט זאך אין “{name}” און פארשוואומט ווייך אלעס הינטער איר, ווי א פארטרעט פון א טייערן אפאראט (פראפעסיאנעל: Lens Blur, טיפקייט פון פעלד). איר קלייבט וויפל, און זעט עס איידער איר האלט עס. דאס ערשטע מאל ווערט די AI אראפגעלאדן, וואס נעמט א רגע.",
+  "“{name}” stays sharp where the main thing is; everything behind it goes soft.": "“{name}” בלייבט שארף וואו די הויפט זאך איז; אלעס הינטער איר ווערט ווייך.",
+  "How much blur": "וויפל פארשוואומען",
+  "How soft the background gets, like a photo from an expensive camera. The main thing always stays sharp. You see it on your design as you move the slider.": "ווי ווייך דער הינטערגרונט ווערט, ווי אין א בילד פון א טייערן אפאראט. די הויפט זאך בלייבט שטענדיק שארף. איר זעט עס אויף אייער דיזיין בשעת איר רירט דעם שיבער.",
+  "Keep the blurred background. You can undo it.": "האלטן דעם פארשוואומענעם הינטערגרונט. איר קענט עס צוריקמאכן.",
+  "Finding the main thing…": "מען זוכט די הויפט זאך…",
+  "Background blurred. Press Undo if you want it sharp again.": "דער הינטערגרונט איז פארשוואומען. דריקט צוריקמאכן אויב איר ווילט אים ווידער שארף.",
+  "The AI could not tell what the main thing in this photo is, so there is nothing to keep sharp.": "די AI האט נישט געקענט דערקענען וואס די הויפט זאך אין דעם בילד איז, איז נישטא וואס צו האלטן שארף.",
+  "Blur the background couldn't start. Check that you're online, then try again.": "פארשוואומען דעם הינטערגרונט האט נישט געקענט אנהייבן. מאכט זיכער אז איר זענט אויף אינטערנעט, און פרובירט נאכאמאל."
 }

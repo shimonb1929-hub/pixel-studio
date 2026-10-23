@@ -1,4 +1,4 @@
-import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
+import { Aperture, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -27,6 +27,8 @@ import { ALT_LABEL } from '../keys.ts'
 import { TEXT_KINDS, type TextKind } from '../text/presets.ts'
 import { toolInfo } from '../tools.ts'
 import { StrokePreview } from './StrokePreview.tsx'
+import { BlurBackgroundBar } from './BlurBackgroundBar.tsx'
+import type { BlurBackgroundControls } from '../ai/useBlurBackground.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button, Slider } from './ui.tsx'
 import { live, msg, t } from '../i18n/i18n.ts'
@@ -421,6 +423,10 @@ export interface ArrangeBarControls {
   spreadOut: (axis: 'x' | 'y') => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
+  // Set when one photo or drawing is picked: AI keeps the main thing sharp and blurs what's behind
+  // it. While that's being tried out, `blurSession` holds its slider and the bar shows only that.
+  blurBackground?: () => void
+  blurSession?: BlurBackgroundControls | null
   // Set when several things are picked: makes one shape out of them, or says why it can't.
   combine?: (mode: CombineMode) => void
   combineBlocked?: string | null
@@ -883,6 +889,7 @@ const PAGE_PLACES: Record<LineUpEdge, string> = live({
 
 function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
   const { target } = controls
+  if (controls.blurSession) return <BlurBackgroundBar controls={controls.blurSession} />
   if (!target) {
     return (
       <>
@@ -979,6 +986,15 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
             roomy
             description={t('AI finds the main thing in “{name}” and makes everything around it see-through. The first time, the AI is downloaded, which takes a moment. You can undo it.', { name: target.name })}
             onClick={controls.removeBackground}
+          />
+        )}
+        {controls.blurBackground && (
+          <BarButton
+            icon={Aperture}
+            label={t('Blur the background')}
+            roomy
+            description={t('AI finds the main thing in “{name}” and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You choose how much and see it before you keep it. The first time, the AI is downloaded, which takes a moment.', { name: target.name })}
+            onClick={controls.blurBackground}
           />
         )}
         {!part && (
