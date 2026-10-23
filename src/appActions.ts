@@ -41,6 +41,7 @@ export interface AppCommands {
   rotateDesign: (direction: 1 | -1) => void
   flipDesign: (axis: 'horizontal' | 'vertical') => void
   addPage: () => void
+  otherSizes: () => void
   pageLayout: () => void
   copyPage: () => void
   everyPage: () => void
@@ -74,6 +75,8 @@ export interface AppCommands {
   // Opens the Effects panel for what is picked.
   showEffects: () => void
   removeBackground: () => void
+  // Makes text in boxes flow around the picked picture or shape.
+  textWrap: () => void
 }
 
 interface ActionState {
@@ -537,6 +540,15 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       run: c.addPage,
     },
     {
+      id: 'other-sizes',
+      group: 'Pages',
+      title: t('Make other sizes…'),
+      description: t('Make this page again at other sizes, like a phone story, a post and a banner. Everything is moved to fit each size, and each one becomes a new page. Pro programs call this alternate layouts or magic resize.'),
+      keywords: ['resize', 'other sizes', 'sizes', 'alternate layout', 'alternate layouts', 'magic resize', 'story', 'post', 'banner', 'instagram', 'social', 'formats', 'adapt', 'many sizes', 'responsive', 'artboards'],
+      needsDocument: true,
+      run: c.otherSizes,
+    },
+    {
       id: 'page-layout',
       group: 'Pages',
       title: t('Margins and columns…'),
@@ -723,6 +735,16 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
       run: c.removeBackground,
+    },
+    {
+      id: 'text-wrap',
+      group: 'Layers',
+      title: t('Text around it (text wrap)'),
+      description: t('Make text in a box flow around this, instead of running over or under it. It works on text in a box: drag a box with the Text tool.'),
+      keywords: ['text wrap', 'wrap text', 'wrap', 'flow around', 'runaround', 'around picture', 'around shape', 'magazine', 'float'],
+      needsDocument: true,
+      disabledReason: doc && (!active || active.kind === 'text') ? t('Pick a picture or shape first: click it on your design.') : undefined,
+      run: c.textWrap,
     },
     ...LOOKS.filter((look) => look.id !== 'original').map(
       (look): Action => ({

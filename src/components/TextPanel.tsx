@@ -597,7 +597,7 @@ export function TextPanel(props: TextPanelProps) {
   return (
     <section aria-label={t("Text")} className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <Tooltip title={t("Text")} description={t("How the text looks. Changes show right away; the Color panel above colors the letters.")}>
+        <Tooltip title={t("Text")} description={t("How the text looks. Changes show right away; the Color panel below colors the letters.")}>
           <h2 className="flex min-w-0 cursor-help items-center gap-1.5 text-[14px] font-semibold text-ink">
             <span dir="auto" className="truncate">
               {props.title}
@@ -625,7 +625,7 @@ export function TextPanel(props: TextPanelProps) {
         <FillKindSwitch
           label={t('Letter color')}
           kind={style.gradient ? 'gradient' : 'color'}
-          colorHelp={t('All the letters in one color. Choose it in the Color panel above.')}
+          colorHelp={t('All the letters in one color. Choose it in the Color panel below.')}
           gradientHelp={t('Colors that fade smoothly across all the letters. Drag the round dots on the text to turn it.')}
           onChange={props.onFillKind}
         />

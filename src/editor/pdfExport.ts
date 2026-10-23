@@ -5,7 +5,7 @@ import { paintPage } from './gradient.ts'
 import { placeText } from '../text/textLayer.ts'
 import { buildPdf, type PdfImage, type PdfPage, type PdfTextLine } from './pdf.ts'
 import { pageDocuments } from './pages.ts'
-import { pdfLayout, type PdfLayout, type PdfSettings } from './pdfLayout.ts'
+import { defaultWidthInches, pdfLayout, type PdfLayout, type PdfSettings } from './pdfLayout.ts'
 import type { EditorDocument } from './types.ts'
 
 // Each strip of the picture is at most this many pixels, so even a big poster never needs one
@@ -83,12 +83,14 @@ function pageText(doc: EditorDocument, layout: PdfLayout): PdfTextLine[] {
   return lines
 }
 
-// Every page of the design, one after another, each the same size.
+// Every page of the design, one after another. Pages of another size get paper of their own size,
+// at the same inches per pixel as the open page.
 export async function exportPdf(doc: EditorDocument, settings: PdfSettings): Promise<Blob> {
-  const layout = pdfLayout(doc.width, doc.height, settings)
   const print = settings.purpose === 'print'
+  const inchesPerPixel = (settings.widthInches > 0 ? settings.widthInches : defaultWidthInches(doc.width)) / doc.width
   const pages: PdfPage[] = []
   for (const page of pageDocuments(doc)) {
+    const layout = pdfLayout(page.width, page.height, page.width === doc.width ? settings : { ...settings, widthInches: page.width * inchesPerPixel })
     // For screens a JPG picture keeps the file small enough to send.
     const image: PdfImage = print
       ? await losslessPicture(page, layout)

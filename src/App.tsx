@@ -11,6 +11,8 @@ import { LayersPanel } from './components/LayersPanel.tsx'
 import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocumentDialog.tsx'
 import { RenameDialog } from './components/RenameDialog.tsx'
 import { ResizeDialog } from './components/ResizeDialog.tsx'
+import { SizesDialog } from './components/SizesDialog.tsx'
+import { makeOtherSizes } from './editor/otherSizes.ts'
 import { PageLayoutDialog } from './components/PageLayoutDialog.tsx'
 import { defaultGap, hasLayout } from './editor/pageLayout.ts'
 import { ShapePanel, type ColorTarget } from './components/ShapePanel.tsx'
@@ -18,7 +20,8 @@ import type { TextEditing } from './components/TextEditBox.tsx'
 import { TextPanel } from './components/TextPanel.tsx'
 import { Toast, type Notice } from './components/Toast.tsx'
 import { ToolDock } from './components/ToolDock.tsx'
-import { ToolOptions, type ArrangeBarControls, type CropShape } from './components/ToolOptions.tsx'
+import { ToolOptions, type ArrangeBarControls, type CropShape, type TextWrapControls } from './components/ToolOptions.tsx'
+import { canWrapText, defaultTextWrap, wrapTextOn } from './text/wrapAround.ts'
 import { ScrollRegion } from './components/ui.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
@@ -46,7 +49,7 @@ import {
   MAX_DOCUMENT_SIDE,
 } from './editor/document.ts'
 import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocument } from './editor/documentOps.ts'
-import { addPage, changeEveryPage, movePage, pageDocuments, pageIndex, removePage } from './editor/pages.ts'
+import { addPage, changeEveryPage, movePage, pageDocuments, pageIndex, pagesSameSize, removePage } from './editor/pages.ts'
 import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
 import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
@@ -87,7 +90,7 @@ import { colorMaskAt } from './editor/colorSelect.ts'
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
-import type { EditorDocument, Layer, PageLayout, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, OutlineDash, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
+import type { EditorDocument, Layer, PageLayout, TextWrap, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, OutlineDash, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
 import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
@@ -103,12 +106,12 @@ import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './te
 import { useFontsVersion } from './hooks/useFontsVersion.ts'
 import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
-import { changeText, fitText, newTextBox, textLayout, textName } from './text/textLayer.ts'
+import { changeText, fitText, keepOnPage, newTextBox, textLayout, textName } from './text/textLayer.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
 import { live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout'
+type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -1006,6 +1009,9 @@ export default function App() {
 
   function setTextEdit(next: TextEditState | null) {
     if (next?.layer.id !== textEditRef.current?.layer.id) setTextPick(null)
+    // While typing, the text already flows around the pictures and shapes on the page.
+    const page = current()?.layers
+    if (next && page) next = { ...next, layer: wrapTextOn(page, next.layer) }
     textEditRef.current = next
     setTextEditState(next)
   }
@@ -1329,6 +1335,19 @@ export default function App() {
     lastWorkspaceRef.current = size
     setFitPending(null)
   }, [fitPending, workspace])
+
+  // Going to a page of another size (by picking it, or by undo going back to it) fits that page in
+  // view, like opening a design.
+  const shownPageRef = useRef<{ id: string; page: number; width: number; height: number } | null>(null)
+  useEffect(() => {
+    if (!doc) return
+    const now = { id: doc.id, page: pageIndex(doc), width: doc.width, height: doc.height }
+    const before = shownPageRef.current
+    shownPageRef.current = now
+    if (before && before.id === now.id && before.page !== now.page && (before.width !== now.width || before.height !== now.height)) {
+      setViewport(fitted(now, false))
+    }
+  }, [doc])
 
   // Before leaving the open design, its latest changes are saved in the browser. If that doesn't
   // work and they haven't been downloaded either, it asks first.
@@ -1898,6 +1917,7 @@ export default function App() {
     editor.change(label, onePage ? update : (doc) => changeEveryPage(doc, update), { bytes })
     const next = current()
     if (next) setViewport(fitted(next, false))
+    if (!onePage && !pagesSameSize(d)) inform(t('Only the pages the size of this one changed. Pages of other sizes stay as they are.'))
   }
 
   const layers = {
@@ -2222,6 +2242,10 @@ export default function App() {
       settle()
       if (current()) setDialog('resize')
     },
+    otherSizes: () => {
+      settle()
+      if (current()) setDialog('sizes')
+    },
     cropToSelection: () => {
       const d = current()
       const bounds = d?.selection && selectionInfo(d.selection, d.width, d.height).bounds
@@ -2319,6 +2343,13 @@ export default function App() {
     removeBackground: () => {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') void removeBackground(layer.id)
+    },
+    textWrap: () => {
+      const d = current()
+      const layer = d && activeLayer(d)
+      if (!d || !canWrapText(layer)) return
+      setTool('move')
+      if (!layer?.textWrap) textWrapControls(d, layer!).onMode('shape')
     },
   }
 
@@ -2628,8 +2659,26 @@ export default function App() {
       flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
       rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
+      textWrap: canWrapText(activeNow) ? textWrapControls(doc, activeNow) : undefined,
     }
   })()
+
+  // Whether text flows around a picture or shape, and how.
+  function textWrapControls(doc: EditorDocument, layer: Layer): TextWrapControls {
+    const value = layer.textWrap ?? null
+    const set = (wrap: TextWrap | null, label: string, mergeKey?: string) =>
+      editor.change(label, (d) => ({ ...d, layers: d.layers.map((l) => (l.id === layer.id ? { ...l, textWrap: wrap } : l)) }), { mergeKey })
+    return {
+      value,
+      onMode: (mode) => {
+        if ((value?.mode ?? null) === mode) return
+        set(mode ? { ...(value ?? defaultTextWrap(doc)), mode } : null, mode ? t('Text around it') : t('Text around it off'))
+      },
+      onGap: (gap) => value && gap !== value.gap && set({ ...value, gap }, t('Space around'), `wrap-gap-${layer.id}`),
+      maxGap: Math.max(10, Math.round(Math.min(doc.width, doc.height) * 0.1)),
+      ppi: documentPpi(doc),
+    }
+  }
 
   const arrangeControls: ArrangeControls | null =
     tool === 'move' && doc && !doc.selection
@@ -2661,7 +2710,11 @@ export default function App() {
     ? {
         layer: textEdit.layer,
         caret: textEdit.caret,
-        onChange: (text, spans) => updateTextEdit((layer) => changeText(layer, { text, spans })),
+        onChange: (text, spans) =>
+          updateTextEdit((layer) => {
+            const changed = changeText(layer, { text, spans })
+            return textEdit.isNew && doc ? keepOnPage(changed, doc.width) : changed
+          }),
         onSelect: (start, end) => setTextPick({ start, end }),
         onDone: finishText,
       }
@@ -2931,6 +2984,7 @@ export default function App() {
                   editor.goToPage(index)
                 }}
                 onAdd={commands.addPage}
+                onOtherSizes={commands.otherSizes}
                 onCopy={commands.copyPage}
                 onMove={commands.movePage}
                 onDelete={commands.deletePage}
@@ -2959,16 +3013,6 @@ export default function App() {
               column (then they scroll); the Layers panel always keeps the rest, so it never slips
               off a short screen. */}
           <ScrollRegion className="max-h-[64%] shrink-0 gap-3 [@media(max-height:820px)]:max-h-[56%]">
-            {adjustOn && doc ? (
-              <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
-            ) : (
-              <ColorPanel
-                color={panelColor ?? color}
-                recent={recentColors}
-                onChange={onPanelColor}
-                onPickFromDesign={() => setTool('picker')}
-              />
-            )}
             {textPanelOn && !adjustOn && doc && (
               <TextPanel
                 title={pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
@@ -3037,6 +3081,17 @@ export default function App() {
                       }
                     : null
                 }
+              />
+            )}
+            {/* The picked thing's own settings come first; the Color panel colors it from below. */}
+            {adjustOn && doc ? (
+              <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
+            ) : (
+              <ColorPanel
+                color={panelColor ?? color}
+                recent={recentColors}
+                onChange={onPanelColor}
+                onPickFromDesign={() => setTool('picker')}
               />
             )}
             {effectsLayer && (
@@ -3138,6 +3193,25 @@ export default function App() {
               else delete next.layout
               return next
             })
+          }}
+        />
+      )}
+      {dialog === 'sizes' && doc && (
+        <SizesDialog
+          doc={doc}
+          onClose={() => setDialog(null)}
+          onMake={(sizes) => {
+            setDialog(null)
+            settle()
+            const d = current()
+            if (!d) return
+            editor.change(t('Make other sizes'), (next) => makeOtherSizes(next, sizes), { bytes: documentBytes(d) * sizes.length })
+            setTool('move')
+            inform(
+              sizes.length > 1
+                ? t('Made {count} new pages, one for each size. Change each one as you like; a PDF download has them all.', { count: sizes.length })
+                : t('Made a new page at that size. Change it as you like; a PDF download has every page.'),
+            )
           }}
         />
       )}
