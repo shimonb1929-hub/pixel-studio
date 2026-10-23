@@ -1362,5 +1362,21 @@
  "“{name}” is locked, so it doesn't move by accident.": "“{name}” נעול, כדי שלא יזוז בטעות.",
  "“{name}” is locked. Click its lock in the Layers panel to unlock it first.": "“{name}” נעול. קודם לחץ על המנעול שלו בחלונית השכבות כדי לבטל את הנעילה.",
  "“{name}” is text, so you can't {doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.": "“{name}” הוא טקסט, ולכן אי אפשר {doing} רק חלק ממנו. שנה אותו עם סידור וחלונית הטקסט, או בחר שכבת ציור.",
- "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” כבר לא נמצא בדפדפן הזה. ייתכן שהוא נמחק בכרטיסייה אחרת."
+ "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” כבר לא נמצא בדפדפן הזה. ייתכן שהוא נמחק בכרטיסייה אחרת.",
+ "Only the pages the size of this one changed. Pages of other sizes stay as they are.": "רק העמודים בגודל של העמוד הזה השתנו. עמודים בגדלים אחרים נשארו כמו שהם.",
+ "Make other sizes": "יצירת גדלים נוספים",
+ "Make other sizes…": "יצירת גדלים נוספים…",
+ "Made {count} new pages, one for each size. Change each one as you like; a PDF download has them all.": "נוצרו {count} עמודים חדשים, אחד לכל גודל. אפשר לשנות כל אחד כרצונך; הורדה כ-PDF כוללת את כולם.",
+ "Made a new page at that size. Change it as you like; a PDF download has every page.": "נוצר עמוד חדש בגודל הזה. אפשר לשנות אותו כרצונך; הורדה כ-PDF כוללת את כל העמודים.",
+ "Make this page again at other sizes, like a phone story, a post and a banner. Everything is moved to fit each size, and each one becomes a new page. Pro programs call this alternate layouts or magic resize.": "יצירת העמוד הזה מחדש בגדלים אחרים, כמו סטורי לטלפון, פוסט ובאנר. הכול מסודר מחדש כדי להתאים לכל גודל, וכל אחד הופך לעמוד חדש. בתוכנות מקצועיות זה נקרא Alternate Layouts או Magic Resize.",
+ "Make this page again at other sizes, like a phone story, a post and a banner. Everything is moved to fit each size. Pro programs call this alternate layouts or magic resize.": "יצירת העמוד הזה מחדש בגדלים אחרים, כמו סטורי לטלפון, פוסט ובאנר. הכול מסודר מחדש כדי להתאים לכל גודל. בתוכנות מקצועיות זה נקרא Alternate Layouts או Magic Resize.",
+ "Pick the sizes you need, like a phone story or a banner. Each one becomes a new page, with everything moved to fit it. This page stays as it is.": "בחרו את הגדלים שאתם צריכים, כמו סטורי לטלפון או באנר. כל אחד הופך לעמוד חדש, והכול מסודר בו כדי להתאים. העמוד הזה נשאר כמו שהוא.",
+ "Make {count} sizes": "יצירת {count} גדלים",
+ "Make this size": "יצירת הגודל הזה",
+ "Sizes": "גדלים",
+ "Click a size to pick it, and again to unpick it. Each picture shows your page at that size. Pro programs call this alternate layouts or magic resize.": "לחצו על גודל כדי לבחור אותו, ושוב כדי לבטל. כל תצוגה מראה את העמוד שלכם בגודל הזה. בתוכנות מקצועיות זה נקרא Alternate Layouts או Magic Resize.",
+ "A size you typed in.": "גודל שהקלדתם.",
+ "Type any width and height, then press Add. It is measured the same way as the rest of the app.": "הקלידו רוחב וגובה כלשהם, ואז לחצו הוספה. המידה היא באותן יחידות כמו בשאר האפליקציה.",
+ "Width of your own size": "רוחב הגודל שלך",
+ "Height of your own size": "גובה הגודל שלך"
 }

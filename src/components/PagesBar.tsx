@@ -1,4 +1,4 @@
-import { Ellipsis, Plus } from 'lucide-react'
+import { Ellipsis, Plus, Proportions } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { drawLayer } from '../editor/compose.ts'
 import { getContext2d } from '../editor/document.ts'
@@ -6,6 +6,8 @@ import { paintPage } from '../editor/gradient.ts'
 import { allPages, pageIndex } from '../editor/pages.ts'
 import type { DesignPage, EditorDocument } from '../editor/types.ts'
 import { Tooltip } from './Tooltip.tsx'
+import { unitShort } from './unitWords.ts'
+import { documentPpi, formatInUnit, useUnit } from '../editor/units.ts'
 import { t } from '../i18n/i18n.ts'
 
 const THUMB_HEIGHT = 36
@@ -14,9 +16,9 @@ const THUMB_MAX_WIDTH = 56
 // A small picture of one page, drawn again a moment after it changes.
 function PageThumb({ doc, page, revision }: { doc: EditorDocument; page: DesignPage; revision: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
-  const scale = Math.min(THUMB_HEIGHT / doc.height, THUMB_MAX_WIDTH / doc.width)
-  const width = Math.max(1, Math.round(doc.width * scale))
-  const height = Math.max(1, Math.round(doc.height * scale))
+  const scale = Math.min(THUMB_HEIGHT / page.height, THUMB_MAX_WIDTH / page.width)
+  const width = Math.max(1, Math.round(page.width * scale))
+  const height = Math.max(1, Math.round(page.height * scale))
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -27,9 +29,9 @@ function PageThumb({ doc, page, revision }: { doc: EditorDocument; page: DesignP
       canvas.height = Math.round(height * dpr)
       const ctx = getContext2d(canvas)
       ctx.imageSmoothingQuality = 'high'
-      const s = canvas.width / doc.width
+      const s = canvas.width / page.width
       ctx.setTransform(s, 0, 0, s, 0, 0)
-      paintPage(ctx, page, doc.width, doc.height, undefined, '#ffffff')
+      paintPage(ctx, page, page.width, page.height, undefined, '#ffffff')
       for (const layer of page.layers) {
         if (!layer.visible || layer.opacity <= 0) continue
         ctx.globalAlpha = layer.opacity
@@ -47,6 +49,7 @@ interface PagesBarProps {
   revision: number
   onGoTo: (index: number) => void
   onAdd: () => void
+  onOtherSizes: () => void
   onCopy: () => void
   onMove: (direction: 1 | -1) => void
   onDelete: () => void
@@ -56,7 +59,7 @@ interface PagesBarProps {
 }
 
 // The pages of the design, in a row at the bottom. With one page it's just a button to add more.
-export function PagesBar({ doc, revision, onGoTo, onAdd, onCopy, onMove, onDelete, everyPage, pageNumbers }: PagesBarProps) {
+export function PagesBar({ doc, revision, onGoTo, onAdd, onOtherSizes, onCopy, onMove, onDelete, everyPage, pageNumbers }: PagesBarProps) {
   const pages = allPages(doc)
   const current = pageIndex(doc)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -72,6 +75,9 @@ export function PagesBar({ doc, revision, onGoTo, onAdd, onCopy, onMove, onDelet
   }, [menuOpen])
 
   const several = pages.length > 1
+  const sizes = new Set(pages.map((page) => `${page.width}x${page.height}`)).size > 1
+  const [unit] = useUnit()
+  const ppi = documentPpi(doc)
   const items: { label: string; run: () => void; disabled?: boolean }[] = [
     { label: t('Copy this page'), run: onCopy },
     { label: t('Move page earlier'), run: () => onMove(-1), disabled: current === 0 },
@@ -90,7 +96,11 @@ export function PagesBar({ doc, revision, onGoTo, onAdd, onCopy, onMove, onDelet
         <ol className="flex min-w-0 items-center gap-1 overflow-x-auto">
           {pages.map((page, i) => (
             <li key={page.id} className="shrink-0">
-              <Tooltip side="top" title={t('Page {number}', { number: i + 1 })} description={t('Click to work on this page. Page Up and Page Down go to the page before or after.')}>
+              <Tooltip
+                side="top"
+                title={sizes ? `${t('Page {number}', { number: i + 1 })} · ${formatInUnit(page.width, unit, ppi)} × ${formatInUnit(page.height, unit, ppi)} ${unitShort(unit)}` : t('Page {number}', { number: i + 1 })}
+                description={t('Click to work on this page. Page Up and Page Down go to the page before or after.')}
+              >
                 <button
                   type="button"
                   aria-label={t('Page {number}', { number: i + 1 })}
@@ -123,6 +133,20 @@ export function PagesBar({ doc, revision, onGoTo, onAdd, onCopy, onMove, onDelet
         >
           <Plus size={16} />
           {!several && t('Page')}
+        </button>
+      </Tooltip>
+      <Tooltip
+        side="top"
+        title={t('Make other sizes')}
+        description={t('Make this page again at other sizes, like a phone story, a post and a banner. Everything is moved to fit each size. Pro programs call this alternate layouts or magic resize.')}
+      >
+        <button
+          type="button"
+          aria-label={t('Make other sizes')}
+          onClick={onOtherSizes}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+        >
+          <Proportions size={16} />
         </button>
       </Tooltip>
       {several && (

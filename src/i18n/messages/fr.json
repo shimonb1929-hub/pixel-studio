@@ -1362,5 +1362,21 @@
  "“{name}” is locked, so it doesn't move by accident.": "“{name}” est verrouillé : il ne bouge pas par accident.",
  "“{name}” is locked. Click its lock in the Layers panel to unlock it first.": "“{name}” est verrouillé. Cliquez d’abord sur son cadenas dans le panneau Calques pour le déverrouiller.",
  "“{name}” is text, so you can't {doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.": "“{name}” est un texte : vous ne pouvez pas en {doing} une partie. Modifiez-le avec Disposer et le panneau Texte, ou choisissez un calque de peinture.",
- "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” n’est plus dans ce navigateur. Elle a peut-être été supprimée dans un autre onglet."
+ "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” n’est plus dans ce navigateur. Elle a peut-être été supprimée dans un autre onglet.",
+ "Only the pages the size of this one changed. Pages of other sizes stay as they are.": "Seules les pages de la même taille que celle-ci ont changé. Les pages d’autres tailles restent telles quelles.",
+ "Make other sizes": "Créer d’autres tailles",
+ "Make other sizes…": "Créer d’autres tailles…",
+ "Made {count} new pages, one for each size. Change each one as you like; a PDF download has them all.": "{count} nouvelles pages créées, une pour chaque taille. Modifiez chacune comme vous voulez ; un téléchargement en PDF les contient toutes.",
+ "Made a new page at that size. Change it as you like; a PDF download has every page.": "Une nouvelle page à cette taille a été créée. Modifiez-la comme vous voulez ; un téléchargement en PDF contient toutes les pages.",
+ "Make this page again at other sizes, like a phone story, a post and a banner. Everything is moved to fit each size, and each one becomes a new page. Pro programs call this alternate layouts or magic resize.": "Refaites cette page dans d’autres tailles, comme une story pour téléphone, une publication et une bannière. Tout est déplacé pour s’adapter à chaque taille, et chacune devient une nouvelle page. Les logiciels professionnels appellent cela mises en page alternatives ou redimensionnement magique.",
+ "Make this page again at other sizes, like a phone story, a post and a banner. Everything is moved to fit each size. Pro programs call this alternate layouts or magic resize.": "Refaites cette page dans d’autres tailles, comme une story pour téléphone, une publication et une bannière. Tout est déplacé pour s’adapter à chaque taille. Les logiciels professionnels appellent cela mises en page alternatives ou redimensionnement magique.",
+ "Pick the sizes you need, like a phone story or a banner. Each one becomes a new page, with everything moved to fit it. This page stays as it is.": "Choisissez les tailles dont vous avez besoin, comme une story pour téléphone ou une bannière. Chacune devient une nouvelle page, avec tout déplacé pour s’adapter. Cette page reste telle quelle.",
+ "Make {count} sizes": "Créer {count} tailles",
+ "Make this size": "Créer cette taille",
+ "Sizes": "Tailles",
+ "Click a size to pick it, and again to unpick it. Each picture shows your page at that size. Pro programs call this alternate layouts or magic resize.": "Cliquez sur une taille pour la choisir, et encore pour l’enlever. Chaque aperçu montre votre page à cette taille. Les logiciels professionnels appellent cela mises en page alternatives ou redimensionnement magique.",
+ "A size you typed in.": "Une taille que vous avez saisie.",
+ "Type any width and height, then press Add. It is measured the same way as the rest of the app.": "Saisissez n’importe quelle largeur et hauteur, puis appuyez sur Ajouter. C’est mesuré de la même façon que dans le reste de l’app.",
+ "Width of your own size": "Largeur de votre taille",
+ "Height of your own size": "Hauteur de votre taille"
 }

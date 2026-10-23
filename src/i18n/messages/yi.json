@@ -1362,5 +1362,21 @@
  "“{name}” is locked, so it doesn't move by accident.": "“{name}” איז פארשלאסן, כדי עס זאל זיך נישט צופעליג רירן.",
  "“{name}” is locked. Click its lock in the Layers panel to unlock it first.": "“{name}” איז פארשלאסן. קליקט קודם אויף זיין שלאס אינעם לעיערס פאנעל עס אויפצושליסן.",
  "“{name}” is text, so you can't {doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.": "“{name}” איז טעקסט, דערפאר קענט איר נישט {doing} א טייל דערפון. טוישט עס מיט ארדענען און דעם טעקסט פאנעל, אדער קלויבט אויס א מאל-לעיער.",
- "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” איז מער נישט אין דעם בראוזער. עס איז אפשר אויסגעמעקט געווארן אין אן אנדער טאב."
+ "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” איז מער נישט אין דעם בראוזער. עס איז אפשר אויסגעמעקט געווארן אין אן אנדער טאב.",
+ "Only the pages the size of this one changed. Pages of other sizes stay as they are.": "נאר די בלעטער אין דער גרייס פון דעם בלאט האבן זיך געטוישט. בלעטער אין אנדערע גרייסן בלייבן ווי זיי זענען.",
+ "Make other sizes": "מאכן אנדערע גרייסן",
+ "Make other sizes…": "מאכן אנדערע גרייסן…",
+ "Made {count} new pages, one for each size. Change each one as you like; a PDF download has them all.": "געמאכט {count} נייע בלעטער, איינס פאר יעדער גרייס. טויש יעדן איינעם ווי דו ווילסט; א PDF אראפלאד האט זיי אלע.",
+ "Made a new page at that size. Change it as you like; a PDF download has every page.": "געמאכט א נייעם בלאט אין דער גרייס. טויש אים ווי דו ווילסט; א PDF אראפלאד האט אלע בלעטער.",
+ "Make this page again at other sizes, like a phone story, a post and a banner. Everything is moved to fit each size, and each one becomes a new page. Pro programs call this alternate layouts or magic resize.": "מאך דעם בלאט נאכאמאל אין אנדערע גרייסן, ווי א טעלעפאן סטארי, א פאסט און א באנער. אלעס ווערט אריבערגערוקט צו פאסן יעדער גרייס, און יעדע ווערט א נייער בלאט. פראפעסיאנעלע פראגראמען רופן דאס Alternate Layouts אדער Magic Resize.",
+ "Make this page again at other sizes, like a phone story, a post and a banner. Everything is moved to fit each size. Pro programs call this alternate layouts or magic resize.": "מאך דעם בלאט נאכאמאל אין אנדערע גרייסן, ווי א טעלעפאן סטארי, א פאסט און א באנער. אלעס ווערט אריבערגערוקט צו פאסן יעדער גרייס. פראפעסיאנעלע פראגראמען רופן דאס Alternate Layouts אדער Magic Resize.",
+ "Pick the sizes you need, like a phone story or a banner. Each one becomes a new page, with everything moved to fit it. This page stays as it is.": "קלייב אויס די גרייסן וואס דו דארפסט, ווי א טעלעפאן סטארי אדער א באנער. יעדע ווערט א נייער בלאט, מיט אלעס אריבערגערוקט צו פאסן. דער דאזיקער בלאט בלייבט ווי ער איז.",
+ "Make {count} sizes": "מאכן {count} גרייסן",
+ "Make this size": "מאכן די גרייס",
+ "Sizes": "גרייסן",
+ "Click a size to pick it, and again to unpick it. Each picture shows your page at that size. Pro programs call this alternate layouts or magic resize.": "קליק אויף א גרייס צו אויסקלייבן, און נאכאמאל צו אפקלייבן. יעדע פאראויסווייזונג ווייזט דיין בלאט אין דער גרייס. פראפעסיאנעלע פראגראמען רופן דאס Alternate Layouts אדער Magic Resize.",
+ "A size you typed in.": "א גרייס וואס דו האסט אריינגעשריבן.",
+ "Type any width and height, then press Add. It is measured the same way as the rest of the app.": "שרייב אריין סיי וועלכע ברייט און הייך, דערנאך דריק צולייגן. עס ווערט געמאסטן די זעלבע וועג ווי אינעם רעשט פון דער אפ.",
+ "Width of your own size": "ברייט פון דיין אייגענער גרייס",
+ "Height of your own size": "הייך פון דיין אייגענער גרייס"
 }

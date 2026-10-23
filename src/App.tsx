@@ -11,6 +11,8 @@ import { LayersPanel } from './components/LayersPanel.tsx'
 import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocumentDialog.tsx'
 import { RenameDialog } from './components/RenameDialog.tsx'
 import { ResizeDialog } from './components/ResizeDialog.tsx'
+import { SizesDialog } from './components/SizesDialog.tsx'
+import { makeOtherSizes } from './editor/otherSizes.ts'
 import { PageLayoutDialog } from './components/PageLayoutDialog.tsx'
 import { defaultGap, hasLayout } from './editor/pageLayout.ts'
 import { ShapePanel, type ColorTarget } from './components/ShapePanel.tsx'
@@ -47,7 +49,7 @@ import {
   MAX_DOCUMENT_SIDE,
 } from './editor/document.ts'
 import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocument } from './editor/documentOps.ts'
-import { addPage, changeEveryPage, movePage, pageDocuments, pageIndex, removePage } from './editor/pages.ts'
+import { addPage, changeEveryPage, movePage, pageDocuments, pageIndex, pagesSameSize, removePage } from './editor/pages.ts'
 import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
 import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
@@ -108,7 +110,7 @@ import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
 import { live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout'
+type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -1314,6 +1316,19 @@ export default function App() {
     setFitPending(null)
   }, [fitPending, workspace])
 
+  // Going to a page of another size (by picking it, or by undo going back to it) fits that page in
+  // view, like opening a design.
+  const shownPageRef = useRef<{ id: string; page: number; width: number; height: number } | null>(null)
+  useEffect(() => {
+    if (!doc) return
+    const now = { id: doc.id, page: pageIndex(doc), width: doc.width, height: doc.height }
+    const before = shownPageRef.current
+    shownPageRef.current = now
+    if (before && before.id === now.id && before.page !== now.page && (before.width !== now.width || before.height !== now.height)) {
+      setViewport(fitted(now, false))
+    }
+  }, [doc])
+
   // Before leaving the open design, its latest changes are saved in the browser. If that doesn't
   // work and they haven't been downloaded either, it asks first.
   const leaveTicketRef = useRef(0)
@@ -1861,6 +1876,7 @@ export default function App() {
     editor.change(label, onePage ? update : (doc) => changeEveryPage(doc, update), { bytes })
     const next = current()
     if (next) setViewport(fitted(next, false))
+    if (!onePage && !pagesSameSize(d)) inform(t('Only the pages the size of this one changed. Pages of other sizes stay as they are.'))
   }
 
   const layers = {
@@ -2182,6 +2198,10 @@ export default function App() {
     resizeDesign: () => {
       settle()
       if (current()) setDialog('resize')
+    },
+    otherSizes: () => {
+      settle()
+      if (current()) setDialog('sizes')
     },
     cropToSelection: () => {
       const d = current()
@@ -2874,6 +2894,7 @@ export default function App() {
                   editor.goToPage(index)
                 }}
                 onAdd={commands.addPage}
+                onOtherSizes={commands.otherSizes}
                 onCopy={commands.copyPage}
                 onMove={commands.movePage}
                 onDelete={commands.deletePage}
@@ -3082,6 +3103,25 @@ export default function App() {
               else delete next.layout
               return next
             })
+          }}
+        />
+      )}
+      {dialog === 'sizes' && doc && (
+        <SizesDialog
+          doc={doc}
+          onClose={() => setDialog(null)}
+          onMake={(sizes) => {
+            setDialog(null)
+            settle()
+            const d = current()
+            if (!d) return
+            editor.change(t('Make other sizes'), (next) => makeOtherSizes(next, sizes), { bytes: documentBytes(d) * sizes.length })
+            setTool('move')
+            inform(
+              sizes.length > 1
+                ? t('Made {count} new pages, one for each size. Change each one as you like; a PDF download has them all.', { count: sizes.length })
+                : t('Made a new page at that size. Change it as you like; a PDF download has every page.'),
+            )
           }}
         />
       )}
