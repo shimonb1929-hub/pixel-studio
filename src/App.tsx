@@ -26,6 +26,8 @@ import { DesignInfo, StartHere, ToolHint, ZoomControls } from './components/Work
 import { PagePanel } from './components/PagePanel.tsx'
 import { GradientHandles } from './components/GradientHandles.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
+import { PhotoColors, ReadableNote, SmartPreviewBar } from './components/SmartHelpers.tsx'
+import { useSmartDesign } from './hooks/useSmartDesign.ts'
 import { effectThumbnails, flattenDocument } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
 import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, type Adjustments } from './editor/adjust.ts'
@@ -978,6 +980,8 @@ export default function App() {
   const pickedText = !textEdit && (tool === 'move' || tool === 'text') && activeNow?.kind === 'text' ? activeNow : null
   const textTarget: TextLayer | null = textEdit?.layer ?? pickedText
   const textPanelOn = !!doc && (textTarget !== null || tool === 'text')
+  // Colors from the photos, words that are easy to read, and tidying the whole page.
+  const smart = useSmartDesign(editor, { pickedId: activeNow?.id, pickedText, notify: inform })
 
   function setTextPick(next: { start: number; end: number } | null) {
     textPickRef.current = next
@@ -2277,6 +2281,9 @@ export default function App() {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') void removeBackground(layer.id)
     },
+    matchPhotoColors: smart.matchDesign,
+    tidyPage: smart.tidyPage,
+    makeReadable: smart.makeReadable,
   }
 
   const actions = buildActions(
@@ -2772,7 +2779,7 @@ export default function App() {
           {doc ? (
             <>
               <CanvasView
-                doc={shownDoc ?? doc}
+                doc={smart.shown ?? shownDoc ?? doc}
                 revision={editor.revision}
                 viewport={viewport}
                 onViewportChange={setViewport}
@@ -2823,7 +2830,7 @@ export default function App() {
                   onDraw={() => setTool('brush')}
                 />
               ) : (
-                <ToolHint tool={hintTool} extra={hintExtra} />
+                smart.preview ? <SmartPreviewBar preview={smart.preview} onApply={smart.apply} onCancel={smart.cancel} /> : <ToolHint tool={hintTool} extra={hintExtra} />
               )}
               <ZoomControls
                 zoom={viewport.zoom}
@@ -2877,6 +2884,7 @@ export default function App() {
                 recent={recentColors}
                 onChange={onPanelColor}
                 onPickFromDesign={() => setTool('picker')}
+                photoColors={<PhotoColors colors={smart.palette} fromPicked={smart.paletteFromPicked} current={panelColor ?? color} onPick={onPanelColor} onMatch={smart.matchDesign} />}
               />
             )}
             {textPanelOn && !adjustOn && doc && (
@@ -2898,6 +2906,7 @@ export default function App() {
                 onGradientStop={setGradientStop}
                 flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
                 onContinue={pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 ? continueInAnotherBox : undefined}
+                note={smart.readable && pickedTexts <= 1 && <ReadableNote {...smart.readable} onFix={smart.applyFix} onHover={smart.hoverFix} />}
               />
             )}
             {pageColorOn && !adjustOn && doc && (

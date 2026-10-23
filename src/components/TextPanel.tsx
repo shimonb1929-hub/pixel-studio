@@ -1,5 +1,5 @@
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, Italic, Search, WrapText, type LucideIcon } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { Gradient } from '../editor/gradient.ts'
 import type { TextStyle } from '../editor/types.ts'
 import type { FontCategory, FontInfo } from '../text/fontCatalog.ts'
@@ -479,6 +479,8 @@ export interface TextPanelProps {
   flow?: { box: number; boxes: number } | null
   // Adds a box for the text to continue in. Missing while typing or with several things picked.
   onContinue?: () => void
+  // A note when the words are hard to read where they are, with fixes.
+  note?: ReactNode
 }
 
 // How text looks: font, size, boldness, lining up, which way it reads and spacing.
@@ -513,6 +515,7 @@ export function TextPanel(props: TextPanelProps) {
               : t('Changes go to all the text. To change just some words, pick them with the mouse first.')}
           </p>
         )}
+        {props.note}
         <FontPicker value={style.font} sample={props.sample} hasRtl={props.hasRtl} onPick={props.onFont} onPreview={props.onPreviewFont} />
         {props.hasRtl && font && !font.hebrew && (
           <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">

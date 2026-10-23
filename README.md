@@ -106,6 +106,18 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   every page; changing it on any page changes it on all of them, and new pages get it too. Pages ›
   Add page numbers puts a number at the bottom of every page that counts itself. The Layers panel
   marks these, and one click keeps a thing on its own page again.
+- **Colors from your photos.** The Color panel shows the five or six main colors of the photos on
+  the design (or of the picked photo), found by themselves: small bright colors count, big plain
+  skies count less. Click one to use it. "Match design" gives the shapes and words on the page those
+  colors, words always in a color that reads on what is behind them, shown first with Apply and
+  Cancel (pro: color theme, recolor artwork).
+- **Words always readable.** When picked words are hard to read on what is behind them (measured on
+  the real pixels, the way accessibility checks do), a quiet note in the Text panel offers fixes:
+  white or dark words, a color from the photos, a soft shadow, or a soft box behind them kept
+  together with the words. Pointing at a fix shows it first (pro: contrast check).
+- **Tidy the whole page.** With one action, things that are almost lined up (edges or middles a few
+  pixels apart, with each other or the page) or almost evenly spaced move the few pixels to line up
+  exactly. Nothing moves far, things already lined up stay, and you see it before you keep it.
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 
