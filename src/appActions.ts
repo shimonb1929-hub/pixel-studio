@@ -39,6 +39,7 @@ export interface AppCommands {
   rotateDesign: (direction: 1 | -1) => void
   flipDesign: (axis: 'horizontal' | 'vertical') => void
   addPage: () => void
+  pageLayout: () => void
   copyPage: () => void
   deletePage: () => void
   movePage: (direction: 1 | -1) => void
@@ -521,6 +522,15 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       keywords: ['page', 'add page', 'new page', 'pages', 'booklet', 'menu', 'brochure', 'magazine', 'book', 'card', 'multi', 'more pages'],
       needsDocument: true,
       run: c.addPage,
+    },
+    {
+      id: 'page-layout',
+      group: 'Pages',
+      title: t('Margins and columns…'),
+      description: t('Faint lines for space around the edge and columns, that things click to as you move them. They are never printed.'),
+      keywords: ['margin', 'margins', 'columns', 'column', 'guides', 'guide', 'grid', 'layout', 'gutter', 'edge', 'border', 'line up'],
+      needsDocument: true,
+      run: c.pageLayout,
     },
     {
       id: 'copy-page',

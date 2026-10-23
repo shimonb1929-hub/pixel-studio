@@ -1,8 +1,9 @@
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Italic, Search, WrapText, type LucideIcon } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { TextStyle } from '../editor/types.ts'
 import type { FontCategory, FontInfo } from '../text/fontCatalog.ts'
 import { allFonts, fontInfo, fontName, fontStack, loadFont, nearestWeight } from '../text/fonts.ts'
+import { FONT_PURPOSES, type FontPurpose } from '../text/fontPurposes.ts'
 import type { TextAlign, TextDirection } from '../text/layout.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Slider } from './ui.tsx'
@@ -31,12 +32,16 @@ const WEIGHT_NAMES: Record<number, string> = live({
   1000: msg('Extra black'),
 })
 
-type FontFilter = 'all' | 'hebrew' | 'yiddish' | FontCategory
+type FontLetters = 'any' | 'hebrew' | 'yiddish'
+type FontFor = 'all' | FontPurpose
 
-const FILTERS: { value: FontFilter; label: string; description: string }[] = live([
-  { value: 'all', label: msg('All'), description: msg('Every font.') },
+const LETTERS: { value: FontLetters; label: string; description: string }[] = live([
+  { value: 'any', label: msg('Any'), description: msg('Fonts for every language.') },
   { value: 'hebrew', label: msg('Hebrew'), description: msg('Fonts with Hebrew letters.') },
   { value: 'yiddish', label: msg('Yiddish'), description: msg('Fonts with all the Yiddish letters (װ ױ ײ) and vowel points.') },
+])
+
+const KINDS: { value: FontCategory; label: string; description: string }[] = live([
   { value: 'sans', label: msg('Clean'), description: msg('Simple, modern letters without little feet (sans serif).') },
   { value: 'serif', label: msg('Classic'), description: msg('Letters with little feet, like in books and newspapers (serif).') },
   { value: 'display', label: msg('Bold & fun'), description: msg('Eye-catching letters for headlines and posters.') },
@@ -44,16 +49,66 @@ const FILTERS: { value: FontFilter; label: string; description: string }[] = liv
   { value: 'mono', label: msg('Typewriter'), description: msg('Every letter the same width, like code or a typewriter.') },
 ])
 
-function matchesFilter(font: FontInfo, filter: FontFilter): boolean {
-  if (filter === 'all') return true
-  if (filter === 'hebrew') return font.hebrew
-  if (filter === 'yiddish') return font.yiddish
-  return font.category === filter
+function hasLetters(font: FontInfo, letters: FontLetters): boolean {
+  if (letters === 'hebrew') return font.hebrew
+  if (letters === 'yiddish') return font.yiddish
+  return true
+}
+
+// Words that find a font: its name, its kind and what it's good for, in English and in the
+// language the app is shown in, so "wedding", "kids" or "Torah" find fonts too.
+function searchWords(font: FontInfo): string {
+  const kind = KINDS.find((k) => k.value === font.category)
+  const parts = [font.name, kind?.label ?? '', kind?.description ?? '', font.category]
+  for (const purpose of FONT_PURPOSES) {
+    if (purpose.fonts.includes(font.id)) parts.push(purpose.label, purpose.description, purpose.value)
+  }
+  if (font.hebrew) parts.push('hebrew', t('Hebrew'))
+  if (font.yiddish) parts.push('yiddish', t('Yiddish'))
+  return parts.join(' ').toLowerCase()
+}
+
+// The fonts picked lately on this computer, newest first.
+const RECENT_KEY = 'pixel-studio-recent-fonts'
+const RECENT_COUNT = 6
+
+function readRecent(): string[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]')
+    return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string' && !!fontInfo(id)).slice(0, RECENT_COUNT) : []
+  } catch {
+    return []
+  }
+}
+
+function saveRecent(id: string): string[] {
+  const next = [id, ...readRecent().filter((other) => other !== id)].slice(0, RECENT_COUNT)
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next))
+  } catch {
+    // Without storage the list is just not kept.
+  }
+  return next
 }
 
 // One font in the list, shown in its own letters once it has loaded: your own words when there
-// are some, so you see what they will look like before you pick.
-function FontOption({ font, sample, selected, onPick, observe }: { font: FontInfo; sample: string; selected: boolean; onPick: () => void; observe: (el: Element | null, id: string) => void }) {
+// are some, so you see what they will look like before you pick. Pointing at it shows it on the
+// page too.
+function FontOption({
+  font,
+  sample,
+  selected,
+  onPick,
+  onPreview,
+  observe,
+}: {
+  font: FontInfo
+  sample: string
+  selected: boolean
+  onPick: () => void
+  onPreview: () => void
+  observe: (el: Element | null, id: string) => void
+}) {
   return (
     <div
       ref={(el) => observe(el, font.id)}
@@ -62,6 +117,8 @@ function FontOption({ font, sample, selected, onPick, observe }: { font: FontInf
       aria-label={font.name}
       tabIndex={0}
       onClick={onPick}
+      onPointerEnter={onPreview}
+      onFocus={onPreview}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
@@ -90,16 +147,52 @@ function FontOption({ font, sample, selected, onPick, observe }: { font: FontInf
   )
 }
 
-function FontPicker({ value, sample, hasRtl, onPick }: { value: string; sample: string; hasRtl: boolean; onPick: (id: string) => void }) {
+function Chip({ label, description, checked, onClick }: { label: string; description: string; checked: boolean; onClick: () => void }) {
+  return (
+    <Tooltip title={label} description={description}>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={checked}
+        onClick={onClick}
+        className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+          checked ? 'bg-accent text-white' : 'bg-subtle text-ink-2 hover:text-ink'
+        }`}
+      >
+        {label}
+      </button>
+    </Tooltip>
+  )
+}
+
+function FontPicker({
+  value,
+  sample,
+  hasRtl,
+  onPick,
+  onPreview,
+}: {
+  value: string
+  sample: string
+  hasRtl: boolean
+  onPick: (id: string) => void
+  onPreview: (id: string | null) => void
+}) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<FontFilter>('all')
+  const [letters, setLetters] = useState<FontLetters>('any')
+  const [purpose, setPurpose] = useState<FontFor>('all')
+  const [recent, setRecent] = useState<string[]>([])
   const listRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const sampleRef = useRef(sample)
   useEffect(() => {
     sampleRef.current = sample
   }, [sample])
+  const previewRef = useRef(onPreview)
+  useEffect(() => {
+    previewRef.current = onPreview
+  }, [onPreview])
 
   // Fonts load only when they scroll into sight in the list.
   useEffect(() => {
@@ -120,16 +213,74 @@ function FontPicker({ value, sample, hasRtl, onPick }: { value: string; sample: 
     return () => observer.disconnect()
   }, [open])
 
+  // A new search or choice starts at the top of the list.
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = 0
+  }, [query, letters, purpose])
+
+  // The font in use is in sight when the list opens.
+  useEffect(() => {
+    if (!open) return
+    const list = listRef.current
+    const chosen = list?.querySelector<HTMLElement>('[aria-selected="true"]')
+    if (list && chosen) list.scrollTop = Math.max(0, chosen.offsetTop - list.offsetTop - list.clientHeight / 2 + chosen.offsetHeight / 2)
+  }, [open])
+
+  // Nothing stays shown on the page once the list closes.
+  useEffect(() => {
+    if (!open) previewRef.current(null)
+  }, [open])
+
   const observe = (el: Element | null, id: string) => {
     if (!el) return
     ;(el as HTMLElement).dataset.font = id
     observerRef.current?.observe(el)
   }
 
-  const fonts = useMemo(() => {
+  const pick = (id: string) => {
+    onPreview(null)
+    onPick(id)
+    setRecent(saveRecent(id))
+    setOpen(false)
+  }
+
+  // A search looks through every font; otherwise the list shows what the buttons above ask for,
+  // in groups by kind (or in the order of the purpose's own list).
+  const sections = useMemo((): { title: string; fonts: FontInfo[] }[] => {
     const words = query.trim().toLowerCase()
-    return allFonts().filter((font) => matchesFilter(font, filter) && (!words || font.name.toLowerCase().includes(words)))
-  }, [query, filter])
+    if (words) {
+      const found = allFonts().filter((font) => searchWords(font).includes(words))
+      // Fonts that can write the text come first.
+      if (hasRtl) found.sort((a, b) => Number(b.hebrew) - Number(a.hebrew))
+      return [{ title: '', fonts: found }]
+    }
+    if (purpose !== 'all') {
+      const info = FONT_PURPOSES.find((p) => p.value === purpose)
+      const fonts = (info?.fonts ?? []).flatMap((id) => {
+        const font = fontInfo(id)
+        return font && hasLetters(font, letters) ? [font] : []
+      })
+      return [{ title: '', fonts }]
+    }
+    return KINDS.map((kind) => ({
+      title: kind.label,
+      fonts: allFonts().filter((font) => font.category === kind.value && hasLetters(font, letters)),
+    })).filter((section) => section.fonts.length > 0)
+  }, [query, letters, purpose, hasRtl])
+
+  const count = sections.reduce((sum, section) => sum + section.fonts.length, 0)
+
+  // Up and down arrows move through the list.
+  const onListKey = (event: KeyboardEvent) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+    const options = [...(listRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])]
+    const at = options.indexOf(document.activeElement as HTMLElement)
+    const next = options[Math.min(options.length - 1, Math.max(0, at + (event.key === 'ArrowDown' ? 1 : -1)))]
+    if (next) {
+      event.preventDefault()
+      next.focus()
+    }
+  }
 
   return (
     <div className="flex flex-col gap-2">
@@ -139,7 +290,10 @@ function FontPicker({ value, sample, hasRtl, onPick }: { value: string; sample: 
           aria-label={t('Font: {font}', { font: fontName(value) })}
           aria-expanded={open}
           onClick={() => {
-            if (!open) setFilter(hasRtl ? 'hebrew' : 'all')
+            if (!open) {
+              setLetters(hasRtl ? 'hebrew' : 'any')
+              setRecent(readRecent())
+            }
             setOpen(!open)
           }}
           className="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 text-start text-[16px] text-ink transition-colors hover:border-ink-3"
@@ -151,53 +305,98 @@ function FontPicker({ value, sample, hasRtl, onPick }: { value: string; sample: 
         </button>
       </Tooltip>
       {open && (
-        <div className="flex flex-col gap-2 rounded-lg border border-line p-2">
+        <div className="flex flex-col gap-2.5 rounded-lg border border-line p-2">
           <label className="flex h-8 items-center gap-2 rounded-lg bg-subtle px-2 text-ink-2">
             <Search size={14} aria-hidden />
             <input
               aria-label={t("Find a font")}
-              placeholder={t("Find a font")}
+              placeholder={t("Find a font, or try “wedding”")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-3"
             />
           </label>
-          <div role="radiogroup" aria-label={t("Kind of font")} className="flex flex-wrap gap-1">
-            {FILTERS.map((f) => (
-              <Tooltip key={f.value} title={f.label} description={f.description}>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={filter === f.value}
-                  onClick={() => setFilter(f.value)}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                    filter === f.value ? 'bg-accent text-white' : 'bg-subtle text-ink-2 hover:text-ink'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              </Tooltip>
-            ))}
-          </div>
-          <div ref={listRef} role="listbox" aria-label={t("Fonts")} className="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
-            {fonts.length === 0 ? (
-              <p className="px-2 py-3 text-[12px] text-ink-2">{t('No font by that name. Try another word, or pick All.')}</p>
+          {!query.trim() && (
+            <>
+              <div role="radiogroup" aria-label={t("Letters")} className="flex gap-0.5 rounded-[10px] border border-line bg-subtle p-0.5">
+                {LETTERS.map((l) => (
+                  <Tooltip key={l.value} title={l.label} description={l.description} className="flex flex-1">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={letters === l.value}
+                      onClick={() => setLetters(l.value)}
+                      className={`flex h-7 flex-1 items-center justify-center rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
+                        letters === l.value ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
+                      }`}
+                    >
+                      {l.label}
+                    </button>
+                  </Tooltip>
+                ))}
+              </div>
+              <div role="radiogroup" aria-label={t("What it’s for")} className="flex flex-wrap gap-1">
+                <Chip label={t('All')} description={t('Every font, in groups by kind.')} checked={purpose === 'all'} onClick={() => setPurpose('all')} />
+                {FONT_PURPOSES.map((p) => (
+                  <Chip key={p.value} label={p.label} description={p.description} checked={purpose === p.value} onClick={() => setPurpose(p.value)} />
+                ))}
+              </div>
+              {recent.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="me-0.5 text-[11px] text-ink-2">{t('Used lately:')}</span>
+                  {recent.map((id) => (
+                    <Tooltip key={id} title={fontName(id)} description={t('A font you picked lately. Click to use it again.')}>
+                      <button
+                        type="button"
+                        aria-label={t('Use {font} again', { font: fontName(id) })}
+                        onClick={() => pick(id)}
+                        onPointerEnter={() => onPreview(id)}
+                        onPointerLeave={() => onPreview(null)}
+                        className="max-w-28 truncate rounded-md border border-line px-1.5 py-0.5 text-[12px] text-ink hover:bg-subtle"
+                        style={{ fontFamily: fontStack(id) }}
+                      >
+                        {fontName(id)}
+                      </button>
+                    </Tooltip>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+          <div
+            ref={listRef}
+            role="listbox"
+            aria-label={t("Fonts")}
+            onKeyDown={onListKey}
+            onPointerLeave={() => onPreview(null)}
+            className="flex max-h-80 flex-col gap-0.5 overflow-y-auto"
+          >
+            {count === 0 ? (
+              <p className="px-2 py-3 text-[12px] text-ink-2">{t('No font found. Try another word, or clear the search.')}</p>
             ) : (
-              fonts.map((font) => (
-                <FontOption
-                  key={font.id}
-                  font={font}
-                  sample={sample}
-                  selected={font.id === value}
-                  observe={observe}
-                  onPick={() => {
-                    onPick(font.id)
-                    setOpen(false)
-                  }}
-                />
+              sections.map((section) => (
+                <div key={section.title} role="group" aria-label={section.title || undefined} className="flex flex-col gap-0.5">
+                  {section.title && (
+                    <div className="sticky top-0 z-10 bg-surface px-2 pb-1 pt-2 text-[11px] font-semibold text-ink-2">
+                      {section.title} <span className="font-normal text-ink-3">{section.fonts.length}</span>
+                    </div>
+                  )}
+                  {section.fonts.map((font) => (
+                    <FontOption
+                      key={font.id}
+                      font={font}
+                      sample={sample}
+                      selected={font.id === value}
+                      observe={observe}
+                      onPreview={() => onPreview(font.id)}
+                      onPick={() => pick(font.id)}
+                    />
+                  ))}
+                </div>
               ))
             )}
           </div>
+          <p className="px-1 text-[11px] text-ink-3">{t('Point at a font to see it on your page. Click to keep it.')}</p>
         </div>
       )}
     </div>
@@ -262,6 +461,8 @@ export interface TextPanelProps {
   // How the lines actually line up, when no alignment was chosen.
   resolvedAlign: 'left' | 'center' | 'right'
   onFont: (id: string) => void
+  // Shows a font on the page while it is pointed at in the list (null: show the text as it is).
+  onPreviewFont: (id: string | null) => void
   onStyle: (patch: Partial<TextStyle>, label: string, mergeKey?: string) => void
   onWrap: (wrap: boolean) => void
 }
@@ -288,10 +489,10 @@ export function TextPanel(props: TextPanelProps) {
       </div>
 
       <div className="flex flex-col gap-3">
-        <FontPicker value={style.font} sample={props.sample} hasRtl={props.hasRtl} onPick={props.onFont} />
+        <FontPicker value={style.font} sample={props.sample} hasRtl={props.hasRtl} onPick={props.onFont} onPreview={props.onPreviewFont} />
         {props.hasRtl && font && !font.hebrew && (
           <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">
-            {font.name} has no Hebrew letters, so they show in a matching Hebrew font. Pick a font marked אבג to choose their look.
+            {t('{font} has no Hebrew letters, so they show in a matching Hebrew font. Pick a font marked אבג to choose their look.', { font: font.name })}
           </p>
         )}
 

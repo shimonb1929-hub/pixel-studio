@@ -11,6 +11,8 @@ import { LayersPanel } from './components/LayersPanel.tsx'
 import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocumentDialog.tsx'
 import { RenameDialog } from './components/RenameDialog.tsx'
 import { ResizeDialog } from './components/ResizeDialog.tsx'
+import { PageLayoutDialog } from './components/PageLayoutDialog.tsx'
+import { hasLayout } from './editor/pageLayout.ts'
 import { ShapePanel, type ColorTarget } from './components/ShapePanel.tsx'
 import type { TextEditing } from './components/TextEditBox.tsx'
 import { TextPanel } from './components/TextPanel.tsx'
@@ -83,7 +85,7 @@ import { invertSelection, selectAll, selectionInfo, type Selection, type Selecti
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
-import type { EditorDocument, Layer, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
+import type { EditorDocument, Layer, PageLayout, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
 import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
@@ -100,7 +102,7 @@ import { changeText, fitText, newTextBox, textLayout, textName } from './text/te
 import { TOOLS } from './tools.ts'
 import { live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename'
+type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -337,6 +339,9 @@ export default function App() {
   const [cursor, setCursor] = useState<Point | null>(null)
   const [dialog, setDialog] = useState<DialogId | null>(null)
   const [exportFormat, setExportFormat] = useState<ExportFormat>('png')
+  // Margins and columns being chosen, shown on the design before they're kept.
+  const [layoutPreview, setLayoutPreview] = useState<PageLayout | null>(null)
+  const shownDoc = useMemo(() => (doc && layoutPreview ? { ...doc, layout: layoutPreview } : null), [doc, layoutPreview])
   const [notice, setNotice] = useState<Notice | null>(null)
   const [dropActive, setDropActive] = useState(false)
   const [spaceHeld, setSpaceHeld] = useState(false)
@@ -1041,6 +1046,27 @@ export default function App() {
     changeTextStyle({ font: id, weight }, t('Change font'))
   }
 
+  // A font pointed at in the font list, shown on the picked text (once it has loaded) until the
+  // pointer moves on. Nothing is changed until a font is clicked.
+  const [fontPreview, setFontPreview] = useState<string | null>(null)
+  const fontPreviewWanted = useRef<string | null>(null)
+  function previewFont(id: string | null) {
+    fontPreviewWanted.current = id
+    if (!id) return setFontPreview(null)
+    const target = pickedText
+    if (!target) return
+    void loadFont({ ...target.style, font: id, weight: nearestWeight(id, target.style.weight) }, target.text || 'Aא').then(() => {
+      if (fontPreviewWanted.current === id) setFontPreview(id)
+    })
+  }
+  const fontPreviewLayer = useMemo(
+    () =>
+      fontPreview && pickedText && fontPreview !== pickedText.style.font
+        ? changeText(pickedText, { style: { font: fontPreview, weight: nearestWeight(fontPreview, pickedText.style.weight) } })
+        : null,
+    [fontPreview, pickedText],
+  )
+
   function changeWrap(wrap: boolean) {
     const label = wrap ? t('Wrap text in a box') : t('Fit box to text')
     if (textEditRef.current) {
@@ -1148,8 +1174,23 @@ export default function App() {
     setCropEdit(null)
     setCursor(null)
     setNotice(null)
-    setViewport(fitted(next, false))
+    setFitPending(next)
   }
+
+  // A design just opened is fitted once the screen has settled around it: the tools and panels
+  // only appear with a design, which makes the workspace smaller, so fitting it any earlier would
+  // leave the design off-center.
+  const [fitPending, setFitPending] = useState<{ width: number; height: number } | null>(null)
+  useLayoutEffect(() => {
+    // Measured here and now: the size kept in `workspace` only catches up a moment later.
+    const element = workspaceRef.current
+    const size = element ? { width: element.clientWidth, height: element.clientHeight } : workspace
+    if (!fitPending || !size.width || !size.height) return
+    setViewport(fitViewport(fitPending.width, fitPending.height, size.width, size.height, { allowUpscale: false, padding: FIT_PADDING }))
+    // When `workspace` catches up, the view is already right for it.
+    lastWorkspaceRef.current = size
+    setFitPending(null)
+  }, [fitPending, workspace])
 
   // Before leaving the open design, its latest changes are saved in the browser. If that doesn't
   // work and they haven't been downloaded either, it asks first.
@@ -2006,6 +2047,10 @@ export default function App() {
       if (adjustChanged) return cancelAdjust(), true
       return false
     },
+    pageLayout: () => {
+      settle()
+      if (current()) setDialog('layout')
+    },
     resizeDesign: () => {
       settle()
       if (current()) setDialog('resize')
@@ -2297,6 +2342,8 @@ export default function App() {
   const override: LayerOverride | null =
     textEdit && !textEdit.isNew
       ? { layerId: textEdit.layer.id, layer: { ...textEdit.layer, visible: false } }
+      : fontPreviewLayer
+      ? { layerId: fontPreviewLayer.id, layer: fontPreviewLayer }
       : tool === 'move' && transform && transformChanged
       ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) }
       : adjustPreview && !comparing
@@ -2555,7 +2602,7 @@ export default function App() {
           {doc ? (
             <>
               <CanvasView
-                doc={doc}
+                doc={shownDoc ?? doc}
                 revision={editor.revision}
                 viewport={viewport}
                 onViewportChange={setViewport}
@@ -2665,6 +2712,7 @@ export default function App() {
                 sample={fontSample(textTarget?.text ?? '')}
                 resolvedAlign={textTarget ? resolveAlign(textTarget.style.align, textLayout(textTarget).direction) : 'left'}
                 onFont={(id) => void changeFont(id)}
+                onPreviewFont={previewFont}
                 onStyle={changeTextStyle}
                 onWrap={changeWrap}
               />
@@ -2801,6 +2849,23 @@ export default function App() {
         />
       )}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
+      {dialog === 'layout' && doc && (
+        <PageLayoutDialog
+          doc={doc}
+          onPreview={setLayoutPreview}
+          onClose={() => setDialog(null)}
+          onApply={(layout) => {
+            setDialog(null)
+            setLayoutPreview(null)
+            editor.change(t('Margins and columns'), (d) => {
+              const next = { ...d }
+              if (hasLayout(layout)) next.layout = layout
+              else delete next.layout
+              return next
+            })
+          }}
+        />
+      )}
       {dialog === 'resize' && doc && (
         <ResizeDialog
           width={doc.width}

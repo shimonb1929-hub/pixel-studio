@@ -10,7 +10,7 @@ import { copyRegion, restoreRegion, type StrokeResult } from '../editor/stroke.t
 import type { EditorDocument, PixelLayer } from '../editor/types.ts'
 
 // Everything about a design except its pixels, which change in place and are kept separately.
-type DocState = Pick<EditorDocument, 'width' | 'height' | 'background' | 'pageGradient' | 'layers' | 'activeLayerId' | 'selection' | 'pages' | 'pageIndex'>
+type DocState = Pick<EditorDocument, 'width' | 'height' | 'background' | 'pageGradient' | 'layers' | 'activeLayerId' | 'selection' | 'pages' | 'pageIndex' | 'layout' | 'ppi'>
 
 // What one undo step remembers: pixels that changed on a layer, the design's structure, or a
 // few of those together (like growing a layer and then painting on it).
@@ -23,8 +23,8 @@ function mergeChanges(earlier: Change, later: Change): Change {
   return earlier.kind === 'structure' && later.kind === 'structure' ? { kind: 'structure', before: earlier.before, after: later.after } : later
 }
 
-function docState({ width, height, background, pageGradient, layers, activeLayerId, selection, pages, pageIndex }: EditorDocument): DocState {
-  return { width, height, background, pageGradient, layers, activeLayerId, selection, pages, pageIndex }
+function docState({ width, height, background, pageGradient, layers, activeLayerId, selection, pages, pageIndex, layout, ppi }: EditorDocument): DocState {
+  return { width, height, background, pageGradient, layers, activeLayerId, selection, pages, pageIndex, layout, ppi }
 }
 
 function regionBytes(region: HTMLCanvasElement): number {

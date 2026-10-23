@@ -259,6 +259,41 @@ test('the Text panel: size, boldness, font, color, lining up and reading directi
   expect(await undoLabel(page)).toContain('Undo text color')
 })
 
+test('fonts are found by what they are for, shown on the page while pointed at, and remembered', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.keyboard.press('t')
+  await clickAt(page, size, 300, 100)
+  await page.keyboard.insertText('בראשית ברא')
+  await page.keyboard.press('Escape')
+  const ink = () => inkBounds(page, size, 0, 0, 800, 300)
+  await expect.poll(ink).not.toBeNull()
+  const before = await ink()
+
+  await textPanel(page).getByRole('button', { name: /^Font:/ }).click()
+  // The text is Hebrew, so the list starts with fonts that can write it.
+  await expect(textPanel(page).getByRole('radio', { name: 'Hebrew' })).toHaveAttribute('aria-checked', 'true')
+  await textPanel(page).getByRole('radio', { name: 'Torah & seforim' }).click()
+  await expect(textPanel(page).getByRole('option', { name: 'Taamey Frank CLM' })).toBeVisible()
+  await expect(textPanel(page).getByRole('option', { name: 'Pacifico' })).toHaveCount(0)
+
+  // Pointing at a font shows it on the page; moving away puts the text back, and nothing is kept.
+  await textPanel(page).getByRole('option', { name: 'Stam Ashkenaz CLM' }).hover()
+  await expect.poll(ink).not.toEqual(before)
+  await page.mouse.move(5, 5)
+  await expect.poll(ink).toEqual(before)
+  expect(await undoLabel(page)).not.toContain('font')
+
+  await textPanel(page).getByRole('option', { name: 'Taamey Frank CLM' }).click()
+  await expect(textPanel(page).getByRole('button', { name: 'Font: Taamey Frank CLM' })).toBeVisible()
+  expect(await undoLabel(page)).toContain('Undo change font')
+
+  // The font just used is offered again, and a word finds fonts by what they're for.
+  await textPanel(page).getByRole('button', { name: /^Font:/ }).click()
+  await expect(textPanel(page).getByRole('button', { name: 'Use Taamey Frank CLM again' })).toBeVisible()
+  await textPanel(page).getByLabel('Find a font').fill('wedding')
+  await expect(textPanel(page).getByRole('option', { name: 'Great Vibes' })).toBeVisible()
+})
+
 test('Hebrew in a font made only for English shows in a Hebrew font, and the panel says so', async ({ page }) => {
   const size = await newDesign(page)
   await page.keyboard.press('t')
@@ -324,7 +359,15 @@ test('text comes back from a project file with its font, direction and color', a
   await textPanel(page).getByLabel('Find a font').fill('frank')
   await textPanel(page).getByRole('option', { name: 'Frank Ruhl Libre' }).click()
   await page.getByRole('button', { name: 'Blue', exact: true }).click()
-  const inkBefore = (await inkBounds(page, size, 0, 60, 400, 120))!
+  // The design is drawn again once the new font is in; measure it after it has settled.
+  let inkBefore: Awaited<ReturnType<typeof inkBounds>> = null
+  await expect
+    .poll(async () => {
+      const last = inkBefore
+      inkBefore = await inkBounds(page, size, 0, 60, 400, 120)
+      return !!last && JSON.stringify(last) === JSON.stringify(inkBefore)
+    })
+    .toBe(true)
 
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Download project…' }).click()
@@ -341,13 +384,13 @@ test('text comes back from a project file with its font, direction and color', a
   await page.locator('input[type=file]').setInputFiles({ name: 'card.pixel', mimeType: '', buffer: bytes })
 
   await expect(page.locator('header')).toContainText('My design 1')
-  expect((await layerNames(page))[0]).toBe('שבת שלום, Shabbat!')
+  await expect.poll(async () => (await layerNames(page))[0]).toBe('שבת שלום, Shabbat!')
   // The font loads again first, which can take a moment on a busy computer.
   await expect
     .poll(
       async () => {
         const ink = await inkBounds(page, size, 0, 60, 400, 120)
-        return ink && Math.max(Math.abs(ink.left - inkBefore.left), Math.abs(ink.right - inkBefore.right), Math.abs(ink.top - inkBefore.top))
+        return ink && inkBefore && Math.max(Math.abs(ink.left - inkBefore.left), Math.abs(ink.right - inkBefore.right), Math.abs(ink.top - inkBefore.top))
       },
       { timeout: 15000 },
     )

@@ -9,6 +9,7 @@ import { onGapFilled } from '../editor/gapFill.ts'
 import { startMove, type MoveSession } from '../editor/move.ts'
 import { renderScene, type LayerOverride } from '../editor/render.ts'
 import { sampleColor } from '../editor/sample.ts'
+import { layoutFrames } from '../editor/pageLayout.ts'
 import { snapMove, type SnapResult } from '../editor/snap.ts'
 import {
   combineSelection,
@@ -273,6 +274,8 @@ function penInput(event: PointerEvent<HTMLCanvasElement>) {
 // How close (in screen pixels) an edge or middle has to come to another to click into line.
 const SNAP_DISTANCE = 6
 const GUIDE_COLOR = '#e8457a'
+// Margins and columns: a soft violet, quieter than the lines that show what lined up.
+const LAYOUT_COLOR = 'rgba(124, 92, 230, 0.55)'
 const ANTS_DASH = 4
 const ANTS_INTERVAL_MS = 90
 
@@ -456,6 +459,22 @@ function drawBox(ctx: CanvasRenderingContext2D, box: Pick<BoxEditing, 'kind' | '
 // Text only has handles on its left and right sides: its height always fits its lines.
 function edgesOf(layer: Layer | undefined): EdgeHandles {
   return layer?.kind === 'text' ? 'sides' : true
+}
+
+// Margins and columns: faint dashed lines, under everything else on the overlay.
+function drawLayoutLines(ctx: CanvasRenderingContext2D, doc: EditorDocument, viewport: Viewport) {
+  const frames = layoutFrames(doc)
+  if (!frames) return
+  ctx.save()
+  ctx.strokeStyle = LAYOUT_COLOR
+  ctx.lineWidth = 1
+  ctx.setLineDash([4, 3])
+  for (const rect of [frames.inside, ...frames.columns]) {
+    const a = toScreen({ x: rect.x, y: rect.y }, viewport)
+    const b = toScreen({ x: rect.x + rect.width, y: rect.y + rect.height }, viewport)
+    ctx.strokeRect(Math.round(a.x) + 0.5, Math.round(a.y) + 0.5, Math.round(b.x) - Math.round(a.x), Math.round(b.y) - Math.round(a.y))
+  }
+  ctx.restore()
 }
 
 // The lines that show what a moved object lined up with, and the even gaps it made.
@@ -689,6 +708,7 @@ export function CanvasView(props: CanvasViewProps) {
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    drawLayoutLines(ctx, p.doc, p.viewport)
     drawSelection(ctx, p)
     if (p.box) drawBox(ctx, p.box, p.viewport, p.width, p.height)
     if (p.arrange && !p.doc.selection) {
@@ -1321,7 +1341,8 @@ export function CanvasView(props: CanvasViewProps) {
         let dy = Math.round(point.y - arrange.start.y)
         arrange.lined = null
         if (arrange.snap && !event.altKey) {
-          const page = { x: 0, y: 0, width: doc.width, height: doc.height }
+          const frames = layoutFrames(doc)
+          const page = [{ x: 0, y: 0, width: doc.width, height: doc.height }, ...(frames ? [frames.inside, ...frames.columns] : [])]
           const lined = snapMove(arrange.snap.moving, point.x - arrange.start.x, point.y - arrange.start.y, arrange.snap.others, page, SNAP_DISTANCE / viewport.zoom, arrange.snap.whole)
           dx = lined.dx
           dy = lined.dy

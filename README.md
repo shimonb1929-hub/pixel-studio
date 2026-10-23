@@ -63,10 +63,13 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   layer's adjustments stay changeable any time (no adjustment layers).
 - **English, Hebrew and Yiddish, all first-class.** Type right on the design. Hebrew and Yiddish
   read right to left by themselves; numbers, English words and punctuation inside them land where
-  a reader expects, even where lines wrap. What you see while typing is exactly what you get. 243
-  free fonts come built in, 77 of them with Hebrew letters (among them the classic David, Frank
-  Ruehl, Miriam, Keter and Stam) and 30 with every Yiddish letter and vowel point; fonts made only
-  for English still show Hebrew in a matching Hebrew font, never as boxes.
+  a reader expects, even where lines wrap. What you see while typing is exactly what you get. 382
+  free fonts come built in, 84 of them with Hebrew letters (among them the classic David, Frank
+  Ruehl, Miriam, Keter and Stam, and Taamey and Ezra with every vowel and cantillation mark) and
+  36 with every Yiddish letter and vowel point; fonts made only for English still show Hebrew in a
+  matching Hebrew font, never as boxes. Fonts are found by what they're for (headlines, easy
+  reading, Torah and seforim, invitations, kids) or by a word like "wedding", and pointing at one
+  shows it on the page before you pick it.
 - **Try first, then decide.** Cropping and adjusting colors show the result live. Nothing changes
   until you press Apply (or Enter); Esc puts it back. While adjusting, press and hold on the design
   to compare with how it was. Arranging shows the exact size and angle while you drag, and Undo
@@ -92,6 +95,9 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Pages.** A design can have many pages (a menu, a booklet). A small row of pages sits at the
   bottom: + adds one, ⋯ copies, moves or deletes, Page Up and Page Down go between them. All pages
   share one size, undo works across them, and a PDF download holds every page.
+- **Margins and columns.** Pages › Margins and columns… draws faint lines for space around the edge
+  (None, Small, Medium, Large, or any size) and up to six columns. Things click to them while being
+  moved, the choice shows live before it's kept, and the lines are never printed or downloaded.
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 
@@ -192,11 +198,13 @@ A browser test types mixed Hebrew, Yiddish, English, numbers and punctuation and
 finished text matches what was on screen while typing.
 
 The fonts are free fonts from Google Fonts (through Fontsource), under the SIL Open Font License or
-the Apache License, and the Culmus Hebrew fonts, under the GNU GPL with the font exception (a design
-that uses them is not covered by the GPL); each one's license is next to it in
-`public/fonts/<font>/LICENSE`. They're loaded only when a design uses them and kept for offline use
-after that. `node scripts/fonts/fetch.mjs` downloads them again and rebuilds the font list from
-`scripts/fonts/list.json`; `python3 scripts/fonts/culmus.py` remakes the Culmus files first.
+the Apache License, the Culmus Hebrew fonts and the Taamey fonts, under the GNU GPL with the font
+exception (a design that uses them is not covered by the GPL), and Ezra SIL, under the SIL Open
+Font License; each one's license is next to it in `public/fonts/<font>/LICENSE`. They're loaded
+only when a design uses them and kept for offline use after that. `node scripts/fonts/fetch.mjs`
+downloads them again and rebuilds the font list from `scripts/fonts/list.json`;
+`python3 scripts/fonts/culmus.py` remakes the Culmus, Taamey and Ezra files first. What each font
+is good for is chosen by hand in `src/text/fontPurposes.ts`.
 
 A project (`.pixel`) is the letters `PXSTUDIO`, a JSON description of the design (size, layers
 with their kind, names, positions, boxes, visibility, opacity, locks and adjustments, shapes, text
@@ -240,16 +248,16 @@ pulling in see-through pixels, so blurred photos keep solid edges.
    forward, send backward, to front and to back; lining up and even gaps by themselves while dragging;
    picking several things (box or Shift+click), keeping them together, tidy up and line up.
 6. **Text** (done) — type on the design in English, Hebrew and Yiddish, with right-to-left text
-   that never scrambles; quick headings, subheadings and paragraphs; 243 free fonts with live
-   previews, Hebrew and Yiddish filters; size, boldness, italic, lining up, reading direction,
+   that never scrambles; quick headings, subheadings and paragraphs; 382 free fonts with live
+   previews, found by what they're for, with Hebrew and Yiddish filters; size, boldness, italic, lining up, reading direction,
    letter and line spacing; boxes that wrap their lines; text resizes, turns and saves like any
    object.
 7. **Shapes and the pen** (Illustrator) — a pen for curves with editable points (done); gradient
    fills (done); outline dashes and ends; combine shapes (join, cut out, overlap); SVG export.
 8. **More text** — different fonts and colors inside one text, text along a path, text effects
    (outline, shadow, fill with a photo), your own font files, lists and columns.
-9. **Pages and print** (InDesign) — multi-page documents, master pages, margins, columns and
-   guides, text that flows from box to box, print-ready PDF (several pages, bleed, cut lines and
+9. **Pages and print** (InDesign) — multi-page documents (done), margins and columns (done),
+   master pages, text that flows from box to box, print-ready PDF (several pages, bleed, cut lines and
    selectable text are done).
 10. **Pro layers and photo tools** (Photoshop) — blend modes, effects (shadow, glow,
    outline), curves and levels, clone and heal, select by color and select subject, and an easy

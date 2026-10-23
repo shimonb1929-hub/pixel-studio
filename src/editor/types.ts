@@ -160,6 +160,17 @@ export interface EditorDocument {
   // with one page.
   pages?: DesignPage[]
   pageIndex?: number
+  // Margins and columns: faint lines things line up with. Shared by every page; never printed.
+  layout?: PageLayout
+}
+
+// In design pixels.
+export interface PageLayout {
+  // Space kept free around the edge of the page.
+  margin: number
+  columns: number
+  // Space between columns.
+  gap: number
 }
 
 // Where the document sits on screen: a screen point equals
