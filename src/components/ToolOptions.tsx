@@ -231,7 +231,9 @@ interface Choice<T extends string> {
   description: string
 }
 
-function Segmented<T extends string>({ label, value, choices, onChange }: { label: string; value: T; choices: Choice<T>[]; onChange: (value: T) => void }) {
+// `compact` names only the chosen one on smaller screens; the others show their icon, and their
+// name on hover.
+function Segmented<T extends string>({ label, value, choices, compact, onChange }: { label: string; value: T; choices: Choice<T>[]; compact?: boolean; onChange: (value: T) => void }) {
   return (
     <div role="radiogroup" aria-label={label} className="flex shrink-0 gap-0.5 rounded-[10px] border border-line bg-subtle p-0.5">
       {choices.map((choice) => (
@@ -247,7 +249,7 @@ function Segmented<T extends string>({ label, value, choices, onChange }: { labe
             }`}
           >
             <choice.icon size={15} strokeWidth={1.9} />
-            {choice.label}
+            <span className={compact && value !== choice.value ? 'hidden 2xl:inline' : undefined}>{choice.label}</span>
           </button>
         </Tooltip>
       ))}
@@ -552,7 +554,7 @@ function SelectOptions({
   if (edge.editing) return <EdgeOptions controls={edge} editing={edge.editing} />
   return (
     <>
-      <Segmented label={t("Shape")} value={shape} choices={SHAPES} onChange={onShapeChange} />
+      <Segmented label={t("Shape")} value={shape} choices={SHAPES} compact onChange={onShapeChange} />
       {shape === 'color' && <ColorSelectOptions controls={colorSelect} />}
       <Segmented label={t("When you drag")} value={mode} choices={MODES} onChange={onModeChange} />
       <Divider />
