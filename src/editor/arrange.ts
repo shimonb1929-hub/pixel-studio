@@ -140,14 +140,13 @@ export interface BoxChange {
 export function changeBox(box: TransformBox, change: BoxChange, keepShape: boolean): TransformBox {
   const width = Math.abs(box.width)
   const height = Math.abs(box.height)
-  let nextWidth = change.width ?? width
-  let nextHeight = change.height ?? height
+  // Nothing gets thinner than a pixel, and with Keep shape the other side follows the kept size.
+  let nextWidth = Math.max(1, change.width ?? width)
+  let nextHeight = Math.max(1, change.height ?? height)
   if (keepShape && width > 0 && height > 0) {
-    if (change.width !== undefined && change.height === undefined) nextHeight = (nextWidth * height) / width
-    if (change.height !== undefined && change.width === undefined) nextWidth = (nextHeight * width) / height
+    if (change.width !== undefined && change.height === undefined) nextHeight = Math.max(1, (nextWidth * height) / width)
+    if (change.height !== undefined && change.width === undefined) nextWidth = Math.max(1, (nextHeight * width) / height)
   }
-  nextWidth = Math.max(1, nextWidth)
-  nextHeight = Math.max(1, nextHeight)
   const left = change.x ?? box.cx - width / 2
   const top = change.y ?? box.cy - height / 2
   return {

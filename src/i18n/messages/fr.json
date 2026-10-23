@@ -466,7 +466,6 @@
  "How big it will be on paper. It is turned into pixels using the pixels per inch below.": "La taille sur papier. Elle est convertie en pixels avec les pixels par pouce ci-dessous.",
  "How big the letters are, in pixels. You can also pull a corner of the text on your design.": "La taille des lettres, en pixels. Vous pouvez aussi tirer un coin du texte sur votre création.",
  "How big your design looks on screen. 100% is its real size. Click to go back to 100%.": "La taille d’affichage de votre création à l’écran. 100 % est sa taille réelle. Cliquez pour revenir à 100 %.",
- "How big your design prints, in inches. Change one side and the other follows, so nothing gets stretched.": "La taille d’impression de votre création, en pouces. Changez un côté et l’autre suit, rien n’est donc étiré.",
  "How big your design really is, in pixels. Pixels are the tiny colored squares every digital picture is made of.": "La taille réelle de votre création, en pixels. Les pixels sont les minuscules carrés de couleur qui forment toute image numérique.",
  "How big your design will be after cropping, in {unit}.": "La taille de votre design après le recadrage, en {unit}.",
  "How big your design will be on paper. It is {width} × {height} pixels, at {ppi} pixels per inch.": "La taille de votre design sur papier. Il mesure {width} × {height} pixels, à {ppi} pixels par pouce.",
@@ -1319,5 +1318,9 @@
  "“{name}” is locked, so it doesn't move by accident.": "“{name}” est verrouillé : il ne bouge pas par accident.",
  "“{name}” is locked. Click its lock in the Layers panel to unlock it first.": "“{name}” est verrouillé. Cliquez d’abord sur son cadenas dans le panneau Calques pour le déverrouiller.",
  "“{name}” is text, so you can't {doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.": "“{name}” est un texte : vous ne pouvez pas en {doing} une partie. Modifiez-le avec Disposer et le panneau Texte, ou choisissez un calque de peinture.",
- "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” n’est plus dans ce navigateur. Elle a peut-être été supprimée dans un autre onglet."
+ "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” n’est plus dans ce navigateur. Elle a peut-être été supprimée dans un autre onglet.",
+  "How big your design prints, in {unit}. Change one side and the other follows, so nothing gets stretched.": "La taille d’impression de votre création, en {unit}. Changez un côté et l’autre suit, rien n’est donc étiré.",
+  "Prints {width} × {height} {unit} ({inWidth} × {inHeight} in).": "S’imprime en {width} × {height} {unit} ({inWidth} × {inHeight} in).",
+  "Copied. {hint}": "Copié. {hint}",
+  "Cut. {hint}": "Coupé. {hint}"
 }

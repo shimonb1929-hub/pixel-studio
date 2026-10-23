@@ -2038,7 +2038,7 @@ export default function App() {
       const piece = selectedPiece()
       if (!piece) return
       setClipboard(piece)
-      inform(`Copied. ${pasteHint}`)
+      inform(t('Copied. {hint}', { hint: pasteHint }))
     },
     cut: () => {
       settle()
@@ -2053,7 +2053,7 @@ export default function App() {
       if (!layer || !piece || !area) return
       setClipboard(piece)
       editor.paint(t('Cut'), layer.id, area, (ctx, l) => clearSelected(ctx, l, d))
-      inform(`Cut. ${pasteHint}`)
+      inform(t('Cut. {hint}', { hint: pasteHint }))
     },
     paste: () => {
       settle()

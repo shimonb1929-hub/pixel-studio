@@ -466,7 +466,6 @@
  "How big it will be on paper. It is turned into pixels using the pixels per inch below.": "כמה גדול זה יהיה על הנייר. זה הופך לפיקסלים לפי מספר הפיקסלים לאינץ' שלמטה.",
  "How big the letters are, in pixels. You can also pull a corner of the text on your design.": "כמה גדולות האותיות, בפיקסלים. אפשר גם למשוך פינה של הטקסט בעיצוב.",
  "How big your design looks on screen. 100% is its real size. Click to go back to 100%.": "כמה גדול העיצוב נראה על המסך. 100% זה הגודל האמיתי שלו. לחץ כדי לחזור ל־100%.",
- "How big your design prints, in inches. Change one side and the other follows, so nothing gets stretched.": "כמה גדול העיצוב יודפס, באינצ'ים. שנה צד אחד והשני ישתנה איתו, כך ששום דבר לא נמתח.",
  "How big your design really is, in pixels. Pixels are the tiny colored squares every digital picture is made of.": "כמה גדול העיצוב באמת, בפיקסלים. פיקסלים הם הריבועים הצבעוניים הקטנטנים שכל תמונה דיגיטלית בנויה מהם.",
  "How big your design will be after cropping, in {unit}.": "כמה גדול יהיה העיצוב אחרי החיתוך, ב{unit}.",
  "How big your design will be on paper. It is {width} × {height} pixels, at {ppi} pixels per inch.": "כמה גדול יהיה העיצוב על הנייר. הוא {width} × {height} פיקסלים, ב-{ppi} פיקסלים לאינץ'.",
@@ -1319,5 +1318,9 @@
  "“{name}” is locked, so it doesn't move by accident.": "“{name}” נעול, כדי שלא יזוז בטעות.",
  "“{name}” is locked. Click its lock in the Layers panel to unlock it first.": "“{name}” נעול. קודם לחץ על המנעול שלו בחלונית השכבות כדי לבטל את הנעילה.",
  "“{name}” is text, so you can't {doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.": "“{name}” הוא טקסט, ולכן אי אפשר {doing} רק חלק ממנו. שנה אותו עם סידור וחלונית הטקסט, או בחר שכבת ציור.",
- "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” כבר לא נמצא בדפדפן הזה. ייתכן שהוא נמחק בכרטיסייה אחרת."
+ "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” כבר לא נמצא בדפדפן הזה. ייתכן שהוא נמחק בכרטיסייה אחרת.",
+  "How big your design prints, in {unit}. Change one side and the other follows, so nothing gets stretched.": "כמה גדול העיצוב יודפס, ב{unit}. שנה צד אחד והשני ישתנה איתו, כך ששום דבר לא נמתח.",
+  "Prints {width} × {height} {unit} ({inWidth} × {inHeight} in).": "יודפס בגודל {width} × {height} {unit} ({inWidth} × {inHeight} אינץ').",
+  "Copied. {hint}": "הועתק. {hint}",
+  "Cut. {hint}": "נגזר. {hint}"
 }

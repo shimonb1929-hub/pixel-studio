@@ -466,7 +466,6 @@
  "How big it will be on paper. It is turned into pixels using the pixels per inch below.": "ווי גרויס עס וועט זיין אויפן פאפיר. עס ווערט פארוואנדלט אין פיקסלען לויט די פיקסלען פער אינטש אונטן.",
  "How big the letters are, in pixels. You can also pull a corner of the text on your design.": "ווי גרויס די אותיות זענען, אין פיקסלען. איר קענט אויך ציען א ווינקל פונעם טעקסט אויף אייער דיזיין.",
  "How big your design looks on screen. 100% is its real size. Click to go back to 100%.": "ווי גרויס אייער דיזיין זעט אויס אויפן סקרין. 100% איז זיין אמת'ע גרייס. קליקט צוריקצוגיין צו 100%.",
- "How big your design prints, in inches. Change one side and the other follows, so nothing gets stretched.": "ווי גרויס אייער דיזיין ווערט געדרוקט, אין אינטשעס. טוישט איין זייט און די אנדערע גייט מיט, אזוי אז גארנישט ווערט נישט אויסגעצויגן.",
  "How big your design really is, in pixels. Pixels are the tiny colored squares every digital picture is made of.": "ווי גרויס אייער דיזיין איז באמת, אין פיקסלען. פיקסלען זענען די קליינינקע קאלירטע קוואדראטן פון וועלכע יעדעס דיגיטאלע בילד איז געמאכט.",
  "How big your design will be after cropping, in {unit}.": "ווי גרויס דער דיזיין וועט זיין נאכ'ן אפשניידן, אין {unit}.",
  "How big your design will be on paper. It is {width} × {height} pixels, at {ppi} pixels per inch.": "ווי גרויס דער דיזיין וועט זיין אויפ'ן פאפיר. ער איז {width} × {height} פיקסלען, מיט {ppi} פיקסלען פער אינטש.",
@@ -1319,5 +1318,9 @@
  "“{name}” is locked, so it doesn't move by accident.": "“{name}” איז פארשלאסן, כדי עס זאל זיך נישט צופעליג רירן.",
  "“{name}” is locked. Click its lock in the Layers panel to unlock it first.": "“{name}” איז פארשלאסן. קליקט קודם אויף זיין שלאס אינעם לעיערס פאנעל עס אויפצושליסן.",
  "“{name}” is text, so you can't {doing} part of it. Change it with Arrange and the Text panel, or pick a paint layer.": "“{name}” איז טעקסט, דערפאר קענט איר נישט {doing} א טייל דערפון. טוישט עס מיט ארדענען און דעם טעקסט פאנעל, אדער קלויבט אויס א מאל-לעיער.",
- "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” איז מער נישט אין דעם בראוזער. עס איז אפשר אויסגעמעקט געווארן אין אן אנדער טאב."
+ "“{name}” isn't in this browser anymore. It may have been deleted in another tab.": "“{name}” איז מער נישט אין דעם בראוזער. עס איז אפשר אויסגעמעקט געווארן אין אן אנדער טאב.",
+  "How big your design prints, in {unit}. Change one side and the other follows, so nothing gets stretched.": "ווי גרויס אייער דיזיין ווערט געדרוקט, אין {unit}. טוישט איין זייט און די אנדערע גייט מיט, אזוי אז גארנישט ווערט נישט אויסגעצויגן.",
+  "Prints {width} × {height} {unit} ({inWidth} × {inHeight} in).": "ווערט געדרוקט {width} × {height} {unit} ({inWidth} × {inHeight} אינטש).",
+  "Copied. {hint}": "קאפירט. {hint}",
+  "Cut. {hint}": "אויסגעשניטן. {hint}"
 }

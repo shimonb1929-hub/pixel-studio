@@ -3,11 +3,12 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { exportFileName, formatFileSize, stripExtension, type ExportFormat } from '../editor/fileNames.ts'
 import { exportDocument } from '../editor/io.ts'
 import type { PdfPurpose, PdfSettings } from '../editor/pdfLayout.ts'
-import { documentPpi } from '../editor/units.ts'
+import { documentPpi, inchesToUnit, unitToInches, useUnit, type Unit } from '../editor/units.ts'
 import { pageCount, pageIndex } from '../editor/pages.ts'
 import type { EditorDocument } from '../editor/types.ts'
 import { ChoiceGroup, Dialog, Field } from './Dialog.tsx'
 import { inputClass } from './ui.tsx'
+import { unitShort } from './unitWords.ts'
 import { live, msg, t } from '../i18n/i18n.ts'
 
 export interface ExportOptions {
@@ -76,13 +77,24 @@ const SOFT_PPI = 150
 
 // Keeps digits and the first dot, so "8.5" can be typed but "8.5.1" can't.
 function decimalInput(value: string): string {
-  const [whole, ...rest] = value.replace(/[^\d.]/g, '').split('.')
+  const [whole, ...rest] = value.replace(/,/g, '.').replace(/[^\d.]/g, '').split('.')
   return rest.length ? `${whole}.${rest.join('')}` : whole
 }
 
-function inchesText(inches: number): string {
-  return String(Math.round(inches * 100) / 100)
+// A size on paper as typed in the boxes: in the unit chosen for the app (paper is never in pixels).
+function paperText(inches: number, unit: PaperUnit): string {
+  const places = unit === 'mm' ? 10 : 100
+  return String(Math.round(inchesToUnit(inches, unit) * places) / places)
 }
+
+type PaperUnit = Exclude<Unit, 'px'>
+
+// How each unit names the size boxes.
+const PAPER_WORDS: Record<PaperUnit, { width: string; height: string }> = live({
+  in: { width: msg('Width in inches'), height: msg('Height in inches') },
+  cm: { width: msg('Width in centimeters'), height: msg('Height in centimeters') },
+  mm: { width: msg('Width in millimeters'), height: msg('Height in millimeters') },
+})
 
 function hasPhotos(doc: EditorDocument): boolean {
   return doc.layers.some((l) => l.visible && (l.kind === 'raster' || (l.kind === 'shape' && l.fill.kind === 'photo')))
@@ -123,9 +135,12 @@ export function ExportDialog({ doc, initialFormat = 'png', onExport, onClose }: 
   const [baseName, setBaseName] = useState(() => stripExtension(doc.name))
   const [estimate, setEstimate] = useState<{ key: string; size: number } | null>(null)
   const [purpose, setPurpose] = useState<PdfPurpose>('print')
+  // Paper is measured in the unit chosen for the app; someone counting in pixels gets inches.
+  const [unit] = useUnit()
+  const paperUnit: PaperUnit = unit === 'px' ? 'in' : unit
   // Typed as text so "8." can be on the way to "8.5"; the other side follows the design's shape.
-  const [paperWidth, setPaperWidth] = useState(() => inchesText(doc.width / documentPpi(doc)))
-  const [paperHeight, setPaperHeight] = useState(() => inchesText((doc.width / documentPpi(doc) * doc.height) / doc.width))
+  const [paperWidth, setPaperWidth] = useState(() => paperText(doc.width / documentPpi(doc), paperUnit))
+  const [paperHeight, setPaperHeight] = useState(() => paperText((doc.width / documentPpi(doc) * doc.height) / doc.width, paperUnit))
   // The side typed last is kept exact; the other is rounded for showing. Untouched, the size is the
   // exact one at 300 pixels per inch, so an A4 design prints exactly A4.
   const [paperSide, setPaperSide] = useState<'width' | 'height' | null>(null)
@@ -134,7 +149,11 @@ export function ExportDialog({ doc, initialFormat = 'png', onExport, onClose }: 
   const [cropMarks, setCropMarks] = useState(false)
 
   const widthInches =
-    paperSide === 'width' ? Number(paperWidth) : paperSide === 'height' ? (Number(paperHeight) * doc.width) / doc.height : doc.width / documentPpi(doc)
+    paperSide === 'width'
+      ? unitToInches(Number(paperWidth), paperUnit)
+      : paperSide === 'height'
+        ? (unitToInches(Number(paperHeight), paperUnit) * doc.width) / doc.height
+        : doc.width / documentPpi(doc)
   const paperError = purpose === 'print' && !(widthInches > 0 && Number(paperHeight) > 0) ? t('Type how big it should be on paper.') : null
   const pdf: PdfSettings = { purpose, widthInches, bleed, cropMarks }
 
@@ -169,13 +188,24 @@ export function ExportDialog({ doc, initialFormat = 'png', onExport, onClose }: 
 
   function paperSizeNote(): ReactNode {
     if (paperError) return <span className="text-danger">{paperError}</span>
-    const cm = (inches: number) => String(Math.round(inches * 25.4) / 10)
-    const size = t('Prints {width} × {height} inches ({cmWidth} × {cmHeight} cm).', {
-      width: inchesText(widthInches),
-      height: paperHeight,
-      cmWidth: cm(widthInches),
-      cmHeight: cm(Number(paperHeight)),
-    })
+    // The side that wasn't typed is exact, not the rounded number its box shows.
+    const heightInches = paperSide === 'height' ? unitToInches(Number(paperHeight), paperUnit) : (widthInches * doc.height) / doc.width
+    // The size in the chosen unit, with the other common unit beside it for anyone it's sent to.
+    const size =
+      paperUnit === 'in'
+        ? t('Prints {width} × {height} inches ({cmWidth} × {cmHeight} cm).', {
+            width: paperText(widthInches, 'in'),
+            height: paperHeight,
+            cmWidth: paperText(widthInches, 'cm'),
+            cmHeight: paperText(heightInches, 'cm'),
+          })
+        : t('Prints {width} × {height} {unit} ({inWidth} × {inHeight} in).', {
+            width: paperText(widthInches, paperUnit),
+            height: paperHeight,
+            unit: unitShort(paperUnit),
+            inWidth: paperText(widthInches, 'in'),
+            inHeight: paperText(heightInches, 'in'),
+          })
     const soft = hasPhotos(doc) && doc.width / widthInches < SOFT_PPI
     return `${size} ${soft ? t('Text and shapes stay sharp at any size, but photos may look a little soft this big.') : t('Text and shapes stay sharp at any size.')}`
   }
@@ -233,21 +263,21 @@ export function ExportDialog({ doc, initialFormat = 'png', onExport, onClose }: 
       {format === 'pdf' && purpose === 'print' && (
         <Field
           label={t("Size on paper")}
-          help={t("How big your design prints, in inches. Change one side and the other follows, so nothing gets stretched.")}
+          help={t('How big your design prints, in {unit}. Change one side and the other follows, so nothing gets stretched.', { unit: unitShort(paperUnit) })}
           note={paperSizeNote()}
         >
           <div className="flex items-center gap-2">
             {(['width', 'height'] as const).map((side) => (
               <div key={side} className="relative flex-1">
                 <input
-                  aria-label={side === 'width' ? t('Width in inches') : t('Height in inches')}
+                  aria-label={PAPER_WORDS[paperUnit][side]}
                   className={`${inputClass} pe-14`}
                   inputMode="decimal"
                   value={side === 'width' ? paperWidth : paperHeight}
                   onChange={(e) => {
                     const typed = decimalInput(e.target.value)
                     const ratio = side === 'width' ? doc.height / doc.width : doc.width / doc.height
-                    const other = Number(typed) > 0 ? inchesText(Number(typed) * ratio) : ''
+                    const other = Number(typed) > 0 ? paperText(unitToInches(Number(typed) * ratio, paperUnit), paperUnit) : ''
                     setPaperWidth(side === 'width' ? typed : other)
                     setPaperHeight(side === 'width' ? other : typed)
                     setPaperSide(side)
