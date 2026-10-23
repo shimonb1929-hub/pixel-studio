@@ -1,68 +1,116 @@
-// A one-page PDF for printing: the finished design as one picture, kept at full detail (no JPG
-// blur), on a page as big as the design is meant to print.
+// Writes a one-page PDF holding a picture of the design, and for print shops the lines that show
+// where to cut. Sizes are in points (72 to the inch), measured from the page's top-left corner.
 
-// Pixels per inch a design prints at when nothing else is said: the sharpness of the printed-page
-// sizes (an A4 page is 2480 × 3508 pixels, which is A4 exactly at 300).
-export const PRINT_PIXELS_PER_INCH = 300
-
-// How big the printed page is, in PDF points (72 to an inch).
-export function pdfPageSize(width: number, height: number, pixelsPerInch = PRINT_PIXELS_PER_INCH): { width: number; height: number } {
-  const points = (pixels: number) => Math.round((pixels / pixelsPerInch) * 72 * 100) / 100
-  return { width: points(width), height: points(height) }
+export interface PdfBox {
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
-// Packs the colors (red, green, blue; see-through parts already made white) the way PDF's
-// FlateDecode expects: zlib, which is what CompressionStream calls 'deflate'.
-async function deflate(bytes: Uint8Array): Promise<Uint8Array> {
-  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new CompressionStream('deflate'))
-  return new Uint8Array(await new Response(stream).arrayBuffer())
+export interface PdfImage {
+  width: number
+  height: number
+  // RGB bytes, either a JPG file (DCTDecode) or zlib-packed rows (FlateDecode).
+  data: Uint8Array
+  filter: 'DCTDecode' | 'FlateDecode'
 }
 
-// `rgba` is the design's pixels, row by row from the top, four bytes each.
-export async function makePdf(rgba: Uint8ClampedArray, width: number, height: number, pixelsPerInch = PRINT_PIXELS_PER_INCH): Promise<Blob> {
-  const rgb = new Uint8Array(width * height * 3)
-  for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
-    // Anything see-through is printed on white paper.
-    const alpha = rgba[i + 3] / 255
-    rgb[j] = Math.round(rgba[i] * alpha + 255 * (1 - alpha))
-    rgb[j + 1] = Math.round(rgba[i + 1] * alpha + 255 * (1 - alpha))
-    rgb[j + 2] = Math.round(rgba[i + 2] * alpha + 255 * (1 - alpha))
+export interface PdfPage {
+  width: number
+  height: number
+  image: PdfImage
+  // Where the picture is drawn on the page.
+  imageBox: PdfBox
+  // Where the paper is cut, and how far the design runs past it, for print shops.
+  trimBox?: PdfBox
+  bleedBox?: PdfBox
+  // Short black lines, each from (x1, y1) to (x2, y2).
+  marks?: [number, number, number, number][]
+  title: string
+}
+
+const encoder = new TextEncoder()
+
+function num(value: number): string {
+  return String(Math.round(value * 1000) / 1000)
+}
+
+// A PDF rectangle from a top-left box: [left bottom right top], with y counted from the bottom.
+function rect(box: PdfBox, pageHeight: number): string {
+  return `[${num(box.x)} ${num(pageHeight - box.y - box.height)} ${num(box.x + box.width)} ${num(pageHeight - box.y)}]`
+}
+
+// Text such as the title, as UTF-16 so Hebrew and Yiddish names show correctly in PDF readers.
+function textString(text: string): string {
+  let hex = 'FEFF'
+  for (let i = 0; i < text.length; i++) hex += text.charCodeAt(i).toString(16).padStart(4, '0').toUpperCase()
+  return `<${hex}>`
+}
+
+function pdfDate(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `(D:${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z)`
+}
+
+export function buildPdf(page: PdfPage, date = new Date()): Uint8Array<ArrayBuffer> {
+  const h = page.height
+  const { image, imageBox } = page
+
+  let content = `q ${num(imageBox.width)} 0 0 ${num(imageBox.height)} ${num(imageBox.x)} ${num(h - imageBox.y - imageBox.height)} cm /Im0 Do Q\n`
+  if (page.marks?.length) {
+    content += '0 G 0.25 w\n'
+    for (const [x1, y1, x2, y2] of page.marks) content += `${num(x1)} ${num(h - y1)} m ${num(x2)} ${num(h - y2)} l S\n`
   }
-  const picture = await deflate(rgb)
-  const page = pdfPageSize(width, height, pixelsPerInch)
-  const draw = `q ${page.width} 0 0 ${page.height} 0 0 cm /Im0 Do Q`
 
-  const encoder = new TextEncoder()
-  const parts: Uint8Array[] = []
-  const offsets: number[] = []
+  const boxes = [
+    `/MediaBox [0 0 ${num(page.width)} ${num(h)}]`,
+    page.bleedBox && `/BleedBox ${rect(page.bleedBox, h)}`,
+    page.trimBox && `/TrimBox ${rect(page.trimBox, h)}`,
+  ].filter(Boolean)
+
+  // Each object is text, or text around binary bytes for the picture.
+  const objects: (string | [string, Uint8Array, string])[] = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    `<< /Type /Page /Parent 2 0 R ${boxes.join(' ')} /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>`,
+    `<< /Length ${encoder.encode(content).length} >>\nstream\n${content}\nendstream`,
+    [
+      `<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /${image.filter} /Length ${image.data.length} >>\nstream\n`,
+      image.data,
+      '\nendstream',
+    ],
+    `<< /Title ${textString(page.title)} /Producer (Pixel Studio) /CreationDate ${pdfDate(date)} >>`,
+  ]
+
+  const chunks: Uint8Array[] = []
   let length = 0
   const add = (part: string | Uint8Array) => {
     const bytes = typeof part === 'string' ? encoder.encode(part) : part
-    parts.push(bytes)
+    chunks.push(bytes)
     length += bytes.length
   }
-  const object = (body: string, stream?: Uint8Array) => {
+
+  // The bytes after the first line tell programs the file holds binary data.
+  add('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n')
+  const offsets: number[] = []
+  objects.forEach((object, i) => {
     offsets.push(length)
-    add(`${offsets.length} 0 obj\n${body}\n`)
-    if (stream) {
-      add('stream\n')
-      add(stream)
-      add('\nendstream\n')
-    }
-    add('endobj\n')
-  }
-
-  // The second line's high bytes tell programs that the file holds more than plain text.
-  add('%PDF-1.4\n%âãÏÓ\n')
-  object('<< /Type /Catalog /Pages 2 0 R >>')
-  object('<< /Type /Pages /Kids [3 0 R] /Count 1 >>')
-  object(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${page.width} ${page.height}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`)
-  object(`<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${picture.length} >>`, picture)
-  object(`<< /Length ${draw.length} >>`, encoder.encode(draw))
-
+    add(`${i + 1} 0 obj\n`)
+    if (typeof object === 'string') add(object)
+    else object.forEach(add)
+    add('\nendobj\n')
+  })
   const xref = length
-  add(`xref\n0 ${offsets.length + 1}\n0000000000 65535 f \n`)
+  add(`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`)
   for (const offset of offsets) add(`${String(offset).padStart(10, '0')} 00000 n \n`)
-  add(`trailer\n<< /Size ${offsets.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`)
-  return new Blob(parts as BlobPart[], { type: 'application/pdf' })
+  add(`trailer\n<< /Size ${objects.length + 1} /Root 1 0 R /Info ${objects.length} 0 R >>\nstartxref\n${xref}\n%%EOF\n`)
+
+  const out = new Uint8Array(length)
+  let at = 0
+  for (const chunk of chunks) {
+    out.set(chunk, at)
+    at += chunk.length
+  }
+  return out
 }

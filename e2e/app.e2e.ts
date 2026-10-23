@@ -413,7 +413,7 @@ test.describe('downloading', () => {
     await page.getByRole('button', { name: 'Download', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Download your design' })
     await dialog.getByRole('radio', { name: 'PDF' }).click()
-    await expect(dialog).toContainText('It prints 8.27 × 11.69 inches (21 × 29.7 cm).')
+    await expect(dialog).toContainText('Prints 8.27 × 11.69 inches (21 × 29.7 cm).')
     await page.keyboard.press('Escape')
 
     const pdf = await downloadAs(page, 'PDF')
