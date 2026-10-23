@@ -10,7 +10,8 @@ import type { TextAlign, TextDirection } from '../text/layout.ts'
 import { loadDesignFonts } from '../text/textLayer.ts'
 import { tidySpans } from '../text/spans.ts'
 import { tidyGroups } from './layers.ts'
-import type { EditorDocument, Layer, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TextSpan, TextStyle } from './types.ts'
+import { allPages, pageIndex } from './pages.ts'
+import type { DesignPage, EditorDocument, Layer, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TextSpan, TextStyle } from './types.ts'
 import type { Gradient, GradientStop } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
 import { msg, t } from '../i18n/i18n.ts'
@@ -27,13 +28,16 @@ import { MAX_PPI } from './units.ts'
 // Version 2 added shapes, resized and turned pictures (box), locks and editable adjustments.
 // Version 3 added text. Version 4 added the page color, and designs with nothing on the page yet.
 // Version 5 added things kept together (group). Version 6 added effects (shadow, glow, outline) and
-// blend modes. Version 7 added pen paths and gradient fills. Older files still open.
+// blend modes. Version 7 added pen paths and gradient fills. Version 8 added designs with several
+// pages (pages): then each page has its own layers, and the pictures come page by page. Older files
+// still open.
 
-export const PROJECT_VERSION = 7
+export const PROJECT_VERSION = 8
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
 const MAX_LAYERS = 1000
+const MAX_PAGES = 500
 const MAX_DESCRIPTION_BYTES = 64 * 1024 * 1024
 // All layers together. Far beyond what a browser tab could hold anyway.
 const MAX_TOTAL_PIXELS = 1_000_000_000
@@ -108,6 +112,21 @@ export interface ProjectManifest {
   selection: Selection | null
   // Bottom layer first.
   layers: ProjectLayer[]
+  // A design with several pages has them here instead of `layers`, and `page` says which page was
+  // being worked on.
+  pages?: ProjectPage[]
+  page?: number
+}
+
+export interface ProjectPage {
+  background: string | null
+  activeLayer: number
+  layers: ProjectLayer[]
+}
+
+// Every page in a project, also for one-page files.
+function manifestPages(manifest: ProjectManifest): ProjectPage[] {
+  return manifest.pages ?? [{ background: manifest.background, activeLayer: manifest.activeLayer, layers: manifest.layers }]
 }
 
 // A problem with the file itself, explained in plain words.
@@ -148,7 +167,7 @@ export async function unpackProject(file: Blob): Promise<{ manifest: ProjectMani
   }
   const manifest = validateManifest(parsed)
   let offset = HEADER_BYTES + length
-  const images = manifest.layers.flatMap(pictureSizes).map((bytes) => {
+  const images = manifestPages(manifest).flatMap((page) => page.layers).flatMap(pictureSizes).map((bytes) => {
     const image = file.slice(offset, offset + bytes, 'image/png')
     offset += bytes
     return image
@@ -410,25 +429,40 @@ function readSelection(value: unknown): Selection | null {
 export function validateManifest(value: unknown): ProjectManifest {
   if (!isRecord(value) || !Number.isInteger(value.version) || (value.version as number) < 1) damaged()
   if ((value.version as number) > PROJECT_VERSION) throw new ProjectError(t(TOO_NEW))
-  const { name, width, height, activeLayer, layers, background, ppi } = value
+  const { name, width, height, ppi } = value
   if (ppi !== undefined && !isBetween(ppi, 1, MAX_PPI)) damaged()
   if (typeof name !== 'string' || typeof width !== 'number' || typeof height !== 'number' || validateDocumentSize(width, height)) damaged()
-  if (!Array.isArray(layers) || layers.length > MAX_LAYERS) damaged()
-  const checked = layers.map(readLayer)
-  const totalPixels = checked.reduce((sum, layer) => sum + picturePixels(layer), 0)
+  const main = readPage(value)
+  let pages: ProjectPage[] | undefined
+  let page: number | undefined
+  if (value.pages !== undefined) {
+    if (!Array.isArray(value.pages) || value.pages.length < 1 || value.pages.length > MAX_PAGES) damaged()
+    pages = value.pages.map((p) => (isRecord(p) ? readPage(p) : damaged()))
+    if (!isWhole(value.page, 0, pages.length - 1)) damaged()
+    page = value.page
+  }
+  const all = pages ?? [main]
+  if (all.reduce((sum, p) => sum + p.layers.length, 0) > MAX_LAYERS) damaged()
+  const totalPixels = all.flatMap((p) => p.layers).reduce((sum, layer) => sum + picturePixels(layer), 0)
   if (totalPixels > MAX_TOTAL_PIXELS) throw new ProjectError(t('This project is too big for Pixel Studio to open.'))
-  if (!isWhole(activeLayer, -1, checked.length - 1)) damaged()
   return {
     version: value.version as number,
     name: name.slice(0, MAX_NAME_LENGTH),
     width,
     height,
-    background: background === undefined || background === null ? null : readColor(background),
+    ...main,
     ...(ppi === undefined ? {} : { ppi }),
-    activeLayer,
     selection: readSelection(value.selection),
-    layers: checked,
+    ...(pages ? { pages, page } : {}),
   }
+}
+
+function readPage(value: Record<string, unknown>): ProjectPage {
+  const { activeLayer, layers, background } = value
+  if (!Array.isArray(layers) || layers.length > MAX_LAYERS) damaged()
+  const checked = layers.map(readLayer)
+  if (!isWhole(activeLayer, -1, checked.length - 1)) damaged()
+  return { background: background === undefined || background === null ? null : readColor(background), activeLayer, layers: checked }
 }
 
 // Encoding a big picture takes a moment, so each PNG is kept until its pixels change.
@@ -482,21 +516,26 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
 }
 
 export async function encodeProject(doc: EditorDocument): Promise<Blob> {
-  // Layers are read now, before waiting, so later changes don't end up half in the file.
-  const layers = doc.layers
-  const pictures = await Promise.all(layers.map((layer) => Promise.all(layerPictures(layer).map(canvasPng))))
+  // Pages are read now, before waiting, so later changes don't end up half in the file.
+  const pages = allPages(doc)
+  const pictures = await Promise.all(pages.map((page) => Promise.all(page.layers.map((layer) => Promise.all(layerPictures(layer).map(canvasPng))))))
+  const described = pages.map((page, p): ProjectPage => ({
+    background: page.background,
+    activeLayer: page.layers.findIndex((layer) => layer.id === page.activeLayerId),
+    layers: page.layers.map((layer, i) => describeLayer(layer, pictures[p][i].map((png) => png.size))),
+  }))
+  const several = pages.length > 1
   const manifest: ProjectManifest = {
     version: PROJECT_VERSION,
     name: doc.name,
     width: doc.width,
     height: doc.height,
-    background: doc.background,
+    ...(several ? { background: doc.background, activeLayer: -1, layers: [] } : described[0]),
     ...(doc.ppi ? { ppi: doc.ppi } : {}),
-    activeLayer: layers.findIndex((layer) => layer.id === doc.activeLayerId),
     selection: doc.selection,
-    layers: layers.map((layer, i) => describeLayer(layer, pictures[i].map((png) => png.size))),
+    ...(several ? { pages: described, page: pageIndex(doc) } : {}),
   }
-  return packProject(manifest, pictures.flat())
+  return packProject(manifest, pictures.flat(2))
 }
 
 async function decodePicture(png: Blob, width: number, height: number): Promise<HTMLCanvasElement> {
@@ -545,32 +584,41 @@ async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer>
 export async function decodeProject(file: Blob, id = createDesignId()): Promise<EditorDocument> {
   const { manifest, images } = await unpackProject(file)
   let next = 0
-  const layers = await Promise.all(
-    manifest.layers.map((info) => {
-      const count = pictureSizes(info).length
-      const pngs = images.slice(next, next + count)
-      next += count
-      return decodeLayer(info, pngs)
-    }),
-  )
   // Groups get new ids, like layers do, and only whole groups are kept.
   const groupIds = new Map<string, string>()
-  const regrouped = layers.map((layer) => {
-    if (!layer.group) return layer
-    if (!groupIds.has(layer.group.id)) groupIds.set(layer.group.id, createId('group'))
-    return { ...layer, group: { id: groupIds.get(layer.group.id)!, name: layer.group.name } }
-  })
-  return tidyGroups({
+  const pages = await Promise.all(
+    manifestPages(manifest).map(async (info): Promise<DesignPage> => {
+      const layers = await Promise.all(
+        info.layers.map((layerInfo) => {
+          const count = pictureSizes(layerInfo).length
+          const pngs = images.slice(next, next + count)
+          next += count
+          return decodeLayer(layerInfo, pngs)
+        }),
+      )
+      const regrouped = layers.map((layer) => {
+        if (!layer.group) return layer
+        if (!groupIds.has(layer.group.id)) groupIds.set(layer.group.id, createId('group'))
+        return { ...layer, group: { id: groupIds.get(layer.group.id)!, name: layer.group.name } }
+      })
+      const tidy = tidyGroups({ id, name: '', width: 1, height: 1, background: null, layers: regrouped, activeLayerId: regrouped[info.activeLayer]?.id ?? '', selection: null })
+      return { id: createId('page'), background: info.background, layers: tidy.layers, activeLayerId: tidy.activeLayerId }
+    }),
+  )
+  const index = manifest.page ?? 0
+  const open = pages[index]
+  return {
     id,
     name: manifest.name,
     width: manifest.width,
     height: manifest.height,
-    background: manifest.background,
+    background: open.background,
     ...(manifest.ppi ? { ppi: manifest.ppi } : {}),
-    layers: regrouped,
-    activeLayerId: regrouped[manifest.activeLayer]?.id ?? '',
+    layers: open.layers,
+    activeLayerId: open.activeLayerId,
     selection: manifest.selection,
-  })
+    ...(pages.length > 1 ? { pages, pageIndex: index } : {}),
+  }
 }
 
 // A small picture of the whole design, for the list of designs on the start screen.
