@@ -281,7 +281,7 @@ export function TextPanel(props: TextPanelProps) {
     <section aria-label={t("Text")} className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
       <div className="mb-3 flex items-center justify-between gap-2">
         <Tooltip title={t("Text")} description={t("How the text looks. Changes show right away; the Color panel above colors the letters.")}>
-          <h2 className="flex min-w-0 cursor-help items-center gap-1.5 text-[13px] font-semibold text-ink">
+          <h2 className="flex min-w-0 cursor-help items-center gap-1.5 text-[14px] font-semibold text-ink">
             <span dir="auto" className="truncate">
               {props.title}
             </span>

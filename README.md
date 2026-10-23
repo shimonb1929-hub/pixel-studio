@@ -82,9 +82,12 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   safe: it waits under "Your designs" on the start screen. Download it as a Project to keep a
   copy or move it to another computer. If the browser can't keep designs (some private
   windows), the top says "Not saved", and closing with changes that aren't downloaded asks first.
-- **Downloads in plain words.** Best quality (PNG), Small file (JPG), Print (PDF) or Project. Print
-  makes a page at the design's real printed size (300 pixels to the inch, so an A4 design is an
-  A4 page), says how big it prints in inches and centimeters, and keeps every detail.
+- **Downloads in plain words.** Best quality (PNG), Small file (JPG), Page (PDF) or Project. A page
+  is made for Screen (a small file to send) or Printing. For printing it comes out at the design's
+  real size (300 pixels to the inch, so an A4 design is an A4 page) or any size you type, in inches
+  with centimeters shown. Text and shapes are drawn again at full print detail, so they stay sharp
+  however big it prints, and Hebrew and Yiddish come out exactly as on screen. Print shops get an
+  extra edge for cutting (bleed) and cut lines, tucked under "For print shops".
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 
@@ -242,8 +245,8 @@ pulling in see-through pixels, so blurred photos keep solid edges.
 8. **More text** — different fonts and colors inside one text, text along a path, text effects
    (outline, shadow, fill with a photo), your own font files, lists and columns.
 9. **Pages and print** (InDesign) — multi-page documents, master pages, margins, columns and
-   guides, text that flows from box to box, print-ready PDF with bleed (a one-page PDF at real
-   size is done).
+   guides, text that flows from box to box, print-ready PDF (one page with bleed and cut lines
+   is done; several pages and selectable text are next).
 10. **Pro layers and photo tools** (Photoshop) — blend modes, effects (shadow, glow,
    outline), curves and levels, clone and heal, select by color and select subject, and an easy
    way to fade or hide parts of a layer (with a brush, never a mask to learn).

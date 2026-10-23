@@ -80,7 +80,7 @@ export function ShapePanel(props: ShapePanelProps) {
           title={t("Shape")}
           description={t("How the shape looks. Pick Fill or Outline, then choose a color in the Color panel above. Shapes stay sharp at any size.")}
         >
-          <h2 className="flex min-w-0 cursor-help items-center gap-1.5 text-[13px] font-semibold text-ink">
+          <h2 className="flex min-w-0 cursor-help items-center gap-1.5 text-[14px] font-semibold text-ink">
             <bdi className="truncate">{props.title}</bdi>
             <CircleHelp size={14} className="shrink-0 text-ink-3" aria-hidden />
           </h2>

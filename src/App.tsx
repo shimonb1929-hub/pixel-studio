@@ -63,8 +63,9 @@ import { startMove, type MoveSession } from './editor/move.ts'
 import { canFill, isLineShape, layerAt, layerBounds, layerPixels, polygonPoints } from './editor/objects.ts'
 import { fitPathToBox, geometryToPath, type ShapePath } from './editor/path.ts'
 import { gradientFrom, type Gradient } from './editor/gradient.ts'
-import { healRegion } from './editor/heal.ts'
-import { layerVersion } from './editor/pixelVersion.ts'
+import { onGapFilled, type GapFill } from './editor/gapFill.ts'
+import { healRegion } from './editor/healRegion.ts'
+import { layerVersion, pixelVersion } from './editor/pixelVersion.ts'
 import { combineFound, maskToOps } from './ai/maskSelection.ts'
 import { AI_PICTURE_SIDE, findThing, onAiProgress, prepareThing } from './ai/segment.ts'
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
@@ -102,9 +103,10 @@ const MAX_RECENT_COLORS = 9
 const NOTICE_MS = 3500
 
 // The same faint dots the canvas draws, so the empty workspace matches it.
+// A faint dot grid says "this is the table your page sits on" without drawing the eye.
 const DOT_BACKGROUND = {
-  backgroundImage: 'radial-gradient(rgba(27, 33, 48, 0.13) 0.85px, transparent 1.1px)',
-  backgroundSize: '24px 24px',
+  backgroundImage: 'radial-gradient(rgba(27, 33, 48, 0.09) 0.85px, transparent 1.1px)',
+  backgroundSize: '28px 28px',
 }
 
 const DEFAULT_BRUSH = BRUSH_PRESETS.find((p) => p.id === 'pen')!
@@ -319,7 +321,7 @@ function fontSample(text: string): string {
 
 export default function App() {
   // Everything is drawn again in the new words when the language changes.
-  useLanguage()
+  const language = useLanguage()
   const editor = useEditor()
   const { doc } = editor
   const autosave = useAutosave(editor)
@@ -350,6 +352,11 @@ export default function App() {
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('replace')
   const [transformEdit, setTransformEdit] = useState<TransformState | null>(null)
   const [keepProportions, setKeepProportions] = useState(true)
+  // Moving the selected part of a picture fills the gap it leaves (see gapFill.ts).
+  const [fillGap, setFillGap] = useState(true)
+  // Bumped when a gap has been filled, so the preview shows it.
+  const [, setGapsFilled] = useState(0)
+  useEffect(() => onGapFilled(() => setGapsFilled((n) => n + 1)), [])
   const [cropEdit, setCropEdit] = useState<CropState | null>(null)
   const [fillTolerance, setFillTolerance] = useState(0.15)
   const [healSize, setHealSize] = useState(40)
@@ -442,10 +449,10 @@ export default function App() {
   const activeNow = doc ? activeLayer(doc) : undefined
   const transformOn = tool === 'move' && !!doc?.selection
   const session = useMemo(
-    () => (transformOn && doc ? startTransform(doc) : null),
+    () => (transformOn && doc ? startTransform(doc, fillGap) : null),
     // Only the layer and the selection matter; other changes to the design keep the same handles.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [transformOn, activeNow, doc?.selection],
+    [transformOn, activeNow, doc?.selection, fillGap],
   )
   const transform: TransformState | null = session && {
     session,
@@ -473,7 +480,7 @@ export default function App() {
     () => (adjustOn && doc ? (activeNow ? adjustProblem(doc, activeNow) : t('Pick something on your design to adjust it, or click it in the Layers panel.')) : null),
     // Only the layer, its pixels and the selection matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [adjustOn, activeNow, doc?.selection, editor.revision],
+    [adjustOn, activeNow, doc?.selection, editor.revision, language],
   )
   const adjustLayer = adjustOn && !adjustBlocked ? activeNow : undefined
   // A whole layer keeps its adjustments as a setting that can be changed again; a selected part is
@@ -1072,6 +1079,7 @@ export default function App() {
       return false
     }
     setTransformEdit(null)
+    fillGapWhenReady(session.layerId, session.gap)
     return true
   }
 
@@ -1269,11 +1277,11 @@ export default function App() {
     createDocument({ name: uniqueName(preset.name, taken), width: preset.width, height: preset.height, background: 'white' })
   }
 
-  async function download({ format, quality, fileName }: ExportOptions) {
+  async function download({ format, quality, fileName, pdf }: ExportOptions) {
     const d = current()
     if (!d) return
     try {
-      downloadBlob(await exportDocument(d, format, quality / 100), fileName)
+      downloadBlob(await exportDocument(d, format, quality / 100, pdf), fileName)
       editor.markSaved()
       setDialog(null)
     } catch (e) {
@@ -1343,6 +1351,28 @@ export default function App() {
   function handleMove(session: MoveSession, dx: number, dy: number) {
     const layer = current()?.layers.find((l) => l.id === session.layerId)
     editor.change(session.label, (d) => session.commit(d, dx, dy), { bytes: session.movesSelection && layer ? layerBytes(layer) : 0 })
+    fillGapWhenReady(session.layerId, session.gap)
+  }
+
+  // A part was put down before the gap it left was filled: the gap is filled in a moment later, as
+  // its own step, unless the picture changed in the meantime.
+  function fillGapWhenReady(layerId: string, gap: GapFill | null) {
+    if (!gap || gap.patch) return
+    const layer = current()?.layers.find((l) => l.id === layerId)
+    if (layer?.kind !== 'raster') return
+    const { canvas } = layer
+    const version = pixelVersion(canvas)
+    inform(t('AI is filling the gap…'))
+    void gap.ready.then((patch) => {
+      const now = current()?.layers.find((l) => l.id === layerId)
+      if (!patch || now?.kind !== 'raster' || now.canvas !== canvas || pixelVersion(canvas) !== version) return
+      setNotice(null)
+      editor.paint(t('Fill the gap'), layerId, gap.area, (ctx, l) => {
+        // Only the see-through gap is filled; whatever was put down over it stays on top.
+        ctx.globalCompositeOperation = 'destination-over'
+        ctx.drawImage(patch, gap.area.x - l.x, gap.area.y - l.y)
+      })
+    })
   }
 
   // Memory a layer's pixels take, for the undo history.
@@ -1770,6 +1800,12 @@ export default function App() {
       setExportFormat('project')
       setDialog('export')
     },
+    downloadPdf: () => {
+      settle()
+      if (!current()) return
+      setExportFormat('pdf')
+      setDialog('export')
+    },
     renameDesign: () => {
       if (current()) setDialog('rename')
     },
@@ -2167,7 +2203,9 @@ export default function App() {
   const hintExtra =
     doc?.selection && (hintTool === 'brush' || hintTool === 'eraser' || hintTool === 'adjust')
       ? t('Only the selected area changes.')
-      : doc?.selection && hintTool === 'move'
+      : doc?.selection && hintTool === 'move' && activeNow?.kind === 'raster' && fillGap
+        ? t('Drag the selected part to move it. On a photo, AI fills the gap it leaves.')
+        : doc?.selection && hintTool === 'move'
         ? t('The selected part moves.')
         : photoMoveOn
           ? t('Drag on the shape to slide its photo.')
@@ -2223,6 +2261,8 @@ export default function App() {
       locked: false,
       blocked: null,
       target: null,
+      fillGap,
+      onFillGap: setFillGap,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
     if (!doc) return { ...base, blocked: t('Click anything on your design to pick it.') }
@@ -2427,7 +2467,7 @@ export default function App() {
         onHealSizeChange={setHealSize}
       />}
 
-      <div className="flex min-h-0 flex-1 gap-2 px-2 pb-2">
+      <div className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
         {doc && <ToolDock tool={tool} onToolChange={setTool} onAddPhoto={commands.addPhoto} />}
 
         <main
@@ -2459,6 +2499,7 @@ export default function App() {
                 onStrokeActiveChange={(activeStroke) => (strokeActiveRef.current = activeStroke)}
                 onPickColor={handlePickColor}
                 onMove={handleMove}
+                fillGap={fillGap}
                 onSelect={handleSelect}
                 onMagicSelect={(target, mode) => void magicSelect(target, mode)}
                 onBlocked={problem}
@@ -2510,7 +2551,7 @@ export default function App() {
           )}
         </main>
 
-        <div className={`hidden w-[272px] shrink-0 flex-col gap-2 overflow-y-auto ${doc ? 'md:flex' : ''}`}>
+        <div className={`hidden w-[288px] shrink-0 flex-col gap-3 overflow-y-auto ${doc ? 'md:flex' : ''}`}>
           {adjustOn && doc ? (
             <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
           ) : (

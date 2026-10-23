@@ -19,6 +19,10 @@ Pixel Studio is Photoshop, Illustrator and InDesign in one program, in the brows
   move, resized from a corner and turned with the round handle (the Arrange tool). Pictures keep
   their original pixels, so nothing gets blurry from resizing.
 
+- **No pictures on the site itself**: no sample photos, preview pictures, template images or
+  illustrations anywhere in the app, and never pictures of people. Previews show the user's own
+  work, or plain shapes, colors and words. The user's own photos in their designs are fine.
+
 When choosing what to build next, ask: what is the biggest gap between what a professional can make
 with Photoshop, Illustrator or InDesign and what someone can make here? The README's design
 principles and roadmap describe the plan.
