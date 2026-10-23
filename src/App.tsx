@@ -2958,7 +2958,7 @@ export default function App() {
           {/* The panels for what is picked take the room they need, up to about two thirds of the
               column (then they scroll); the Layers panel always keeps the rest, so it never slips
               off a short screen. */}
-          <ScrollRegion className="max-h-[64%] shrink-0 gap-3">
+          <ScrollRegion className="max-h-[64%] shrink-0 gap-3 [@media(max-height:820px)]:max-h-[56%]">
             {adjustOn && doc ? (
               <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
             ) : (
