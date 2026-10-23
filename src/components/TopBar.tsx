@@ -8,7 +8,9 @@ import { LanguagePicker } from './LanguagePicker.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { Button } from './ui.tsx'
 
-const MENU_GROUPS: ActionGroup[] = ['Design', 'Edit', 'Select', 'Layers', 'Whole design', 'Pages', 'View']
+// The menu shows everything at once, in columns on a wide screen (one long list on a narrow one),
+// so nothing has to be scrolled to or remembered.
+const MENU_COLUMNS: ActionGroup[][] = [['Design'], ['Edit', 'Select'], ['Layers'], ['Whole design', 'Pages', 'View']]
 
 function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: boolean }) {
   const [open, setOpen] = useState(false)
@@ -72,44 +74,48 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
           role="menu"
           aria-label={t("Menu")}
           onKeyDown={handleMenuKeyDown}
-          className="absolute start-0 top-full z-40 mt-2 max-h-[calc(100vh-5rem)] w-72 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-float"
+          className="absolute start-0 top-full z-40 mt-2 flex max-h-[calc(100vh-5rem)] w-72 flex-col overflow-y-auto rounded-2xl border border-line bg-surface p-2 shadow-float lg:w-max lg:flex-row lg:gap-2 lg:p-3"
         >
-          {MENU_GROUPS.map((group, groupIndex) => (
-            <div key={group} role="group" aria-label={groupName(group)}>
-              {groupIndex > 0 && <div role="separator" className="mx-1 my-1.5 border-t border-line" />}
-              <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{groupName(group)}</div>
-              {actions
-                .filter((action) => action.group === group)
-                .map((action) => {
-                  const blocker = actionBlocker(action, hasDocument)
-                  const enabled = blocker === null
-                  return (
-                    <Tooltip
-                      key={action.id}
-                      side="right"
-                      title={action.title.replace('…', '')}
-                      description={action.description}
-                      note={blocker ?? undefined}
-                      className="flex"
-                    >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        tabIndex={-1}
-                        aria-disabled={!enabled || undefined}
-                        onClick={() => {
-                          if (!enabled) return
-                          close(false)
-                          action.run()
-                        }}
-                        className="flex w-full items-center justify-between gap-6 whitespace-nowrap rounded-lg px-2.5 py-2 text-start text-[13px] text-ink outline-none hover:bg-subtle focus-visible:bg-subtle aria-disabled:cursor-not-allowed aria-disabled:text-ink-3 aria-disabled:hover:bg-transparent"
-                      >
-                        <span>{action.title}</span>
-                        {action.shortcut && <span className="text-xs text-ink-3">{action.shortcut}</span>}
-                      </button>
-                    </Tooltip>
-                  )
-                })}
+          {MENU_COLUMNS.map((column, columnIndex) => (
+            <div key={columnIndex} className="flex flex-col lg:w-56 lg:border-s lg:border-line lg:ps-2 lg:first:border-s-0 lg:first:ps-0">
+              {column.map((group, groupIndex) => (
+                <div key={group} role="group" aria-label={groupName(group)}>
+                  {(groupIndex > 0 || columnIndex > 0) && <div role="separator" className={`mx-1 my-1.5 border-t border-line ${groupIndex === 0 ? 'lg:hidden' : ''}`} />}
+                  <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{groupName(group)}</div>
+                  {actions
+                    .filter((action) => action.group === group)
+                    .map((action) => {
+                      const blocker = actionBlocker(action, hasDocument)
+                      const enabled = blocker === null
+                      return (
+                        <Tooltip
+                          key={action.id}
+                          side="right"
+                          title={action.title.replace('…', '')}
+                          description={action.description}
+                          note={blocker ?? undefined}
+                          className="flex"
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            tabIndex={-1}
+                            aria-disabled={!enabled || undefined}
+                            onClick={() => {
+                              if (!enabled) return
+                              close(false)
+                              action.run()
+                            }}
+                            className="flex w-full items-center justify-between gap-6 whitespace-nowrap rounded-lg px-2.5 py-2 text-start text-[13px] text-ink outline-none hover:bg-subtle focus-visible:bg-subtle aria-disabled:cursor-not-allowed aria-disabled:text-ink-3 aria-disabled:hover:bg-transparent"
+                          >
+                            <span>{action.title}</span>
+                            {action.shortcut && <span className="text-xs text-ink-3">{action.shortcut}</span>}
+                          </button>
+                        </Tooltip>
+                      )
+                    })}
+                </div>
+              ))}
             </div>
           ))}
         </div>
