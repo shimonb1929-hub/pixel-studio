@@ -4,6 +4,7 @@
 // The model is downloaded once, the first time it's needed, and kept by the browser after that.
 
 import { env, RawImage, SamModel, SamProcessor, type Tensor } from '@huggingface/transformers'
+import { refineEdge } from './refineEdge.ts'
 import type { SegmentRequest, SegmentResponse } from './segmentTypes.ts'
 
 const MODEL = 'Xenova/slimsam-77-uniform'
@@ -94,10 +95,11 @@ async function segment(request: Extract<SegmentRequest, { type: 'segment' }>) {
   const labels = given.map((p) => (p.inside ? 1 : 0))
   const inputs = await processor(image, { input_points: [[points]], input_labels: [[labels]] })
   const outputs = await model({ ...embeddings, input_points: inputs.input_points, input_labels: inputs.input_labels })
-  const masks: Tensor[] = await processor.post_process_masks(outputs.pred_masks, inputs.original_sizes, inputs.reshaped_input_sizes)
+  // Kept as the AI's own "how sure" numbers (above 0 means yes), so the edge can be refined below.
+  const masks: Tensor[] = await processor.post_process_masks(outputs.pred_masks, inputs.original_sizes, inputs.reshaped_input_sizes, { binarize: false })
   const scores = Array.from(outputs.iou_scores.data as Float32Array)
   const [, count, height, width] = masks[0].dims
-  const data = masks[0].data as Uint8Array
+  const data = masks[0].data as Float32Array
   const size = width * height
   // The model offers a small part, a bigger part and the whole thing. Only parts that agree with
   // the points count (every "this" point inside, every "not this" point outside). From one click
@@ -107,7 +109,7 @@ async function segment(request: Extract<SegmentRequest, { type: 'segment' }>) {
     given.every((p) => {
       const x = Math.min(width - 1, Math.max(0, Math.round(p.x)))
       const y = Math.min(height - 1, Math.max(0, Math.round(p.y)))
-      return !!data[m * size + y * width + x] === p.inside
+      return data[m * size + y * width + x] > 0 === p.inside
     })
   // With a box, the thing is inside it: parts that spill well past it are something else.
   const fitsBox = (m: number) => {
@@ -117,7 +119,7 @@ async function segment(request: Extract<SegmentRequest, { type: 'segment' }>) {
     let all = 0
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        if (!data[m * size + y * width + x]) continue
+        if (data[m * size + y * width + x] <= 0) continue
         all++
         if (x >= x0 && x <= x1 && y >= y0 && y <= y1) inside++
       }
@@ -133,14 +135,23 @@ async function segment(request: Extract<SegmentRequest, { type: 'segment' }>) {
   for (const m of candidates) {
     if (scores[m] < best - (given.length > 1 ? 0 : 0.04)) continue
     let area = 0
-    for (let i = m * size; i < (m + 1) * size; i++) area += data[i] ? 1 : 0
+    for (let i = m * size; i < (m + 1) * size; i++) area += data[i] > 0 ? 1 : 0
     if (area > pickArea) {
       pick = m
       pickArea = area
     }
   }
-  const mask = data.slice(pick * size, (pick + 1) * size)
-  post({ type: 'mask', id: request.id, mask, width, height })
+  // The edge is moved onto where the picture's colors really change, so fine detail is followed.
+  const chance = new Float32Array(size)
+  for (let i = 0; i < size; i++) chance[i] = 1 / (1 + Math.exp(-data[pick * size + i]))
+  const refined = image.width === width && image.height === height ? refineEdge(chance, image.data, width, height) : chance
+  const mask = new Uint8Array(size)
+  const alpha = new Uint8Array(size)
+  for (let i = 0; i < size; i++) {
+    mask[i] = refined[i] >= 0.5 ? 1 : 0
+    alpha[i] = Math.round(refined[i] * 255)
+  }
+  post({ type: 'mask', id: request.id, mask, alpha, width, height })
 }
 
 self.onmessage = (event: MessageEvent<SegmentRequest>) => {

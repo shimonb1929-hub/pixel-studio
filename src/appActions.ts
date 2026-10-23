@@ -305,7 +305,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       group: 'Select',
       title: t('Deselect'),
       description: t('Clear the selection, so you can work on the whole design again.'),
-      keywords: ['deselect', 'select none', 'clear selection', 'unselect', 'nothing'],
+      keywords: ['deselect', 'select none', 'clear selection', 'unselect', 'nothing', 'let go', 'marching ants', 'stop selecting'],
       shortcut: shortcut('mod', 'D'),
       needsDocument: true,
       disabledReason: noSelection && t('Nothing is selected.'),

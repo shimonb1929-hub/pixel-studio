@@ -560,7 +560,7 @@ function SelectOptions({
       <Divider />
       <div className="flex shrink-0 items-center">
         <BarButton icon={SquareDashed} label={t("All")} title={t("Select all")} description={t("Select the whole design.")} onClick={commands.selectAll} />
-        <BarButton icon={SquareSlash} label={t("None")} title={t("Deselect")} description={t("Clear the selection, so you can work on the whole design again.")} disabledReason={nothing} onClick={commands.deselect} />
+        <BarButton icon={SquareSlash} roomy label={t("Let go")} description={t('Stop selecting (Deselect), so the whole design can be changed again. Nothing in your design changes.')} disabledReason={nothing} onClick={commands.deselect} />
         <BarButton icon={Contrast} label={t("Invert")} title={t("Invert selection")} description={t("Swap what is selected and what is not.")} onClick={commands.invert} />
         <BarButton
           icon={Blend}

@@ -5,6 +5,8 @@ import type { SegmentPoint, SegmentRequest, SegmentResponse } from './segmentTyp
 
 export interface FoundMask {
   mask: Uint8Array
+  // How much of each pixel belongs to the thing, 0 to 255, for soft cut-out edges.
+  alpha: Uint8Array
   width: number
   height: number
 }
@@ -30,7 +32,7 @@ function getWorker(): Worker {
     const waiting = pending.get(message.id)
     pending.delete(message.id)
     if (!waiting) return
-    if (message.type === 'mask') waiting.resolve({ mask: message.mask, width: message.width, height: message.height })
+    if (message.type === 'mask') waiting.resolve({ mask: message.mask, alpha: message.alpha, width: message.width, height: message.height })
     else if (message.type === 'prepared') waiting.resolve(null)
     else {
       workerKey = null

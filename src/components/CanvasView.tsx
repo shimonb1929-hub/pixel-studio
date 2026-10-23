@@ -303,8 +303,6 @@ const SNAP_DISTANCE = 6
 const GUIDE_COLOR = '#e8457a'
 // Margins and columns: a soft violet, quieter than the lines that show what lined up.
 const LAYOUT_COLOR = 'rgba(124, 92, 230, 0.55)'
-const ANTS_DASH = 4
-const ANTS_INTERVAL_MS = 90
 
 const SHAPE_LABELS: Record<SelectionShape, string> = live({ rectangle: msg('Select rectangle'), ellipse: msg('Select oval'), freehand: msg('Select freehand area'), magic: msg('Select thing'), color: msg('Select same color') })
 
@@ -402,7 +400,6 @@ function tracePath(ctx: CanvasRenderingContext2D, loops: Point[][], viewport: Vi
   }
 }
 
-// The classic "marching ants": a black dashed line over a white one, so it shows on any color.
 // A thin outline around what the pointer is over, showing what a click would pick.
 function drawHoverOutline(ctx: CanvasRenderingContext2D, box: TransformBox, viewport: Viewport) {
   const corners = boxCorners(box).map((p) => toScreen(p, viewport))
@@ -428,16 +425,46 @@ function shapeDragBox(drag: ShapeDrag, line: boolean, thickness: number): Transf
   return { cx: rect.x + rect.width / 2, cy: rect.y + rect.height / 2, width: Math.max(1, rect.width), height: Math.max(1, rect.height), rotation: 0 }
 }
 
-function drawAnts(ctx: CanvasRenderingContext2D, offset: number) {
-  ctx.lineWidth = 1
+// What's selected is shown calmly: a soft blue tint over it and a still blue line around it, with
+// a white edge so the line shows on any color. Nothing moves or blinks (no "marching ants").
+const SELECTED_BLUE = '#3366ff'
+const SELECTED_TINT_ALPHA = 0.16
+const tints = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>()
+
+// The selection's mask, colored blue once and kept, so drawing it again is quick.
+function tintOf(mask: HTMLCanvasElement): HTMLCanvasElement {
+  const kept = tints.get(mask)
+  if (kept) return kept
+  const tint = document.createElement('canvas')
+  tint.width = mask.width
+  tint.height = mask.height
+  const ctx = tint.getContext('2d')!
+  ctx.drawImage(mask, 0, 0)
+  ctx.globalCompositeOperation = 'source-in'
+  ctx.fillStyle = SELECTED_BLUE
+  ctx.fillRect(0, 0, tint.width, tint.height)
+  tints.set(mask, tint)
+  return tint
+}
+
+function drawSelectedTint(ctx: CanvasRenderingContext2D, mask: HTMLCanvasElement, viewport: Viewport, dx: number, dy: number) {
+  ctx.save()
+  ctx.globalAlpha = SELECTED_TINT_ALPHA
+  // Zoomed in, the tint keeps crisp pixel steps, so it shows exactly which pixels are picked.
+  ctx.imageSmoothingEnabled = viewport.zoom < 4
+  ctx.drawImage(tintOf(mask), dx * viewport.zoom + viewport.panX, dy * viewport.zoom + viewport.panY, mask.width * viewport.zoom, mask.height * viewport.zoom)
+  ctx.restore()
+}
+
+function drawSelectedLine(ctx: CanvasRenderingContext2D) {
   ctx.setLineDash([])
-  ctx.strokeStyle = '#ffffff'
+  ctx.lineJoin = 'round'
+  ctx.lineWidth = 3
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
   ctx.stroke()
-  ctx.setLineDash([ANTS_DASH, ANTS_DASH])
-  ctx.lineDashOffset = -offset
-  ctx.strokeStyle = '#1b2130'
+  ctx.lineWidth = 1.25
+  ctx.strokeStyle = SELECTED_BLUE
   ctx.stroke()
-  ctx.setLineDash([])
 }
 
 function toScreen(p: Point, viewport: Viewport): Point {
@@ -680,6 +707,8 @@ export function CanvasView(props: CanvasViewProps) {
   const panRef = useRef<PanDrag | null>(null)
   const pickRef = useRef<number | null>(null)
   const moveRef = useRef<MoveDrag | null>(null)
+  // A press with Arrange away from the selection: if it ends up a click, the selection is let go.
+  const letGoRef = useRef<{ pointerId: number; x: number; y: number } | null>(null)
   const selectRef = useRef<SelectDrag | null>(null)
   const boxRef = useRef<BoxDrag | null>(null)
   // The pointer pressed on the design to compare with how it was, while adjusting.
@@ -694,7 +723,6 @@ export function CanvasView(props: CanvasViewProps) {
   const hoverLayerRef = useRef<Layer | null>(null)
   const hoverRef = useRef<Point | null>(null)
   const lastEndRef = useRef<{ docId: string; point: InputPoint } | null>(null)
-  const antsRef = useRef(0)
   const sceneFrameRef = useRef(0)
   const overlayFrameRef = useRef(0)
   const [dragging, setDragging] = useState(false)
@@ -795,10 +823,12 @@ export function CanvasView(props: CanvasViewProps) {
         dx = drag.dx
         dy = drag.dy
       }
-      const { outline } = selectionInfo(selection, p.doc.width, p.doc.height)
+      const { outline, mask } = selectionInfo(selection, p.doc.width, p.doc.height)
       if (outline.length > 0) {
+        // While colors are being adjusted the tint would hide the change, so only the line shows.
+        if (p.tool !== 'adjust') drawSelectedTint(ctx, mask, p.viewport, dx, dy)
         tracePath(ctx, outline, p.viewport, dx, dy)
-        drawAnts(ctx, antsRef.current)
+        drawSelectedLine(ctx)
       }
     }
     // The shape being drawn right now, in the "you can click this" blue.
@@ -949,16 +979,6 @@ export function CanvasView(props: CanvasViewProps) {
 
   // A gap being filled while a part is dragged shows as soon as it's ready.
   useEffect(() => onGapFilled(() => moveRef.current && requestScene()), [])
-
-  // The dashed outline keeps moving while something is selected, so it's easy to spot.
-  useEffect(() => {
-    if (!doc.selection) return
-    const timer = window.setInterval(() => {
-      antsRef.current = (antsRef.current + 1) % (ANTS_DASH * 2)
-      requestOverlay()
-    }, ANTS_INTERVAL_MS)
-    return () => window.clearInterval(timer)
-  }, [doc.selection])
 
   useEffect(
     () => () => {
@@ -1350,11 +1370,11 @@ export function CanvasView(props: CanvasViewProps) {
     if (hex) propsRef.current.onPickColor(hex)
   }
 
-  function startMoveDrag(event: PointerEvent<HTMLCanvasElement>) {
+  function startMoveDrag(event: PointerEvent<HTMLCanvasElement>, quiet = false) {
     if (!usableLayer()) return
     const session = startMove(doc, props.fillGap)
     if (!session) {
-      props.onBlocked(t('Only pictures and paint can be moved part by part. To move the whole shape, clear the selection first.'))
+      if (!quiet) props.onBlocked(t('Only pictures and paint can be moved part by part. To move the whole shape, clear the selection first.'))
       return
     }
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -1491,7 +1511,12 @@ export function CanvasView(props: CanvasViewProps) {
       const point = documentPoint(event.clientX, event.clientY)
       const handle = props.box && hitHandle(props.box.value, point, viewport.zoom, { rotate: true })
       if (props.box && handle && handle !== 'move') startBoxDrag(event, props.box)
-      else startMoveDrag(event)
+      else if (!handle && doc.selection && !isPointSelected(doc.selection, doc.width, doc.height, point)) {
+        // A click away from the selected part lets go of it; a drag from there still moves it.
+        event.currentTarget.setPointerCapture(event.pointerId)
+        letGoRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+        startMoveDrag(event, true)
+      } else startMoveDrag(event)
     } else if (tool === 'select') {
       startSelect(event)
     } else if (tool === 'crop' && props.box) {
@@ -1731,7 +1756,19 @@ export function CanvasView(props: CanvasViewProps) {
       }
     }
     if (strokeRef.current?.pointerId === event.pointerId) finishStroke()
+    let letGo = false
+    if (letGoRef.current?.pointerId === event.pointerId) {
+      const { x, y } = letGoRef.current
+      letGoRef.current = null
+      letGo = !cancelled && Math.hypot(event.clientX - x, event.clientY - y) < clickSlop(event)
+      // A click, not a drag: the selected part stays where it was.
+      if (letGo && moveRef.current) {
+        moveRef.current.dx = 0
+        moveRef.current.dy = 0
+      }
+    }
     if (moveRef.current?.pointerId === event.pointerId) finishMove()
+    if (letGo && propsRef.current.doc.selection) propsRef.current.onSelect(null, t('Deselect'))
     if (selectRef.current?.pointerId === event.pointerId) finishSelect()
     if (boxRef.current?.pointerId === event.pointerId) {
       const { moved, box } = boxRef.current
@@ -1814,6 +1851,7 @@ export function CanvasView(props: CanvasViewProps) {
         onLostPointerCapture={(event) => {
           if (strokeRef.current?.pointerId === event.pointerId) finishStroke()
           if (moveRef.current?.pointerId === event.pointerId) finishMove()
+          if (letGoRef.current?.pointerId === event.pointerId) letGoRef.current = null
           if (selectRef.current?.pointerId === event.pointerId) finishSelect()
           if (boxRef.current?.pointerId === event.pointerId) boxRef.current = null
           if (arrangeRef.current?.pointerId === event.pointerId) finishArrange()

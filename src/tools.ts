@@ -55,7 +55,7 @@ export const TOOLS: ToolInfo[] = [
       return t('Choose part of your design to work on. Painting, erasing, deleting and moving then only affect that part. Draw a rectangle, an oval, or any shape by hand.')
     },
     get hint() {
-      return t('Drag to select an area. Hold Shift to add to it, {alt} to take away. Click outside to clear it.', { alt: ALT_LABEL })
+      return t('Drag over the part you want; it turns light blue. Hold Shift to add more, {alt} to take away. Click outside it or press Esc to let go.', { alt: ALT_LABEL })
     },
     keywords: ['select', 'selection', 'marquee', 'lasso', 'choose area', 'cut out', 'rectangle', 'oval', 'circle', 'magic', 'magic wand', 'quick select', 'select subject', 'object', 'ai'],
     group: 'arrange',
