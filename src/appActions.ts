@@ -17,6 +17,7 @@ export interface AppCommands {
   colorPage: () => void
   download: () => void
   downloadProject: () => void
+  downloadPdf: () => void
   renameDesign: () => void
   installApp: () => void
   close: () => void
@@ -151,6 +152,15 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       shortcut: shortcut('mod', 'S'),
       needsDocument: true,
       run: c.download,
+    },
+    {
+      id: 'download-pdf',
+      group: 'Design',
+      title: t('Download as PDF…'),
+      description: t('Save your design as a PDF page, ready to print at home or at a print shop, or to send. Text stays sharp.'),
+      keywords: ['pdf', 'print', 'printer', 'print shop', 'paper', 'bleed', 'crop marks', 'cut', 'send', 'email', 'document'],
+      needsDocument: true,
+      run: c.downloadPdf,
     },
     {
       id: 'download-project',

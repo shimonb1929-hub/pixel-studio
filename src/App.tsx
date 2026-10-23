@@ -1242,11 +1242,11 @@ export default function App() {
     createDocument({ name: uniqueName(preset.name, taken), width: preset.width, height: preset.height, background: 'white' })
   }
 
-  async function download({ format, quality, fileName }: ExportOptions) {
+  async function download({ format, quality, fileName, pdf }: ExportOptions) {
     const d = current()
     if (!d) return
     try {
-      downloadBlob(await exportDocument(d, format, quality / 100), fileName)
+      downloadBlob(await exportDocument(d, format, quality / 100, pdf), fileName)
       editor.markSaved()
       setDialog(null)
     } catch (e) {
@@ -1741,6 +1741,12 @@ export default function App() {
       settle()
       if (!current()) return
       setExportFormat('project')
+      setDialog('export')
+    },
+    downloadPdf: () => {
+      settle()
+      if (!current()) return
+      setExportFormat('pdf')
       setDialog('export')
     },
     renameDesign: () => {
