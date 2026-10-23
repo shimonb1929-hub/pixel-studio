@@ -51,6 +51,11 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   to move it, drag a side to bend it, click a side to add a point, and double-click a point to make it
   sharp or smooth. "Edit points" does the same for any rectangle, oval, star or line, and open
   curves can end in an arrow head.
+- **Turn a picture into shapes.** "Turn into shapes" (pro: Image Trace) makes a logo, a drawing, a
+  signature or a sketch into sharp shapes that stay crisp at any size and can be recolored: Black &
+  white for one ink color, or Colors for 2 to 16 colors, with a Detail slider and a live preview.
+  Each color becomes one smooth shape (holes included), kept together over the picture, which stays
+  hidden below so nothing is lost.
 - **Colors that fade.** Any shape can be filled with a gradient: pick a ready-made one, then click
   its markers to recolor them, drag them to move them, click the bar to add a color, fade a color
   to see-through, or make it round instead of straight.

@@ -74,6 +74,7 @@ export interface AppCommands {
   // Opens the Effects panel for what is picked.
   showEffects: () => void
   removeBackground: () => void
+  turnIntoShapes: () => void
 }
 
 interface ActionState {
@@ -723,6 +724,16 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
       run: c.removeBackground,
+    },
+    {
+      id: 'turn-into-shapes',
+      group: 'Layers',
+      title: t('Turn into shapes'),
+      description: t('Makes sharp shapes out of the picked picture that stay crisp at any size and can be recolored. Best for logos, drawings, signatures and sketches. (pro: Image Trace)'),
+      keywords: ['image trace', 'live trace', 'trace', 'vectorize', 'vectorise', 'vector', 'svg', 'turn into shapes', 'convert to vector', 'outline', 'logo', 'signature', 'sketch', 'bitmap to vector', 'potrace', 'sharp', 'crisp'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
+      run: c.turnIntoShapes,
     },
     ...LOOKS.filter((look) => look.id !== 'original').map(
       (look): Action => ({

@@ -105,6 +105,7 @@ import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
 import { changeText, fitText, newTextBox, textLayout, textName } from './text/textLayer.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
+import { useTurnIntoShapes } from './hooks/useTurnIntoShapes.tsx'
 import { live, msg, t, useLanguage } from './i18n/i18n.ts'
 
 type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout'
@@ -422,6 +423,8 @@ export default function App() {
 
   const problem = (message: string) => setNotice({ message, tone: 'problem' })
   const inform = (message: string) => setNotice({ message, tone: 'info' })
+  // Turn a picture into shapes (pro: Image Trace); the new shapes end up picked together.
+  const traceShapes = useTurnIntoShapes(editor, { problem, inform }, (ids) => (setTool('move'), pickMany(ids)))
   // Commands read the design through this, so they see changes made earlier in the same click.
   const current = () => editor.getDoc()
 
@@ -2277,6 +2280,7 @@ export default function App() {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') void removeBackground(layer.id)
     },
+    turnIntoShapes: () => traceShapes.open(current()?.activeLayerId ?? ''),
   }
 
   const actions = buildActions(
@@ -2578,6 +2582,7 @@ export default function App() {
       flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
       rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
+      turnIntoShapes: activeNow.kind === 'raster' ? () => traceShapes.open(activeNow.id) : undefined,
     }
   })()
 
@@ -3034,6 +3039,7 @@ export default function App() {
         />
       )}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
+      {traceShapes.dialog}
       {dialog === 'layout' && doc && (
         <PageLayoutDialog
           doc={doc}
