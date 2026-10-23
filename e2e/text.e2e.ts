@@ -259,6 +259,41 @@ test('the Text panel: size, boldness, font, color, lining up and reading directi
   expect(await undoLabel(page)).toContain('Undo text color')
 })
 
+test('fonts are found by what they are for, shown on the page while pointed at, and remembered', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.keyboard.press('t')
+  await clickAt(page, size, 300, 100)
+  await page.keyboard.insertText('בראשית ברא')
+  await page.keyboard.press('Escape')
+  const ink = () => inkBounds(page, size, 0, 0, 800, 300)
+  await expect.poll(ink).not.toBeNull()
+  const before = await ink()
+
+  await textPanel(page).getByRole('button', { name: /^Font:/ }).click()
+  // The text is Hebrew, so the list starts with fonts that can write it.
+  await expect(textPanel(page).getByRole('radio', { name: 'Hebrew' })).toHaveAttribute('aria-checked', 'true')
+  await textPanel(page).getByRole('radio', { name: 'Torah & seforim' }).click()
+  await expect(textPanel(page).getByRole('option', { name: 'Taamey Frank CLM' })).toBeVisible()
+  await expect(textPanel(page).getByRole('option', { name: 'Pacifico' })).toHaveCount(0)
+
+  // Pointing at a font shows it on the page; moving away puts the text back, and nothing is kept.
+  await textPanel(page).getByRole('option', { name: 'Stam Ashkenaz CLM' }).hover()
+  await expect.poll(ink).not.toEqual(before)
+  await page.mouse.move(5, 5)
+  await expect.poll(ink).toEqual(before)
+  expect(await undoLabel(page)).not.toContain('font')
+
+  await textPanel(page).getByRole('option', { name: 'Taamey Frank CLM' }).click()
+  await expect(textPanel(page).getByRole('button', { name: 'Font: Taamey Frank CLM' })).toBeVisible()
+  expect(await undoLabel(page)).toContain('Undo change font')
+
+  // The font just used is offered again, and a word finds fonts by what they're for.
+  await textPanel(page).getByRole('button', { name: /^Font:/ }).click()
+  await expect(textPanel(page).getByRole('button', { name: 'Use Taamey Frank CLM again' })).toBeVisible()
+  await textPanel(page).getByLabel('Find a font').fill('wedding')
+  await expect(textPanel(page).getByRole('option', { name: 'Great Vibes' })).toBeVisible()
+})
+
 test('Hebrew in a font made only for English shows in a Hebrew font, and the panel says so', async ({ page }) => {
   const size = await newDesign(page)
   await page.keyboard.press('t')

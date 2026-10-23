@@ -1028,6 +1028,27 @@ export default function App() {
     changeTextStyle({ font: id, weight }, t('Change font'))
   }
 
+  // A font pointed at in the font list, shown on the picked text (once it has loaded) until the
+  // pointer moves on. Nothing is changed until a font is clicked.
+  const [fontPreview, setFontPreview] = useState<string | null>(null)
+  const fontPreviewWanted = useRef<string | null>(null)
+  function previewFont(id: string | null) {
+    fontPreviewWanted.current = id
+    if (!id) return setFontPreview(null)
+    const target = pickedText
+    if (!target) return
+    void loadFont({ ...target.style, font: id, weight: nearestWeight(id, target.style.weight) }, target.text || 'Aא').then(() => {
+      if (fontPreviewWanted.current === id) setFontPreview(id)
+    })
+  }
+  const fontPreviewLayer = useMemo(
+    () =>
+      fontPreview && pickedText && fontPreview !== pickedText.style.font
+        ? changeText(pickedText, { style: { font: fontPreview, weight: nearestWeight(fontPreview, pickedText.style.weight) } })
+        : null,
+    [fontPreview, pickedText],
+  )
+
   function changeWrap(wrap: boolean) {
     const label = wrap ? t('Wrap text in a box') : t('Fit box to text')
     if (textEditRef.current) {
@@ -2279,6 +2300,8 @@ export default function App() {
   const override: LayerOverride | null =
     textEdit && !textEdit.isNew
       ? { layerId: textEdit.layer.id, layer: { ...textEdit.layer, visible: false } }
+      : fontPreviewLayer
+      ? { layerId: fontPreviewLayer.id, layer: fontPreviewLayer }
       : tool === 'move' && transform && transformChanged
       ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) }
       : adjustPreview && !comparing
@@ -2630,6 +2653,7 @@ export default function App() {
                 sample={fontSample(textTarget?.text ?? '')}
                 resolvedAlign={textTarget ? resolveAlign(textTarget.style.align, textLayout(textTarget).direction) : 'left'}
                 onFont={(id) => void changeFont(id)}
+                onPreviewFont={previewFont}
                 onStyle={changeTextStyle}
                 onWrap={changeWrap}
               />

@@ -1,0 +1,13 @@
+{
+  "name": "Shmulik CLM",
+  "license": "GPL-2.0-with-font-exception",
+  "version": "0.0.20240129.1",
+  "faces": [
+    {
+      "file": "shmulik-clm-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+0020-0040,U+005B-0060,U+007B-007E,U+034F,U+0591-05C7,U+05D0-05EA,U+05F0-05F4,U+2009,U+200C-200F,U+2018-201A,U+201C-201E,U+20AA,U+25CC,U+FB1D-FB4F"
+    }
+  ]
+}
