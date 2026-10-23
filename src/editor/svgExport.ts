@@ -9,7 +9,8 @@ import { tableParts, tableTexts } from './table.ts'
 import type { EditorDocument, Layer, PixelLayer, ShapeLayer, TextLayer } from './types.ts'
 import { cssFont, familyName, fontFormat, fontInfo, fontStack, fontStackIds } from '../text/fonts.ts'
 import { styledPieces } from '../text/spans.ts'
-import { lineShift, textLayout } from '../text/textLayer.ts'
+import { lineShift, textCurve, textLayout } from '../text/textLayer.ts'
+import type { CurvedText } from '../text/textCurve.ts'
 
 // The design as an SVG file: shapes and text stay sharp at any size and can be changed in other
 // design programs. Photos and drawings come along as pictures inside it, at full detail. A layer
@@ -146,8 +147,49 @@ function shapeSvg(layer: ShapeLayer, ids: Ids, defs: string[]): string {
 
 // Text placed exactly as it's drawn on the design: line by line, each piece that reads one way and
 // has one look on its own, so right-to-left words and numbers inside them come out just as shown.
+// Curved text: each letter on its own, turned to follow the curve. A gradient fills a rectangle
+// cut to the letters' shape, so its colors run across the whole text like on the design.
+function curvedSvg(layer: TextLayer, curved: CurvedText, ids: Ids, defs: string[]): string {
+  const { box, style } = layer
+  const w = Math.abs(box.width)
+  const h = Math.abs(box.height)
+  const letters: string[] = []
+  for (const glyph of curved.glyphs) {
+    if (!glyph.text.trim()) continue
+    const look = glyph.style
+    const attributes = [
+      `transform="translate(${n(glyph.x)} ${n(glyph.y)}) rotate(${n((glyph.angle * 180) / Math.PI)})"`,
+      `x="${n(glyph.rtl ? glyph.width : 0)}"`,
+      'y="0"',
+      style.gradient && look.color === style.color ? '' : `fill="${look.color}"`,
+      `font-family="${escape(fontStack(look.font))}"`,
+      `font-size="${n(look.size)}"`,
+      `font-weight="${look.weight}"`,
+      look.italic ? 'font-style="italic"' : '',
+      glyph.rtl ? 'direction="rtl" unicode-bidi="embed"' : '',
+    ]
+    letters.push(`<text ${attributes.filter(Boolean).join(' ')}>${escape(glyph.text)}</text>`)
+  }
+  let body = letters.join('')
+  if (style.gradient) {
+    const own = letters.filter((l) => l.includes(' fill="'))
+    const shared = letters.filter((l) => !l.includes(' fill="'))
+    const gradient = ids.next('letters')
+    const clip = ids.next('clip')
+    const left = curved.center.x - w / 2
+    const top = curved.center.y - h / 2
+    defs.push(gradientDef(gradient, style.gradient, w, h, curved.center.x, curved.center.y))
+    defs.push(`<clipPath id="${clip}">${shared.join('')}</clipPath>`)
+    body = `<rect x="${n(left)}" y="${n(top)}" width="${n(w)}" height="${n(h)}" fill="url(#${gradient})" clip-path="url(#${clip})"/>${own.join('')}`
+  }
+  const flip = box.width < 0 || box.height < 0 ? ` scale(${box.width < 0 ? -1 : 1} ${box.height < 0 ? -1 : 1})` : ''
+  return `<g transform="translate(${n(box.cx)} ${n(box.cy)}) rotate(${n((box.rotation * 180) / Math.PI)})${flip} translate(${n(-curved.center.x)} ${n(-curved.center.y)})">${body}</g>`
+}
+
 function textSvg(layer: TextLayer, ids: Ids, defs: string[]): string {
   const { box, style } = layer
+  const curved = textCurve(layer)
+  if (curved) return curvedSvg(layer, curved, ids, defs)
   const layout = textLayout(layer)
   const w = Math.abs(box.width)
   const h = Math.abs(box.height)
