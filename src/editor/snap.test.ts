@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { snapMove } from './snap.ts'
+import { linedUp, snapLines, snapMove } from './snap.ts'
 
 const page = { x: 0, y: 0, width: 400, height: 300 }
 const rect = (x: number, y: number, width: number, height: number) => ({ x, y, width, height })
@@ -57,5 +57,18 @@ describe('snapMove', () => {
     const other = rect(10.5, 200, 20, 20)
     expect(snapMove(rect(0, 0, 10, 10), 12, 40, [other], page, 6, false).dx).toBe(10.5)
     expect(snapMove(rect(0, 0, 10, 10), 12, 40, [other], page, 6, true).dx).toBe(11)
+  })
+})
+
+describe('snapLines', () => {
+  it('moves a pulled corner onto the nearest edge or middle, on each axis on its own', () => {
+    const other = rect(100, 200, 50, 50)
+    expect(snapLines(147, 13, [other], page, 6)).toEqual({ dx: 3, dy: null })
+    expect(snapLines(null, 297, [other], page, 6)).toEqual({ dx: null, dy: 3 })
+  })
+
+  it('shows what a resized rectangle lines up with', () => {
+    const guides = linedUp(rect(10, 10, 190, 40), [], page).guides
+    expect(guides).toContainEqual({ axis: 'x', at: 200, from: 0, to: 300 })
   })
 })

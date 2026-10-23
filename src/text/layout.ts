@@ -13,6 +13,8 @@ import bidiFactory from 'bidi-js'
 export type Direction = 'ltr' | 'rtl'
 export type TextAlign = 'auto' | 'left' | 'center' | 'right' | 'justify'
 export type TextDirection = 'auto' | Direction
+// A list: each paragraph starts with a dot, a number or a letter (א ב ג for right-to-left text).
+export type ListKind = 'bullet' | 'number' | 'letter'
 
 export interface TextMeasure {
   // How wide a piece of text is, in design pixels, read in the given direction.
@@ -31,6 +33,26 @@ export interface LayoutSettings {
   lineHeight: number
   align: TextAlign
   direction: TextDirection
+  // Each paragraph is a point in a list. Missing or null: plain paragraphs.
+  list?: ListKind | null
+}
+
+// Where a list starts, for text that runs on from an earlier box: the number its first point
+// gets, and whether its first paragraph began in the box before (then it has no marker here).
+export interface ListStart {
+  number: number
+  continued: boolean
+}
+
+// The dot, number or letter before a point of a list, and where it's drawn.
+export interface ListMarker {
+  text: string
+  // Left edge and baseline, from the top-left of the text, and which line it's on.
+  x: number
+  baseline: number
+  line: number
+  width: number
+  direction: Direction
 }
 
 // A piece of a line that reads one way, from `start` to `end` in the text.
@@ -65,6 +87,9 @@ export interface TextLayout {
   lines: LayoutLine[]
   // The direction of the text as a whole: the first paragraph with letters decides.
   direction: Direction
+  // For a list: the room kept for the markers at the start side of every line, and the markers.
+  indent?: number
+  markers?: ListMarker[]
 }
 
 // Letters of scripts written right to left.
@@ -243,9 +268,99 @@ export function plainWidth(text: string, measure: TextMeasure): RangeWidth {
   return (start, end, direction) => measure.width(text.slice(start, end), direction)
 }
 
+// The Hebrew way of counting with letters, as in lists and chapters: א ב ... י יא ... טו טז ... כ.
+export function hebrewNumber(n: number): string {
+  if (n <= 0) return String(n)
+  const ones = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט']
+  const tens = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ']
+  const hundreds = ['', 'ק', 'ר', 'ש', 'ת']
+  let rest = n % 1000
+  let out = ''
+  const thousands = Math.floor(n / 1000)
+  if (thousands) out += hebrewNumber(thousands) + "'"
+  while (rest >= 400) {
+    out += 'ת'
+    rest -= 400
+  }
+  out += hundreds[Math.floor(rest / 100)]
+  rest %= 100
+  // 15 and 16 are written ט״ו and ט״ז, so they don't spell a name of Hashem.
+  if (rest === 15 || rest === 16) return out + 'ט' + ones[rest - 9]
+  return out + tens[Math.floor(rest / 10)] + ones[rest % 10]
+}
+
+// a, b, ... z, aa, ab ... like a spreadsheet's columns.
+function latinLetters(n: number): string {
+  let out = ''
+  for (let rest = n; rest > 0; rest = Math.floor((rest - 1) / 26)) out = String.fromCharCode(97 + ((rest - 1) % 26)) + out
+  return out
+}
+
+// The marker before the `n`th point of a list. Right to left, letters are Hebrew.
+export function listMarker(kind: ListKind, n: number, direction: Direction): string {
+  if (kind === 'bullet') return '•'
+  if (kind === 'number') return `${n}.`
+  return `${direction === 'rtl' ? hebrewNumber(n) : latinLetters(n)}.`
+}
+
+// The room kept for markers: as wide as a two-digit one (so it doesn't jump at the tenth point),
+// plus a gap before the words.
+export function listIndent(kind: ListKind, direction: Direction, measure: TextMeasure, size: number): number {
+  const widest = kind === 'bullet' ? '•' : kind === 'number' ? '00.' : direction === 'rtl' ? 'טו.' : 'mm.'
+  return Math.max(size * 1.2, measure.width(widest, direction) + listGap(size))
+}
+
+function listGap(size: number): number {
+  return size * 0.45
+}
+
+// A list: the text is laid out in the room left beside the markers, and every paragraph with words
+// gets the next marker in front of its first line. Empty paragraphs get none, so a blank line can
+// space out the points.
+function layoutList(text: string, settings: LayoutSettings, wrapWidth: number | null, measure: TextMeasure, rangeWidth: RangeWidth, start: ListStart): TextLayout {
+  const kind = settings.list!
+  const direction = mainDirection(text, settings.direction)
+  const indent = listIndent(kind, direction, measure, settings.size)
+  const inner = layoutText(text, { ...settings, list: null }, wrapWidth === null ? null : Math.max(1, wrapWidth - indent), measure, rangeWidth)
+  const shift = direction === 'ltr' ? indent : 0
+  const markers: ListMarker[] = []
+  let number = start.number
+  const lines = inner.lines.map((line, i) => {
+    const first = i === 0 ? !start.continued : text[line.start - 1] === '\n'
+    const close = text.indexOf('\n', line.start)
+    if (first && text.slice(line.start, close === -1 ? text.length : close).trim()) {
+      const marker = listMarker(kind, number++, direction)
+      const width = measure.width(marker, direction)
+      const x = direction === 'ltr' ? indent - listGap(settings.size) - width : inner.width + listGap(settings.size)
+      markers.push({ text: marker, x, baseline: line.baseline, line: i, width, direction })
+    }
+    return { ...line, x: line.x + shift }
+  })
+  return { ...inner, width: inner.width + indent, lines, indent, markers }
+}
+
+// How many points of a list come before `index` in the text, and whether `index` is in the middle
+// of a paragraph: where the part of a story shown in a later box starts counting.
+export function listStartAt(text: string, index: number): ListStart {
+  const before = text.slice(0, index).split('\n')
+  const started = before.pop()!
+  const continued = index > 0 && text[index - 1] !== '\n'
+  // A paragraph that began in the box before got its number there.
+  const number = 1 + before.filter((paragraph) => paragraph.trim()).length + (continued && started.trim() ? 1 : 0)
+  return { number, continued }
+}
+
 // Lays text out. With `wrapWidth`, paragraphs wrap to fit that width; without it, lines only break
 // where Enter was pressed, and the text is as wide as its longest line.
-export function layoutText(text: string, settings: LayoutSettings, wrapWidth: number | null, measure: TextMeasure, rangeWidth = plainWidth(text, measure)): TextLayout {
+export function layoutText(
+  text: string,
+  settings: LayoutSettings,
+  wrapWidth: number | null,
+  measure: TextMeasure,
+  rangeWidth = plainWidth(text, measure),
+  listStart: ListStart = { number: 1, continued: false },
+): TextLayout {
+  if (settings.list) return layoutList(text, settings, wrapWidth, measure, rangeWidth, listStart)
   const direction = mainDirection(text, settings.direction)
   const lineHeight = settings.size * settings.lineHeight
   const raw: { start: number; full: string; direction: Direction; last: boolean; runs: TextRun[] }[] = []

@@ -161,3 +161,32 @@ export function snapMove(moving: Rect, dx: number, dy: number, others: Rect[], p
   if (snapY?.spacing && Math.abs(final.y - moved.y - snapY.shift) < 0.5) spacing.push(snapY.spacing)
   return { dx: finalDx, dy: finalDy, guides: [...guidesFor(final, others, frames, 'x'), ...guidesFor(final, others, frames, 'y')], spacing }
 }
+
+// The smallest shift (within `tolerance`) that puts `at` onto an edge or middle of the page or of
+// another thing, or null when none is that close.
+function nearestLine(at: number, targets: Rect[], axis: 'x' | 'y', tolerance: number): number | null {
+  let best: number | null = null
+  for (const target of targets) {
+    for (const t of lines(along(target, axis))) {
+      const shift = t - at
+      if (Math.abs(shift) <= tolerance && (best === null || Math.abs(shift) < Math.abs(best) - 1e-9)) best = shift
+    }
+  }
+  return best
+}
+
+// Snaps a point (a corner being dragged out or pulled) onto the lines of the page and other things.
+// `x` or `y` left out doesn't snap on that axis. Returns how far to shift it on each axis.
+export function snapLines(x: number | null, y: number | null, others: Rect[], page: Rect | Rect[], tolerance: number): { dx: number | null; dy: number | null } {
+  const targets = [...(Array.isArray(page) ? page : [page]), ...others]
+  return {
+    dx: x === null ? null : nearestLine(x, targets, 'x', tolerance),
+    dy: y === null ? null : nearestLine(y, targets, 'y', tolerance),
+  }
+}
+
+// What a resized or newly drawn rectangle lines up with now, as guides to show.
+export function linedUp(rect: Rect, others: Rect[], page: Rect | Rect[]): SnapResult {
+  const frames = Array.isArray(page) ? page : [page]
+  return { dx: 0, dy: 0, guides: [...guidesFor(rect, others, frames, 'x'), ...guidesFor(rect, others, frames, 'y')], spacing: [] }
+}

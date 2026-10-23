@@ -10,7 +10,8 @@ import { startMove, type MoveSession } from '../editor/move.ts'
 import { renderScene, type LayerOverride } from '../editor/render.ts'
 import { sampleColor } from '../editor/sample.ts'
 import { layoutFrames } from '../editor/pageLayout.ts'
-import { snapMove, type SnapResult } from '../editor/snap.ts'
+import { documentPpi, formatInUnit, getUnit } from '../editor/units.ts'
+import { linedUp, snapLines, snapMove, type SnapResult } from '../editor/snap.ts'
 import {
   combineSelection,
   isPointSelected,
@@ -29,6 +30,7 @@ import {
   HANDLE_SIGNS,
   hitHandle,
   isIdentity,
+  normalizeAngle,
   rotationKnob,
   type EdgeHandles,
   type Handle,
@@ -40,6 +42,7 @@ import { useFontsVersion } from '../hooks/useFontsVersion.ts'
 import { hasRtlLetters } from '../text/layout.ts'
 import { textIndexAt } from '../text/textLayer.ts'
 import { TextEditBox, type TextEditing } from './TextEditBox.tsx'
+import { unitShort } from './unitWords.ts'
 import type { PenControls } from '../hooks/usePen.ts'
 import { live, msg, t } from '../i18n/i18n.ts'
 
@@ -235,6 +238,9 @@ interface ShapeDrag {
   constrain: boolean
   moved: boolean
   startClient: Point
+  // What the shape being drawn lines up with, and the things it can line up with.
+  others: Rect[]
+  lined: SnapResult | null
 }
 
 const HANDLE_CURSORS: Record<Handle, string> = {
@@ -515,7 +521,7 @@ function drawLayoutLines(ctx: CanvasRenderingContext2D, doc: EditorDocument, vie
 }
 
 // The lines that show what a moved object lined up with, and the even gaps it made.
-function drawGuides(ctx: CanvasRenderingContext2D, lined: SnapResult, viewport: Viewport) {
+function drawGuides(ctx: CanvasRenderingContext2D, lined: SnapResult, viewport: Viewport, ppi: number) {
   ctx.save()
   ctx.strokeStyle = GUIDE_COLOR
   ctx.fillStyle = GUIDE_COLOR
@@ -546,8 +552,9 @@ function drawGuides(ctx: CanvasRenderingContext2D, lined: SnapResult, viewport: 
       ctx.moveTo(b.x - tx, b.y - ty)
       ctx.lineTo(b.x + tx, b.y + ty)
       ctx.stroke()
-      // The size of the gap, in a small label.
-      const label = String(Math.round(gap.end - gap.start))
+      // The size of the gap, in a small label, counted in the unit sizes show in.
+      const unit = getUnit()
+      const label = `${formatInUnit(gap.end - gap.start, unit, ppi)}${unit === 'px' ? '' : ` ${unitShort(unit)}`}`
       const mx = (a.x + b.x) / 2
       const my = (a.y + b.y) / 2
       const w = ctx.measureText(label).width + 8
@@ -768,7 +775,7 @@ export function CanvasView(props: CanvasViewProps) {
       if (box) drawBox(ctx, { kind: 'transform', value: box, edges: activeEdges(p) }, p.viewport, p.width, p.height)
     }
     const arranging = arrangeRef.current
-    if ((arranging?.kind === 'object' || arranging?.kind === 'frame') && arranging.moved && arranging.lined) drawGuides(ctx, arranging.lined, p.viewport)
+    if ((arranging?.kind === 'object' || arranging?.kind === 'frame') && arranging.moved && arranging.lined) drawGuides(ctx, arranging.lined, p.viewport, documentPpi(p.doc))
     if (arranging?.kind === 'marquee' && arranging.moved) {
       const rect = rectFromCorners(arranging.start, arranging.current)
       const a = toScreen({ x: rect.x, y: rect.y }, p.viewport)
@@ -790,6 +797,7 @@ export function CanvasView(props: CanvasViewProps) {
       ctx.setTransform(dpr * p.viewport.zoom, 0, 0, dpr * p.viewport.zoom, dpr * p.viewport.panX, dpr * p.viewport.panY)
       drawShape(ctx, p.shapes.draft(box))
       ctx.restore()
+      if (shape.lined && draft.geometry.type !== 'line') drawGuides(ctx, shape.lined, p.viewport, documentPpi(p.doc))
     }
 
     if (p.pen && p.tool === 'pen') p.pen.draw(ctx, p.viewport)
@@ -957,6 +965,35 @@ export function CanvasView(props: CanvasViewProps) {
     arrangeRef.current = { kind: 'marquee', pointerId: event.pointerId, start: point, current: point, startClient, moved: false, locked, adding: event.shiftKey }
   }
 
+  // The page, and the margins and columns on it, that things line up with.
+  function snapPage(): Rect[] {
+    const frames = layoutFrames(doc)
+    return [{ x: 0, y: 0, width: doc.width, height: doc.height }, ...(frames ? [frames.inside, ...frames.columns] : [])]
+  }
+
+  // Where to put the pointer so a pulled handle lands on a line of the page or another thing, or
+  // null when nothing is close. A corner that keeps the shape lines up whichever side is closer.
+  function snapResize(startBox: TransformBox, box: TransformBox, handle: Handle, keepProportions: boolean, others: Rect[]): Point | null {
+    if (handle === 'move' || handle === 'rotate') return null
+    const [hx, hy] = HANDLE_SIGNS[handle]
+    const corner = boxPoint(box, hx, hy)
+    const { dx, dy } = snapLines(hx ? corner.x : null, hy ? corner.y : null, others, snapPage(), SNAP_DISTANCE / viewport.zoom)
+    if (dx === null && dy === null) return null
+    if (keepProportions && hx && hy) {
+      const fixed = boxPoint(startBox, -hx, -hy)
+      const useX = dy === null || (dx !== null && Math.abs(dx) <= Math.abs(dy))
+      const scale = useX ? (corner.x + dx! - fixed.x) / (hx * startBox.width) : (corner.y + dy! - fixed.y) / (hy * startBox.height)
+      return { x: fixed.x + hx * startBox.width * scale, y: fixed.y + hy * startBox.height * scale }
+    }
+    return { x: corner.x + (dx ?? 0), y: corner.y + (dy ?? 0) }
+  }
+
+  // A point moved onto the lines of the page or another thing when it's close to one.
+  function snapPoint(point: Point, others: Rect[]): Point {
+    const { dx, dy } = snapLines(point.x, point.y, others, snapPage(), SNAP_DISTANCE / viewport.zoom)
+    return { x: point.x + (dx ?? 0), y: point.y + (dy ?? 0) }
+  }
+
   // What a moved thing can line up with: the page and every other thing you can see.
   function snapTargets(moving: TransformBox, exclude: string[], whole: boolean): SnapTargets {
     const others = doc.layers
@@ -971,7 +1008,7 @@ export function CanvasView(props: CanvasViewProps) {
     const frame = frameOf(layers)
     if (!frame) return
     const ids = layers.map((l) => l.id)
-    const snap = handle === 'move' ? snapTargets(frame, ids, layers.some((l) => l.kind === 'raster')) : null
+    const snap = handle !== 'rotate' ? snapTargets(frame, ids, layers.some((l) => l.kind === 'raster')) : null
     arrangeRef.current = { kind: 'frame', pointerId: event.pointerId, ids, layers, clicked, handle, start: point, startBox: frame, box: frame, startClient, moved: false, snap, lined: null }
     requestOverlay()
   }
@@ -979,7 +1016,7 @@ export function CanvasView(props: CanvasViewProps) {
   function startObjectDrag(event: PointerEvent<HTMLCanvasElement>, layer: Layer, handle: Handle, point: Point, startClient: Point) {
     const startBox = arrangeBox(layer)
     if (!startBox) return
-    const snap = handle === 'move' ? snapTargets(startBox, [layer.id], layer.kind === 'raster') : null
+    const snap = handle !== 'rotate' ? snapTargets(startBox, [layer.id], layer.kind === 'raster') : null
     arrangeRef.current = { kind: 'object', pointerId: event.pointerId, layer, handle, start: point, startBox, box: startBox, startClient, moved: false, snap, lined: null }
     requestOverlay()
   }
@@ -1308,9 +1345,11 @@ export function CanvasView(props: CanvasViewProps) {
     } else if (tool === 'crop' && props.box) {
       startBoxDrag(event, props.box)
     } else if (tool === 'shape' && props.shapes) {
-      const point = documentPoint(event.clientX, event.clientY)
+      // Shapes start and end on the lines of the page and other things when close (Alt: freely).
+      const others = snapTargets({ cx: 0, cy: 0, width: 0, height: 0, rotation: 0 }, [], false).others
+      const point = event.altKey ? documentPoint(event.clientX, event.clientY) : snapPoint(documentPoint(event.clientX, event.clientY), others)
       event.currentTarget.setPointerCapture(event.pointerId)
-      shapeRef.current = { pointerId: event.pointerId, start: point, current: point, constrain: event.shiftKey, moved: false, startClient: { x: event.clientX, y: event.clientY } }
+      shapeRef.current = { pointerId: event.pointerId, start: point, current: point, constrain: event.shiftKey, moved: false, startClient: { x: event.clientX, y: event.clientY }, others, lined: null }
     } else if (tool === 'pen' && props.pen) {
       event.currentTarget.setPointerCapture(event.pointerId)
       penRef.current = event.pointerId
@@ -1379,9 +1418,7 @@ export function CanvasView(props: CanvasViewProps) {
         let dy = Math.round(point.y - arrange.start.y)
         arrange.lined = null
         if (arrange.snap && !event.altKey) {
-          const frames = layoutFrames(doc)
-          const page = [{ x: 0, y: 0, width: doc.width, height: doc.height }, ...(frames ? [frames.inside, ...frames.columns] : [])]
-          const lined = snapMove(arrange.snap.moving, point.x - arrange.start.x, point.y - arrange.start.y, arrange.snap.others, page, SNAP_DISTANCE / viewport.zoom, arrange.snap.whole)
+          const lined = snapMove(arrange.snap.moving, point.x - arrange.start.x, point.y - arrange.start.y, arrange.snap.others, snapPage(), SNAP_DISTANCE / viewport.zoom, arrange.snap.whole)
           dx = lined.dx
           dy = lined.dy
           arrange.lined = lined
@@ -1390,7 +1427,17 @@ export function CanvasView(props: CanvasViewProps) {
       } else {
         // Several things always grow evenly, so nothing in them gets squashed.
         const keepProportions = arrange.kind === 'frame' || (props.arrange?.keepProportions ?? true) !== event.shiftKey
-        arrange.box = dragHandle(arrange.startBox, arrange.handle, arrange.start, point, { keepProportions, snapAngle: event.shiftKey })
+        const options = { keepProportions, snapAngle: event.shiftKey }
+        arrange.box = dragHandle(arrange.startBox, arrange.handle, arrange.start, point, options)
+        arrange.lined = null
+        // A pulled edge or corner of something straight clicks into line too (Alt pulls freely).
+        if (arrange.snap && !event.altKey && arrange.handle !== 'rotate' && Math.abs(normalizeAngle(arrange.startBox.rotation)) < 1e-6) {
+          const snapped = snapResize(arrange.startBox, arrange.box, arrange.handle, keepProportions, arrange.snap.others)
+          if (snapped) {
+            arrange.box = dragHandle(arrange.startBox, arrange.handle, arrange.start, snapped, options)
+            arrange.lined = linedUp(polygonBounds(boxCorners(arrange.box))!, arrange.snap.others, snapPage())
+          }
+        }
       }
       requestScene()
       requestOverlay()
@@ -1440,9 +1487,14 @@ export function CanvasView(props: CanvasViewProps) {
 
     const shape = shapeRef.current
     if (shape && shape.pointerId === event.pointerId) {
-      shape.current = point
+      shape.current = event.altKey ? point : snapPoint(point, shape.others)
       shape.constrain = event.shiftKey
       if (!shape.moved && Math.hypot(event.clientX - shape.startClient.x, event.clientY - shape.startClient.y) >= clickSlop(event)) shape.moved = true
+      shape.lined = null
+      if (shape.moved && !event.altKey) {
+        const box = shapeDragBox(shape, false, 1)
+        if (box.width > 1 && box.height > 1) shape.lined = linedUp(polygonBounds(boxCorners(box))!, shape.others, snapPage())
+      }
       requestOverlay()
       return
     }

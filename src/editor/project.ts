@@ -6,8 +6,9 @@ import { EXPORT_FORMATS } from './fileNames.ts'
 import { pixelVersion } from './pixelVersion.ts'
 import type { Selection, SelectionOp } from './selection.ts'
 import type { TransformBox } from './transform.ts'
-import type { TextAlign, TextDirection } from '../text/layout.ts'
+import type { ListKind, TextAlign, TextDirection } from '../text/layout.ts'
 import { loadDesignFonts } from '../text/textLayer.ts'
+import { addFontsFromDesign, FONT_FORMATS, MAX_FONT_BYTES, OWN_FONT_ID, ownFontData, type FontFormat, type OwnFont } from '../text/ownFonts.ts'
 import { tidySpans } from '../text/spans.ts'
 import { tidyGroups } from './layers.ts'
 import { allPages, pageIndex } from './pages.ts'
@@ -34,10 +35,11 @@ import { MAX_DESIGN_COLORS, MAX_TEXT_STYLES } from './designStyles.ts'
 // blend modes. Version 7 added pen paths and gradient fills. Version 8 added designs with several
 // pages (pages): then each page has its own layers, and the pictures come page by page. Version 9
 // added margins and columns (layout). Version 10 added text that runs on from box to box (flow).
-// Version 11 added things on every page (everyPage) and page numbers (pageNumber).
+// Version 11 added things on every page (everyPage) and page numbers (pageNumber). Version 12 added
+// lists (a text's style.list) and fonts of your own (fonts): their files come after the pictures.
 // Older files still open.
 
-export const PROJECT_VERSION = 12
+export const PROJECT_VERSION = 13
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -130,7 +132,20 @@ export interface ProjectManifest {
   // The design's own colors and text styles. Older files don't have them.
   colors?: string[]
   textStyles?: SavedTextStyle[]
+  // Fonts of your own the text uses, whose files come after the pictures, in this order.
+  fonts?: ProjectFont[]
 }
+
+export interface ProjectFont {
+  id: string
+  name: string
+  format: FontFormat
+  hebrew: boolean
+  yiddish: boolean
+  bytes: number
+}
+
+const MAX_FONTS = 100
 
 export interface ProjectPage {
   background: string | null
@@ -171,7 +186,7 @@ export async function isProjectFile(file: Blob): Promise<boolean> {
 }
 
 // Reads the description and finds each picture's PNG, without decoding any pixels yet.
-export async function unpackProject(file: Blob): Promise<{ manifest: ProjectManifest; images: Blob[] }> {
+export async function unpackProject(file: Blob): Promise<{ manifest: ProjectManifest; images: Blob[]; fonts: OwnFont[] }> {
   if (file.size < HEADER_BYTES || !(await hasMagic(file))) throw new ProjectError(t(DAMAGED))
   const length = new DataView(await file.slice(MAGIC.length, HEADER_BYTES).arrayBuffer()).getUint32(0, true)
   if (length > MAX_DESCRIPTION_BYTES || HEADER_BYTES + length > file.size) throw new ProjectError(t(DAMAGED))
@@ -188,8 +203,13 @@ export async function unpackProject(file: Blob): Promise<{ manifest: ProjectMani
     offset += bytes
     return image
   })
+  const fonts = (manifest.fonts ?? []).map(({ bytes, ...font }): OwnFont => {
+    const data = file.slice(offset, offset + bytes)
+    offset += bytes
+    return { ...font, data }
+  })
   if (offset > file.size) throw new ProjectError(t(DAMAGED))
-  return { manifest, images }
+  return { manifest, images, fonts }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -342,6 +362,7 @@ function readOutline(value: unknown): ShapeOutline | null {
 
 const TEXT_ALIGNS: TextAlign[] = ['auto', 'left', 'center', 'right', 'justify']
 const TEXT_DIRECTIONS: TextDirection[] = ['auto', 'rtl', 'ltr']
+const LIST_KINDS: ListKind[] = ['bullet', 'number', 'letter']
 const MAX_TEXT_LENGTH = 1_000_000
 
 function readFlow(value: unknown): TextFlow {
@@ -357,11 +378,12 @@ function readFlow(value: unknown): TextFlow {
 
 function readTextStyle(value: unknown): TextStyle {
   if (!isRecord(value)) damaged()
-  const { font, size, weight, italic, color, align, direction, letterSpacing, lineHeight, gradient } = value
+  const { font, size, weight, italic, color, align, direction, letterSpacing, lineHeight, gradient, list } = value
   if (typeof font !== 'string' || font.length === 0 || font.length > 100) damaged()
   if (!isBetween(size, 0.1, 100000) || !isBetween(weight, 1, 1000) || typeof italic !== 'boolean') damaged()
   if (!TEXT_ALIGNS.includes(align as TextAlign) || !TEXT_DIRECTIONS.includes(direction as TextDirection)) damaged()
   if (!isBetween(letterSpacing, -1, 5) || !isBetween(lineHeight, 0.3, 10)) damaged()
+  if (list !== undefined && list !== null && !LIST_KINDS.includes(list as ListKind)) damaged()
   return {
     font,
     size,
@@ -373,6 +395,7 @@ function readTextStyle(value: unknown): TextStyle {
     letterSpacing,
     lineHeight,
     ...(gradient === undefined || gradient === null ? {} : { gradient: readGradient(gradient) }),
+    ...(list ? { list: list as ListKind } : {}),
   }
 }
 
@@ -516,6 +539,7 @@ export function validateManifest(value: unknown): ProjectManifest {
     ...(value.layout === undefined ? {} : { layout: readLayout(value.layout) }),
     ...(value.colors === undefined ? {} : { colors: readColors(value.colors) }),
     ...(value.textStyles === undefined ? {} : { textStyles: readTextStyles(value.textStyles) }),
+    ...(value.fonts === undefined ? {} : { fonts: readFonts(value.fonts) }),
   }
 }
 
@@ -529,6 +553,15 @@ function readTextStyles(value: unknown): SavedTextStyle[] {
   return value.map((saved): SavedTextStyle => {
     if (!isRecord(saved) || typeof saved.id !== 'string' || !saved.id || saved.id.length > 100 || typeof saved.name !== 'string') damaged()
     return { id: saved.id, name: saved.name.slice(0, MAX_NAME_LENGTH), style: readTextStyle(saved.style) }
+  })
+}
+
+function readFonts(value: unknown): ProjectFont[] {
+  if (!Array.isArray(value) || value.length > MAX_FONTS) damaged()
+  return value.map((font): ProjectFont => {
+    if (!isRecord(font) || typeof font.id !== 'string' || !OWN_FONT_ID.test(font.id) || typeof font.name !== 'string') damaged()
+    if (!FONT_FORMATS.includes(font.format as FontFormat) || typeof font.hebrew !== 'boolean' || typeof font.yiddish !== 'boolean' || !isWhole(font.bytes, 1, MAX_FONT_BYTES)) damaged()
+    return { id: font.id, name: font.name.slice(0, MAX_NAME_LENGTH), format: font.format as FontFormat, hebrew: font.hebrew, yiddish: font.yiddish, bytes: font.bytes }
   })
 }
 
@@ -608,6 +641,12 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
     layers: page.layers.map((layer, i) => describeLayer(layer, pictures[p][i].map((png) => png.size))),
   }))
   const several = pages.length > 1
+  // Fonts of your own go inside, so the design looks the same on any computer.
+  const used = new Set(pages.flatMap((page) => page.layers.flatMap((layer) => (layer.kind === 'text' ? [layer.style.font, ...(layer.spans ?? []).flatMap((span) => (span.style.font ? [span.style.font] : []))] : []))))
+  const fonts = [...used].flatMap((id) => {
+    const font = ownFontData(id)
+    return font ? [font] : []
+  })
   const manifest: ProjectManifest = {
     version: PROJECT_VERSION,
     name: doc.name,
@@ -620,8 +659,9 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
     ...(hasLayout(doc.layout) ? { layout: doc.layout } : {}),
     ...(doc.colors?.length ? { colors: doc.colors } : {}),
     ...(doc.textStyles?.length ? { textStyles: doc.textStyles } : {}),
+    ...(fonts.length ? { fonts: fonts.map(({ data, ...font }) => ({ ...font, bytes: data.size })) } : {}),
   }
-  return packProject(manifest, pictures.flat(2))
+  return packProject(manifest, [...pictures.flat(2), ...fonts.map((font) => font.data)])
 }
 
 async function decodePicture(png: Blob, width: number, height: number): Promise<HTMLCanvasElement> {
@@ -669,7 +709,8 @@ async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer>
 // Turns a project back into a design. `id` keeps a design kept in the browser under its own
 // name; files opened from the computer get a new one, so they never replace a kept design.
 export async function decodeProject(file: Blob, id = createDesignId()): Promise<EditorDocument> {
-  const { manifest, images } = await unpackProject(file)
+  const { manifest, images, fonts } = await unpackProject(file)
+  await addFontsFromDesign(fonts)
   let next = 0
   // Groups get new ids, like layers do, and only whole groups are kept.
   const groupIds = new Map<string, string>()

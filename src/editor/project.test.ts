@@ -88,6 +88,18 @@ describe('project files', () => {
     expect(await Promise.all(images.map(bytes))).toEqual([[1, 2, 3], [4, 5]])
   })
 
+  it('keeps lists and carries fonts of your own after the pictures', async () => {
+    const list = words({ style: { font: 'own-0123456789abcdef', size: 24, weight: 400, italic: false, color: '#000000', align: 'auto', direction: 'auto', letterSpacing: 0, lineHeight: 1.2, list: 'letter' } })
+    const fonts = [{ id: 'own-0123456789abcdef', name: 'My Hebrew', format: 'truetype' as const, hebrew: true, yiddish: false, bytes: 4 }]
+    const original = manifest({ layers: [...manifest().layers, list], fonts })
+    const read = await unpackProject(packProject(original, [...IMAGES(), new Blob([new Uint8Array([7, 7, 7, 7])])]))
+    expect(read.manifest).toEqual(original)
+    expect(read.fonts.map((f) => [f.id, f.name, f.format])).toEqual([['own-0123456789abcdef', 'My Hebrew', 'truetype']])
+    expect(await bytes(read.fonts[0].data)).toEqual([7, 7, 7, 7])
+    expect(() => validateManifest({ ...original, fonts: [{ ...fonts[0], id: 'heebo' }] })).toThrow(ProjectError)
+    expect(() => validateManifest({ ...original, layers: [words({ style: { ...(list as { style: object }).style, list: 'stars' } as never })] })).toThrow(ProjectError)
+  })
+
   it('keeps names in any language', async () => {
     const { manifest: read } = await unpackProject(packProject(manifest({ name: 'כרטיס ברכה ✓' }), IMAGES()))
     expect(read.name).toBe('כרטיס ברכה ✓')
