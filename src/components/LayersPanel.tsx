@@ -199,7 +199,7 @@ export function LayersPanel(props: LayersPanelProps) {
           title={t("Layers")}
           description={t("Everything on your design, from front (top of the list) to back. Each photo, shape, text and drawing is its own layer. The page is always at the bottom. Hold Shift and click to pick several.")}
         >
-          <h2 className="flex cursor-help items-center gap-1.5 text-[13px] font-semibold text-ink">
+          <h2 className="flex cursor-help items-center gap-1.5 text-[14px] font-semibold text-ink">
             {t('Layers')}
             <CircleHelp size={14} className="text-ink-3" aria-hidden />
           </h2>

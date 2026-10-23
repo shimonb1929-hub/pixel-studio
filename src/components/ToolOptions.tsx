@@ -567,7 +567,7 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
   if (!target) {
     return (
       <>
-        <Hint>{controls.blocked ?? t('Click anything on your design to pick it.')}</Hint>
+        {controls.blocked && <Hint>{controls.blocked}</Hint>}
         {controls.locked && (
           <Button variant="secondary" className="h-8 shrink-0 px-3 text-[13px]" onClick={controls.unlock} tip={{ title: t('Unlock'), description: t('Let this layer be picked and moved again.') }}>
             <LockOpen size={15} />
@@ -835,7 +835,8 @@ function PenOptions({ controls }: { controls: PenBarControls }) {
       </>
     )
   }
-  return <Hint>{t('Click to start a new shape, point by point. On a picked drawn shape: drag a point or a line to reshape it, click a line to add a point.')}</Hint>
+  // Nothing is being drawn and no point is picked: the hint over the page says what to do.
+  return null
 }
 
 function describeTolerance(tolerance: number): string {
@@ -884,13 +885,13 @@ export function ToolOptions(props: ToolOptionsProps) {
     <div
       aria-label={t('{tool} settings', { tool: info.name })}
       role="toolbar"
-      className="mx-2 mb-2 flex h-[62px] shrink-0 items-center gap-3 overflow-x-auto overflow-y-hidden rounded-card border border-line bg-surface px-3 shadow-card xl:gap-4"
+      className="mx-3 mb-3 flex h-[62px] shrink-0 items-center gap-3 overflow-x-auto overflow-y-hidden rounded-card border border-line bg-surface px-3 shadow-card xl:gap-4"
     >
       <div className="flex shrink-0 items-center gap-2 pe-1">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-accent">
           <Icon size={17} strokeWidth={1.9} />
         </span>
-        <span className="text-[13px] font-semibold leading-tight text-ink">{info.name}</span>
+        <span className="text-[14px] font-semibold leading-tight text-ink">{info.name}</span>
       </div>
       <div className="h-9 w-px shrink-0 bg-line" />
       {props.tool === 'brush' ? (
@@ -930,7 +931,6 @@ export function ToolOptions(props: ToolOptionsProps) {
               </Button>
             ))}
           </div>
-          <Hint>{t('Or click where your text should start, or drag a box for a paragraph. Hebrew and Yiddish go right to left by themselves.')}</Hint>
         </>
       ) : props.tool === 'crop' ? (
         <CropOptions controls={props.crop} />
@@ -947,7 +947,6 @@ export function ToolOptions(props: ToolOptionsProps) {
             note={describeTolerance(props.fillTolerance)}
             onChange={(position) => props.onFillToleranceChange(Math.round(position * 100) / 100)}
           />
-          <Hint>{t('Click inside an area to fill it with your color. It looks at everything you can see, and paints on the selected layer.')}</Hint>
         </>
       ) : props.tool === 'heal' ? (
         <>
@@ -959,7 +958,6 @@ export function ToolOptions(props: ToolOptionsProps) {
             display={`${props.healSize} px`}
             onChange={(position) => props.onHealSizeChange(sliderToSize(position))}
           />
-          <Hint>{t('Brush over a spot, a scratch or a small thing. When you let go, it is filled in from what is around it. Undo brings it back.')}</Hint>
         </>
       ) : (
         <Hint>{info.description}</Hint>

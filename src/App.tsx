@@ -101,9 +101,10 @@ const MAX_RECENT_COLORS = 9
 const NOTICE_MS = 3500
 
 // The same faint dots the canvas draws, so the empty workspace matches it.
+// A faint dot grid says "this is the table your page sits on" without drawing the eye.
 const DOT_BACKGROUND = {
-  backgroundImage: 'radial-gradient(rgba(27, 33, 48, 0.13) 0.85px, transparent 1.1px)',
-  backgroundSize: '24px 24px',
+  backgroundImage: 'radial-gradient(rgba(27, 33, 48, 0.09) 0.85px, transparent 1.1px)',
+  backgroundSize: '28px 28px',
 }
 
 const DEFAULT_BRUSH = BRUSH_PRESETS.find((p) => p.id === 'pen')!
@@ -318,7 +319,7 @@ function fontSample(text: string): string {
 
 export default function App() {
   // Everything is drawn again in the new words when the language changes.
-  useLanguage()
+  const language = useLanguage()
   const editor = useEditor()
   const { doc } = editor
   const autosave = useAutosave(editor)
@@ -459,7 +460,7 @@ export default function App() {
     () => (adjustOn && doc ? (activeNow ? adjustProblem(doc, activeNow) : t('Pick something on your design to adjust it, or click it in the Layers panel.')) : null),
     // Only the layer, its pixels and the selection matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [adjustOn, activeNow, doc?.selection, editor.revision],
+    [adjustOn, activeNow, doc?.selection, editor.revision, language],
   )
   const adjustLayer = adjustOn && !adjustBlocked ? activeNow : undefined
   // A whole layer keeps its adjustments as a setting that can be changed again; a selected part is
@@ -2385,7 +2386,7 @@ export default function App() {
         onHealSizeChange={setHealSize}
       />}
 
-      <div className="flex min-h-0 flex-1 gap-2 px-2 pb-2">
+      <div className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
         {doc && <ToolDock tool={tool} onToolChange={setTool} onAddPhoto={commands.addPhoto} />}
 
         <main
@@ -2468,7 +2469,7 @@ export default function App() {
           )}
         </main>
 
-        <div className={`hidden w-[272px] shrink-0 flex-col gap-2 overflow-y-auto ${doc ? 'md:flex' : ''}`}>
+        <div className={`hidden w-[288px] shrink-0 flex-col gap-3 overflow-y-auto ${doc ? 'md:flex' : ''}`}>
           {adjustOn && doc ? (
             <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
           ) : (
