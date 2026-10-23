@@ -316,7 +316,10 @@ function readFill(value: unknown): ProjectFill {
 function readOutline(value: unknown): ShapeOutline | null {
   if (value === null || value === undefined) return null
   if (!isRecord(value) || !isBetween(value.width, 0, 10000)) damaged()
-  return { color: readColor(value.color), width: value.width }
+  if (value.dash !== undefined && value.dash !== 'dashed' && value.dash !== 'dotted' && value.dash !== 'solid') damaged()
+  const outline: ShapeOutline = { color: readColor(value.color), width: value.width }
+  if (value.dash === 'dashed' || value.dash === 'dotted') outline.dash = value.dash
+  return outline
 }
 
 const TEXT_ALIGNS: TextAlign[] = ['auto', 'left', 'center', 'right', 'justify']

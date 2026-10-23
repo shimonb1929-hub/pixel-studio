@@ -2,7 +2,7 @@ import { ArrowRight, Blend, CircleHelp, ImagePlus, Move, PenTool, Square, X } fr
 import { cssGradient, type Gradient } from '../editor/gradient.ts'
 import { GradientEditor } from './GradientEditor.tsx'
 import { isLineShape } from '../editor/objects.ts'
-import type { ShapeFill, ShapeGeometry, ShapeOutline } from '../editor/types.ts'
+import type { OutlineDash, ShapeFill, ShapeGeometry, ShapeOutline } from '../editor/types.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button, Slider } from './ui.tsx'
 import { t } from '../i18n/i18n.ts'
@@ -52,6 +52,7 @@ interface ShapePanelProps {
   onNoFill: () => void
   onNoOutline: () => void
   onOutlineWidth: (width: number) => void
+  onOutlineDash: (dash: OutlineDash) => void
   // A plain color or a gradient inside.
   onFillKind: (kind: 'color' | 'gradient') => void
   onGradient: (gradient: Gradient, label: string, mergeKey?: string) => void
@@ -65,6 +66,36 @@ interface ShapePanelProps {
 }
 
 const MAX_OUTLINE = 60
+
+// Each kind of line drawn as a small sample, so the choice shows itself.
+const DASHES: { value: OutlineDash; label: () => string; description: () => string; pattern: string; cap: 'butt' | 'round' }[] = [
+  { value: 'solid', label: () => t('Solid'), description: () => t('One unbroken line.'), pattern: '', cap: 'butt' },
+  { value: 'dashed', label: () => t('Dashed'), description: () => t('A line of dashes, like a cut-out coupon.'), pattern: '7 4', cap: 'butt' },
+  { value: 'dotted', label: () => t('Dotted'), description: () => t('A line of round dots.'), pattern: '0 6', cap: 'round' },
+]
+
+function DashChoice({ value, line, onChange }: { value: OutlineDash; line: boolean; onChange: (dash: OutlineDash) => void }) {
+  return (
+    <div role="radiogroup" aria-label={line ? t('Line style') : t('Outline style')} className="flex gap-1 rounded-[10px] border border-line bg-subtle p-1">
+      {DASHES.map((dash) => (
+        <Tooltip key={dash.value} title={dash.label()} description={dash.description()} className="flex flex-1">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={value === dash.value}
+            aria-label={dash.label()}
+            onClick={() => onChange(dash.value)}
+            className={`flex h-8 flex-1 items-center justify-center rounded-md transition-colors ${value === dash.value ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'}`}
+          >
+            <svg width="44" height="8" viewBox="0 0 44 8" aria-hidden>
+              <line x1="4" y1="4" x2="40" y2="4" stroke="currentColor" strokeWidth="3" strokeDasharray={dash.pattern || undefined} strokeLinecap={dash.cap} />
+            </svg>
+          </button>
+        </Tooltip>
+      ))}
+    </div>
+  )
+}
 
 // The look of the selected shape (or of new ones): its colors, outline and corners.
 export function ShapePanel(props: ShapePanelProps) {
@@ -160,6 +191,7 @@ export function ShapePanel(props: ShapePanelProps) {
             onChange={(position) => props.onOutlineWidth(Math.max(line ? 1 : 0, Math.round(position * position * MAX_OUTLINE)))}
           />
         )}
+        {(outline || line) && <DashChoice value={outline?.dash ?? 'solid'} line={line} onChange={props.onOutlineDash} />}
         {geometry.type === 'rectangle' && (
           <Slider
             label={t("Round corners")}

@@ -77,10 +77,14 @@ export type ShapeFill =
   // x, y (-1 to 1) slide it to show another part of it.
   | { kind: 'photo'; canvas: HTMLCanvasElement; zoom: number; x: number; y: number }
 
+export type OutlineDash = 'solid' | 'dashed' | 'dotted'
+
 export interface ShapeOutline {
   color: string
   // In design pixels.
   width: number
+  // A line of dashes or dots instead of a solid one. Missing means solid.
+  dash?: OutlineDash
 }
 
 // A shape that stays sharp at any size and stays editable.

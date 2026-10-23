@@ -83,7 +83,7 @@ import { invertSelection, selectAll, selectionInfo, type Selection, type Selecti
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
-import type { EditorDocument, Layer, PageLayout, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
+import type { EditorDocument, Layer, PageLayout, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, OutlineDash, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
 import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
@@ -686,8 +686,8 @@ export default function App() {
     if (shapeTarget === 'outline') {
       changeShape(
         shapeIsLine ? t('Line color') : t('Outline color'),
-        (s) => ({ outline: { color: hex, width: s.outline?.width || NEW_OUTLINE_WIDTH } }),
-        (d) => (shapeIsLine ? { ...d, line: { ...d.line, color: hex } } : { ...d, outline: { color: hex, width: d.outline?.width || NEW_OUTLINE_WIDTH } }),
+        (s) => ({ outline: { ...s.outline, color: hex, width: s.outline?.width || NEW_OUTLINE_WIDTH } }),
+        (d) => (shapeIsLine ? { ...d, line: { ...d.line, color: hex } } : { ...d, outline: { ...d.outline, color: hex, width: d.outline?.width || NEW_OUTLINE_WIDTH } }),
         'shape-outline-color',
       )
     } else if (shapeShown?.fill.kind === 'gradient') {
@@ -709,7 +709,7 @@ export default function App() {
     const colored = (l: Layer): Layer => {
       if (l.kind === 'text') return changeText(l, { style: { color: hex } })
       if (l.kind !== 'shape') return l
-      if (isLineShape(l.geometry) || shapeTarget === 'outline') return { ...l, outline: { color: hex, width: l.outline?.width || NEW_OUTLINE_WIDTH } }
+      if (isLineShape(l.geometry) || shapeTarget === 'outline') return { ...l, outline: { ...l.outline, color: hex, width: l.outline?.width || NEW_OUTLINE_WIDTH } }
       return l.fill.kind === 'photo' || l.fill.kind === 'gradient' ? l : { ...l, fill: { kind: 'color', color: hex } }
     }
     editor.change(t('Color'), (doc) => ({ ...doc, layers: doc.layers.map((l) => (many.includes(l.id) ? colored(l) : l)) }), { mergeKey: `color:${many.join()}` })
@@ -723,9 +723,20 @@ export default function App() {
   function changeOutlineWidth(width: number) {
     changeShape(
       shapeIsLine ? t('Line thickness') : t('Outline width'),
-      (s) => ({ outline: width > 0 || shapeIsLine ? { color: s.outline?.color ?? '#1b1d23', width } : null }),
-      (d) => (shapeIsLine ? { ...d, line: { ...d.line, width } } : { ...d, outline: width > 0 ? { color: d.outline?.color ?? '#1b1d23', width } : null }),
+      (s) => ({ outline: width > 0 || shapeIsLine ? { ...s.outline, color: s.outline?.color ?? '#1b1d23', width } : null }),
+      (d) => (shapeIsLine ? { ...d, line: { ...d.line, width } } : { ...d, outline: width > 0 ? { ...d.outline, color: d.outline?.color ?? '#1b1d23', width } : null }),
       'shape-outline-width',
+    )
+  }
+
+  // Solid, dashed or dotted, for the outline (or the line itself).
+  function changeOutlineDash(dash: OutlineDash) {
+    const label = dash === 'dashed' ? t('Dashed line') : dash === 'dotted' ? t('Dotted line') : t('Solid line')
+    const withDash = (outline: ShapeOutline): ShapeOutline => (dash === 'solid' ? { color: outline.color, width: outline.width } : { ...outline, dash })
+    changeShape(
+      label,
+      (s) => ({ outline: s.outline ? withDash(s.outline) : null }),
+      (d) => (shapeIsLine ? { ...d, line: withDash(d.line) } : { ...d, outline: d.outline ? withDash(d.outline) : null }),
     )
   }
 
@@ -2722,6 +2733,7 @@ export default function App() {
                 onNoFill={() => changeShape(t('No fill'), () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
                 onNoOutline={() => changeShape(t('No outline'), () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
                 onOutlineWidth={changeOutlineWidth}
+              onOutlineDash={changeOutlineDash}
                 onFillKind={changeFillKind}
                 onGradient={changeGradient}
                 gradientStop={gradientStop}
