@@ -383,6 +383,8 @@ export default function App() {
   // Text being typed: new text (not in the design until it has words) or text already there.
   const [textEdit, setTextEditState] = useState<TextEditState | null>(null)
   const textEditRef = useRef<TextEditState | null>(null)
+  // The part last nudged with the arrow keys, to keep moving it from where it was picked up.
+  const nudgeRef = useRef<{ session: MoveSession; dx: number; dy: number; layer: Layer; selection: Selection; fillGap: boolean } | null>(null)
   // How the next new text looks. Its size fits the design unless one was chosen.
   const [textDefaults, setTextDefaults] = useState<TextDefaults>({ ...DEFAULT_TEXT_STYLE, size: null })
   const workspaceRef = useRef<HTMLElement>(null)
@@ -1624,9 +1626,36 @@ export default function App() {
       problem(t('Only pictures and paint can be moved part by part. To move the whole thing, clear the selection first.'))
       return
     }
-    editor.change(d.selection ? t('Move selected area') : t('Move layer'), (doc) => startMove(doc)?.commit(doc, dx, dy) ?? doc, {
-      mergeKey,
-      bytes: d.selection ? layerBytes(layer) : 0,
+    if (!d.selection) {
+      editor.change(t('Move layer'), (doc) => startMove(doc)?.commit(doc, dx, dy) ?? doc, { mergeKey })
+      return
+    }
+    // Nudging the same part again keeps going from where it was first picked up, so the gap it
+    // left is filled once and nothing of the picture is lost along the way.
+    const last = nudgeRef.current
+    const going = last && last.layer === layer && last.selection === d.selection && last.fillGap === fillGap
+    const session = going ? last.session : startMove(d, fillGap)
+    if (!session) return
+    const total = { dx: (going ? last.dx : 0) + dx, dy: (going ? last.dy : 0) + dy }
+    const put = () => {
+      editor.change(session.label, (doc) => session.commit(doc, total.dx, total.dy), { mergeKey, bytes: layerBytes(layer) })
+      const now = current()
+      const moved = now?.layers.find((l) => l.id === session.layerId)
+      nudgeRef.current = moved && now?.selection ? { session, ...total, layer: moved, selection: now.selection, fillGap } : null
+    }
+    put()
+    const { gap } = session
+    if (!gap || gap.patch) return
+    inform(t('AI is filling the gap…'))
+    // Once the gap is filled, the part is put down again the same way, now with the gap filled in,
+    // unless something else changed in the meantime.
+    void gap.ready.then((patch) => {
+      const latest = nudgeRef.current
+      const now = current()
+      if (!patch || latest?.session !== session || latest.dx !== total.dx || latest.dy !== total.dy) return
+      if (now?.selection !== latest.selection || !now.layers.includes(latest.layer)) return
+      setNotice(null)
+      put()
     })
   }
 
