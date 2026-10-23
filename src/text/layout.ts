@@ -104,6 +104,12 @@ export function resolveAlign(align: TextAlign, direction: Direction): 'left' | '
 const SPACE = /[ \t  -  -  　]/
 // A line can also wrap after a hyphen, a Hebrew maqaf (־) or a dash.
 const BREAK_AFTER = /[-־‐‒–—]/
+// A Hebrew letter, maybe with its vowel points, right before a hyphen.
+const HEBREW_BEFORE = /[\u05d0-\u05ea\u05f0-\u05f2][\u0591-\u05c7]*$/
+// After a Hebrew letter and a plain hyphen, browsers still wrap before an English word or an
+// opening bracket or quote, but keep a number, a currency sign or more Hebrew with the word
+// ("ב-12", "ו-₪3", "בית-ספר"); after a maqaf or dash they keep anything with it.
+const BREAKS_AFTER_HEBREW_HYPHEN = /[A-Za-z([{'"]/
 
 // Splits a paragraph into pieces that each end where a line may wrap.
 export function wrapPieces(paragraph: string): string[] {
@@ -121,13 +127,20 @@ export function wrapPieces(paragraph: string): string[] {
     }
     const next = paragraph[i + 1]
     // Not after a hyphen that starts a word, like a minus sign ("-5"), as browsers do.
-    if (BREAK_AFTER.test(char) && i > start && next !== undefined && !SPACE.test(next)) {
+    if (BREAK_AFTER.test(char) && i > start && next !== undefined && !SPACE.test(next) && !keepsHebrewTogether(paragraph.slice(start, i), char, next)) {
       pieces.push(paragraph.slice(start, i + 1))
       start = i + 1
     }
   }
   if (start < paragraph.length) pieces.push(paragraph.slice(start))
   return pieces
+}
+
+// Whether a hyphen after a Hebrew letter keeps what follows on its line, the way browsers wrap.
+function keepsHebrewTogether(before: string, hyphen: string, next: string): boolean {
+  if (!HEBREW_BEFORE.test(before)) return false
+  if (hyphen === '—') return false
+  return hyphen !== '-' || !BREAKS_AFTER_HEBREW_HYPHEN.test(next)
 }
 
 const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })

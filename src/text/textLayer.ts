@@ -142,7 +142,6 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
   for (const line of layout.lines) {
-    ctx.wordSpacing = `${line.wordSpacing}px`
     // Each piece reads one way; they're placed left to right in the order they appear.
     let x = line.x
     for (const run of line.runs) {
@@ -156,8 +155,12 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
           // Words with a color of their own show it; the others keep the text's gradient.
           ctx.fillStyle = look.style.color !== style.color ? look.style.color : fill
         }
-        ctx.fillText(piece, x, line.baseline)
-        x += ctx.measureText(piece).width
+        // A line with even edges is drawn word by word, each space widened by the same amount
+        // (the browser's own word spacing is not to be trusted inside mixed-direction text).
+        for (const word of justifiedWords(piece, run.rtl, line.wordSpacing)) {
+          if (word.text) ctx.fillText(word.text, x, line.baseline)
+          x += (word.text ? ctx.measureText(word.text).width : 0) + word.extra
+        }
         if (look.style !== style) {
           ctx.font = cssFont(style)
           ctx.fillStyle = fill
@@ -166,6 +169,16 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
     }
   }
   ctx.restore()
+}
+
+const SPACES = /([ \u00a0]+)/
+
+// A piece cut into its words and spaces, in the order they're drawn from left to right, each with
+// the extra room its spaces get on a line with even edges. Without extra room it's one piece.
+function justifiedWords(piece: string, rtl: boolean, wordSpacing: number): { text: string; extra: number }[] {
+  if (!wordSpacing) return [{ text: piece, extra: 0 }]
+  const words = piece.split(SPACES).map((text) => ({ text, extra: SPACES.test(text) ? text.length * wordSpacing : 0 }))
+  return rtl ? words.reverse() : words
 }
 
 export interface PlacedGlyph {
@@ -204,26 +217,28 @@ export function placeText(layer: TextLayer): { matrix: DOMMatrix; lines: PlacedL
   ctx.font = cssFont(style)
   ctx.letterSpacing = `${style.letterSpacing * style.size}px`
   const lines = layout.lines.map((line): PlacedLine => {
-    ctx.wordSpacing = `${line.wordSpacing}px`
     const glyphs: PlacedGlyph[] = []
     let x = line.x
     for (const run of line.runs) {
-      const piece = layer.text.slice(run.start, run.end)
       ctx.direction = run.rtl ? 'rtl' : 'ltr'
-      const total = ctx.measureText(piece).width
-      const letters = splitLetters(piece)
-      if (run.rtl) letters.reverse()
-      const widths = letters.map((letter) => ctx.measureText(letter).width)
-      // Letters measured one by one add up a little differently (joins, kerning), so they're
-      // stretched to fill exactly the width that's drawn.
-      const sum = widths.reduce((a, b) => a + b, 0)
-      const fit = sum > 0 ? total / sum : 1
-      letters.forEach((letter, i) => {
-        glyphs.push({ text: letter, x, width: widths[i] * fit })
-        x += widths[i] * fit
-      })
+      // Word by word on a line with even edges, exactly as drawText draws it.
+      for (const word of justifiedWords(layer.text.slice(run.start, run.end), run.rtl, line.wordSpacing)) {
+        const total = word.text ? ctx.measureText(word.text).width : 0
+        const letters = splitLetters(word.text)
+        if (run.rtl) letters.reverse()
+        const widths = letters.map((letter) => ctx.measureText(letter).width)
+        // Letters measured one by one add up a little differently (joins, kerning), so they're
+        // stretched to fill exactly the width that's drawn. Widened spaces share the extra room.
+        const sum = widths.reduce((a, b) => a + b, 0)
+        const fit = sum > 0 ? total / sum : 1
+        const extra = letters.length ? word.extra / letters.length : 0
+        letters.forEach((letter, i) => {
+          const width = widths[i] * fit + extra
+          glyphs.push({ text: letter, x, width })
+          x += width
+        })
+      }
     }
-    ctx.wordSpacing = '0px'
     return { baseline: line.baseline, glyphs }
   })
   return { matrix, lines }

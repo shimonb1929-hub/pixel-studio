@@ -142,6 +142,9 @@ test('what you see while typing is exactly what you get: Hebrew, Yiddish, Englis
   await page.keyboard.insertText('װאָס מאַכסטו? אַ גוטן טאָג, ייִדן!')
   await page.keyboard.press('Enter')
   await page.keyboard.insertText('English stays left to right: "quotes", (brackets) and 1-800-555.')
+  await page.keyboard.press('Enter')
+  // Hebrew hyphens near the end of a line: a number after one stays with its word.
+  await page.keyboard.insertText('הזמנה 123 של בן-גוריון (2024) ב-12/05/2024, 3.5% - בסדר? סכום 1,234.56 ₪ ו־$99.99 בלבד')
   const typed = (await box.boundingBox())!
   const height = Math.round(typed.height)
   expect(height).toBeGreaterThan(100)
@@ -154,6 +157,32 @@ test('what you see while typing is exactly what you get: Hebrew, Yiddish, Englis
   const afterwards = await shot(page, size, 44, 44, 412, height - 8)
   const { ink, different } = await compareShots(page, whileTyping, afterwards)
   expect(ink).toBeGreaterThan(2000)
+  expect(different / ink, `${different} of ${ink} ink pixels moved`).toBeLessThan(0.01)
+})
+
+test('even edges stretch a line with numbers and English in it exactly as shown while typing', async ({ page }) => {
+  const size = await newDesign(page, 500, 400)
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.keyboard.press('t')
+  await drag(page, size, [
+    [40, 40],
+    [340, 80],
+  ])
+  const box = typingBox(page)
+  await page.keyboard.insertText('שלום 123 עולם מחיר: 50 ש"ח (כולל מע"מ) ועוד Sale today only, יום ראשון')
+  await textPanel(page).getByRole('radio', { name: 'Even edges' }).click()
+  await expect(box).toHaveCSS('text-align', 'justify')
+  const typed = (await box.boundingBox())!
+  const height = Math.round(typed.height)
+  const whileTyping = await shot(page, size, 44, 44, 292, height - 8)
+
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('b')
+  await page.mouse.move(5, 5)
+  await expect(page.getByRole('toolbar')).toContainText('Brush')
+  const afterwards = await shot(page, size, 44, 44, 292, height - 8)
+  const { ink, different } = await compareShots(page, whileTyping, afterwards)
+  expect(ink).toBeGreaterThan(1500)
   expect(different / ink, `${different} of ${ink} ink pixels moved`).toBeLessThan(0.01)
 })
 

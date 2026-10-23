@@ -27,7 +27,12 @@ describe('wrapping', () => {
   it('wraps after spaces, hyphens and the maqaf, and keeps the spaces with the line', () => {
     expect(wrapPieces('one two  three')).toEqual(['one ', 'two  ', 'three'])
     expect(wrapPieces('well-known')).toEqual(['well-', 'known'])
-    expect(wrapPieces('בית־ספר')).toEqual(['בית־', 'ספר'])
+    // As browsers do, a Hebrew word stays whole across a hyphen or maqaf, with a number or a
+    // currency sign after it too; an English word or a bracket after a hyphen may start a line.
+    expect(wrapPieces('בית־ספר')).toEqual(['בית־ספר'])
+    expect(wrapPieces('ב-12/05 ו־$99 ב-₪3')).toEqual(['ב-12/05 ', 'ו־$99 ', 'ב-₪3'])
+    expect(wrapPieces('ה-iPhone ב-(2)')).toEqual(['ה-', 'iPhone ', 'ב-', '(2)'])
+    expect(wrapPieces('אַ-12 בּ—x')).toEqual(['אַ-12 ', 'בּ—', 'x'])
     // No break after a hyphen that starts a word, like a minus sign; phone numbers can wrap.
     expect(wrapPieces('price -5 -off')).toEqual(['price ', '-5 ', '-off'])
     expect(wrapPieces('1-800-555')).toEqual(['1-', '800-', '555'])
