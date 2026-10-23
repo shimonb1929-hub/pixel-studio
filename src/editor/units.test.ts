@@ -36,6 +36,12 @@ describe('changeBox', () => {
     expect(changeBox(box, { height: 25 }, true)).toMatchObject({ width: 50, height: 25 })
   })
 
+  it('never gets thinner than a pixel, and the kept shape follows the size really used', () => {
+    expect(changeBox(box, { width: 0 }, true)).toMatchObject({ width: 1, height: 1 })
+    expect(changeBox(box, { width: -5 }, false)).toMatchObject({ width: 1, height: 50 })
+    expect(changeBox(box, { height: 0.5 }, true)).toMatchObject({ width: 2, height: 1 })
+  })
+
   it('moves, turns, and keeps a flip', () => {
     expect(changeBox(box, { x: 0, y: 0 }, true)).toMatchObject({ cx: 50, cy: 25 })
     expect(changeBox(box, { angle: 90 }, true).rotation).toBeCloseTo(Math.PI / 2)

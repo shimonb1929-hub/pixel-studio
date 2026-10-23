@@ -26,6 +26,15 @@ export function unitToPixels(value: number, unit: Unit, ppi: number): number {
   return Math.round((value / PER_INCH[unit]) * ppi)
 }
 
+// Between inches and the other paper units, for sizes on paper (which are never in pixels).
+export function unitToInches(value: number, unit: Unit): number {
+  return unit === 'px' ? value : value / PER_INCH[unit]
+}
+
+export function inchesToUnit(inches: number, unit: Unit): number {
+  return unit === 'px' ? inches : inches * PER_INCH[unit]
+}
+
 // A number as typed in the boxes: "8.5", never "8.50" or "8,5".
 export function formatInUnit(pixels: number, unit: Unit, ppi: number): string {
   return String(pixelsToUnit(pixels, unit, ppi))

@@ -21,7 +21,7 @@ test('a PDF for printing keeps every pixel, with an edge and cut lines for print
   await expect(dialog.getByRole('radio', { name: 'PDF' })).toHaveAttribute('aria-checked', 'true')
   await expect(dialog.getByRole('radio', { name: 'Printing' })).toHaveAttribute('aria-checked', 'true')
   // 400 × 300 pixels prints at 300 per inch.
-  await expect(dialog).toContainText('Prints 1.33 × 1 inches (3.4 × 2.5 cm).')
+  await expect(dialog).toContainText('Prints 1.33 × 1 inches (3.39 × 2.54 cm).')
   await expect(dialog).toContainText('Saves as My design 1.pdf')
 
   // Typing one side keeps the shape.

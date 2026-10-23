@@ -41,15 +41,21 @@ export function ResizeDialog({ width, height, ppi: startPpi = DEFAULT_PPI, onRes
   const [newWidth, setNewWidth] = useState(() => formatInUnit(width, unit, startPpi))
   const [newHeight, setNewHeight] = useState(() => formatInUnit(height, unit, startPpi))
   const [keepShape, setKeepShape] = useState(true)
+  // The exact pixels the boxes showed when the unit was last switched, so switching units back and
+  // forth never drifts by the rounding of the shown numbers.
+  const [carried, setCarried] = useState({ width, height, ppi: startPpi })
 
   const print = unit !== 'px'
   const short = unitShort(unit)
   const ppiValue = Number(ppi)
   // A size that hasn't been typed over keeps its exact pixels, not a rounded copy.
-  const pixels = (typed: string, original: number) =>
-    typed === formatInUnit(original, unit, startPpi) && ppiValue === startPpi ? original : unitToPixels(Number(typed), unit, ppiValue)
-  const w = pixels(newWidth, width)
-  const h = pixels(newHeight, height)
+  const pixels = (typed: string, original: number, kept: number) => {
+    if (typed === formatInUnit(original, unit, startPpi) && ppiValue === startPpi) return original
+    if (typed === formatInUnit(kept, unit, carried.ppi) && ppiValue === carried.ppi) return kept
+    return unitToPixels(Number(typed), unit, ppiValue)
+  }
+  const w = pixels(newWidth, width, carried.width)
+  const h = pixels(newHeight, height, carried.height)
   const error =
     newWidth === '' || newHeight === ''
       ? t('Type a width and a height.')
@@ -96,8 +102,12 @@ export function ResizeDialog({ width, height, ppi: startPpi = DEFAULT_PPI, onRes
           onChange={(next) => {
             if (next === unit) return
             // Carry the size across so switching never loses what was typed.
-            setNewWidth(formatInUnit(error ? width : w, next, ppiValue > 0 ? ppiValue : startPpi))
-            setNewHeight(formatInUnit(error ? height : h, next, ppiValue > 0 ? ppiValue : startPpi))
+            const at = ppiValue > 0 ? ppiValue : startPpi
+            const keptWidth = error ? width : w
+            const keptHeight = error ? height : h
+            setNewWidth(formatInUnit(keptWidth, next, at))
+            setNewHeight(formatInUnit(keptHeight, next, at))
+            setCarried({ width: keptWidth, height: keptHeight, ppi: at })
             setUnit(next)
           }}
         />

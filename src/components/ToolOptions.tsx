@@ -18,6 +18,7 @@ import type { BoxChange } from '../editor/arrange.ts'
 import type { LineUpEdge } from '../editor/organize.ts'
 import type { CombineMode } from '../editor/combine.ts'
 import { signedDecimalInput, formatInUnit, pixelsToUnit, unitToPixels, useUnit, type Unit } from '../editor/units.ts'
+import { MAX_LAYER_SIDE } from '../editor/document.ts'
 import { UnitPicker } from './UnitPicker.tsx'
 import { unitShort } from './unitWords.ts'
 import type { SelectionMode, SelectionShape } from '../editor/selection.ts'
@@ -461,13 +462,15 @@ interface NumberBoxProps {
   // Written after the number, like "wide" or "°".
   suffix: string
   step: number
+  // Typed numbers outside these are left alone, as if nothing was typed; the arrow keys stop at them.
   min?: number
+  max?: number
   onCommit: (value: number) => void
 }
 
 // A number you can type over. It's kept when you press Enter or click away, and Esc puts back what
 // was there. The arrow keys change it a step at a time.
-function NumberBox({ label, description, value, suffix, step, min, onCommit }: NumberBoxProps) {
+function NumberBox({ label, description, value, suffix, step, min, max, onCommit }: NumberBoxProps) {
   const [draft, setDraft] = useState<string | null>(null)
   // Set by Esc, so leaving the box then doesn't keep what was typed.
   const cancelled = useRef(false)
@@ -479,8 +482,10 @@ function NumberBox({ label, description, value, suffix, step, min, onCommit }: N
     }
     const number = Number(text)
     if (text === '' || text === '.' || !Number.isFinite(number) || text === value) return
-    onCommit(min === undefined ? number : Math.max(min, number))
+    if ((min !== undefined && number < min) || (max !== undefined && number > max)) return
+    onCommit(number)
   }
+  const within = (number: number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, number))
   return (
     <Tooltip title={label} description={description}>
       <label className="relative flex items-center">
@@ -506,7 +511,7 @@ function NumberBox({ label, description, value, suffix, step, min, onCommit }: N
               const by = (e.key === 'ArrowUp' ? 1 : -1) * step * (e.shiftKey ? 10 : 1)
               const next = Math.round((Number(draft ?? value) + by) * 1000) / 1000
               setDraft(null)
-              onCommit(min === undefined ? next : Math.max(min, next))
+              onCommit(within(next))
             }
           }}
           className="h-8 w-full rounded-lg border border-transparent bg-subtle pe-10 ps-2 text-[12px] font-medium tabular-nums text-ink outline-none transition-colors hover:border-line focus:border-accent focus:bg-surface"
@@ -527,6 +532,7 @@ function SizeMenu({ target, ppi, showAngle }: { target: NonNullable<ArrangeBarCo
   const step = UNIT_STEP[unit]
   const short = unitShort(unit)
   const smallest = pixelsToUnit(1, unit, ppi) || undefined
+  const biggest = pixelsToUnit(MAX_LAYER_SIDE, unit, ppi)
   const heading = 'px-0.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-3'
   return (
     <>
@@ -571,6 +577,7 @@ function SizeMenu({ target, ppi, showAngle }: { target: NonNullable<ArrangeBarCo
                   suffix={t('wide')}
                   step={step}
                   min={smallest}
+                  max={biggest}
                   onCommit={(value) => target.place({ width: Math.max(1, toPixels(value)) })}
                 />
                 <NumberBox
@@ -580,6 +587,7 @@ function SizeMenu({ target, ppi, showAngle }: { target: NonNullable<ArrangeBarCo
                   suffix={t('tall')}
                   step={step}
                   min={smallest}
+                  max={biggest}
                   onCommit={(value) => target.place({ height: Math.max(1, toPixels(value)) })}
                 />
               </div>
