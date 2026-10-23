@@ -1,3 +1,4 @@
+import { canvasGradient } from '../editor/gradient.ts'
 import { boxPoint, type TransformBox } from '../editor/transform.ts'
 import type { EditorDocument, Point, TextLayer, TextStyle } from '../editor/types.ts'
 import { cssFont, fontReady, fontStack, fontsVersion, loadFont } from './fonts.ts'
@@ -131,10 +132,13 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
   ctx.translate(box.cx, box.cy)
   ctx.rotate(box.rotation)
   ctx.scale(box.width < 0 ? -1 : 1, box.height < 0 ? -1 : 1)
-  ctx.translate(-w / 2 + lineShift(layer, layout), -h / 2)
+  const shift = lineShift(layer, layout)
+  ctx.translate(-w / 2 + shift, -h / 2)
   ctx.font = cssFont(style)
   ctx.letterSpacing = `${style.letterSpacing * style.size}px`
-  ctx.fillStyle = style.color
+  // A gradient spans the whole box, so the colors run across all the letters together.
+  const fill = style.gradient ? canvasGradient(ctx, style.gradient, w, h, w / 2 - shift, h / 2) : style.color
+  ctx.fillStyle = fill
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
   for (const line of layout.lines) {
@@ -149,13 +153,14 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
         const piece = layer.text.slice(look.start, look.end)
         if (look.style !== style) {
           ctx.font = cssFont(look.style)
-          ctx.fillStyle = look.style.color
+          // Words with a color of their own show it; the others keep the text's gradient.
+          ctx.fillStyle = look.style.color !== style.color ? look.style.color : fill
         }
         ctx.fillText(piece, x, line.baseline)
         x += ctx.measureText(piece).width
         if (look.style !== style) {
           ctx.font = cssFont(style)
-          ctx.fillStyle = style.color
+          ctx.fillStyle = fill
         }
       }
     }

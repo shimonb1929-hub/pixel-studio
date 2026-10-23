@@ -118,6 +118,9 @@ export interface TextStyle {
   letterSpacing: number
   // Distance between lines, as a multiple of the size.
   lineHeight: number
+  // Colors fading across all the letters instead of one color (words with their own color keep
+  // it). Missing means one color.
+  gradient?: Gradient | null
 }
 
 // How some letters look different from the rest of their text: only what differs is kept.

@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Circle, MoveRight, X } from 'lucide-react'
+import { ArrowLeftRight, Blend, Circle, MoveRight, Square, X } from 'lucide-react'
 import { useRef, type PointerEvent } from 'react'
 import { cssGradient, GRADIENT_PRESETS, reverseGradient, sameGradient, stopAt, type Gradient, type GradientType } from '../editor/gradient.ts'
 import { Tooltip } from './Tooltip.tsx'
@@ -186,6 +186,44 @@ export function GradientEditor({ gradient, stop, onStop, onChange }: GradientEdi
           onChange={(position) => onChange({ ...gradient, angle: Math.round(position * 360) % 360 }, t('Gradient direction'), 'gradient-angle')}
         />
       )}
+    </div>
+  )
+}
+
+interface FillKindSwitchProps {
+  label: string
+  kind: 'color' | 'gradient'
+  // What each choice does, for its hover help.
+  colorHelp: string
+  gradientHelp: string
+  onChange: (kind: 'color' | 'gradient') => void
+}
+
+// One plain color or colors fading into each other.
+export function FillKindSwitch({ label, kind, colorHelp, gradientHelp, onChange }: FillKindSwitchProps) {
+  const choices = [
+    { kind: 'color', label: t('Color'), icon: Square, description: colorHelp },
+    { kind: 'gradient', label: t('Gradient'), icon: Blend, description: gradientHelp },
+  ] as const
+  return (
+    <div role="radiogroup" aria-label={label} className="flex w-fit gap-0.5 rounded-[10px] border border-line bg-subtle p-0.5">
+      {choices.map((choice) => (
+        <Tooltip key={choice.kind} title={choice.label} description={choice.description}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={kind === choice.kind}
+            aria-label={choice.label}
+            onClick={() => onChange(choice.kind)}
+            className={`flex h-7 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${
+              kind === choice.kind ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
+            }`}
+          >
+            <choice.icon size={14} strokeWidth={1.9} />
+            {choice.label}
+          </button>
+        </Tooltip>
+      ))}
     </div>
   )
 }

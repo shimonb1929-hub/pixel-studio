@@ -114,14 +114,14 @@ export function gradientLine(angle: number, w: number, h: number): { x0: number;
   return { x0: -dx * half, y0: -dy * half, x1: dx * half, y1: dy * half }
 }
 
-// The gradient as a canvas fill for a w × h shape centered on 0, 0.
-export function canvasGradient(ctx: CanvasRenderingContext2D, gradient: Gradient, w: number, h: number): CanvasGradient {
+// The gradient as a canvas fill for a w × h shape centered on cx, cy.
+export function canvasGradient(ctx: CanvasRenderingContext2D, gradient: Gradient, w: number, h: number, cx = 0, cy = 0): CanvasGradient {
   let fill: CanvasGradient
   if (gradient.type === 'radial') {
-    fill = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(Math.hypot(w, h) / 2, 0.5))
+    fill = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(Math.hypot(w, h) / 2, 0.5))
   } else {
     const { x0, y0, x1, y1 } = gradientLine(gradient.angle, w, h)
-    fill = ctx.createLinearGradient(x0, y0, x1, y1)
+    fill = ctx.createLinearGradient(cx + x0, cy + y0, cx + x1, cy + y1)
   }
   for (const stop of sorted(gradient.stops)) fill.addColorStop(Math.max(0, Math.min(1, stop.at)), rgba(stop))
   return fill

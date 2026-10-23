@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
+import { cssGradient } from '../editor/gradient.ts'
 import type { TextLayer, TextSpan, TextStyle, Viewport } from '../editor/types.ts'
 import { fontStack } from '../text/fonts.ts'
 import { resolveAlign } from '../text/layout.ts'
@@ -158,8 +159,10 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
         fontStyle: style.italic ? 'italic' : 'normal',
         letterSpacing: `${style.letterSpacing * style.size}px`,
         lineHeight: `${style.size * style.lineHeight}px`,
-        color: style.color,
-        caretColor: style.color,
+        color: style.gradient ? 'transparent' : style.color,
+        caretColor: style.gradient ? style.gradient.stops[0].color : style.color,
+        // A gradient shows through the letters, like on the design.
+        ...(style.gradient ? { backgroundImage: cssGradient(style.gradient), backgroundClip: 'text', WebkitBackgroundClip: 'text' } : {}),
         whiteSpace: layer.wrap ? 'pre-wrap' : 'pre',
         overflowWrap: 'break-word',
         textAlign: style.align === 'auto' ? 'start' : style.align,
@@ -190,7 +193,8 @@ function paint(el: HTMLElement, text: string, spans: TextSpan[] | undefined, bas
     look.style.fontFamily = fontStack(piece.style.font)
     look.style.fontWeight = String(piece.style.weight)
     look.style.fontStyle = piece.style.italic ? 'italic' : 'normal'
-    look.style.color = piece.style.color
+    // Words without a color of their own let the text's gradient show through.
+    if (piece.style.color !== base.color || !base.gradient) look.style.color = piece.style.color
     look.appendChild(letters)
     el.appendChild(look)
   }

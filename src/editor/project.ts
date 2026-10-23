@@ -352,12 +352,23 @@ function readFlow(value: unknown): TextFlow {
 
 function readTextStyle(value: unknown): TextStyle {
   if (!isRecord(value)) damaged()
-  const { font, size, weight, italic, color, align, direction, letterSpacing, lineHeight } = value
+  const { font, size, weight, italic, color, align, direction, letterSpacing, lineHeight, gradient } = value
   if (typeof font !== 'string' || font.length === 0 || font.length > 100) damaged()
   if (!isBetween(size, 0.1, 100000) || !isBetween(weight, 1, 1000) || typeof italic !== 'boolean') damaged()
   if (!TEXT_ALIGNS.includes(align as TextAlign) || !TEXT_DIRECTIONS.includes(direction as TextDirection)) damaged()
   if (!isBetween(letterSpacing, -1, 5) || !isBetween(lineHeight, 0.3, 10)) damaged()
-  return { font, size, weight, italic, color: readColor(color), align: align as TextAlign, direction: direction as TextDirection, letterSpacing, lineHeight }
+  return {
+    font,
+    size,
+    weight,
+    italic,
+    color: readColor(color),
+    align: align as TextAlign,
+    direction: direction as TextDirection,
+    letterSpacing,
+    lineHeight,
+    ...(gradient === undefined || gradient === null ? {} : { gradient: readGradient(gradient) }),
+  }
 }
 
 // Words with their own look. Spans that reach past the text are cut to fit it.

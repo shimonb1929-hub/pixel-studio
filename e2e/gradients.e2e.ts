@@ -95,3 +95,108 @@ test('a shape gradient turns with the dots on the shape', async ({ page }) => {
   await page.keyboard.press('ArrowRight')
   await expect(start).toHaveAttribute('aria-valuenow', '181')
 })
+
+// The colors of the letters along a row of the design, left to right (white paper left out).
+function letterColors(page: Page, size: Size, y: number): Promise<number[][]> {
+  return page.evaluate(
+    async ([w, h, py]) => {
+      for (let i = 0; i < 2; i++) await new Promise(requestAnimationFrame)
+      const main = document.querySelector('main')!
+      const canvas = main.querySelector('canvas')
+      if (!canvas) return []
+      const dpr = devicePixelRatio
+      const left = Math.round(((main.clientWidth - w) / 2) * dpr)
+      const top = Math.round(((main.clientHeight - h) / 2) * dpr)
+      const data = canvas.getContext('2d')!.getImageData(left, top + Math.floor(py * dpr), Math.round(w * dpr), 1).data
+      const colors: number[][] = []
+      for (let i = 0; i < data.length; i += 4) {
+        const pixel = [data[i], data[i + 1], data[i + 2]]
+        if (Math.max(...pixel.map((v) => 255 - v)) > 60) colors.push(pixel)
+      }
+      return colors
+    },
+    [size.width, size.height, y],
+  )
+}
+
+// The average color of the first and the last quarter of the letters.
+function ends(colors: number[][]): [number[], number[]] {
+  const quarter = Math.max(1, Math.floor(colors.length / 4))
+  const mean = (part: number[][]) => [0, 1, 2].map((i) => part.reduce((sum, c) => sum + c[i], 0) / part.length)
+  return [mean(colors.slice(0, quarter)), mean(colors.slice(-quarter))]
+}
+
+// The row through the middle of the text's letters.
+async function letterRow(page: Page, size: Size): Promise<number[][]> {
+  let best: number[][] = []
+  for (let y = 0; y < size.height; y += 6) {
+    const colors = await letterColors(page, size, y)
+    if (colors.length > best.length) best = colors
+  }
+  return best
+}
+
+test('letters can have a gradient, turned with the dots, kept while typing and in the project file', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.keyboard.press('t')
+  await page.mouse.click(...Object.values(await screenPoint(page, size, 40, 150)) as [number, number])
+  await page.keyboard.insertText('HHHHHHHH')
+  await page.keyboard.press('Escape')
+  const textPanel = page.getByRole('region', { name: 'Text' })
+  await textPanel.getByLabel('Text size in pixels').fill('80')
+  await textPanel.getByLabel('Text size in pixels').press('Enter')
+  await page.keyboard.press('v')
+  await textPanel.getByRole('radio', { name: 'Gradient' }).click()
+  await expect(page.getByRole('slider', { name: 'Gradient end' })).toHaveAttribute('aria-valuenow', '90')
+
+  // Turned to run left to right, the first letters and the last ones have different colors.
+  const end = page.getByRole('slider', { name: 'Gradient end' })
+  await end.focus()
+  for (let i = 0; i < 6; i++) await page.keyboard.press('Shift+ArrowLeft')
+  await expect(end).toHaveAttribute('aria-valuenow', '0')
+  const row = () => letterRow(page, size)
+  await expect.poll(async () => {
+    const colors = await row()
+    return colors.length > 10 ? distance(...ends(colors)) : 0
+  }).toBeGreaterThan(30)
+  const before = await row()
+
+  // While typing, the letters show the same gradient.
+  const a = (await page.getByRole('slider', { name: 'Gradient start' }).boundingBox())!
+  const b = (await end.boundingBox())!
+  await page.mouse.dblclick((a.x + b.x) / 2 + a.width / 2, (a.y + b.y) / 2 + a.height / 2)
+  const typing = page.getByRole('textbox', { name: 'Type your text' })
+  await expect(typing).toBeFocused()
+  expect(await typing.evaluate((el) => getComputedStyle(el).backgroundImage)).toContain('linear-gradient')
+  await page.keyboard.press('Escape')
+
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: 'Download project…' }).click()
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('dialog', { name: 'Download your design' }).getByRole('button', { name: 'Download' }).click(),
+  ])
+  const bytes = readFileSync((await download.path())!)
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: 'Close design' }).click()
+  await expect(page.getByRole('main').locator('canvas')).toHaveCount(0)
+  await page.locator('input[type=file]').setInputFiles({ name: 'Letters.pixel', mimeType: '', buffer: bytes })
+  await expectDesignSize(page, size.width, size.height)
+  await expect.poll(async () => {
+    const colors = await row()
+    if (colors.length < 10) return 999
+    const [a, b] = ends(colors)
+    const [c, d] = ends(before)
+    return Math.max(distance(a, c), distance(b, d))
+  }).toBeLessThan(6)
+
+  // Back to one color.
+  await page.keyboard.press('v')
+  await page.getByRole('button', { name: /^Layer: HHHH/ }).click()
+  await textPanel.getByRole('radio', { name: 'Color' }).click()
+  await expect(page.getByRole('slider', { name: 'Gradient end' })).toBeHidden()
+  await expect.poll(async () => {
+    const colors = await row()
+    return colors.length > 10 ? distance(...ends(colors)) : 999
+  }).toBeLessThan(6)
+})

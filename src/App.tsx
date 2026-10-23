@@ -764,7 +764,7 @@ export default function App() {
     if (!d || !many) return
     rememberColor(hex)
     const colored = (l: Layer): Layer => {
-      if (l.kind === 'text') return changeText(l, { style: { color: hex } })
+      if (l.kind === 'text') return changeText(l, { style: { color: hex, gradient: null } })
       if (l.kind !== 'shape') return l
       if (isLineShape(l.geometry) || shapeTarget === 'outline') return { ...l, outline: { ...l.outline, color: hex, width: l.outline?.width || NEW_OUTLINE_WIDTH } }
       return l.fill.kind === 'photo' || l.fill.kind === 'gradient' ? l : { ...l, fill: { kind: 'color', color: hex } }
@@ -1112,6 +1112,22 @@ export default function App() {
       })
     } else {
       setTextDefaults((t) => ({ ...t, ...patch }))
+    }
+  }
+
+  // A gradient across all the letters. Its first color is kept as the text's color too.
+  function changeTextGradient(gradient: Gradient, label: string, mergeKey?: string) {
+    changeTextStyle({ gradient, color: gradient.stops[0].color }, label, mergeKey ?? `text-gradient-${label}`)
+  }
+
+  function changeTextFillKind(kind: 'color' | 'gradient') {
+    const style = textEditRef.current?.layer.style ?? pickedText?.style ?? textDefaults
+    if ((kind === 'gradient') === !!style.gradient) return
+    if (kind === 'gradient') {
+      setGradientStop(0)
+      changeTextGradient(gradientFrom(style.color), t('Letter gradient'))
+    } else {
+      changeTextStyle({ gradient: null }, t('Text color'))
     }
   }
 
@@ -2605,7 +2621,9 @@ export default function App() {
 
   // The color the Color panel shows and changes: the text's, a shape's, the page's (when it's
   // picked with Arrange), or the painting color.
-  const textColor = textPanelOn ? (textShown?.color ?? textDefaults.color) : null
+  // With a gradient on the letters (and no words picked), the Color panel colors its chosen stop.
+  const textGradient = textPanelOn && !pickedWords ? ((textShown ?? textDefaults).gradient ?? null) : null
+  const textColor = textPanelOn ? (textGradient ? textGradient.stops[Math.min(gradientStop, textGradient.stops.length - 1)].color : (textShown?.color ?? textDefaults.color)) : null
   const pageColorOn = !!doc && !activeNow && tool === 'move' && !textEdit
   const effectColorShown = effectTarget ? (effectsLayer?.effects?.[effectTarget]?.color ?? null) : null
   // With several things picked, the Shape and Text panels change all the shapes or texts among them.
@@ -2622,6 +2640,9 @@ export default function App() {
     if (editingShape && !(picked && picked.length > 1) && editingShape.fill.kind === 'gradient' && editingShape.fill.gradient.type === 'linear' && !isLineShape(editingShape.geometry)) {
       return { box: editingShape.box, gradient: editingShape.fill.gradient, onChange: changeGradient }
     }
+    if (pickedText && !(picked && picked.length > 1) && pickedText.style.gradient?.type === 'linear') {
+      return { box: pickedText.box, gradient: pickedText.style.gradient, onChange: changeTextGradient }
+    }
     if (pageGradient && pageGradient.type === 'linear') {
       return { box: { cx: doc.width / 2, cy: doc.height / 2, width: doc.width, height: doc.height, rotation: 0 }, gradient: pageGradient, onChange: changePageGradient }
     }
@@ -2636,7 +2657,10 @@ export default function App() {
       : textColor !== null
       ? (hex: string) => {
           rememberColor(hex)
-          changeTextStyle({ color: hex }, t('Text color'), 'text-color')
+          if (textGradient) {
+            const index = Math.min(gradientStop, textGradient.stops.length - 1)
+            changeTextGradient({ ...textGradient, stops: textGradient.stops.map((s, i) => (i === index ? { ...s, color: hex } : s)) }, t('Gradient color'), `text-gradient-color-${index}`)
+          } else changeTextStyle({ color: hex }, t('Text color'), 'text-color')
         }
       : shapeColor !== null
         ? colorShape
@@ -2862,6 +2886,10 @@ export default function App() {
                 onPreviewFont={previewFont}
                 onStyle={changeTextStyle}
                 onWrap={changeWrap}
+                onFillKind={changeTextFillKind}
+                onGradient={changeTextGradient}
+                gradientStop={gradientStop}
+                onGradientStop={setGradientStop}
                 flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
                 onContinue={pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 ? continueInAnotherBox : undefined}
               />

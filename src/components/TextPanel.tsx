@@ -1,10 +1,12 @@
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, Italic, Search, WrapText, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import type { Gradient } from '../editor/gradient.ts'
 import type { TextStyle } from '../editor/types.ts'
 import type { FontCategory, FontInfo } from '../text/fontCatalog.ts'
 import { allFonts, fontInfo, fontName, fontStack, loadFont, nearestWeight } from '../text/fonts.ts'
 import { FONT_PURPOSES, type FontPurpose } from '../text/fontPurposes.ts'
 import type { TextAlign, TextDirection } from '../text/layout.ts'
+import { FillKindSwitch, GradientEditor } from './GradientEditor.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { Slider } from './ui.tsx'
 import { live, msg, t } from '../i18n/i18n.ts'
@@ -465,6 +467,11 @@ export interface TextPanelProps {
   onPreviewFont: (id: string | null) => void
   onStyle: (patch: Partial<TextStyle>, label: string, mergeKey?: string) => void
   onWrap: (wrap: boolean) => void
+  // Letters in one color or a gradient; the Color panel colors the gradient's chosen stop.
+  onFillKind: (kind: 'color' | 'gradient') => void
+  onGradient: (gradient: Gradient, label: string, mergeKey?: string) => void
+  gradientStop: number
+  onGradientStop: (index: number) => void
   // While typing: whether the font, boldness, slant and color change just the picked words or all
   // of the text. Null when not typing.
   scope?: 'words' | 'all' | null
@@ -511,6 +518,17 @@ export function TextPanel(props: TextPanelProps) {
           <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">
             {t('{font} has no Hebrew letters, so they show in a matching Hebrew font. Pick a font marked אבג to choose their look.', { font: font.name })}
           </p>
+        )}
+
+        <FillKindSwitch
+          label={t('Letter color')}
+          kind={style.gradient ? 'gradient' : 'color'}
+          colorHelp={t('All the letters in one color. Choose it in the Color panel above.')}
+          gradientHelp={t('Colors that fade smoothly across all the letters. Drag the round dots on the text to turn it.')}
+          onChange={props.onFillKind}
+        />
+        {style.gradient && (
+          <GradientEditor gradient={style.gradient} stop={Math.min(props.gradientStop, style.gradient.stops.length - 1)} onStop={props.onGradientStop} onChange={props.onGradient} />
         )}
 
         <div className="flex items-end gap-2">

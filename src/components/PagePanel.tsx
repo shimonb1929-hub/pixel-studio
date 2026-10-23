@@ -1,6 +1,6 @@
-import { Blend, CircleHelp, Square } from 'lucide-react'
+import { CircleHelp } from 'lucide-react'
 import type { Gradient } from '../editor/gradient.ts'
-import { GradientEditor } from './GradientEditor.tsx'
+import { FillKindSwitch, GradientEditor } from './GradientEditor.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { t } from '../i18n/i18n.ts'
 
@@ -28,35 +28,13 @@ export function PagePanel(props: PagePanelProps) {
         </Tooltip>
       </div>
 
-      <div role="radiogroup" aria-label={t('Page fill')} className="flex w-fit gap-0.5 rounded-[10px] border border-line bg-subtle p-0.5">
-        {(
-          [
-            { kind: 'color', label: t('Color'), icon: Square, description: t('One plain color for the whole page.') },
-            {
-              kind: 'gradient',
-              label: t('Gradient'),
-              icon: Blend,
-              description: t('Colors that fade smoothly across the whole page. Drag the round handles on the page to turn it.'),
-            },
-          ] as const
-        ).map((choice) => (
-          <Tooltip key={choice.kind} title={choice.label} description={choice.description}>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={kind === choice.kind}
-              aria-label={choice.label}
-              onClick={() => props.onFillKind(choice.kind)}
-              className={`flex h-7 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${
-                kind === choice.kind ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
-              }`}
-            >
-              <choice.icon size={14} strokeWidth={1.9} />
-              {choice.label}
-            </button>
-          </Tooltip>
-        ))}
-      </div>
+      <FillKindSwitch
+        label={t('Page fill')}
+        kind={kind}
+        colorHelp={t('One plain color for the whole page.')}
+        gradientHelp={t('Colors that fade smoothly across the whole page. Drag the round handles on the page to turn it.')}
+        onChange={props.onFillKind}
+      />
 
       {gradient && (
         <div className="mt-3">
