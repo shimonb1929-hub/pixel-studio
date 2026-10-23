@@ -90,7 +90,7 @@ export function AdjustPanel({ settings, thumbnails, blocked, onChange }: AdjustP
           title={t("Adjust")}
           description={t("Change the colors and light of the selected layer, or of the selected part. Try a ready-made look, then fine-tune it with the sliders. Nothing changes for good until you press Apply.")}
         >
-          <h2 className="flex cursor-help items-center gap-1.5 text-[13px] font-semibold text-ink">
+          <h2 className="flex cursor-help items-center gap-1.5 text-[14px] font-semibold text-ink">
             {t('Adjust')}
             <CircleHelp size={14} className="text-ink-3" aria-hidden />
           </h2>

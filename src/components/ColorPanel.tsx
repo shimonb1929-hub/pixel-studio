@@ -97,7 +97,7 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
     <section aria-label={t("Color")} className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
       <div className="mb-3 flex items-center justify-between">
         <Tooltip title={t("Color")} description={t("The color your brush paints with. Pick one below, or take one from your design.")}>
-          <h2 className="flex cursor-help items-center gap-1.5 text-[13px] font-semibold text-ink">
+          <h2 className="flex cursor-help items-center gap-1.5 text-[14px] font-semibold text-ink">
             {t('Color')}
             <CircleHelp size={14} className="text-ink-3" aria-hidden />
           </h2>
@@ -162,7 +162,7 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
           }}
           onPointerMove={(event) => event.currentTarget.hasPointerCapture(event.pointerId) && shadeFromPointer(event)}
           onKeyDown={shadeKeys}
-          className="relative h-28 w-full cursor-crosshair touch-none rounded-lg outline-none focus-visible:ring-4 focus-visible:ring-accent/25 [@media(max-height:820px)]:h-20"
+          className="relative h-28 w-full cursor-crosshair touch-none rounded-lg outline-none focus-visible:ring-4 focus-visible:ring-accent/25 [@media(max-height:960px)]:h-24 [@media(max-height:820px)]:h-20"
           style={{ background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${pure})` }}
         >
           <span
@@ -197,7 +197,7 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
         </div>
       </Tooltip>
 
-      <div className="mt-4 grid grid-cols-9 gap-1.5">
+      <div className="mt-3 grid grid-cols-9 gap-1.5">
         {SWATCHES.map((swatch) => (
           <Swatch key={swatch.hex} hex={swatch.hex} name={swatch.name} selected={swatch.hex === color} onClick={() => onChange(swatch.hex)} />
         ))}

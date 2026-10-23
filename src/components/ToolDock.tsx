@@ -1,7 +1,7 @@
 import { ImagePlus } from 'lucide-react'
 import { Fragment } from 'react'
 import type { ToolId } from '../editor/types.ts'
-import { TOOLS } from '../tools.ts'
+import { TOOLS, type ToolInfo } from '../tools.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { t } from '../i18n/i18n.ts'
 import { shortcut } from '../keys.ts'
@@ -13,24 +13,47 @@ interface ToolDockProps {
   onAddPhoto: (() => void) | null
 }
 
+// What each group of tools is for, in one word. Shown above the group when the screen is tall
+// enough; on shorter screens a thin line keeps the groups apart.
+function groupCaption(group: ToolInfo['group']): string {
+  switch (group) {
+    case 'arrange':
+      return t('Pick')
+    case 'add':
+      return t('Add')
+    case 'paint':
+      return t('Paint')
+    case 'adjust':
+      return t('Fix photo')
+    case 'view':
+      return t('View')
+  }
+}
+
+const BUTTON =
+  'flex h-11 w-[60px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl text-[12px] font-medium leading-none transition-colors'
+
 export function ToolDock({ tool, onToolChange, onAddPhoto }: ToolDockProps) {
   return (
     <nav
       aria-label={t("Tools")}
-      className="flex w-[68px] shrink-0 flex-col items-center gap-0.5 overflow-y-auto rounded-card border border-line bg-surface p-1.5 shadow-card"
+      className="flex w-[72px] shrink-0 flex-col items-center gap-0.5 overflow-y-auto rounded-card border border-line bg-surface p-1.5 shadow-card"
     >
       {TOOLS.map(({ id, name, label, key, icon: Icon, description, group }, index) => (
         <Fragment key={id}>
-          {index > 0 && TOOLS[index - 1].group !== group && <div role="separator" className="my-1 h-px w-10 shrink-0 bg-line" />}
+          {index > 0 && TOOLS[index - 1].group !== group && <div role="separator" className="my-1 h-px w-8 shrink-0 bg-line [@media(min-height:1000px)]:hidden" />}
+          {(index === 0 || TOOLS[index - 1].group !== group) && (
+            <span aria-hidden className="hidden whitespace-nowrap pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wide text-ink-3 [@media(min-height:1000px)]:block">
+              {groupCaption(group)}
+            </span>
+          )}
           <Tooltip side="right" title={t('{tool} tool', { tool: name })} shortcut={key} description={description}>
             <button
               type="button"
               aria-label={t('{tool} tool', { tool: name })}
               aria-pressed={tool === id}
               onClick={() => onToolChange(id)}
-              className={`flex h-[46px] w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-[10px] text-[11px] font-medium transition-colors ${
-                tool === id ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
-              }`}
+              className={`${BUTTON} ${tool === id ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
             >
               <Icon size={20} strokeWidth={1.75} />
               {label}
@@ -47,7 +70,7 @@ export function ToolDock({ tool, onToolChange, onAddPhoto }: ToolDockProps) {
                 type="button"
                 aria-label={t('Add a photo')}
                 onClick={onAddPhoto}
-                className="flex h-[46px] w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-[10px] text-[11px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+                className={`${BUTTON} text-ink-2 hover:bg-subtle hover:text-ink`}
               >
                 <ImagePlus size={20} strokeWidth={1.75} />
                 {t('Photo')}

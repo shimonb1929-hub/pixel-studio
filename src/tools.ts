@@ -16,8 +16,9 @@ export interface ToolInfo {
   hint: string
   // Extra words people might type into search to find this tool.
   keywords: string[]
-  // The dock shows tools in groups: arranging things, drawing, changing colors, and looking around.
-  group: 'arrange' | 'draw' | 'adjust' | 'view'
+  // The dock shows tools in small groups, each with a caption on tall screens: picking and moving
+  // things, adding things, painting, fixing photos, and looking around.
+  group: 'arrange' | 'add' | 'paint' | 'adjust' | 'view'
 }
 
 export const TOOLS: ToolInfo[] = [
@@ -95,7 +96,7 @@ export const TOOLS: ToolInfo[] = [
       return t('Drag to draw a shape, or click empty paper to drop one. Click a shape to pick it. Hold Shift for a perfect square or circle, or a straight line.')
     },
     keywords: ['shape', 'rectangle', 'square', 'circle', 'oval', 'ellipse', 'triangle', 'polygon', 'hexagon', 'star', 'line', 'arrow', 'box', 'frame', 'vector', 'badge', 'button', 'rounded corners', 'round corners', 'photo in a shape', 'round photo', 'photo frame', 'picture frame'],
-    group: 'draw',
+    group: 'add',
   },
   {
     id: 'pen',
@@ -114,7 +115,7 @@ export const TOOLS: ToolInfo[] = [
       return t('Click to add points, or press and drag for a curve. Click the first point to close the shape, or press Enter to finish a line. Drag a point or a line to reshape; double-click a point to make it sharp or smooth.')
     },
     keywords: ['pen', 'path', 'bezier', 'curve', 'vector', 'draw shape', 'custom shape', 'outline', 'trace', 'anchor', 'points', 'logo', 'icon', 'illustration', 'reshape', 'edit points', 'curved arrow'],
-    group: 'draw',
+    group: 'add',
   },
   {
     id: 'text',
@@ -133,7 +134,7 @@ export const TOOLS: ToolInfo[] = [
       return t('Click where your text starts, or drag a box for a paragraph. Click text to change it. Esc when you are done.')
     },
     keywords: ['text', 'type', 'write', 'words', 'letters', 'font', 'title', 'heading', 'headline', 'caption', 'quote', 'paragraph', 'hebrew', 'yiddish', 'right to left', 'rtl', 'typography', 'text color', 'font color', 'letter color', 'text size', 'font size'],
-    group: 'draw',
+    group: 'add',
   },
   {
     id: 'brush',
@@ -152,7 +153,7 @@ export const TOOLS: ToolInfo[] = [
       return t('Drag to paint. Shift + click draws a straight line. Hold {alt} to pick a color.', { alt: ALT_LABEL })
     },
     keywords: ['paint', 'draw', 'pencil', 'pen', 'marker', 'sketch', 'color in', 'highlighter', 'oil paint', 'splatter', 'drips', 'spray', 'brushes'],
-    group: 'draw',
+    group: 'paint',
   },
   {
     id: 'eraser',
@@ -171,7 +172,7 @@ export const TOOLS: ToolInfo[] = [
       return t('Drag to rub out paint on the selected layer. Shift + click erases in a straight line.')
     },
     keywords: ['erase', 'rub out', 'remove', 'delete paint', 'clean up', 'rubber'],
-    group: 'draw',
+    group: 'paint',
   },
   {
     id: 'fill',
@@ -190,7 +191,7 @@ export const TOOLS: ToolInfo[] = [
       return t('Click an area to fill it with your color.')
     },
     keywords: ['fill', 'bucket', 'paint bucket', 'color in', 'flood', 'coloring'],
-    group: 'draw',
+    group: 'paint',
   },
   {
     id: 'picker',
@@ -209,7 +210,7 @@ export const TOOLS: ToolInfo[] = [
       return t('Click anywhere on your design to paint with that color.')
     },
     keywords: ['eyedropper', 'pick color', 'sample', 'dropper', 'copy color', 'match color'],
-    group: 'draw',
+    group: 'paint',
   },
   {
     id: 'adjust',
