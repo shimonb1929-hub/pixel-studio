@@ -416,6 +416,34 @@ test('dragging lines things up with the page and each other, with guides; Alt mo
   expectColor(await designPixel(page, size, 224, 220), WHITE)
 })
 
+test('pulling an edge or drawing a shape lines up too; Alt pulls freely', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawShape(page, size, 'Rectangle', [40, 40], [100, 100])
+  // A shape drawn 3 pixels off the first one's left edge starts right on it.
+  await drawShape(page, size, 'Rectangle', [43, 160], [120, 220])
+  expectColor(await designPixel(page, size, 41, 190), BLUE)
+  expectColor(await designPixel(page, size, 39, 190), WHITE)
+  // Pulling its right side to 4 pixels short of the page's middle: it clicks onto the middle,
+  // with a guide while pulling.
+  const from = await screenPoint(page, size, 120, 190)
+  const to = await screenPoint(page, size, 196, 190)
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  await page.mouse.move(to.x, to.y, { steps: 10 })
+  const guide = await overlayPixel(page, size, 200, 280)
+  expect(guide[0] - guide[2], 'a pink guide').toBeGreaterThan(80)
+  await page.mouse.up()
+  await expectPickedSize(page, 160, 60)
+  // With Alt, the side goes exactly where it's dropped.
+  await page.keyboard.down('Alt')
+  await drag(page, size, [
+    [200, 190],
+    [194, 190],
+  ])
+  await page.keyboard.up('Alt')
+  await expectPickedSize(page, 154, 60)
+})
+
 test('dragging between two things evens out the gaps', async ({ page }) => {
   const size = await newDesign(page)
   await drawShape(page, size, 'Rectangle', [20, 100], [70, 150])

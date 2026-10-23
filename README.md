@@ -39,7 +39,8 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   it. Bring forward and send backward put things in front of or behind each other.
 - **Lining up happens by itself.** While you drag something, it clicks into line with the page's
   middle and edges and with other things' edges and middles, and into even gaps between things;
-  thin pink guides show what lined up. Hold Alt to place it freely. A click or a tap never moves
+  thin pink guides show what lined up, and gaps show their size. Pulling a side or corner and
+  drawing a new shape line up the same way. Hold Alt to place it freely. A click or a tap never moves
   anything by accident.
 - **Several things at once, without folders.** Drag a box around things (or Shift+click them) to
   pick several; they move, resize, turn, recolor and delete together. "Keep together" makes them
