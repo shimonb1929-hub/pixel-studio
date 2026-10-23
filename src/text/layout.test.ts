@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { firstStrongDirection, graphemes, indexAt, layoutText, mainDirection, readingLevels, visualRuns, wrapParagraph, wrapPieces, type LayoutSettings, type TextMeasure } from './layout.ts'
+import { firstStrongDirection, graphemes, hebrewNumber, indexAt, layoutText, listMarker, listStartAt, mainDirection, readingLevels, visualRuns, wrapParagraph, wrapPieces, type LayoutSettings, type TextMeasure } from './layout.ts'
 
 // Every letter (and space) is 10 pixels wide; the font is 8 above and 2 below the baseline.
 const measure: TextMeasure = { width: (text) => graphemes(text).length * 10, ascent: 8, descent: 2 }
@@ -146,5 +146,50 @@ describe('lines in reading order', () => {
       [0, 4, true],
     ])
     expect(layout.lines[0].width).toBe(70)
+  })
+})
+
+describe('lists', () => {
+  it('counts in Hebrew letters, writing 15 and 16 as ט״ו and ט״ז', () => {
+    expect([1, 2, 10, 11, 15, 16, 19, 20, 99, 100, 115, 400, 500].map(hebrewNumber)).toEqual(['א', 'ב', 'י', 'יא', 'טו', 'טז', 'יט', 'כ', 'צט', 'ק', 'קטו', 'ת', 'תק'])
+    expect(listMarker('letter', 3, 'rtl')).toBe('ג.')
+    expect(listMarker('letter', 28, 'ltr')).toBe('ab.')
+    expect(listMarker('number', 12, 'ltr')).toBe('12.')
+    expect(listMarker('bullet', 4, 'rtl')).toBe('•')
+  })
+
+  it('keeps room for the markers on the left of English and puts one before each paragraph with words', () => {
+    // The room is as wide as "00." (30) plus a gap of 4.5, so 34.5.
+    const layout = layoutText('one two\n\nthree', settings({ list: 'number' }), 94.5, measure)
+    expect(layout.indent).toBe(34.5)
+    expect(layout.lines.map((l) => [l.text, l.x])).toEqual([
+      ['one', 34.5],
+      ['two', 34.5],
+      ['', 34.5],
+      ['three', 34.5],
+    ])
+    // Wrapped lines and the empty paragraph have none; the numbers carry on after the gap.
+    expect(layout.markers!.map((m) => [m.text, m.line, m.x])).toEqual([
+      ['1.', 0, 10],
+      ['2.', 3, 10],
+    ])
+  })
+
+  it('puts the markers on the right of Hebrew and Yiddish, counting א ב ג', () => {
+    const layout = layoutText('שלום\nװאָס', settings({ list: 'letter' }), null, measure)
+    expect(layout.width).toBe(40 + layout.indent!)
+    expect(layout.lines.map((l) => l.x)).toEqual([0, 10])
+    expect(layout.markers!.map((m) => [m.text, m.x, m.direction])).toEqual([
+      ['א.', 44.5, 'rtl'],
+      ['ב.', 44.5, 'rtl'],
+    ])
+  })
+
+  it('carries on counting in the next box of a story', () => {
+    expect(listStartAt('a\nb\nc', 4)).toEqual({ number: 3, continued: false })
+    // Starting in the middle of the second point: it got its number in the box before.
+    expect(listStartAt('a\nbb cc', 5)).toEqual({ number: 3, continued: true })
+    const layout = layoutText('cc\nd', settings({ list: 'number' }), null, measure, undefined, { number: 3, continued: true })
+    expect(layout.markers!.map((m) => [m.text, m.line])).toEqual([['3.', 1]])
   })
 })

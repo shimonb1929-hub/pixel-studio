@@ -10,7 +10,7 @@ import { Button } from './ui.tsx'
 
 // The menu shows everything at once, in columns on a wide screen (one long list on a narrow one),
 // so nothing has to be scrolled to or remembered.
-const MENU_COLUMNS: ActionGroup[][] = [['Design'], ['Edit', 'Select'], ['Layers'], ['Whole design', 'Pages', 'View']]
+const MENU_COLUMNS: ActionGroup[][] = [['Design'], ['Edit', 'Select', 'View'], ['Layers'], ['Whole design', 'Pages']]
 
 function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: boolean }) {
   const [open, setOpen] = useState(false)

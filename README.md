@@ -39,7 +39,8 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   it. Bring forward and send backward put things in front of or behind each other.
 - **Lining up happens by itself.** While you drag something, it clicks into line with the page's
   middle and edges and with other things' edges and middles, and into even gaps between things;
-  thin pink guides show what lined up. Hold Alt to place it freely. A click or a tap never moves
+  thin pink guides show what lined up, and gaps show their size. Pulling a side or corner and
+  drawing a new shape line up the same way. Hold Alt to place it freely. A click or a tap never moves
   anything by accident.
 - **Several things at once, without folders.** Drag a box around things (or Shift+click them) to
   pick several; they move, resize, turn, recolor and delete together. "Keep together" makes them
@@ -74,7 +75,13 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   36 with every Yiddish letter and vowel point; fonts made only for English still show Hebrew in a
   matching Hebrew font, never as boxes. Fonts are found by what they're for (headlines, easy
   reading, Torah and seforim, invitations, kids) or by a word like "wedding", and pointing at one
-  shows it on the page before you pick it.
+  shows it on the page before you pick it. "Add your own font" takes a .ttf, .otf, .woff or .woff2
+  file from your computer: it stays under "Your fonts" for next time, and goes inside your designs
+  and SVG downloads, so they look right on any computer.
+- **Lists.** The Text panel's List row puts dots, numbers or letters before each paragraph: א ב ג
+  on the right for Hebrew and Yiddish, a b c on the left for English. They count by themselves, an
+  empty line gets none, wrapped lines stay lined up beside them, and text that runs on into another
+  box keeps counting.
 - **Try first, then decide.** Cropping and adjusting colors show the result live. Nothing changes
   until you press Apply (or Enter); Esc puts it back. While adjusting, press and hold on the design
   to compare with how it was. Arranging shows the exact size and angle while you drag, and Undo
@@ -204,6 +211,7 @@ src/
   text/
     layout.ts    Lines, wrapping, lining up and reading direction (with bidi-js for the Unicode rules)
     textLayer.ts Text objects: measured with the real fonts, drawn, and kept fitted to their box
+    wrapAround.ts, avoid.ts  Text in a box flowing around pictures and shapes (text wrap)
     fonts.ts     The built-in fonts: loaded only when used, with Hebrew stand-ins for English-only fonts
     fontCatalog.ts  The font list, made by scripts/fonts/fetch.mjs
   components/    The screens: top bar, tool settings, canvas, color, layers, dialogs, search, tips
@@ -297,9 +305,11 @@ pulling in see-through pixels, so blurred photos keep solid edges.
 7. **Shapes and the pen** (Illustrator) — a pen for curves with editable points (done); gradient
    fills (done); outline dashes and ends; combine shapes (join, cut out, overlap); SVG export.
 8. **More text** — different fonts and colors inside one text, text along a path, text effects
-   (outline, shadow, fill with a photo), your own font files, lists and columns.
+   (outline, shadow, fill with a photo), your own font files (done), lists (done) and columns.
 9. **Pages and print** (InDesign) — multi-page documents (done), margins and columns (done),
-   text that flows from box to box (done), things and page numbers on every page (done), print-ready PDF (several pages, bleed, cut lines and
+   text that flows from box to box (done), text that flows around pictures and shapes, close
+   around their outline, around their box, or above and below them (done), things and page
+   numbers on every page (done), print-ready PDF (several pages, bleed, cut lines and
    selectable text are done).
 10. **Pro layers and photo tools** (Photoshop) — blend modes, effects (shadow, glow,
    outline), curves and levels, clone and heal, select by color and select subject, and an easy

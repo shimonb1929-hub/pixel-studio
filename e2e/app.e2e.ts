@@ -232,6 +232,8 @@ test.describe('looking around', () => {
   })
 
   test('shows where the pointer is on the design', async ({ page }) => {
+    // The pointer position shows on wide screens only, where it has room beside the zoom buttons.
+    await page.setViewportSize({ width: 1600, height: 900 })
     const box = (await page.locator('main').boundingBox())!
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
     await expect(page.getByText(/X 3\d\d\s+Y 2\d\d/)).toBeVisible()

@@ -2,8 +2,9 @@ import { canvasGradient } from '../editor/gradient.ts'
 import { boxPoint, type TransformBox } from '../editor/transform.ts'
 import type { EditorDocument, Point, TextLayer, TextStyle } from '../editor/types.ts'
 import { cssFont, fontReady, fontStack, fontsVersion, loadFont } from './fonts.ts'
-import { indexAt, layoutText, mainDirection, plainWidth, resolveAlign, type RangeWidth, type TextLayout, type TextMeasure } from './layout.ts'
+import { indexAt, layoutText, listStartAt, mainDirection, plainWidth, resolveAlign, type RangeWidth, type TextLayout, type TextMeasure } from './layout.ts'
 import { styledPieces, tidySpans } from './spans.ts'
+import { avoidSlots } from './avoid.ts'
 import { t } from '../i18n/i18n.ts'
 
 // Text objects: measuring and laying them out with real fonts, drawing them, and keeping their
@@ -91,9 +92,13 @@ function textWidth(layer: TextLayer): RangeWidth {
 
 // Each look's font, so every letter is drawn with a font that has it.
 function eachFont(layer: TextLayer): { style: TextStyle; text: string }[] {
-  if (!layer.spans?.length) return [{ style: layer.style, text: layer.text }]
-  return [{ style: layer.style, text: layer.text }, ...layer.spans.map((span) => ({ style: { ...layer.style, ...span.style }, text: layer.text.slice(span.start, span.end) }))]
+  const fonts = [{ style: layer.style, text: layer.text }, ...(layer.spans ?? []).map((span) => ({ style: { ...layer.style, ...span.style }, text: layer.text.slice(span.start, span.end) }))]
+  // A list's markers are letters too.
+  if (layer.style.list) fonts.push({ style: layer.style, text: LIST_LETTERS[layer.style.list] })
+  return fonts
 }
+
+const LIST_LETTERS = { bullet: '•', number: '0123456789.', letter: 'abcdefghijklmnopqrstuvwxyzאבגדהוזחטיכלמנסעפצקרשת.' }
 
 const layouts = new WeakMap<TextLayer, { version: number; layout: TextLayout }>()
 
@@ -102,7 +107,12 @@ export function textLayout(layer: TextLayer): TextLayout {
   const version = fontsVersion()
   const cached = layouts.get(layer)
   if (cached && cached.version === version) return cached.layout
-  const layout = layoutText(layer.text, layer.style, layer.wrap ? Math.abs(layer.box.width) : null, textMeasure(layer.style), textWidth(layer))
+  // A list in a box the text runs on into keeps counting from the boxes before.
+  const listStart = layer.style.list && layer.flow ? listStartAt(layer.flow.full, layer.flow.start) : undefined
+  const width = Math.abs(layer.box.width)
+  // A paragraph box keeps out of the pictures and shapes it flows around.
+  const rows = layer.wrap && layer.avoid?.length ? avoidSlots(layer.avoid, width, layer.style.size * layer.style.lineHeight, layer.style.size) : undefined
+  const layout = layoutText(layer.text, layer.style, layer.wrap ? width : null, textMeasure(layer.style), textWidth(layer), listStart, rows)
   layouts.set(layer, { version, layout })
   return layout
 }
@@ -141,6 +151,11 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
   ctx.fillStyle = fill
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
+  // A list's dots, numbers or letters, in the text's own look.
+  for (const marker of layout.markers ?? []) {
+    ctx.direction = marker.direction
+    ctx.fillText(marker.text, marker.x, marker.baseline)
+  }
   for (const line of layout.lines) {
     // Each piece reads one way; they're placed left to right in the order they appear.
     let x = line.x
@@ -239,6 +254,12 @@ export function placeText(layer: TextLayer): { matrix: DOMMatrix; lines: PlacedL
         })
       }
     }
+    // A list's marker is part of the line, so copied text keeps its numbers.
+    const marker = layout.markers?.find((m) => layout.lines[m.line] === line)
+    if (marker) {
+      const at = glyphs.findIndex((g) => g.x > marker.x)
+      glyphs.splice(at === -1 ? glyphs.length : at, 0, { text: marker.text, x: marker.x, width: marker.width })
+    }
     return { baseline: line.baseline, glyphs }
   })
   return { matrix, lines }
@@ -283,6 +304,23 @@ export function fitText(layer: TextLayer): TextLayer {
   const width = layer.wrap ? Math.abs(layer.box.width) : layout.width
   const box = keepSide(layer.box, width, layout.height, anchorSide(layout, layer.style))
   return { ...layer, box }
+}
+
+// New words typed on one line would run straight off the page. Once they reach the page's edge,
+// they start wrapping there instead, the way a beginner expects; the side they started from stays put.
+export function keepOnPage(layer: TextLayer, pageWidth: number): TextLayer {
+  if (layer.wrap || layer.flow || layer.box.rotation !== 0) return layer
+  const layout = textLayout(layer)
+  const side = anchorSide(layout, layer.style)
+  const left = layer.box.cx - Math.abs(layer.box.width) / 2
+  const right = left + Math.abs(layer.box.width)
+  if (left >= 0 && right <= pageWidth) return layer
+  const anchor = side === -1 ? left : side === 1 ? right : layer.box.cx
+  const room = side === -1 ? pageWidth - anchor : side === 1 ? anchor : 2 * Math.min(anchor, pageWidth - anchor)
+  // Started right at the edge: there is no sensible width to wrap at, so it stays one line.
+  if (room < layer.style.size * 3) return layer
+  const box = keepSide(layer.box, room, Math.abs(layer.box.height), side)
+  return fitText({ ...layer, wrap: true, box })
 }
 
 // Changes the text or how it looks, keeping the box fitted. A change to the whole text's look

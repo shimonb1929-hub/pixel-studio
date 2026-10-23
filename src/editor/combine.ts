@@ -13,7 +13,7 @@ export type CombineMode = 'join' | 'cut' | 'overlap' | 'apart'
 const CURVE_STEP = 2
 
 // A closed shape's outlines in the design, as rings of points.
-function rings(layer: ShapeLayer): Ring[] {
+export function rings(layer: ShapeLayer): Ring[] {
   const { geometry, box } = layer
   const w = Math.abs(box.width)
   const h = Math.abs(box.height)

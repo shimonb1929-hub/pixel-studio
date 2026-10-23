@@ -20,7 +20,7 @@ export function PagePanel(props: PagePanelProps) {
   return (
     <section aria-label={t('Page')} className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <Tooltip title={t('Page')} description={t('The page under everything. Give it one color, or colors that fade across it. Choose the colors in the Color panel above.')}>
+        <Tooltip title={t('Page')} description={t('The page under everything. Give it one color, or colors that fade across it. Choose the colors in the Color panel below.')}>
           <h2 className="flex min-w-0 cursor-help items-center gap-1.5 text-[14px] font-semibold text-ink">
             {t('Page')}
             <CircleHelp size={14} className="shrink-0 text-ink-3" aria-hidden />
