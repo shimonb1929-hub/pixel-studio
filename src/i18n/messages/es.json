@@ -1393,5 +1393,20 @@
   "Leaves out the color around the edge of the picture (often white paper), so only the drawing becomes shapes.": "Quita el color que rodea el borde de la imagen (a menudo papel blanco), para que solo el dibujo se convierta en formas.",
   "Traced picture": "Imagen convertida en formas",
   "Color {number}": "Color {number}",
-  "Your picture is now shapes. The picture itself is hidden below them, in case you want it back.": "Tu imagen ahora son formas. La imagen original está oculta debajo, por si la quieres recuperar."
+  "Your picture is now shapes. The picture itself is hidden below them, in case you want it back.": "Tu imagen ahora son formas. La imagen original está oculta debajo, por si la quieres recuperar.",
+  "Straighten": "Enderezar",
+  "Straighten photo": "Enderezar foto",
+  "Finds the horizon, walls or other long straight lines in the picked photo and turns it so they are level (pro: Auto Straighten). You see it first, can turn it a little more or less, and press Apply to keep it.": "Encuentra el horizonte, las paredes u otras líneas rectas largas en la foto elegida y la gira para que queden niveladas (en programas profesionales: Auto Straighten). Lo ves primero, puedes girarla un poco más o menos, y pulsas Aplicar para conservarlo.",
+  "Finds the horizon, walls or other long straight lines in “{name}” and turns it so they are level (pro: Auto Straighten). You see it first and can fine-tune it.": "Encuentra el horizonte, las paredes u otras líneas rectas largas en “{name}” y la gira para que queden niveladas (en programas profesionales: Auto Straighten). Lo ves primero y puedes ajustarlo.",
+  "Finds the long straight lines in a photo, like the horizon or a wall, and turns the photo so they are level (pro: Auto Straighten). The photo grows just enough that no empty corners show.": "Encuentra las líneas rectas largas de una foto, como el horizonte o una pared, y gira la foto para que queden niveladas (en programas profesionales: Auto Straighten). La foto crece solo lo justo para que no se vean esquinas vacías.",
+  "Pick a photo first: click it on your design.": "Primero elige una foto: haz clic en ella en tu diseño.",
+  "No clear straight lines (like a horizon or a wall) were found in “{name}”. You can still turn it with the slider.": "No se encontraron líneas rectas claras (como un horizonte o una pared) en “{name}”. Aun así puedes girarla con el control deslizante.",
+  "“{name}” is already level. You can still turn it with the slider.": "“{name}” ya está nivelada. Aun así puedes girarla con el control deslizante.",
+  "Turned {degrees} so the lines in “{name}” are level. Nothing changes until you press Apply.": "Girada {degrees} para que las líneas de “{name}” queden niveladas. Nada cambia hasta que pulses Aplicar.",
+  "How much": "Cuánto",
+  "Turn the photo a little more or less. To the right turns it clockwise, to the left the other way.": "Gira la foto un poco más o menos. Hacia la derecha la gira en el sentido de las agujas del reloj; hacia la izquierda, al revés.",
+  "Leave the photo as it was.": "Deja la foto como estaba.",
+  "Keep the photo turned like this. You can undo it.": "Conserva la foto girada así. Puedes deshacerlo.",
+  "Center on the main thing": "Centrar en lo principal",
+  "Finds the most important part of the photo, like a flower, an animal or a bright object, and slides the photo so the shape shows it (pro: Content-Aware Crop).": "Encuentra la parte más importante de la foto, como una flor, un animal o un objeto brillante, y desliza la foto para que la forma la muestre (en programas profesionales: Content-Aware Crop)."
 }

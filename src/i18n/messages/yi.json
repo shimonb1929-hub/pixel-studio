@@ -1393,5 +1393,20 @@
   "Leaves out the color around the edge of the picture (often white paper), so only the drawing becomes shapes.": "לאָזט אויס די פֿאַרב אַרום דעם ראַנד פֿון בילד (אָפֿט ווײַס פּאַפּיר), אַזוי אַז נאָר די צייכענונג ווערט פֿאָרמען.",
   "Traced picture": "בילד געמאַכט צו פֿאָרמען",
   "Color {number}": "פֿאַרב {number}",
-  "Your picture is now shapes. The picture itself is hidden below them, in case you want it back.": "אײַער בילד איז איצט פֿאָרמען. דאָס בילד אַליין איז באַהאַלטן אונטער זיי, אויב איר ווילט עס צוריק."
+  "Your picture is now shapes. The picture itself is hidden below them, in case you want it back.": "אײַער בילד איז איצט פֿאָרמען. דאָס בילד אַליין איז באַהאַלטן אונטער זיי, אויב איר ווילט עס צוריק.",
+  "Straighten": "גלייכן",
+  "Straighten photo": "גלייכן פאטא",
+  "Finds the horizon, walls or other long straight lines in the picked photo and turns it so they are level (pro: Auto Straighten). You see it first, can turn it a little more or less, and press Apply to keep it.": "געפינט דעם האריזאנט, ווענט אדער אנדערע לאנגע גלייכע שורות אינעם אויסגעקליבענעם פאטא און דרייט עס אזוי אז זיי זאלן זיין גלייך (פראפעסיאנעל: Auto Straighten). איר זעט עס פריער, קענט עס דרייען א ביסל מער אדער ווייניקער, און דריקט באשטעטיגן כדי עס צו האלטן.",
+  "Finds the horizon, walls or other long straight lines in “{name}” and turns it so they are level (pro: Auto Straighten). You see it first and can fine-tune it.": "געפינט דעם האריזאנט, ווענט אדער אנדערע לאנגע גלייכע שורות אין “{name}” און דרייט עס אזוי אז זיי זאלן זיין גלייך (פראפעסיאנעל: Auto Straighten). איר זעט עס פריער און קענט עס צופאסן.",
+  "Finds the long straight lines in a photo, like the horizon or a wall, and turns the photo so they are level (pro: Auto Straighten). The photo grows just enough that no empty corners show.": "געפינט די לאנגע גלייכע שורות אין א פאטא, ווי דעם האריזאנט אדער א וואנט, און דרייט דעם פאטא אזוי אז זיי זאלן זיין גלייך (פראפעסיאנעל: Auto Straighten). דער פאטא וואקסט נאר אזויפיל ווי נייטיק, אז קיין ליידיקע עקן זאלן זיך נישט ווייזן.",
+  "Pick a photo first: click it on your design.": "קלויבט קודם אויס א פאטא: קליקט עס אויף אייער דיזיין.",
+  "No clear straight lines (like a horizon or a wall) were found in “{name}”. You can still turn it with the slider.": "קיין קלארע גלייכע שורות (ווי א האריזאנט אדער א וואנט) זענען נישט געפונען געווארן אין “{name}”. איר קענט עס נאך אלץ דרייען מיטן סליידער.",
+  "“{name}” is already level. You can still turn it with the slider.": "“{name}” איז שוין גלייך. איר קענט עס נאך אלץ דרייען מיטן סליידער.",
+  "Turned {degrees} so the lines in “{name}” are level. Nothing changes until you press Apply.": "געדרייט מיט {degrees} אז די שורות אין “{name}” זאלן זיין גלייך. גארנישט טוישט זיך ביז איר דריקט באשטעטיגן.",
+  "How much": "וויפיל",
+  "Turn the photo a little more or less. To the right turns it clockwise, to the left the other way.": "דרייט דעם פאטא א ביסל מער אדער ווייניקער. רעכטס דרייט עס ווי דער זייגער, לינקס צו דער אנדערער זייט.",
+  "Leave the photo as it was.": "לאזט דעם פאטא ווי ער איז געווען.",
+  "Keep the photo turned like this. You can undo it.": "האלט דעם פאטא אזוי געדרייט. איר קענט עס צוריקמאכן.",
+  "Center on the main thing": "צענטרירן אויף דער הויפּט זאך",
+  "Finds the most important part of the photo, like a flower, an animal or a bright object, and slides the photo so the shape shows it (pro: Content-Aware Crop).": "געפינט דעם וויכטיגסטן טייל פונעם פאטא, ווי א בלום, א חיה אדער א העלע זאך, און רוקט דעם פאטא אזוי אז די פארעם זאל עס ווייזן (פראפעסיאנעל: Content-Aware Crop)."
 }

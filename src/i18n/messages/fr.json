@@ -1393,5 +1393,20 @@
   "Leaves out the color around the edge of the picture (often white paper), so only the drawing becomes shapes.": "Enlève la couleur autour du bord de l’image (souvent du papier blanc), pour que seul le dessin devienne des formes.",
   "Traced picture": "Image transformée en formes",
   "Color {number}": "Couleur {number}",
-  "Your picture is now shapes. The picture itself is hidden below them, in case you want it back.": "Votre image est maintenant faite de formes. L’image elle-même est cachée dessous, au cas où vous voudriez la retrouver."
+  "Your picture is now shapes. The picture itself is hidden below them, in case you want it back.": "Votre image est maintenant faite de formes. L’image elle-même est cachée dessous, au cas où vous voudriez la retrouver.",
+  "Straighten": "Redresser",
+  "Straighten photo": "Redresser la photo",
+  "Finds the horizon, walls or other long straight lines in the picked photo and turns it so they are level (pro: Auto Straighten). You see it first, can turn it a little more or less, and press Apply to keep it.": "Trouve l’horizon, les murs ou d’autres longues lignes droites dans la photo choisie et la fait pivoter pour qu’elles soient droites (en pro : Auto Straighten). Vous le voyez d’abord, pouvez la tourner un peu plus ou moins, puis appuyez sur Appliquer pour le garder.",
+  "Finds the horizon, walls or other long straight lines in “{name}” and turns it so they are level (pro: Auto Straighten). You see it first and can fine-tune it.": "Trouve l’horizon, les murs ou d’autres longues lignes droites dans “{name}” et la fait pivoter pour qu’elles soient droites (en pro : Auto Straighten). Vous le voyez d’abord et pouvez l’ajuster.",
+  "Finds the long straight lines in a photo, like the horizon or a wall, and turns the photo so they are level (pro: Auto Straighten). The photo grows just enough that no empty corners show.": "Trouve les longues lignes droites d’une photo, comme l’horizon ou un mur, et fait pivoter la photo pour qu’elles soient droites (en pro : Auto Straighten). La photo grandit juste assez pour qu’aucun coin vide n’apparaisse.",
+  "Pick a photo first: click it on your design.": "Choisissez d’abord une photo : cliquez dessus sur votre création.",
+  "No clear straight lines (like a horizon or a wall) were found in “{name}”. You can still turn it with the slider.": "Aucune ligne droite nette (comme un horizon ou un mur) n’a été trouvée dans “{name}”. Vous pouvez quand même la tourner avec le curseur.",
+  "“{name}” is already level. You can still turn it with the slider.": "“{name}” est déjà droite. Vous pouvez quand même la tourner avec le curseur.",
+  "Turned {degrees} so the lines in “{name}” are level. Nothing changes until you press Apply.": "Tournée de {degrees} pour que les lignes de “{name}” soient droites. Rien ne change tant que vous n’appuyez pas sur Appliquer.",
+  "How much": "De combien",
+  "Turn the photo a little more or less. To the right turns it clockwise, to the left the other way.": "Tournez la photo un peu plus ou un peu moins. Vers la droite, elle tourne dans le sens des aiguilles d’une montre ; vers la gauche, dans l’autre sens.",
+  "Leave the photo as it was.": "Laisser la photo comme elle était.",
+  "Keep the photo turned like this. You can undo it.": "Garder la photo tournée ainsi. Vous pouvez l’annuler.",
+  "Center on the main thing": "Centrer sur l’essentiel",
+  "Finds the most important part of the photo, like a flower, an animal or a bright object, and slides the photo so the shape shows it (pro: Content-Aware Crop).": "Trouve la partie la plus importante de la photo, comme une fleur, un animal ou un objet lumineux, et fait glisser la photo pour que la forme la montre (en pro : Content-Aware Crop)."
 }

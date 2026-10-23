@@ -82,6 +82,13 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Looks before sliders.** Adjust starts with ready-made looks (Black & white, Old photo, Vivid,
   Warm, Cool, Soft, Dramatic, Dreamy), each previewed on your own picture. The sliders underneath
   (brightness, contrast, color strength, warmth, blur, sharpen) fine-tune any look.
+- **Straighten in one click.** Straighten (pro: Auto Straighten) finds the horizon, walls and other
+  long straight lines in a photo and shows it turned level, grown just enough that no empty corners
+  show. A slider turns it a little more or less; Apply keeps it as one undo step. Plain code on the
+  photo's own pixels, nothing downloaded; a photo filling the page keeps every original pixel.
+- **Crops start on the main thing.** Picking a crop shape (Square, 4:5, 16:9) places the frame over
+  the most important part of the design instead of the plain middle (pro: Content-Aware Crop), and a
+  photo dropped into a shape starts on its main thing; "Center on the main thing" does it again.
 - **Mistakes are safe.** Painting never goes onto the page, a shape, text or a locked photo: it
   goes on a drawing above, so the eraser only rubs out your drawing. An opened photo starts
   locked. Undo goes back up to 100 steps, and a stroke that made a new drawing is one step.
@@ -191,6 +198,8 @@ src/
     gradient.ts  Gradient fills: ready-made gradients, drawing them, adding and flipping colors
     brushes.ts   The ready-made brushes and erasers
     color.ts     Color codes and the color picker math
+    straighten.ts  Finding how far a photo leans (Sobel edges and a Hough transform; straightenBox.ts turns it)
+    saliency.ts  Finding the important part of a picture, for crops and photos in shapes (smartPhoto.ts uses both)
     ...          The document, zoom math, drawing to screen, opening and downloading files
   text/
     layout.ts    Lines, wrapping, lining up and reading direction (with bidi-js for the Unicode rules)
