@@ -92,7 +92,19 @@ export function coverRect(layer: PixelLayer, rect: Rect): PixelLayer {
   if (target.width > MAX_LAYER_SIDE || target.height > MAX_LAYER_SIDE) target = snapRect(rect)
   const canvas = createCanvas(target.width, target.height)
   getContext2d(canvas).drawImage(layer.canvas, layer.x - target.x, layer.y - target.y)
-  return { ...layer, canvas, x: target.x, y: target.y }
+  const grown: PixelLayer = { ...layer, canvas, x: target.x, y: target.y }
+  if (!layer.hide) return grown
+  // Hidden parts are kept across the layer's pixels, so they're moved to stay where they were.
+  const kept = layer.hide.rect
+  const sx = layer.canvas.width / target.width
+  const sy = layer.canvas.height / target.height
+  return {
+    ...grown,
+    hide: {
+      canvas: layer.hide.canvas,
+      rect: { x: (layer.x - target.x) / target.width + kept.x * sx, y: (layer.y - target.y) / target.height + kept.y * sy, width: kept.width * sx, height: kept.height * sy },
+    },
+  }
 }
 
 // A new design is an empty page of a color (or see-through). Things are added on top of it as you

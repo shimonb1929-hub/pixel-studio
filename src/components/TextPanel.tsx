@@ -7,6 +7,7 @@ import { allFonts, fontInfo, fontName, fontStack, loadFont, nearestWeight } from
 import { FONT_PURPOSES, type FontPurpose } from '../text/fontPurposes.ts'
 import type { TextAlign, TextDirection } from '../text/layout.ts'
 import { FillKindSwitch, GradientEditor } from './GradientEditor.tsx'
+import { PhotoControls, type ShapePhotoControls } from './ShapePanel.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { Slider } from './ui.tsx'
 import { live, msg, t } from '../i18n/i18n.ts'
@@ -469,6 +470,10 @@ export interface TextPanelProps {
   onWrap: (wrap: boolean) => void
   // Letters in one color or a gradient; the Color panel colors the gradient's chosen stop.
   onFillKind: (kind: 'color' | 'gradient') => void
+  // Puts a photo inside the letters. Only for one text on the design.
+  onChoosePhoto?: () => void
+  // Set when there's a photo inside the letters.
+  photo?: ShapePhotoControls | null
   onGradient: (gradient: Gradient, label: string, mergeKey?: string) => void
   gradientStop: number
   onGradientStop: (index: number) => void
@@ -522,12 +527,14 @@ export function TextPanel(props: TextPanelProps) {
 
         <FillKindSwitch
           label={t('Letter color')}
-          kind={style.gradient ? 'gradient' : 'color'}
+          kind={props.photo ? 'photo' : style.gradient ? 'gradient' : 'color'}
           colorHelp={t('All the letters in one color. Choose it in the Color panel above.')}
           gradientHelp={t('Colors that fade smoothly across all the letters. Drag the round dots on the text to turn it.')}
           onChange={props.onFillKind}
+          photo={props.onChoosePhoto || props.photo ? { help: t('A photo of yours shows through the letters. You can also drop a picture file right onto the text.'), onChoose: props.photo ? () => {} : (props.onChoosePhoto ?? (() => {})) } : undefined}
         />
-        {style.gradient && (
+        {props.photo && <PhotoControls photo={props.photo} inside="text" />}
+        {style.gradient && !props.photo && (
           <GradientEditor gradient={style.gradient} stop={Math.min(props.gradientStop, style.gradient.stops.length - 1)} onStop={props.onGradientStop} onChange={props.onGradient} />
         )}
 

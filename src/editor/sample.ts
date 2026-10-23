@@ -42,7 +42,7 @@ export function sampleColor(doc: EditorDocument, x: number, y: number): string |
     const adjusted = adjustedLayer(doc, layer)
     if (adjusted) {
       samplePixel(ctx, adjusted.canvas, px - adjusted.x, py - adjusted.y)
-    } else if (layer.kind !== 'raster') {
+    } else if (layer.kind !== 'raster' || layer.hide) {
       ctx.save()
       ctx.translate(-px, -py)
       drawLayerContent(ctx, layer)

@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleHelp, Copy, Eye, EyeOff, Files, Grid2x2, Lock, LockOpen, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleHelp, Copy, Eclipse, Eye, EyeOff, Files, Grid2x2, Lock, LockOpen, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { adjustmentName, isNeutral } from '../editor/adjust.ts'
 import { drawLayer } from '../editor/compose.ts'
@@ -142,6 +142,8 @@ interface LayersPanelProps {
   onToggleLock: (layerId: string) => void
   // Opens Adjust for a layer, to change its adjustments.
   onEditAdjust: (layerId: string) => void
+  // Opens Fade for a layer with softly hidden parts.
+  onEditFade: (layerId: string) => void
   // Takes a thing that's on every page off the other pages.
   onOnlyThisPage: (layerId: string) => void
   onRename: (layerId: string, name: string) => void
@@ -328,6 +330,21 @@ export function LayersPanel(props: LayersPanelProps) {
                       className="flex h-8 w-7 items-center justify-center rounded-lg text-accent transition-colors hover:bg-surface"
                     >
                       <Files size={14} />
+                    </button>
+                  </Tooltip>
+                )}
+                {layer.hide && (
+                  <Tooltip
+                    title={t('Partly faded')}
+                    description={t('Part of this is softly hidden, and nothing is lost. Click to open Fade, to fade more or bring it back.')}
+                  >
+                    <button
+                      type="button"
+                      aria-label={t('Change what is faded on {name}', { name: layer.name })}
+                      onClick={() => props.onEditFade(layer.id)}
+                      className="flex h-8 w-7 items-center justify-center rounded-lg text-accent transition-colors hover:bg-surface"
+                    >
+                      <Eclipse size={14} />
                     </button>
                   </Tooltip>
                 )}

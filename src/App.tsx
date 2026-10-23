@@ -68,7 +68,10 @@ import {
 } from './editor/layers.ts'
 import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
-import { canFill, isLineShape, layerAt, layerBounds, layerPixels, polygonPoints } from './editor/objects.ts'
+import { canFill, hitsLayer, isLineShape, layerAt, layerBounds, layerPixels, polygonPoints } from './editor/objects.ts'
+import { layerPhoto, photoWhereItWas, withPhoto } from './editor/photoFill.ts'
+import { addFade, DEFAULT_HIDE_BRUSH, FADES, type FadeSide, type HideBrush, type HideMode } from './editor/hide.ts'
+import { FadePanel } from './components/FadeOptions.tsx'
 import { fitPathToBox, geometryToPath, type ShapePath } from './editor/path.ts'
 import { combinable, combineAreas, combinedShape, type CombineMode } from './editor/combine.ts'
 import { gradientFrom, type Gradient } from './editor/gradient.ts'
@@ -86,7 +89,7 @@ import { invertSelection, selectAll, selectionInfo, type Selection, type Selecti
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
-import type { EditorDocument, Layer, PageLayout, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, OutlineDash, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
+import type { EditorDocument, Layer, LayerHide, PageLayout, PhotoFill, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, OutlineDash, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
 import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
@@ -382,6 +385,11 @@ export default function App() {
   const [cropEdit, setCropEdit] = useState<CropState | null>(null)
   const [fillTolerance, setFillTolerance] = useState(0.15)
   const [healSize, setHealSize] = useState(40)
+  // Fade: the brush that softly hides parts, whether it hides or brings back, and the ready-made
+  // fade being pointed at (shown on the design before it's chosen).
+  const [fadeBrush, setFadeBrush] = useState<HideBrush>(DEFAULT_HIDE_BRUSH)
+  const [fadeMode, setFadeMode] = useState<HideMode>('hide')
+  const [fadePreview, setFadePreview] = useState<FadeSide | null>(null)
   // Adjustments being tried on one layer (and selection); they start over when either changes.
   const [adjustEdit, setAdjustEdit] = useState<{ layer: Layer; selection: Selection | null; settings: Adjustments } | null>(null)
   const [shapeDefaults, setShapeDefaults] = useState<ShapeDefaults>(DEFAULT_SHAPES)
@@ -413,7 +421,7 @@ export default function App() {
   const workspaceRef = useRef<HTMLElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // What the next picked file is for: opening a design, adding a photo, or filling a shape (its id).
-  const fileModeRef = useRef<'open' | 'place' | { shape: string }>('open')
+  const fileModeRef = useRef<'open' | 'place' | { into: string }>('open')
   const strokeActiveRef = useRef(false)
   const pendingDiscardRef = useRef<(() => void) | null>(null)
   // After picking a color, go back to the drawing tool you came from.
@@ -557,7 +565,8 @@ export default function App() {
   // the Color panel colors it. With Shapes and no shape selected, they set how new shapes look.
   const editingShape = (tool === 'move' || tool === 'shape' || tool === 'pen') && activeNow?.kind === 'shape' ? activeNow : null
   const shapePanelOn = !!doc && (editingShape !== null || tool === 'shape' || tool === 'pen')
-  const photoMoveOn = photoMoving && tool === 'move' && editingShape?.fill.kind === 'photo'
+  // A photo inside the picked shape or text can be slid around with "Move photo".
+  const photoMoveOn = photoMoving && tool === 'move' && !textEdit && !!layerPhoto(activeNow)
 
   // The fill new shapes get.
   function defaultFill(): ShapeFill {
@@ -797,11 +806,12 @@ export default function App() {
     )
   }
 
-  function setPhotoFill(patch: Partial<Extract<ShapeFill, { kind: 'photo' }>>, label: string) {
-    const layer = editingShape
-    if (layer?.fill.kind !== 'photo') return
-    const fill = layer.fill
-    editor.change(label, (d) => updateShape(d, layer.id, { fill: { ...fill, ...patch } }), { mergeKey: `shape-photo-${Object.keys(patch).join()}:${layer.id}` })
+  // Changes how the photo inside the picked shape or text sits.
+  function setPhotoFill(patch: Partial<PhotoFill>, label: string) {
+    const layer = current() && activeLayer(current()!)
+    const photo = layerPhoto(layer)
+    if (!layer || !photo) return
+    editor.change(label, (d) => replaceLayer(d, withPhoto(layer, { ...photo, ...patch })), { mergeKey: `shape-photo-${Object.keys(patch).join()}:${layer.id}` })
   }
 
   // Places a layer in a new box: resizing and turning never lose any of a picture's quality.
@@ -1121,6 +1131,11 @@ export default function App() {
   }
 
   function changeTextFillKind(kind: 'color' | 'gradient') {
+    // Away from a photo: it's taken out first.
+    if (!textEditRef.current && pickedText?.photo) {
+      removePhoto(pickedText)
+      if (kind === 'color' || pickedText.style.gradient) return
+    }
     const style = textEditRef.current?.layer.style ?? pickedText?.style ?? textDefaults
     if ((kind === 'gradient') === !!style.gradient) return
     if (kind === 'gradient') {
@@ -1345,17 +1360,80 @@ export default function App() {
     }
   }
 
-  // Puts a picture inside a shape, filling it.
-  async function photoIntoShape(file: File, layerId: string) {
+  // Puts a picture inside a shape, filling it, or inside text, showing through its letters.
+  async function photoInto(file: File, layerId: string) {
     try {
       const canvas = await imageFileToCanvas(file)
       settle()
-      editor.change(t('Put photo in shape'), (d) => updateShape(d, layerId, { fill: { kind: 'photo', canvas, zoom: 1, x: 0, y: 0 } }), { bytes: canvasBytes(canvas) })
+      const target = current()?.layers.find((l) => l.id === layerId)
+      if (target?.kind !== 'shape' && target?.kind !== 'text') return
+      const text = target.kind === 'text'
+      editor.change(text ? t('Put photo in letters') : t('Put photo in shape'), (d) => {
+        const layer = d.layers.find((l) => l.id === layerId)
+        return layer ? replaceLayer(d, withPhoto(layer, { canvas, zoom: 1, x: 0, y: 0 })) : d
+      }, { bytes: canvasBytes(canvas) })
       editor.select(layerId)
       setTool('move')
-      inform(t('The photo fills the shape. Use Photo size and Move photo in the Shape panel to show the part you want.'))
+      inform(
+        text
+          ? t('The photo shows through the letters. Use Photo size and Move photo in the Text panel to show the part you want.')
+          : t('The photo fills the shape. Use Photo size and Move photo in the Shape panel to show the part you want.'),
+      )
     } catch (e) {
       problem(errorMessage(e))
+    }
+  }
+
+  // The shape or words under the middle of a photo on the design, that the photo can go inside.
+  function insideTarget(d: EditorDocument, photo: PixelLayer): ShapeLayer | TextLayer | null {
+    const at = d.layers.indexOf(photo)
+    const bounds = layerBounds(photo)
+    const middle = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+    for (let i = at - 1; i >= 0; i--) {
+      const layer = d.layers[i]
+      if (!layer.visible || layer.opacity <= 0) continue
+      const fits = (layer.kind === 'shape' && canFill(layer.geometry)) || (layer.kind === 'text' && !layer.pageNumber)
+      if (fits && hitsLayer(layer, middle)) return layer as ShapeLayer | TextLayer
+    }
+    return null
+  }
+
+  // Puts the picked photo inside the shape or words under it, right where it was on the design.
+  function putInside(photoId: string) {
+    const d = current()
+    const photo = d?.layers.find((l) => l.id === photoId)
+    if (!d || photo?.kind !== 'raster') return
+    const target = insideTarget(d, photo)
+    if (!target) return
+    // Hidden parts of the photo stay hidden: then it goes in as it looks.
+    const plain = photo.hide ? layerPixels(photo) : photo
+    const shown = plain.box ? { x: plain.box.cx, y: plain.box.cy, width: Math.abs(plain.box.width), height: Math.abs(plain.box.height) } : { x: plain.x + plain.canvas.width / 2, y: plain.y + plain.canvas.height / 2, width: plain.canvas.width, height: plain.canvas.height }
+    const fill = photoWhereItWas(target, plain.canvas, { x: shown.x, y: shown.y }, shown.width, shown.height)
+    const label = target.kind === 'text' ? t('Put photo in letters') : t('Put photo in shape')
+    editor.change(label, (doc) => {
+      const into = withPhoto(target, fill)
+      return { ...doc, layers: doc.layers.filter((l) => l.id !== photoId).map((l) => (l.id === target.id ? into : l)), activeLayerId: target.id }
+    })
+    pickOne(target.id)
+  }
+
+  // Takes the photo out of the picked shape (which gets a color again) or text (which keeps its color).
+  function removePhoto(layer: ShapeLayer | TextLayer) {
+    editor.change(t('Remove photo'), (d) =>
+      layer.kind === 'shape' ? updateShape(d, layer.id, { fill: { kind: 'color', color: DEFAULT_SHAPES.fill! } }) : replaceLayer(d, withPhoto(layer, null)),
+    )
+  }
+
+  // The photo controls for the picked shape or text, when there's a photo inside it.
+  function photoControls(layer: ShapeLayer | TextLayer | null) {
+    const photo = layerPhoto(layer)
+    if (!layer || !photo) return null
+    return {
+      zoom: photo.zoom,
+      moving: photoMoving,
+      onZoom: (zoom: number) => setPhotoFill({ zoom }, t('Photo size')),
+      onToggleMove: () => setPhotoMoving(!photoMoving),
+      onRemove: () => removePhoto(layer),
     }
   }
 
@@ -1369,7 +1447,7 @@ export default function App() {
     }
     const point = screenToDocument(viewport, clientX - rect.left, clientY - rect.top)
     const under = layerAt(d, point)
-    if (under?.kind === 'shape' && canFill(under.geometry)) void photoIntoShape(file, under.id)
+    if ((under?.kind === 'shape' && canFill(under.geometry)) || (under?.kind === 'text' && !under.pageNumber)) void photoInto(file, under.id)
     else void placePhoto(file, point)
   }
 
@@ -1378,7 +1456,7 @@ export default function App() {
   }
 
   // Opens the computer's file picker for one of the jobs a picked file can have.
-  function pickFile(mode: 'open' | 'place' | { shape: string }) {
+  function pickFile(mode: 'open' | 'place' | { into: string }) {
     const input = fileInputRef.current
     if (!input) return
     fileModeRef.current = mode
@@ -1391,7 +1469,7 @@ export default function App() {
     fileModeRef.current = 'open'
     if (mode === 'open') void openFile(file)
     else if (mode === 'place') void placePhoto(file)
-    else void photoIntoShape(file, mode.shape)
+    else void photoInto(file, mode.into)
   }
 
   // A picture becomes a new design; a project file comes back with all its layers.
@@ -1456,6 +1534,24 @@ export default function App() {
   function rememberColor(used: string) {
     setRecentColors((recent) => [used, ...recent.filter((c) => c !== used)].slice(0, MAX_RECENT_COLORS))
   }
+
+  // Fade: what's softly hidden on a layer changed (a brush stroke, a ready-made fade, or all back).
+  function changeHide(layerId: string, hide: LayerHide | null, label: string) {
+    editor.change(label, (d) => ({ ...d, layers: d.layers.map((l) => (l.id === layerId ? { ...l, hide } : l)) }), { bytes: hide ? canvasBytes(hide.canvas) : 0 })
+  }
+
+  const fadeLayer = tool === 'fade' && activeNow ? activeNow : null
+  function fadeSide(side: FadeSide) {
+    const layer = current() && activeLayer(current()!)
+    if (!layer) return
+    setFadePreview(null)
+    changeHide(layer.id, addFade(layer, side), FADES.find((f) => f.side === side)!.name)
+  }
+  // The ready-made fade pointed at, shown on the design.
+  const fadePreviewLayer = useMemo(
+    () => (fadeLayer && fadePreview ? { ...fadeLayer, hide: addFade(fadeLayer, fadePreview) } : null),
+    [fadeLayer, fadePreview],
+  )
 
   function handleStroke(layerId: string, result: StrokeResult, label: string, grown?: PixelLayer) {
     editor.commitStroke(label, layerId, result, grown)
@@ -1599,6 +1695,7 @@ export default function App() {
     })
     if (tool === 'eraser') setEraser(update)
     else if (tool === 'heal') setHealSize((size) => stepBrushSize(size, direction))
+    else if (tool === 'fade') setFadeBrush((b) => ({ ...b, size: stepBrushSize(b.size, direction) }))
     else setBrush(update)
   }
 
@@ -1928,6 +2025,11 @@ export default function App() {
       settle()
       editor.select(layerId)
       setTool('adjust')
+    },
+    editFade: (layerId: string) => {
+      settle()
+      editor.select(layerId)
+      setTool('fade')
     },
     // Things kept together: picked, hidden and named as one.
     pickGroup: (groupId: string) => {
@@ -2452,7 +2554,8 @@ export default function App() {
     setCrop(box, shape)
   }
 
-  const paintSettings = tool === 'eraser' ? eraser.settings : tool === 'heal' ? { ...brush.settings, size: healSize } : brush.settings
+  const paintSettings =
+    tool === 'eraser' ? eraser.settings : tool === 'heal' ? { ...brush.settings, size: healSize } : tool === 'fade' ? { ...brush.settings, size: fadeBrush.size } : brush.settings
   const hintTool: ToolId = spaceHeld ? 'hand' : altHeld && tool === 'brush' ? 'picker' : tool
   const hintExtra =
     doc?.selection && (hintTool === 'brush' || hintTool === 'eraser' || hintTool === 'adjust')
@@ -2462,7 +2565,9 @@ export default function App() {
         : doc?.selection && hintTool === 'move'
         ? t('The selected part moves.')
         : photoMoveOn
-          ? t('Drag on the shape to slide its photo.')
+          ? activeNow?.kind === 'text'
+            ? t('Drag on the text to slide its photo.')
+            : t('Drag on the shape to slide its photo.')
           : undefined
 
   const box: BoxEditing | null =
@@ -2490,6 +2595,8 @@ export default function App() {
       ? { layerId: textEdit.layer.id, layer: { ...textEdit.layer, visible: false } }
       : fontPreviewLayer
       ? { layerId: fontPreviewLayer.id, layer: fontPreviewLayer }
+      : fadePreviewLayer
+      ? { layerId: fadePreviewLayer.id, layer: fadePreviewLayer }
       : tool === 'move' && transform && transformChanged
       ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) }
       : adjustPreview && !comparing
@@ -2578,6 +2685,7 @@ export default function App() {
       flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
       rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
+      putInside: activeNow.kind === 'raster' && insideTarget(doc, activeNow) ? { name: insideTarget(doc, activeNow)!.name, put: () => putInside(activeNow.id) } : undefined,
     }
   })()
 
@@ -2758,6 +2866,7 @@ export default function App() {
         onFillToleranceChange={setFillTolerance}
         healSize={healSize}
         onHealSizeChange={setHealSize}
+        fade={{ brush: fadeBrush, mode: fadeMode, onBrush: setFadeBrush, onMode: setFadeMode }}
       />}
 
       <div className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
@@ -2787,6 +2896,15 @@ export default function App() {
                 selectionShape={selectionShape}
                 selectionMode={selectionMode}
                 onStroke={handleStroke}
+                fade={
+                  tool === 'fade'
+                    ? {
+                        brush: fadeBrush,
+                        mode: fadeMode,
+                        onStroke: (layerId, hide, mode) => changeHide(layerId, hide, mode === 'hide' ? t('Fade part') : t('Bring back part')),
+                      }
+                    : null
+                }
                 onHeal={healArea}
                 onNewDrawing={newDrawingForStroke}
                 onStrokeCancelled={() => editor.cancelDrawing()}
@@ -2858,7 +2976,7 @@ export default function App() {
           {dropActive && (
             <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-accent bg-accent-soft/80">
               <p className="text-[15px] font-medium text-accent">
-                {doc ? t('Drop a picture to add it, or drop it onto a shape to fill the shape') : t('Drop your picture or project to open it')}
+                {doc ? t('Drop a picture to add it, or drop it onto a shape or words to fill them') : t('Drop your picture or project to open it')}
               </p>
             </div>
           )}
@@ -2871,7 +2989,7 @@ export default function App() {
           <ScrollRegion className="max-h-[64%] shrink-0 gap-3">
             {adjustOn && doc ? (
               <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
-            ) : (
+            ) : tool === 'fade' && doc ? null : (
               <ColorPanel
                 color={panelColor ?? color}
                 recent={recentColors}
@@ -2893,6 +3011,8 @@ export default function App() {
                 onStyle={changeTextStyle}
                 onWrap={changeWrap}
                 onFillKind={changeTextFillKind}
+                onChoosePhoto={pickedText && pickedTexts <= 1 && !pickedText.pageNumber ? () => pickFile({ into: pickedText.id }) : undefined}
+                photo={textEdit ? null : photoControls(pickedText)}
                 onGradient={changeTextGradient}
                 gradientStop={gradientStop}
                 onGradientStop={setGradientStop}
@@ -2935,18 +3055,17 @@ export default function App() {
                   setGradientStop(index)
                 }}
                 onEditPoints={editingShape && pickedShapes < 2 && !editingShape.geometry.parts && !(tool === 'pen' && editingShape.geometry.type === 'path') ? () => editPoints(editingShape.id) : undefined}
-                onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ shape: editingShape.id }) : undefined}
-                photo={
-                  editingShape?.fill.kind === 'photo'
-                    ? {
-                        zoom: editingShape.fill.zoom,
-                        moving: photoMoving,
-                        onZoom: (zoom) => setPhotoFill({ zoom }, t('Photo size')),
-                        onToggleMove: () => setPhotoMoving(!photoMoving),
-                        onRemove: () => editor.change(t('Remove photo'), (d) => updateShape(d, editingShape.id, { fill: { kind: 'color', color: DEFAULT_SHAPES.fill! } })),
-                      }
-                    : null
-                }
+                onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ into: editingShape.id }) : undefined}
+                photo={photoControls(editingShape)}
+              />
+            )}
+            {tool === 'fade' && doc && !adjustOn && (
+              <FadePanel
+                name={fadeLayer ? fadeLayer.name : null}
+                faded={!!fadeLayer?.hide}
+                onFade={fadeSide}
+                onPreview={setFadePreview}
+                onShowAll={() => fadeLayer && changeHide(fadeLayer.id, null, t('Show all of it again'))}
               />
             )}
             {effectsLayer && (
@@ -2985,6 +3104,7 @@ export default function App() {
             onToggleVisibility={layers.toggleVisibility}
             onToggleLock={layers.toggleLock}
             onEditAdjust={layers.editAdjust}
+            onEditFade={layers.editFade}
             onOnlyThisPage={(id) => editor.change(t('Only on this page'), (d) => setOnEveryPage(d, [id], false))}
             onRename={layers.rename}
             onOpacity={layers.opacity}

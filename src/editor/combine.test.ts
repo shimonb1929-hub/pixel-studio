@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { combineAreas, combinedShape } from './combine.ts'
+import { photoPlacement } from './objects.ts'
 import type { ShapeLayer } from './types.ts'
 
 function square(id: string, x: number, y: number, size: number, type: 'rectangle' | 'ellipse' = 'rectangle'): ShapeLayer {
@@ -74,5 +75,44 @@ describe('making one shape out of several', () => {
 
   it('nothing is left of shapes that do not overlap', () => {
     expect(combineAreas([square('a', 0, 0, 10), square('b', 50, 50, 10)], 'overlap')).toEqual([])
+  })
+
+  // Where the photo inside a shape sits in the design: its middle and how big it is.
+  function photoInDesign(shape: ShapeLayer) {
+    if (shape.fill.kind !== 'photo') throw new Error('no photo')
+    const { box } = shape
+    const place = photoPlacement(shape.fill, Math.abs(box.width), Math.abs(box.height))
+    const lx = (place.x + place.width / 2) * Math.sign(box.width)
+    const ly = (place.y + place.height / 2) * Math.sign(box.height)
+    const cos = Math.cos(box.rotation)
+    const sin = Math.sin(box.rotation)
+    return { x: box.cx + lx * cos - ly * sin, y: box.cy + lx * sin + ly * cos, width: place.width, height: place.height }
+  }
+
+  it('a photo inside stays exactly where it was, also in a turned and flipped shape', () => {
+    const canvas = { width: 400, height: 200 } as HTMLCanvasElement
+    for (const box of [
+      { cx: 50, cy: 50, width: 100, height: 100, rotation: 0 },
+      { cx: 60, cy: 40, width: -120, height: 80, rotation: 0.6 },
+    ]) {
+      const photo: ShapeLayer = { ...square('photo', 0, 0, 100), box, fill: { kind: 'photo', canvas, zoom: 1.5, x: 0.3, y: -0.4 } }
+      // Cutting a corner away makes the shape smaller; the photo must not move or change size.
+      const cut = combinedShape(photo, combineAreas([photo, square('corner', 70, 0, 60)], 'cut'), 'new', 'Shape 1')!
+      const before = photoInDesign(photo)
+      const after = photoInDesign(cut)
+      expect(cut.box.rotation).toBe(box.rotation)
+      expect(after.x).toBeCloseTo(before.x, 6)
+      expect(after.y).toBeCloseTo(before.y, 6)
+      expect(after.width).toBeCloseTo(before.width, 6)
+    }
+  })
+
+  it('a photo grows just enough to cover a bigger joined shape', () => {
+    const canvas = { width: 100, height: 100 } as HTMLCanvasElement
+    const photo: ShapeLayer = { ...square('photo', 0, 0, 100), fill: { kind: 'photo', canvas, zoom: 1, x: 0, y: 0 } }
+    const joined = combinedShape(photo, combineAreas([photo, square('b', 50, 0, 100)], 'join'), 'new', 'Shape 1')!
+    const after = photoInDesign(joined)
+    expect(after.width).toBeCloseTo(150, 6)
+    expect(joined.fill.kind === 'photo' && joined.fill.zoom).toBe(1)
   })
 })

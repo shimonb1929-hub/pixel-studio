@@ -97,7 +97,7 @@ const PAPER_WORDS: Record<PaperUnit, { width: string; height: string }> = live({
 })
 
 function hasPhotos(doc: EditorDocument): boolean {
-  return doc.layers.some((l) => l.visible && (l.kind === 'raster' || (l.kind === 'shape' && l.fill.kind === 'photo')))
+  return doc.layers.some((l) => l.visible && (l.kind === 'raster' || (l.kind === 'shape' && l.fill.kind === 'photo') || (l.kind === 'text' && !!l.photo)))
 }
 
 function Check({ checked, onChange, label, help }: { checked: boolean; onChange: (checked: boolean) => void; label: string; help: ReactNode }) {

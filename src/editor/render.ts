@@ -2,7 +2,7 @@ import { isNeutral } from './adjust.ts'
 import { previewParts } from './adjustSession.ts'
 import { drawWithEffects } from './effects.ts'
 import { polygonBounds, unionRect, type Rect } from './geometry.ts'
-import { drawLayerContent, layerBounds, layerPixels } from './objects.ts'
+import { drawHidden, drawLayerContent, layerBounds, layerPixels } from './objects.ts'
 import { layerVersion } from './pixelVersion.ts'
 import { applyAffine, type Affine } from './transform.ts'
 import type { EditorDocument, Layer, Viewport } from './types.ts'
@@ -208,7 +208,7 @@ export function renderScene(
         if (original.visible && original.opacity > 0) {
           target.globalAlpha = original.opacity
           const parts = override.parts
-          drawWithEffects(target, original.effects, original.blend, partsBounds(parts), (c) => drawParts(c, parts), parts, 0)
+          drawWithEffects(target, original.effects, original.blend, partsBounds(parts), (c) => drawHidden(c, original, partsBounds(parts), (h) => drawParts(h, parts)), parts, 0)
         }
         continue
       }

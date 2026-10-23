@@ -1,4 +1,4 @@
-import { Bandage, Brush, Crop, Eraser, Hand, MousePointer2, PaintBucket, Spline, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
+import { Bandage, Brush, Crop, Eclipse, Eraser, Hand, MousePointer2, PaintBucket, Spline, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
 import type { ToolId } from './editor/types.ts'
 import { t } from './i18n/i18n.ts'
 import { ALT_LABEL } from './keys.ts'
@@ -172,6 +172,25 @@ export const TOOLS: ToolInfo[] = [
       return t('Drag to rub out paint on the selected layer. Shift + click erases in a straight line.')
     },
     keywords: ['erase', 'rub out', 'remove', 'delete paint', 'clean up', 'rubber'],
+    group: 'paint',
+  },
+  {
+    id: 'fade',
+    get name() {
+      return t('Fade')
+    },
+    get label() {
+      return t('Fade')
+    },
+    key: 'F',
+    icon: Eclipse,
+    get description() {
+      return t('Softly hide part of a photo, a shape or some words by brushing over it, so it fades into what is behind. Nothing is lost: switch to Bring back and brush to show it again. Ready-made fades are in the Fade panel.')
+    },
+    get hint() {
+      return t('Brush over the part of the picked thing you want to fade away. Hold {alt} to bring hidden parts back.', { alt: ALT_LABEL })
+    },
+    keywords: ['fade', 'hide', 'hide part', 'mask', 'layer mask', 'blend', 'blend edges', 'soft edges', 'vignette', 'feather', 'fade out', 'transparent', 'see-through', 'melt', 'merge photos', 'disappear', 'gradient mask'],
     group: 'paint',
   },
   {

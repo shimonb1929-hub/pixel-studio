@@ -12,7 +12,7 @@ import { tidySpans } from '../text/spans.ts'
 import { tidyGroups } from './layers.ts'
 import { allPages, pageIndex } from './pages.ts'
 import { hasLayout } from './pageLayout.ts'
-import type { DesignPage, EditorDocument, Layer, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TextFlow, TextSpan, TextStyle } from './types.ts'
+import type { DesignPage, EditorDocument, Layer, LayerHide, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TextFlow, TextSpan, TextStyle } from './types.ts'
 import type { Gradient, GradientStop } from './gradient.ts'
 import { paintPage } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
@@ -25,7 +25,7 @@ import { MAX_PPI } from './units.ts'
 //
 // Layout: the letters "PXSTUDIO", the length of the description as 4 bytes (little-endian),
 // the description as JSON text, then the pictures as PNGs, one after another: each pixel layer's
-// pixels, and each photo inside a shape, in layer order.
+// pixels, each photo inside a shape or text, and each layer's hidden parts, in layer order.
 //
 // Version 2 added shapes, resized and turned pictures (box), locks and editable adjustments.
 // Version 3 added text. Version 4 added the page color, and designs with nothing on the page yet.
@@ -33,10 +33,12 @@ import { MAX_PPI } from './units.ts'
 // blend modes. Version 7 added pen paths and gradient fills. Version 8 added designs with several
 // pages (pages): then each page has its own layers, and the pictures come page by page. Version 9
 // added margins and columns (layout). Version 10 added text that runs on from box to box (flow).
-// Version 11 added things on every page (everyPage) and page numbers (pageNumber).
+// Version 11 added things on every page (everyPage) and page numbers (pageNumber). Version 12 added
+// photos inside text (photo) and softly hidden parts (hide), each with its own picture after the
+// layer's other pictures.
 // Older files still open.
 
-export const PROJECT_VERSION = 11
+export const PROJECT_VERSION = 12
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -58,6 +60,18 @@ interface ProjectLayerBase {
   effects?: LayerEffects | null
   blend?: BlendMode
   everyPage?: string
+  // The hidden parts' picture comes after the layer's other pictures.
+  hide?: { rect: LayerHide['rect']; width: number; height: number; bytes: number }
+}
+
+// A photo inside text, whose picture comes right after the previous one.
+interface ProjectPhoto {
+  zoom: number
+  x: number
+  y: number
+  width: number
+  height: number
+  bytes: number
 }
 
 export interface ProjectPixelLayer extends ProjectLayerBase {
@@ -94,15 +108,15 @@ export interface ProjectTextLayer extends ProjectLayerBase {
   wrap: boolean
   flow?: TextFlow
   pageNumber?: boolean
+  photo?: ProjectPhoto
 }
 
 export type ProjectLayer = ProjectPixelLayer | ProjectShapeLayer | ProjectTextLayer
 
-// The PNGs a layer brings along, in order.
+// The PNGs a layer brings along, in order: its pixels or its photo, then its hidden parts.
 function pictureSizes(layer: ProjectLayer): number[] {
-  if (layer.kind === 'raster') return [layer.bytes]
-  if (layer.kind === 'text') return []
-  return layer.fill.kind === 'photo' ? [layer.fill.bytes] : []
+  const own = layer.kind === 'raster' ? [layer.bytes] : layer.kind === 'text' ? (layer.photo ? [layer.photo.bytes] : []) : layer.fill.kind === 'photo' ? [layer.fill.bytes] : []
+  return layer.hide ? [...own, layer.hide.bytes] : own
 }
 
 export interface ProjectManifest {
@@ -307,6 +321,29 @@ function readGradient(value: unknown): Gradient {
   return { type: value.type, angle: value.angle, stops }
 }
 
+function readPhoto(value: unknown): ProjectPhoto {
+  if (
+    !isRecord(value) ||
+    !isBetween(value.zoom, 1, 20) ||
+    !isBetween(value.x, -1, 1) ||
+    !isBetween(value.y, -1, 1) ||
+    !isWhole(value.width, 1, MAX_LAYER_SIDE) ||
+    !isWhole(value.height, 1, MAX_LAYER_SIDE) ||
+    !isWhole(value.bytes, 1, Number.MAX_SAFE_INTEGER)
+  ) {
+    damaged()
+  }
+  return { zoom: value.zoom, x: value.x, y: value.y, width: value.width, height: value.height, bytes: value.bytes }
+}
+
+function readHide(value: unknown): ProjectLayerBase['hide'] {
+  if (!isRecord(value) || !isRecord(value.rect)) damaged()
+  const { x, y, width, height } = value.rect
+  if (!isBetween(x, -1000, 1000) || !isBetween(y, -1000, 1000) || !isBetween(width, 1e-6, 1000) || !isBetween(height, 1e-6, 1000)) damaged()
+  if (!isWhole(value.width, 1, MAX_LAYER_SIDE) || !isWhole(value.height, 1, MAX_LAYER_SIDE) || !isWhole(value.bytes, 1, Number.MAX_SAFE_INTEGER)) damaged()
+  return { rect: { x, y, width, height }, width: value.width, height: value.height, bytes: value.bytes }
+}
+
 function readFill(value: unknown): ProjectFill {
   if (!isRecord(value)) damaged()
   if (value.kind === 'none') return { kind: 'none' }
@@ -423,6 +460,7 @@ function readLayer(layer: unknown): ProjectLayer {
     if (typeof layer.everyPage !== 'string' || !layer.everyPage || layer.everyPage.length > 100) damaged()
     base.everyPage = layer.everyPage
   }
+  if (layer.hide !== undefined && layer.hide !== null) base.hide = readHide(layer.hide)
   if (layer.kind === 'shape') {
     return { ...base, kind: 'shape', box: readBox(layer.box), geometry: readGeometry(layer.geometry), fill: readFill(layer.fill), outline: readOutline(layer.outline) }
   }
@@ -436,6 +474,7 @@ function readLayer(layer: unknown): ProjectLayer {
       if (layer.pageNumber !== true) damaged()
       text.pageNumber = true
     }
+    if (layer.photo !== undefined) text.photo = readPhoto(layer.photo)
     return text
   }
   if (
@@ -453,9 +492,10 @@ function readLayer(layer: unknown): ProjectLayer {
 }
 
 function picturePixels(layer: ProjectLayer): number {
-  if (layer.kind === 'raster') return layer.width * layer.height
-  if (layer.kind === 'text') return 0
-  return layer.fill.kind === 'photo' ? layer.fill.width * layer.fill.height : 0
+  const hidden = layer.hide ? layer.hide.width * layer.hide.height : 0
+  if (layer.kind === 'raster') return layer.width * layer.height + hidden
+  if (layer.kind === 'text') return (layer.photo ? layer.photo.width * layer.photo.height : 0) + hidden
+  return (layer.fill.kind === 'photo' ? layer.fill.width * layer.fill.height : 0) + hidden
 }
 
 function readSelection(value: unknown): Selection | null {
@@ -542,11 +582,11 @@ function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
   })
 }
 
-// The pictures a layer brings along: its pixels, or the photo inside a shape.
+// The pictures a layer brings along: its pixels, or the photo inside a shape or text, then its
+// hidden parts.
 function layerPictures(layer: Layer): HTMLCanvasElement[] {
-  if (layer.kind === 'raster') return [layer.canvas]
-  if (layer.kind === 'text') return []
-  return layer.fill.kind === 'photo' ? [layer.fill.canvas] : []
+  const own = layer.kind === 'raster' ? [layer.canvas] : layer.kind === 'text' ? (layer.photo ? [layer.photo.canvas] : []) : layer.fill.kind === 'photo' ? [layer.fill.canvas] : []
+  return layer.hide ? [...own, layer.hide.canvas] : own
 }
 
 function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
@@ -560,11 +600,26 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
     effects: hasEffects(layer.effects) ? layer.effects : null,
     blend: layer.blend && layer.blend !== 'normal' ? layer.blend : undefined,
     ...(layer.everyPage ? { everyPage: layer.everyPage } : {}),
+    ...(layer.hide ? { hide: { rect: layer.hide.rect, width: layer.hide.canvas.width, height: layer.hide.canvas.height, bytes: sizes[sizes.length - 1] } } : {}),
   }
   if (layer.kind === 'raster') {
     return { ...base, kind: 'raster', x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height, box: layer.box, bytes: sizes[0] }
   }
-  if (layer.kind === 'text') return { ...base, kind: 'text', box: layer.box, text: layer.text, style: layer.style, ...(layer.spans ? { spans: layer.spans } : {}), wrap: layer.wrap, ...(layer.flow ? { flow: layer.flow } : {}), ...(layer.pageNumber ? { pageNumber: true } : {}) }
+  if (layer.kind === 'text') {
+    const { photo } = layer
+    return {
+      ...base,
+      kind: 'text',
+      box: layer.box,
+      text: layer.text,
+      style: layer.style,
+      ...(layer.spans ? { spans: layer.spans } : {}),
+      wrap: layer.wrap,
+      ...(layer.flow ? { flow: layer.flow } : {}),
+      ...(layer.pageNumber ? { pageNumber: true } : {}),
+      ...(photo ? { photo: { zoom: photo.zoom, x: photo.x, y: photo.y, width: photo.canvas.width, height: photo.canvas.height, bytes: sizes[0] } } : {}),
+    }
+  }
   const { fill } = layer
   const savedFill: ProjectFill =
     fill.kind === 'photo'
@@ -617,7 +672,8 @@ async function decodePicture(png: Blob, width: number, height: number): Promise<
 
 async function decodeLayer(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
   const layer = await decodeLayerKind(info, pngs)
-  return info.group ? { ...layer, group: info.group } : layer
+  const hide = info.hide ? { canvas: await decodePicture(pngs[pngs.length - 1], info.hide.width, info.hide.height), rect: info.hide.rect } : null
+  return { ...layer, ...(info.group ? { group: info.group } : {}), ...(hide ? { hide } : {}) }
 }
 
 async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
@@ -631,7 +687,25 @@ async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer>
     return { ...layerFromCanvas(name, canvas, info.x, info.y), box: info.box, visible, opacity, locked, adjust, ...extras }
   }
   if (info.kind === 'text') {
-    return { id: createId('layer'), kind: 'text', name, visible, opacity, locked, adjust, ...extras, box: info.box, text: info.text, style: info.style, ...(info.spans ? { spans: info.spans } : {}), wrap: info.wrap, ...(info.flow ? { flow: info.flow } : {}), ...(info.pageNumber ? { pageNumber: true } : {}) }
+    const photo = info.photo ? { canvas: await decodePicture(pngs[0], info.photo.width, info.photo.height), zoom: info.photo.zoom, x: info.photo.x, y: info.photo.y } : null
+    return {
+      id: createId('layer'),
+      kind: 'text',
+      name,
+      visible,
+      opacity,
+      locked,
+      adjust,
+      ...extras,
+      box: info.box,
+      text: info.text,
+      style: info.style,
+      ...(info.spans ? { spans: info.spans } : {}),
+      wrap: info.wrap,
+      ...(info.flow ? { flow: info.flow } : {}),
+      ...(info.pageNumber ? { pageNumber: true } : {}),
+      ...(photo ? { photo } : {}),
+    }
   }
   const fill =
     info.fill.kind === 'photo'

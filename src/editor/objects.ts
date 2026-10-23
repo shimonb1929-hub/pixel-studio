@@ -1,14 +1,17 @@
-import { fontsVersion } from '../text/fonts.ts'
 import { drawText, textReach } from '../text/textLayer.ts'
 import { createCanvas, getContext2d, MAX_LAYER_SIDE } from './document.ts'
-import { polygonBounds, snapRect, type Rect } from './geometry.ts'
+import { intersectRect, polygonBounds, snapRect, type Rect } from './geometry.ts'
 import { canvasGradient } from './gradient.ts'
+import { photoPlacement } from './photoFill.ts'
 import { endDirection, mapPath, segmentCount, trimForArrow, tracePath, type ShapePath } from './path.ts'
-import { applyAffine, boxCorners, boxMatrix, invertAffine, type TransformBox } from './transform.ts'
-import type { EditorDocument, Layer, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, ShapeOutline, TextLayer } from './types.ts'
+import { layerVersion } from './pixelVersion.ts'
+import { applyAffine, boxCorners, boxMatrix, invertAffine, multiplyAffine, type Affine, type TransformBox } from './transform.ts'
+import type { EditorDocument, Layer, LayerHide, PixelLayer, Point, ShapeGeometry, ShapeLayer, ShapeOutline, TextLayer } from './types.ts'
 
 // What every kind of layer can do: be drawn, be measured, be picked on the design, and be turned
 // into plain pixels for the tools that work on pixels.
+
+export { photoPlacement }
 
 export function isPixelLayer(layer: Layer | null | undefined): layer is PixelLayer {
   return layer?.kind === 'raster'
@@ -124,15 +127,6 @@ export function shapePath(geometry: ShapeGeometry, w: number, h: number, outline
   return path
 }
 
-// Where a photo sits inside a w × h shape: always covering it, enlarged by zoom, slid by x, y.
-export function photoPlacement(fill: Extract<ShapeFill, { kind: 'photo' }>, w: number, h: number): Rect {
-  const { canvas } = fill
-  const scale = Math.max(w / canvas.width, h / canvas.height) * fill.zoom
-  const width = canvas.width * scale
-  const height = canvas.height * scale
-  return { x: -width / 2 + (fill.x * (width - w)) / 2, y: -height / 2 + (fill.y * (height - h)) / 2, width, height }
-}
-
 // Turns the context so 0, 0 is the shape's middle, with its turn and flips. Returns its size.
 function enterShape(ctx: CanvasRenderingContext2D, box: TransformBox): { w: number; h: number } {
   ctx.translate(box.cx, box.cy)
@@ -209,8 +203,93 @@ export function outlineDash(outline: ShapeOutline): { pattern: number[]; cap: Ca
   return null
 }
 
-// Draws what's on a layer (without its adjustments or opacity), in design coordinates.
+// The layer's frame: where the unit square (0, 0 to 1, 1) lands in the design. Its box, or for plain
+// pixels the area they cover. Hidden parts are kept in it, so they follow the layer around.
+export function layerFrame(layer: Layer): Affine {
+  if (layer.kind === 'raster' && !layer.box) return { a: layer.canvas.width, b: 0, c: 0, d: layer.canvas.height, e: layer.x, f: layer.y }
+  const box = layer.box!
+  // A line has no height; its frame gets a little, so hidden parts still have somewhere to be.
+  const at = (v: number) => (v < 0 ? -1 : 1) * Math.max(Math.abs(v), 1)
+  return boxMatrix({ ...box, width: at(box.width), height: at(box.height) }, 1, 1)
+}
+
+// Where the canvas of hidden parts lands in the design.
+export function hidePlacement(layer: Layer, hide: LayerHide): Affine {
+  const { canvas, rect } = hide
+  return multiplyAffine(layerFrame(layer), { a: rect.width / canvas.width, b: 0, c: 0, d: rect.height / canvas.height, e: rect.x, f: rect.y })
+}
+
+// Draws with the layer's hidden parts taken away: `draw` paints onto a canvas of its own, and the
+// hidden parts are rubbed out of that before it goes onto `ctx`. `bounds` is what `draw` covers.
+export function drawHidden(ctx: CanvasRenderingContext2D, layer: Layer, bounds: Rect, draw: (ctx: CanvasRenderingContext2D) => void): void {
+  const hide = layer.hide
+  if (!hide) {
+    draw(ctx)
+    return
+  }
+  const m = ctx.getTransform()
+  const corners = [
+    { x: bounds.x, y: bounds.y },
+    { x: bounds.x + bounds.width, y: bounds.y },
+    { x: bounds.x, y: bounds.y + bounds.height },
+    { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+  ].map((p) => ({ x: m.a * p.x + m.c * p.y + m.e, y: m.b * p.x + m.d * p.y + m.f }))
+  const area = polygonBounds(corners)
+  const seen = area && intersectRect(snapRect({ x: area.x - 1, y: area.y - 1, width: area.width + 2, height: area.height + 2 }), { x: 0, y: 0, width: ctx.canvas.width, height: ctx.canvas.height })
+  if (!seen || seen.width <= 0 || seen.height <= 0) return
+  const own = hiddenCanvas(seen.width, seen.height)
+  const octx = getContext2d(own)
+  octx.setTransform(1, 0, 0, 1, 0, 0)
+  octx.clearRect(0, 0, seen.width, seen.height)
+  octx.globalAlpha = 1
+  octx.globalCompositeOperation = 'source-over'
+  octx.imageSmoothingEnabled = ctx.imageSmoothingEnabled
+  octx.imageSmoothingQuality = ctx.imageSmoothingQuality
+  octx.setTransform(m.a, m.b, m.c, m.d, m.e - seen.x, m.f - seen.y)
+  draw(octx)
+  const p = hidePlacement(layer, hide)
+  octx.globalCompositeOperation = 'destination-out'
+  octx.imageSmoothingEnabled = true
+  octx.imageSmoothingQuality = 'high'
+  octx.transform(p.a, p.b, p.c, p.d, p.e, p.f)
+  octx.drawImage(hide.canvas, 0, 0)
+  octx.setTransform(1, 0, 0, 1, 0, 0)
+  octx.globalCompositeOperation = 'source-over'
+  ctx.save()
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.drawImage(own, 0, 0, seen.width, seen.height, seen.x, seen.y, seen.width, seen.height)
+  ctx.restore()
+  releaseHidden(own)
+}
+
+// Canvases for drawing hidden layers, reused so the screen doesn't make new ones on every frame.
+// A layer drawn while another is being drawn (inside effects) takes a second one.
+const hiddenPool: HTMLCanvasElement[] = []
+function hiddenCanvas(width: number, height: number): HTMLCanvasElement {
+  const canvas = hiddenPool.pop() ?? createCanvas(width, height)
+  if (canvas.width < width || canvas.height < height) {
+    canvas.width = Math.max(canvas.width, width)
+    canvas.height = Math.max(canvas.height, height)
+  }
+  return canvas
+}
+function releaseHidden(canvas: HTMLCanvasElement) {
+  // Very big ones are let go, so a poster doesn't keep a huge canvas around.
+  if (hiddenPool.length < 2 && canvas.width * canvas.height <= 4096 * 4096) hiddenPool.push(canvas)
+}
+
+// Draws what's on a layer (without its adjustments or opacity), in design coordinates. Hidden parts
+// stay hidden.
 export function drawLayerContent(ctx: CanvasRenderingContext2D, layer: Layer): void {
+  if (layer.hide) {
+    drawHidden(ctx, layer, layerBounds(layer), (c) => drawOwnContent(c, layer))
+    return
+  }
+  drawOwnContent(ctx, layer)
+}
+
+// Everything on a layer, hidden parts too.
+export function drawOwnContent(ctx: CanvasRenderingContext2D, layer: Layer): void {
   if (layer.kind === 'shape') {
     drawShape(ctx, layer)
     return
@@ -238,8 +317,9 @@ export function drawLayerContent(ctx: CanvasRenderingContext2D, layer: Layer): v
   ctx.restore()
 }
 
-// A layer's content as plain pixels on a canvas that sits straight in the design.
-function toPixels(layer: Layer): { canvas: HTMLCanvasElement; x: number; y: number } {
+// A layer's content as plain pixels on a canvas that sits straight in the design. `all` keeps the
+// hidden parts too.
+function toPixels(layer: Layer, all = false): { canvas: HTMLCanvasElement; x: number; y: number } {
   const rect = layerBounds(layer)
   const width = Math.max(1, Math.min(MAX_LAYER_SIDE, rect.width))
   const height = Math.max(1, Math.min(MAX_LAYER_SIDE, rect.height))
@@ -249,17 +329,55 @@ function toPixels(layer: Layer): { canvas: HTMLCanvasElement; x: number; y: numb
   // a fresh one.
   ctx.save()
   ctx.translate(-rect.x, -rect.y)
-  drawLayerContent(ctx, layer)
+  if (all) drawOwnContent(ctx, layer)
+  else drawLayerContent(ctx, layer)
   ctx.restore()
   return { canvas, x: rect.x, y: rect.y }
 }
 
 // A resized or turned layer, settled into plain pixels so it can be painted on. Layers that are
 // already plain come back as they are.
+// Hidden parts stay hidden in the same places.
 export function settleLayer(layer: PixelLayer): PixelLayer {
   if (!layer.box) return layer
-  return { ...layer, ...toPixels(layer), box: null }
+  const settled: PixelLayer = { ...layer, ...toPixels(layer, true), box: null }
+  return layer.hide ? { ...settled, hide: refitHide(layer.hide, layerFrame(layer), layerFrame(settled)) } : settled
 }
+
+// Hidden parts kept in one frame, moved into another without moving in the design: a pixel layer
+// that grew, or a turned picture settled into plain pixels.
+export function refitHide(hide: LayerHide, from: Affine, to: Affine): LayerHide {
+  const { canvas, rect } = hide
+  // Old frame to new frame.
+  const map = multiplyAffine(invertAffine(to), from)
+  const corners = [
+    { x: rect.x, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y },
+    { x: rect.x, y: rect.y + rect.height },
+    { x: rect.x + rect.width, y: rect.y + rect.height },
+  ].map((p) => applyAffine(map, p))
+  const next = polygonBounds(corners)!
+  // Same detail as before, about.
+  const detail = Math.sqrt((canvas.width * canvas.height) / Math.max(1e-12, rect.width * rect.height * Math.abs(map.a * map.d - map.b * map.c)))
+  const width = Math.max(1, Math.min(MAX_HIDE_SIDE, Math.round(next.width * detail)))
+  const height = Math.max(1, Math.min(MAX_HIDE_SIDE, Math.round(next.height * detail)))
+  const out = createCanvas(width, height)
+  const ctx = getContext2d(out)
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  // New canvas pixels to new frame, then to old frame, then to old canvas pixels.
+  const toOld = multiplyAffine(
+    { a: canvas.width / rect.width, b: 0, c: 0, d: canvas.height / rect.height, e: (-rect.x * canvas.width) / rect.width, f: (-rect.y * canvas.height) / rect.height },
+    multiplyAffine(invertAffine(map), { a: next.width / width, b: 0, c: 0, d: next.height / height, e: next.x, f: next.y }),
+  )
+  const back = invertAffine(toOld)
+  ctx.setTransform(back.a, back.b, back.c, back.d, back.e, back.f)
+  ctx.drawImage(canvas, 0, 0)
+  return { canvas: out, rect: next }
+}
+
+// Hidden parts are kept at most this many pixels across: they're soft, so more would only fill memory.
+export const MAX_HIDE_SIDE = 2048
 
 // Shapes, text and settled copies never change in place, so each is worked out once (text again
 // when a font arrives).
@@ -268,8 +386,8 @@ const pixelCopies = new WeakMap<Layer, { version: number; copy: PixelLayer }>()
 // Any layer as plain pixels that sit straight in the design, for the tools that work on pixels.
 // Plain pixel layers come back as they are (not copied).
 export function layerPixels(layer: Layer): PixelLayer {
-  if (layer.kind === 'raster' && !layer.box) return layer
-  const version = layer.kind === 'text' ? fontsVersion() : 0
+  if (layer.kind === 'raster' && !layer.box && !layer.hide) return layer
+  const version = layerVersion(layer)
   const cached = pixelCopies.get(layer)
   if (cached && cached.version === version) return cached.copy
   const { canvas, x, y } = toPixels(layer)

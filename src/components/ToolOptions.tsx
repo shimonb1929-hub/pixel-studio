@@ -1,4 +1,4 @@
-import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
+import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, ImageDown, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -27,6 +27,8 @@ import { ALT_LABEL } from '../keys.ts'
 import { TEXT_KINDS, type TextKind } from '../text/presets.ts'
 import { toolInfo } from '../tools.ts'
 import { StrokePreview } from './StrokePreview.tsx'
+import { FadeBar } from './FadeOptions.tsx'
+import type { HideBrush, HideMode } from '../editor/hide.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button, Slider } from './ui.tsx'
 import { live, msg, t } from '../i18n/i18n.ts'
@@ -421,6 +423,8 @@ export interface ArrangeBarControls {
   spreadOut: (axis: 'x' | 'y') => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
+  // Set when one photo is picked over a shape or words: puts it inside them, right where it is.
+  putInside?: { name: string; put: () => void }
   // Set when several things are picked: makes one shape out of them, or says why it can't.
   combine?: (mode: CombineMode) => void
   combineBlocked?: string | null
@@ -981,6 +985,16 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
             onClick={controls.removeBackground}
           />
         )}
+        {controls.putInside && (
+          <BarButton
+            icon={ImageDown}
+            label={t('Put inside')}
+            title={t('Put inside “{name}”', { name: controls.putInside.name })}
+            roomy
+            description={t('Put this photo inside “{name}” below it, right where it is now, so it only shows inside. You can still slide it and change its size there.', { name: controls.putInside.name })}
+            onClick={controls.putInside.put}
+          />
+        )}
         {!part && (
           <>
             <BarButton icon={BringToFront} label={t("Forward")} title={t("Bring forward")} description={several ? t('Move them one step toward the front.') : t('Move “{name}” one step toward the front, over the thing above it.', { name: target.name })} onClick={controls.forward} />
@@ -1191,6 +1205,7 @@ interface ToolOptionsProps {
   onFillToleranceChange: (tolerance: number) => void
   healSize: number
   onHealSizeChange: (size: number) => void
+  fade: { brush: HideBrush; mode: HideMode; onBrush: (brush: HideBrush) => void; onMode: (mode: HideMode) => void }
   brush: BrushSettings
   brushPresetId: string | null
   eraser: BrushSettings
@@ -1271,6 +1286,8 @@ export function ToolOptions(props: ToolOptionsProps) {
             onChange={(position) => props.onFillToleranceChange(Math.round(position * 100) / 100)}
           />
         </>
+      ) : props.tool === 'fade' ? (
+        <FadeBar brush={props.fade.brush} mode={props.fade.mode} onBrush={props.fade.onBrush} onMode={props.fade.onMode} />
       ) : props.tool === 'heal' ? (
         <>
           <Slider

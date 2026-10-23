@@ -12,7 +12,8 @@ import { lineShift, textLayout } from '../text/textLayer.ts'
 
 // The design as an SVG file: shapes and text stay sharp at any size and can be changed in other
 // design programs. Photos and drawings come along as pictures inside it, at full detail. A layer
-// with effects or adjustments comes along as a picture of how it looks, so it looks the same.
+// with effects, adjustments or hidden parts (or text with a photo inside) comes along as a picture
+// of how it looks, so it looks the same.
 
 // Pictures of layers with effects are made at this many pixels for each design pixel.
 const PICTURE_DETAIL = 2
@@ -214,7 +215,9 @@ function pictureOfLayer(doc: EditorDocument, layer: Layer): string {
 }
 
 function layerSvg(doc: EditorDocument, layer: Layer, ids: Ids, defs: string[]): string {
-  if ((layer.effects && Object.values(layer.effects).some(Boolean)) || (layer.adjust && !isNeutral(layer.adjust))) return pictureOfLayer(doc, layer)
+  // Softly hidden parts, and photos inside letters, come along as a picture too.
+  const picture = layer.hide || (layer.kind === 'text' && layer.photo)
+  if (picture || (layer.effects && Object.values(layer.effects).some(Boolean)) || (layer.adjust && !isNeutral(layer.adjust))) return pictureOfLayer(doc, layer)
   if (layer.kind === 'raster') return pixelLayerSvg(layer)
   if (layer.kind === 'shape') return shapeSvg(layer, ids, defs)
   return textSvg(layer, ids, defs)

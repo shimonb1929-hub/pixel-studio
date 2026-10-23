@@ -5,6 +5,8 @@ import { coverRect } from '../editor/document.ts'
 import { ellipsePolygon, polygonBounds, rectFromCorners, rectPolygon, squareFromCorners, type Rect } from '../editor/geometry.ts'
 import { activeLayer, pickedWith } from '../editor/layers.ts'
 import { drawShape, hitsLayer, layerAt, photoPlacement, settleLayer } from '../editor/objects.ts'
+import { layerPhoto, withPhoto } from '../editor/photoFill.ts'
+import { HideStroke, type HideBrush, type HideMode } from '../editor/hide.ts'
 import { onGapFilled } from '../editor/gapFill.ts'
 import { startMove, type MoveSession } from '../editor/move.ts'
 import { renderScene, type LayerOverride } from '../editor/render.ts'
@@ -34,7 +36,7 @@ import {
   type Handle,
   type TransformBox,
 } from '../editor/transform.ts'
-import type { EditorDocument, Layer, PixelLayer, Point, ShapeLayer, ToolId, Viewport } from '../editor/types.ts'
+import type { EditorDocument, Layer, LayerHide, PhotoFill, PixelLayer, Point, ShapeLayer, ToolId, Viewport } from '../editor/types.ts'
 import { nextZoomLevel, panBy, screenToDocument, zoomAtPoint } from '../editor/viewport.ts'
 import { useFontsVersion } from '../hooks/useFontsVersion.ts'
 import { hasRtlLetters } from '../text/layout.ts'
@@ -129,6 +131,9 @@ export interface CanvasViewProps {
   shapes: ShapeDrawing | null
   // The Pen: drawing paths point by point, and changing the points of a picked pen shape.
   pen: PenControls | null
+  // With Fade: brushing softly hides part of the picked thing, or brings hidden parts back. Holding
+  // Alt does the other one.
+  fade: { brush: HideBrush; mode: HideMode; onStroke: (layerId: string, hide: LayerHide, mode: HideMode) => void } | null
   // While "Move photo" is on, dragging on the selected shape slides the photo inside it.
   photoMove: { onMove: (layerId: string, x: number, y: number) => void } | null
   textTool: TextTool | null
@@ -210,10 +215,11 @@ type ArrangeDrag =
   // With Shift (`adding`), the box adds what it touches to what's already picked.
   | { kind: 'marquee'; pointerId: number; start: Point; current: Point; startClient: Point; moved: boolean; locked: Layer | null; adding: boolean }
 
-// Sliding a photo inside its shape.
+// Sliding a photo inside its shape or text.
 interface PhotoDrag {
   pointerId: number
-  layer: ShapeLayer
+  layer: Layer
+  photo: PhotoFill
   start: Point
   x: number
   y: number
@@ -605,6 +611,7 @@ export function CanvasView(props: CanvasViewProps) {
   const arrangeRef = useRef<ArrangeDrag | null>(null)
   const shapeRef = useRef<ShapeDrag | null>(null)
   const photoRef = useRef<PhotoDrag | null>(null)
+  const fadeRef = useRef<{ pointerId: number; stroke: HideStroke; mode: HideMode } | null>(null)
   const textRef = useRef<TextDrag | null>(null)
   const penRef = useRef<number | null>(null)
   const [penCursor, setPenCursor] = useState('crosshair')
@@ -634,6 +641,7 @@ export function CanvasView(props: CanvasViewProps) {
       arrangeRef.current ||
       shapeRef.current ||
       photoRef.current ||
+      fadeRef.current ||
       textRef.current ||
       penRef.current !== null
     )
@@ -674,10 +682,10 @@ export function CanvasView(props: CanvasViewProps) {
     }
     const pen = propsRef.current.pen?.override()
     if (pen) return pen
+    const fade = fadeRef.current
+    if (fade) return { layerId: fade.stroke.layer.id, layer: fade.stroke.layer }
     const photo = photoRef.current
-    if (photo?.moved && photo.layer.fill.kind === 'photo') {
-      return { layerId: photo.layer.id, layer: { ...photo.layer, fill: { ...photo.layer.fill, x: photo.x, y: photo.y } } }
-    }
+    if (photo?.moved) return { layerId: photo.layer.id, layer: withPhoto(photo.layer, { ...photo.photo, x: photo.x, y: photo.y }) }
     return propsRef.current.override
   }
 
@@ -799,7 +807,7 @@ export function CanvasView(props: CanvasViewProps) {
     if (pickRef.current !== null || p.tool === 'picker' || (p.tool === 'brush' && p.altHeld)) {
       const point = screenToDocument(p.viewport, hover.x, hover.y)
       drawPickerRing(ctx, hover.x, hover.y, sampleColor(p.doc, point.x, point.y), p.color)
-    } else if (p.tool === 'brush' || p.tool === 'eraser' || p.tool === 'heal') {
+    } else if (p.tool === 'brush' || p.tool === 'eraser' || p.tool === 'heal' || p.tool === 'fade') {
       const radius = (p.brush.size / 2) * p.viewport.zoom
       if (radius >= MIN_OUTLINE_RADIUS) drawBrushOutline(ctx, hover.x, hover.y, radius)
     }
@@ -897,13 +905,14 @@ export function CanvasView(props: CanvasViewProps) {
     return layer
   }
 
-  // Starts sliding the photo inside the selected shape, if the press is on it.
+  // Starts sliding the photo inside the selected shape or text, if the press is on it.
   function startPhotoMove(event: PointerEvent<HTMLCanvasElement>): boolean {
     const layer = activeLayer(doc)
     const point = documentPoint(event.clientX, event.clientY)
-    if (layer?.kind !== 'shape' || layer.fill.kind !== 'photo' || !hitsLayer(layer, point)) return false
+    const photo = layerPhoto(layer)
+    if (!layer || !photo || !hitsLayer(layer, point)) return false
     event.currentTarget.setPointerCapture(event.pointerId)
-    photoRef.current = { pointerId: event.pointerId, layer, start: point, x: layer.fill.x, y: layer.fill.y, moved: false }
+    photoRef.current = { pointerId: event.pointerId, layer, photo, start: point, x: photo.x, y: photo.y, moved: false }
     setDragging(true)
     return true
   }
@@ -1160,6 +1169,34 @@ export function CanvasView(props: CanvasViewProps) {
     else propsRef.current.onStrokeCancelled()
   }
 
+  // Brushing with Fade on the picked thing.
+  function startFade(event: PointerEvent<HTMLCanvasElement>) {
+    const fade = props.fade
+    const layer = activeLayer(doc)
+    if (!fade) return
+    if (!layer) {
+      props.onBlocked(t('Pick a photo, a shape or some words first (click it with Arrange, or in the Layers panel), then brush over the part to fade.'))
+      return
+    }
+    if (!layer.visible) {
+      props.onBlocked(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then brush again.', { name: layer.name }))
+      return
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const mode: HideMode = event.altKey ? (fade.mode === 'hide' ? 'show' : 'hide') : fade.mode
+    const stroke = new HideStroke(layer, fade.brush, mode)
+    stroke.begin({ ...documentPoint(event.clientX, event.clientY), pressure: pressureOf(event.nativeEvent) })
+    fadeRef.current = { pointerId: event.pointerId, stroke, mode }
+    requestScene()
+  }
+
+  function finishFade(cancelled: boolean) {
+    const fade = fadeRef.current
+    fadeRef.current = null
+    if (fade && !cancelled) propsRef.current.fade?.onStroke(fade.stroke.layer.id, fade.stroke.hide, fade.mode)
+    drawScene()
+  }
+
   function finishPick(clientX: number, clientY: number) {
     pickRef.current = null
     setPicking(false)
@@ -1295,6 +1332,8 @@ export function CanvasView(props: CanvasViewProps) {
       startStroke(event)
     } else if (tool === 'heal') {
       startHealStroke(event)
+    } else if (tool === 'fade') {
+      startFade(event)
     } else if (tool === 'move' && props.arrange && !doc.selection) {
       startArrange(event, props.arrange)
     } else if (tool === 'move') {
@@ -1398,12 +1437,12 @@ export function CanvasView(props: CanvasViewProps) {
     }
 
     const photo = photoRef.current
-    if (photo && photo.pointerId === event.pointerId && photo.layer.fill.kind === 'photo') {
+    if (photo && photo.pointerId === event.pointerId && photo.layer.kind !== 'raster') {
       // The drag, turned into the shape's own directions, moves the photo the same way.
       const { box } = photo.layer
       const w = Math.abs(box.width)
       const h = Math.abs(box.height)
-      const place = photoPlacement(photo.layer.fill, w, h)
+      const place = photoPlacement(photo.photo, w, h)
       const cos = Math.cos(-box.rotation)
       const sin = Math.sin(-box.rotation)
       const dx = point.x - photo.start.x
@@ -1411,8 +1450,8 @@ export function CanvasView(props: CanvasViewProps) {
       const lx = (dx * cos - dy * sin) * Math.sign(box.width || 1)
       const ly = (dx * sin + dy * cos) * Math.sign(box.height || 1)
       const clamp = (v: number) => Math.max(-1, Math.min(1, v))
-      photo.x = place.width > w ? clamp(photo.layer.fill.x + (2 * lx) / (place.width - w)) : 0
-      photo.y = place.height > h ? clamp(photo.layer.fill.y + (2 * ly) / (place.height - h)) : 0
+      photo.x = place.width > w ? clamp(photo.photo.x + (2 * lx) / (place.width - w)) : 0
+      photo.y = place.height > h ? clamp(photo.photo.y + (2 * ly) / (place.height - h)) : 0
       photo.moved = true
       requestScene()
       return
@@ -1495,6 +1534,13 @@ export function CanvasView(props: CanvasViewProps) {
       return
     }
 
+    const fade = fadeRef.current
+    if (fade && fade.pointerId === event.pointerId) {
+      const coalesced = event.nativeEvent.getCoalescedEvents?.() ?? []
+      for (const e of coalesced.length > 0 ? coalesced : [event.nativeEvent]) fade.stroke.lineTo({ ...documentPoint(e.clientX, e.clientY), pressure: pressureOf(e) })
+      requestScene()
+    }
+
     const stroke = strokeRef.current
     if (stroke && stroke.pointerId === event.pointerId) {
       // Fast movements arrive as several points per event; using all of them keeps curves round.
@@ -1527,6 +1573,7 @@ export function CanvasView(props: CanvasViewProps) {
       }
     }
     if (strokeRef.current?.pointerId === event.pointerId) finishStroke()
+    if (fadeRef.current?.pointerId === event.pointerId) finishFade(cancelled)
     if (moveRef.current?.pointerId === event.pointerId) finishMove()
     if (selectRef.current?.pointerId === event.pointerId) finishSelect()
     if (boxRef.current?.pointerId === event.pointerId) {
@@ -1569,7 +1616,7 @@ export function CanvasView(props: CanvasViewProps) {
   }
 
   const pickMode = picking || tool === 'picker' || (tool === 'brush' && altHeld)
-  const painting = tool === 'brush' || tool === 'eraser' || tool === 'heal'
+  const painting = tool === 'brush' || tool === 'eraser' || tool === 'heal' || tool === 'fade'
   const outlineVisible = painting && (brush.size / 2) * viewport.zoom >= MIN_OUTLINE_RADIUS
   // The pointer's shape tells you what will happen when you press.
   function pickCursor(): string {
@@ -1607,6 +1654,7 @@ export function CanvasView(props: CanvasViewProps) {
         onPointerCancel={(event) => endPointer(event, true)}
         onLostPointerCapture={(event) => {
           if (strokeRef.current?.pointerId === event.pointerId) finishStroke()
+          if (fadeRef.current?.pointerId === event.pointerId) finishFade(false)
           if (moveRef.current?.pointerId === event.pointerId) finishMove()
           if (selectRef.current?.pointerId === event.pointerId) finishSelect()
           if (boxRef.current?.pointerId === event.pointerId) boxRef.current = null

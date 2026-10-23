@@ -59,8 +59,13 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   and text each arrive as their own thing. Click an empty spot (or Page in the Layers panel) and
   the Color panel colors the page; the fill bucket does it too.
 - **No old-fashioned tricks to learn.** The same results as the professional tools, without their
-  hard ideas: drop a photo onto a shape and the shape is filled with it (no clipping masks), and a
-  layer's adjustments stay changeable any time (no adjustment layers).
+  hard ideas: drop a photo onto a shape or onto words and it shows inside them (no clipping masks),
+  or pick a photo on the design and press Put inside to put it in the shape under it, right where it
+  is; a layer's adjustments stay changeable any time (no adjustment layers).
+- **Fade instead of masks.** The Fade tool softly hides part of anything (a photo, a shape, words)
+  by brushing over it, so it melts into what is behind; Bring back brushes it back. Ready-made fades
+  (Soft edges, Fade bottom, top, left, right) show on the design while pointed at. Nothing on the
+  layer changes, the faded parts move and resize with it, and the Layers panel marks what is faded.
 - **English, Hebrew and Yiddish, all first-class.** Type right on the design. Hebrew and Yiddish
   read right to left by themselves; numbers, English words and punctuation inside them land where
   a reader expects, even where lines wrap. What you see while typing is exactly what you get. 382
@@ -164,6 +169,8 @@ src/
     snap.ts      Lining up by itself while dragging, and the guides that show it
     path.ts      Pen paths: curves, their bounds, adding, bending and smoothing points
     gradient.ts  Gradient fills: ready-made gradients, drawing them, adding and flipping colors
+    photoFill.ts Photos inside shapes and text: where they sit and how they're painted
+    hide.ts      Fade: softly hidden parts, the brush that paints them and the ready-made fades
     brushes.ts   The ready-made brushes and erasers
     color.ts     Color codes and the color picker math
     ...          The document, zoom math, drawing to screen, opening and downloading files
@@ -189,8 +196,9 @@ pixels it just gets a new position; resized or turned it gets a box, and is draw
 original pixels into that box, so nothing is lost however often it changes. Only painting on it
 redraws its pixels at the new size. It grows when you paint past its edge, so nothing is ever cut
 off by accident. A shape layer and a text layer are each a description (kind, box, fill or gradient, outline, corners, pen points),
-drawn fresh at any size; a photo inside a shape is kept whole, with how big it is and which part
-shows. Cropping and resizing the design only move layers and change their boxes, so undo, or
+drawn fresh at any size; a photo inside a shape or text is kept whole, with how big it is and which
+part shows. Faded parts of any layer are a soft picture of their own, kept in the layer's own box,
+so they move, resize and turn with it; drawing a faded layer rubs them out of a copy of it. Cropping and resizing the design only move layers and change their boxes, so undo, or
 resizing back, brings back everything.
 
 A brush stroke paints onto a separate stroke canvas and is shown on a preview of the layer while
@@ -263,11 +271,11 @@ pulling in see-through pixels, so blurred photos keep solid edges.
 7. **Shapes and the pen** (Illustrator) — a pen for curves with editable points (done); gradient
    fills (done); outline dashes and ends; combine shapes (join, cut out, overlap); SVG export.
 8. **More text** — different fonts and colors inside one text, text along a path, text effects
-   (outline, shadow, fill with a photo), your own font files, lists and columns.
+   (outline, shadow, fill with a photo: done), your own font files, lists and columns.
 9. **Pages and print** (InDesign) — multi-page documents (done), margins and columns (done),
    text that flows from box to box (done), things and page numbers on every page (done), print-ready PDF (several pages, bleed, cut lines and
    selectable text are done).
 10. **Pro layers and photo tools** (Photoshop) — blend modes, effects (shadow, glow,
    outline), curves and levels, clone and heal, select by color and select subject, and an easy
-   way to fade or hide parts of a layer (with a brush, never a mask to learn).
+   way to fade or hide parts of a layer (with a brush, never a mask to learn: done).
 11. **Ready to sell** — accounts, saving to the cloud, payments and a free trial.

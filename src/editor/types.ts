@@ -38,6 +38,18 @@ interface LayerBase {
   blend?: BlendMode
   // Set when it's on every page: each page has a copy with the same `everyPage`, kept the same.
   everyPage?: string
+  // Parts of the layer that are softly hidden. Like adjustments, hiding never changes what's on the
+  // layer, so hidden parts can be brought back at any time. Missing means nothing is hidden.
+  hide?: LayerHide | null
+}
+
+// How hidden each spot of a layer is: solid hides it, see-through shows it, and in between fades it.
+// The canvas moves, resizes and turns with the layer: it covers `rect` of the layer's frame, where
+// 0, 0 is the top-left of the layer's box (or of its pixels) and 1, 1 the bottom-right. For shapes and
+// text it reaches a little past, for outlines and letters that reach past their box.
+export interface LayerHide {
+  canvas: HTMLCanvasElement
+  rect: { x: number; y: number; width: number; height: number }
 }
 
 // A layer of pixels: a photo, a painting, a pasted picture.
@@ -78,9 +90,18 @@ export type ShapeFill =
   | { kind: 'color'; color: string }
   // Colors fading into each other across the shape.
   | { kind: 'gradient'; gradient: Gradient }
-  // A photo filling the shape. It always covers the whole shape: `zoom` enlarges it from there, and
-  // x, y (-1 to 1) slide it to show another part of it.
-  | { kind: 'photo'; canvas: HTMLCanvasElement; zoom: number; x: number; y: number }
+  // A photo filling the shape.
+  | ({ kind: 'photo' } & PhotoFill)
+
+// A photo inside a shape or inside letters. It always covers the whole shape or text box: `zoom`
+// enlarges it from there, and x, y (-1 to 1) slide it to show another part of it. The photo keeps
+// all its pixels.
+export interface PhotoFill {
+  canvas: HTMLCanvasElement
+  zoom: number
+  x: number
+  y: number
+}
 
 export type OutlineDash = 'solid' | 'dashed' | 'dotted'
 
@@ -148,6 +169,8 @@ export interface TextLayer extends LayerBase {
   flow?: TextFlow
   // A page number: its text is always the number of the page it's on.
   pageNumber?: boolean
+  // A photo showing through the letters instead of a color (words with their own color keep it).
+  photo?: PhotoFill
 }
 
 export interface TextFlow {
@@ -221,4 +244,4 @@ export interface Viewport {
   panY: number
 }
 
-export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'pen' | 'text' | 'brush' | 'eraser' | 'fill' | 'picker' | 'adjust' | 'heal' | 'hand' | 'zoom'
+export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'pen' | 'text' | 'brush' | 'eraser' | 'fade' | 'fill' | 'picker' | 'adjust' | 'heal' | 'hand' | 'zoom'

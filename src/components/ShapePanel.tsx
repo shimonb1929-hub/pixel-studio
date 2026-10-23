@@ -243,35 +243,7 @@ export function ShapePanel(props: ShapePanelProps) {
       {props.editing && !line && (
         <div className="mt-4 border-t border-line pt-3">
           {props.photo ? (
-            <div className="flex flex-col gap-3">
-              <Slider
-                label={t("Photo size")}
-                help={t("Make the photo bigger inside the shape. It always fills the whole shape.")}
-                value={(props.photo.zoom - 1) / 3}
-                display={`${Math.round(props.photo.zoom * 100)}%`}
-                onChange={(position) => props.photo!.onZoom(Math.round((1 + position * 3) * 100) / 100)}
-              />
-              <div className="flex items-center gap-1.5">
-                <Tooltip title={t("Move photo")} description={t("While this is on, drag on the shape to slide the photo inside it, to show the part you want.")} className="flex">
-                  <button
-                    type="button"
-                    aria-pressed={props.photo.moving}
-                    aria-label={t("Move photo")}
-                    onClick={props.photo.onToggleMove}
-                    className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
-                      props.photo.moving ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
-                    }`}
-                  >
-                    <Move size={15} />
-                    {t('Move photo')}
-                  </button>
-                </Tooltip>
-                <Button variant="ghost" className="h-8 px-2.5 text-[12px]" onClick={props.photo.onRemove} tip={{ title: t('Remove photo'), description: t('Take the photo out, and fill the shape with a color again.') }}>
-                  <X size={14} />
-                  {t('Remove photo')}
-                </Button>
-              </div>
-            </div>
+            <PhotoControls photo={props.photo} inside="shape" />
           ) : (
             props.onChoosePhoto && (
               <Button
@@ -288,5 +260,49 @@ export function ShapePanel(props: ShapePanelProps) {
         </div>
       )}
     </section>
+  )
+}
+
+// How big the photo inside a shape or text is, and sliding it to show the part you want.
+export function PhotoControls({ photo, inside }: { photo: ShapePhotoControls; inside: 'shape' | 'text' }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <Slider
+        label={t("Photo size")}
+        help={inside === 'shape' ? t("Make the photo bigger inside the shape. It always fills the whole shape.") : t("Make the photo bigger inside the letters. It always fills all of them.")}
+        value={(photo.zoom - 1) / 3}
+        display={`${Math.round(photo.zoom * 100)}%`}
+        onChange={(position) => photo.onZoom(Math.round((1 + position * 3) * 100) / 100)}
+      />
+      <div className="flex items-center gap-1.5">
+        <Tooltip
+          title={t("Move photo")}
+          description={inside === 'shape' ? t("While this is on, drag on the shape to slide the photo inside it, to show the part you want.") : t("While this is on, drag on the text to slide the photo inside the letters, to show the part you want.")}
+          className="flex"
+        >
+          <button
+            type="button"
+            aria-pressed={photo.moving}
+            aria-label={t("Move photo")}
+            onClick={photo.onToggleMove}
+            className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
+              photo.moving ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
+            }`}
+          >
+            <Move size={15} />
+            {t('Move photo')}
+          </button>
+        </Tooltip>
+        <Button
+          variant="ghost"
+          className="h-8 px-2.5 text-[12px]"
+          onClick={photo.onRemove}
+          tip={{ title: t('Remove photo'), description: inside === 'shape' ? t('Take the photo out, and fill the shape with a color again.') : t('Take the photo out, so the letters have their color again.') }}
+        >
+          <X size={14} />
+          {t('Remove photo')}
+        </Button>
+      </div>
+    </div>
   )
 }

@@ -1,8 +1,8 @@
 import polygonClipping, { type MultiPolygon, type Polygon, type Ring } from 'polygon-clipping'
-import { canFill, polygonPoints } from './objects.ts'
+import { canFill, photoPlacement, polygonPoints } from './objects.ts'
 import { cornerNode, geometryToPath, isStraight, pathInDesign, pointOnSegment, segmentAt, segmentCount, type ShapePath } from './path.ts'
 import type { TransformBox } from './transform.ts'
-import type { Point, ShapeLayer } from './types.ts'
+import type { PhotoFill, Point, ShapeLayer } from './types.ts'
 
 // Making one shape out of several, as in Illustrator's Pathfinder, in plain words:
 // join (all of them together), cut out (the ones on top cut holes in the bottom one), overlap (only
@@ -89,25 +89,61 @@ export function combineAreas(shapes: ShapeLayer[], mode: CombineMode): Point[][]
 }
 
 // A shape made from outlines in the design: its box fits them all, and it looks like `look` (the
-// bottom shape: its fill, outline and effects).
+// bottom shape: its fill, outline and effects). The box is turned and flipped like the look's, so a
+// gradient keeps its direction and a photo inside stays exactly where it was.
 export function combinedShape(look: ShapeLayer, outlines: Point[][], id: string, name: string): ShapeLayer | null {
   const all = outlines.flat()
   if (all.length < 3) return null
-  const minX = Math.min(...all.map((p) => p.x))
-  const maxX = Math.max(...all.map((p) => p.x))
-  const minY = Math.min(...all.map((p) => p.y))
-  const maxY = Math.max(...all.map((p) => p.y))
+  const { cx, cy, rotation } = look.box
+  const flipX = look.box.width < 0 ? -1 : 1
+  const flipY = look.box.height < 0 ? -1 : 1
+  const cos = Math.cos(rotation)
+  const sin = Math.sin(rotation)
+  // Into the look's own directions (unturned, unflipped, around its middle), and back.
+  const toLocal = (p: Point): Point => ({ x: ((p.x - cx) * cos + (p.y - cy) * sin) * flipX, y: (-(p.x - cx) * sin + (p.y - cy) * cos) * flipY })
+  const local = outlines.map((ring) => ring.map(toLocal))
+  const flat = local.flat()
+  const minX = Math.min(...flat.map((p) => p.x))
+  const maxX = Math.max(...flat.map((p) => p.x))
+  const minY = Math.min(...flat.map((p) => p.y))
+  const maxY = Math.max(...flat.map((p) => p.y))
   const width = Math.max(maxX - minX, 1)
   const height = Math.max(maxY - minY, 1)
-  const box: TransformBox = { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, width, height, rotation: 0 }
-  const [main, ...parts] = outlines.map(
-    (ring): ShapePath => ({ closed: true, nodes: ring.map((p) => cornerNode({ x: (p.x - box.cx) / width, y: (p.y - box.cy) / height })) }),
+  const middle = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 }
+  const mx = middle.x * flipX
+  const my = middle.y * flipY
+  const box: TransformBox = { cx: cx + mx * cos - my * sin, cy: cy + mx * sin + my * cos, width: width * flipX, height: height * flipY, rotation }
+  const [main, ...parts] = local.map(
+    (ring): ShapePath => ({ closed: true, nodes: ring.map((p) => cornerNode({ x: (p.x - middle.x) / width, y: (p.y - middle.y) / height })) }),
   )
+  const fill = look.fill.kind === 'photo' ? { ...look.fill, ...keepPhoto(look.fill, Math.abs(look.box.width), Math.abs(look.box.height), width, height, middle) } : look.fill
   return {
     ...look,
     id,
     name,
     box,
+    fill,
     geometry: { type: 'path', corners: 0, sides: look.geometry.sides, arrow: false, path: main, ...(parts.length ? { parts } : {}) },
   }
+}
+
+// How a photo inside a w × h shape is placed so it stays where it was once the shape is
+// `width` × `height` with its middle moved by `shift`. A bigger shape that the photo no longer
+// covers gets the photo enlarged just enough, around the same middle.
+export function keepPhoto(photo: PhotoFill, w: number, h: number, width: number, height: number, shift: Point): Pick<PhotoFill, 'zoom' | 'x' | 'y'> {
+  const place = photoPlacement(photo, w, h)
+  const cover = Math.max(width / photo.canvas.width, height / photo.canvas.height)
+  const scale = place.width / photo.canvas.width
+  const zoom = Math.max(1, scale / cover)
+  const grow = (zoom * cover) / scale
+  const pw = place.width * grow
+  const ph = place.height * grow
+  // The photo's middle, relative to the new shape's middle.
+  const midX = place.x + place.width / 2 - shift.x
+  const midY = place.y + place.height / 2 - shift.y
+  const clamp = (v: number) => Math.max(-1, Math.min(1, v))
+  // photoPlacement puts the middle at fill.x * (pw - width) / 2.
+  const x = pw - width > 1e-9 ? clamp((2 * midX) / (pw - width)) : 0
+  const y = ph - height > 1e-9 ? clamp((2 * midY) / (ph - height)) : 0
+  return { zoom, x, y }
 }

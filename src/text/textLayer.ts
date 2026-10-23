@@ -1,4 +1,5 @@
 import { canvasGradient } from '../editor/gradient.ts'
+import { photoPattern } from '../editor/photoFill.ts'
 import { boxPoint, type TransformBox } from '../editor/transform.ts'
 import type { EditorDocument, Point, TextLayer, TextStyle } from '../editor/types.ts'
 import { cssFont, fontReady, fontStack, fontsVersion, loadFont } from './fonts.ts'
@@ -136,8 +137,12 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
   ctx.translate(-w / 2 + shift, -h / 2)
   ctx.font = cssFont(style)
   ctx.letterSpacing = `${style.letterSpacing * style.size}px`
-  // A gradient spans the whole box, so the colors run across all the letters together.
-  const fill = style.gradient ? canvasGradient(ctx, style.gradient, w, h, w / 2 - shift, h / 2) : style.color
+  // A photo or a gradient spans the whole box, so it runs across all the letters together.
+  const fill = layer.photo
+    ? photoPattern(ctx, layer.photo, w, h, w / 2 - shift, h / 2)
+    : style.gradient
+      ? canvasGradient(ctx, style.gradient, w, h, w / 2 - shift, h / 2)
+      : style.color
   ctx.fillStyle = fill
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
@@ -152,7 +157,7 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
         const piece = layer.text.slice(look.start, look.end)
         if (look.style !== style) {
           ctx.font = cssFont(look.style)
-          // Words with a color of their own show it; the others keep the text's gradient.
+          // Words with a color of their own show it; the others keep the text's photo or gradient.
           ctx.fillStyle = look.style.color !== style.color ? look.style.color : fill
         }
         // A line with even edges is drawn word by word, each space widened by the same amount

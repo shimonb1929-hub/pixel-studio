@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Blend, Circle, MoveRight, Square, X } from 'lucide-react'
+import { ArrowLeftRight, Blend, Circle, ImagePlus, MoveRight, Square, X } from 'lucide-react'
 import { useRef, type PointerEvent } from 'react'
 import { cssGradient, GRADIENT_PRESETS, reverseGradient, sameGradient, stopAt, type Gradient, type GradientType } from '../editor/gradient.ts'
 import { Tooltip } from './Tooltip.tsx'
@@ -192,19 +192,22 @@ export function GradientEditor({ gradient, stop, onStop, onChange }: GradientEdi
 
 interface FillKindSwitchProps {
   label: string
-  kind: 'color' | 'gradient'
+  kind: 'color' | 'gradient' | 'photo'
   // What each choice does, for its hover help.
   colorHelp: string
   gradientHelp: string
   onChange: (kind: 'color' | 'gradient') => void
+  // Offers a photo too: picking it asks for one.
+  photo?: { help: string; onChoose: () => void }
 }
 
-// One plain color or colors fading into each other.
-export function FillKindSwitch({ label, kind, colorHelp, gradientHelp, onChange }: FillKindSwitchProps) {
-  const choices = [
+// One plain color or colors fading into each other (or a photo).
+export function FillKindSwitch({ label, kind, colorHelp, gradientHelp, onChange, photo }: FillKindSwitchProps) {
+  const choices: { kind: 'color' | 'gradient' | 'photo'; label: string; icon: typeof Square; description: string }[] = [
     { kind: 'color', label: t('Color'), icon: Square, description: colorHelp },
     { kind: 'gradient', label: t('Gradient'), icon: Blend, description: gradientHelp },
-  ] as const
+    ...(photo ? [{ kind: 'photo' as const, label: t('Photo'), icon: ImagePlus, description: photo.help }] : []),
+  ]
   return (
     <div role="radiogroup" aria-label={label} className="flex w-fit gap-0.5 rounded-[10px] border border-line bg-subtle p-0.5">
       {choices.map((choice) => (
@@ -214,7 +217,7 @@ export function FillKindSwitch({ label, kind, colorHelp, gradientHelp, onChange 
             role="radio"
             aria-checked={kind === choice.kind}
             aria-label={choice.label}
-            onClick={() => onChange(choice.kind)}
+            onClick={() => (choice.kind === 'photo' ? photo?.onChoose() : onChange(choice.kind as 'color' | 'gradient'))}
             className={`flex h-7 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${
               kind === choice.kind ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
             }`}

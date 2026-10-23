@@ -15,8 +15,10 @@ export function pixelVersion(canvas: HTMLCanvasElement): number {
 }
 
 // Only pixel layers change in place; every other kind gets a new object when it changes. Text also
-// looks different once its font arrives.
+// looks different once its font arrives, and hidden parts change in place while being brushed. Each
+// count only goes up, so their sum changes whenever one does.
 export function layerVersion(layer: Layer): number {
-  if (layer.kind === 'raster') return pixelVersion(layer.canvas)
-  return layer.kind === 'text' ? fontsVersion() : 0
+  const hidden = layer.hide ? pixelVersion(layer.hide.canvas) : 0
+  if (layer.kind === 'raster') return pixelVersion(layer.canvas) + hidden
+  return (layer.kind === 'text' ? fontsVersion() : 0) + hidden
 }

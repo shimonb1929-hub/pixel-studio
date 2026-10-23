@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { cssGradient } from '../editor/gradient.ts'
+import { photoPlacement } from '../editor/photoFill.ts'
 import type { TextLayer, TextSpan, TextStyle, Viewport } from '../editor/types.ts'
 import { fontStack } from '../text/fonts.ts'
 import { resolveAlign } from '../text/layout.ts'
@@ -35,6 +36,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
   const shown = useRef<{ text: string; spans: string } | null>(null)
   const latest = useRef(editing)
   latest.current = editing
+  const photoUrl = usePhotoAddress(layer.photo?.canvas ?? null)
 
   // Draws the text and its looks into the box, keeping the cursor and picked letters where they were.
   useLayoutEffect(() => {
@@ -44,7 +46,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
     if (shown.current && shown.current.text === layer.text && shown.current.spans === spans) return
     const focused = document.activeElement === el
     const keep = focused ? selectedRange(el) : null
-    paint(el, layer.text, layer.spans, style)
+    paint(el, layer.text, layer.spans, style, !!layer.photo)
     shown.current = { text: layer.text, spans }
     if (keep) selectRange(el, keep.start, keep.end)
   })
@@ -112,6 +114,19 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
   const room = layer.wrap ? 0 : style.size
   const offset = align === 'right' ? -room : align === 'center' ? -room / 2 : 0
 
+  // A photo inside the letters shows through them while typing, placed exactly as on the design.
+  const place = layer.photo && photoPlacement(layer.photo, width, height)
+  const through = place && photoUrl
+    ? {
+        backgroundImage: `url(${photoUrl})`,
+        backgroundSize: `${place.width}px ${place.height}px`,
+        backgroundPosition: `${width / 2 - offset + place.x}px ${height / 2 + place.y}px`,
+        backgroundRepeat: 'no-repeat',
+      }
+    : style.gradient
+      ? { backgroundImage: cssGradient(style.gradient) }
+      : null
+
   return (
     <div
       ref={ref}
@@ -159,10 +174,10 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
         fontStyle: style.italic ? 'italic' : 'normal',
         letterSpacing: `${style.letterSpacing * style.size}px`,
         lineHeight: `${style.size * style.lineHeight}px`,
-        color: style.gradient ? 'transparent' : style.color,
-        caretColor: style.gradient ? style.gradient.stops[0].color : style.color,
-        // A gradient shows through the letters, like on the design.
-        ...(style.gradient ? { backgroundImage: cssGradient(style.gradient), backgroundClip: 'text', WebkitBackgroundClip: 'text' } : {}),
+        color: through ? 'transparent' : style.color,
+        caretColor: style.gradient && !layer.photo ? style.gradient.stops[0].color : style.color,
+        // A photo or gradient shows through the letters, like on the design.
+        ...(through ? { ...through, backgroundClip: 'text', WebkitBackgroundClip: 'text' } : {}),
         whiteSpace: layer.wrap ? 'pre-wrap' : 'pre',
         overflowWrap: 'break-word',
         textAlign: style.align === 'auto' ? 'start' : style.align,
@@ -180,7 +195,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
 const END = 'data-end'
 
 // Fills the box with the text, each different look in its own piece.
-function paint(el: HTMLElement, text: string, spans: TextSpan[] | undefined, base: TextStyle) {
+function paint(el: HTMLElement, text: string, spans: TextSpan[] | undefined, base: TextStyle, photoInside: boolean) {
   el.replaceChildren()
   for (const piece of styledPieces(spans, base, 0, text.length)) {
     const letters = document.createTextNode(text.slice(piece.start, piece.end))
@@ -193,8 +208,8 @@ function paint(el: HTMLElement, text: string, spans: TextSpan[] | undefined, bas
     look.style.fontFamily = fontStack(piece.style.font)
     look.style.fontWeight = String(piece.style.weight)
     look.style.fontStyle = piece.style.italic ? 'italic' : 'normal'
-    // Words without a color of their own let the text's gradient show through.
-    if (piece.style.color !== base.color || !base.gradient) look.style.color = piece.style.color
+    // Words without a color of their own let the text's photo or gradient show through.
+    if (piece.style.color !== base.color || (!base.gradient && !photoInside)) look.style.color = piece.style.color
     look.appendChild(letters)
     el.appendChild(look)
   }
@@ -294,3 +309,27 @@ function selectRange(el: HTMLElement, start: number, end: number) {
   selection.removeAllRanges()
   selection.addRange(range)
 }
+
+// Photos inside text get an address the typing box can show, made once for each photo.
+const photoAddresses = new WeakMap<HTMLCanvasElement, Promise<string | null>>()
+
+function usePhotoAddress(canvas: HTMLCanvasElement | null): string | null {
+  const [address, setAddress] = useState<{ canvas: HTMLCanvasElement; url: string } | null>(null)
+  useEffect(() => {
+    if (!canvas) return
+    let made = photoAddresses.get(canvas)
+    if (!made) {
+      made = new Promise((resolve) => canvas.toBlob((blob) => resolve(blob ? URL.createObjectURL(blob) : null), 'image/png'))
+      photoAddresses.set(canvas, made)
+    }
+    let live = true
+    void made.then((url) => {
+      if (live && url) setAddress({ canvas, url })
+    })
+    return () => {
+      live = false
+    }
+  }, [canvas])
+  return canvas && address?.canvas === canvas ? address.url : null
+}
+
