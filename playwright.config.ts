@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = 5180
+// E2E_PORT lets several copies of the project run their browser tests side by side.
+const PORT = Number(process.env.E2E_PORT ?? 5180)
 
 export default defineConfig({
   testDir: './e2e',
