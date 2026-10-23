@@ -96,6 +96,14 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Crops start on the main thing.** Picking a crop shape (Square, 4:5, 16:9) places the frame over
   the most important part of the design instead of the plain middle (pro: Content-Aware Crop), and a
   photo dropped into a shape starts on its main thing; "Center on the main thing" does it again.
+- **Small photos that print sharp.** "Bigger and sharper" gives a picked photo two or four times
+  as many pixels while it stays the same size on the design, so it prints crisp. It is plain math on
+  the photo's own pixels (careful resampling, then gentle sharpening only along real edges, with no
+  light or dark rims), never AI, so nothing is made up. Press and hold the preview to compare.
+- **Words from a picture.** A scanned flyer or a photo of a sign becomes real, editable text: the
+  words in English, Hebrew or Yiddish are found and put where they were, about the same size and
+  color, kept together above the photo. The word reader comes from Pixel Studio's own site (never
+  another one, so it works behind filters like NetFree), the first time it is used.
 - **Mistakes are safe.** Painting never goes onto the page, a shape, text or a locked photo: it
   goes on a drawing above, so the eraser only rubs out your drawing. An opened photo starts
   locked. Undo goes back up to 100 steps, and a stroke that made a new drawing is one step.
@@ -255,6 +263,10 @@ only when a design uses them and kept for offline use after that. `node scripts/
 downloads them again and rebuilds the font list from `scripts/fonts/list.json`;
 `python3 scripts/fonts/culmus.py` remakes the Culmus, Taamey and Ezra files first. What each font
 is good for is chosen by hand in `src/text/fontPurposes.ts`.
+
+Words from a picture uses Tesseract through tesseract.js (Apache License 2.0). Its worker, engine
+and English, Hebrew and Yiddish models are in `public/ocr/<version>/`, served by our own site and
+kept by the browser after the first use; `node scripts/ocr/fetch.mjs` copies them again.
 
 A project (`.pixel`) is the letters `PXSTUDIO`, a JSON description of the design (size, layers
 with their kind, names, positions, boxes, visibility, opacity, locks and adjustments, shapes, text

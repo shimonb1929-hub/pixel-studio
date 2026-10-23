@@ -30,8 +30,11 @@ function files(dir: string): string[] {
 const ALL = files(ROOT)
 
 // What the app itself is made of (tests may name made-up picture files, so they are left out).
+// public/ocr holds the text-recognition library copied unchanged from node_modules (which isn't
+// read either): its worker can hand back the user's own picture as a PNG, which looks like a
+// picture written into the code but isn't one.
 const APP = ALL.filter(
-  (name) => /^(src|public|pwa)\//.test(name) || name === 'index.html',
+  (name) => (/^(src|public|pwa)\//.test(name) || name === 'index.html') && !name.startsWith('public/ocr/'),
 ).filter((name) => TEXT.test(extname(name)) && !/\.test\.tsx?$/.test(name))
 
 // Ways a picture could come in from outside or be written into the app's own files.

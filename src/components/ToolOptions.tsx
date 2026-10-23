@@ -1,4 +1,4 @@
-import { Aperture, Ruler, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
+import { Aperture, Ruler, ImageUpscale, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -433,6 +433,9 @@ export interface ArrangeBarControls {
   straighten?: () => void
   // Set when one picture or shape is picked: whether text flows around it, and how.
   textWrap?: TextWrapControls
+  // Set with one photo or drawing picked: open Bigger and sharper, or Words from a picture.
+  upscale?: () => void
+  findWords?: () => void
   // Set when several things are picked: makes one shape out of them, or says why it can't.
   combine?: (mode: CombineMode) => void
   combineBlocked?: string | null
@@ -1170,7 +1173,7 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
         />
         {!part && target.kind !== 'many' && <LineUpMenu several={false} onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
         {controls.textWrap && <TextWrapMenu controls={controls.textWrap} />}
-        {(controls.straighten || controls.removeBackground || controls.blurBackground || controls.turnIntoShapes) && (
+        {(controls.straighten || controls.removeBackground || controls.blurBackground || controls.turnIntoShapes || controls.upscale || controls.findWords) && (
           <PhotoToolsMenu
             name={target.name}
             items={[
@@ -1197,6 +1200,18 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
                 label: t('Turn into shapes'),
                 description: t('Makes sharp shapes out of “{name}” that stay crisp at any size and can be recolored. Best for logos, drawings, signatures and sketches. You see the shapes first. (pro: Image Trace)', { name: target.name }),
                 run: controls.turnIntoShapes,
+              },
+              controls.upscale && {
+                icon: ImageUpscale,
+                label: t('Bigger and sharper'),
+                description: t('Gives “{name}” more pixels so it prints sharp, especially a small photo printed big. It stays the same size on your design. No AI: nothing is made up. You see it before you keep it.', { name: target.name }),
+                run: controls.upscale,
+              },
+              controls.findWords && {
+                icon: ScanText,
+                label: t('Words from a picture'),
+                description: t('Finds the words in “{name}” (a scanned flyer, a sign) and turns them into real text you can change, in English, Hebrew or Yiddish.', { name: target.name }),
+                run: controls.findWords,
               },
             ]}
           />

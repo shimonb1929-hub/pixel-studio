@@ -8,6 +8,9 @@ const FONT_CACHE = 'ps-fonts-1'
 // The AI model (public/models, about 40 MB) too: kept the first time an AI tool is used, in a
 // store that stays until the model files themselves change.
 const MODEL_CACHE = 'ps-models-__MODELS_VERSION__'
+// So are the files of Words from a picture (big, and only for people who use it). Their folder has
+// the library's version in its name, so a new version never mixes with a kept old one.
+const OCR_CACHE = 'ps-ocr-1'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -39,9 +42,10 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return
 
   const path = new URL(request.url).pathname
-  if (path.includes('/fonts/') || path.includes('/models/')) {
+  const keptStore = path.includes('/fonts/') ? FONT_CACHE : path.includes('/models/') ? MODEL_CACHE : path.includes('/ocr/') ? OCR_CACHE : null
+  if (keptStore) {
     event.respondWith(
-      caches.open(path.includes('/fonts/') ? FONT_CACHE : MODEL_CACHE).then((cache) =>
+      caches.open(keptStore).then((cache) =>
         cache.match(request).then(
           (kept) =>
             kept ??
