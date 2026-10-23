@@ -302,6 +302,23 @@ export function fitText(layer: TextLayer): TextLayer {
   return { ...layer, box }
 }
 
+// New words typed on one line would run straight off the page. Once they reach the page's edge,
+// they start wrapping there instead, the way a beginner expects; the side they started from stays put.
+export function keepOnPage(layer: TextLayer, pageWidth: number): TextLayer {
+  if (layer.wrap || layer.flow || layer.box.rotation !== 0) return layer
+  const layout = textLayout(layer)
+  const side = anchorSide(layout, layer.style)
+  const left = layer.box.cx - Math.abs(layer.box.width) / 2
+  const right = left + Math.abs(layer.box.width)
+  if (left >= 0 && right <= pageWidth) return layer
+  const anchor = side === -1 ? left : side === 1 ? right : layer.box.cx
+  const room = side === -1 ? pageWidth - anchor : side === 1 ? anchor : 2 * Math.min(anchor, pageWidth - anchor)
+  // Started right at the edge: there is no sensible width to wrap at, so it stays one line.
+  if (room < layer.style.size * 3) return layer
+  const box = keepSide(layer.box, room, Math.abs(layer.box.height), side)
+  return fitText({ ...layer, wrap: true, box })
+}
+
 // Changes the text or how it looks, keeping the box fitted. A change to the whole text's look
 // reaches every word: a word that had its own color takes the new one too.
 export function changeText(layer: TextLayer, patch: Partial<Pick<TextLayer, 'text' | 'wrap' | 'spans'>> & { style?: Partial<TextStyle> }): TextLayer {

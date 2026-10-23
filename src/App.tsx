@@ -102,7 +102,7 @@ import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './te
 import { useFontsVersion } from './hooks/useFontsVersion.ts'
 import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
-import { changeText, fitText, newTextBox, textLayout, textName } from './text/textLayer.ts'
+import { changeText, fitText, keepOnPage, newTextBox, textLayout, textName } from './text/textLayer.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
 import { live, msg, t, useLanguage } from './i18n/i18n.ts'
@@ -2611,7 +2611,11 @@ export default function App() {
     ? {
         layer: textEdit.layer,
         caret: textEdit.caret,
-        onChange: (text, spans) => updateTextEdit((layer) => changeText(layer, { text, spans })),
+        onChange: (text, spans) =>
+          updateTextEdit((layer) => {
+            const changed = changeText(layer, { text, spans })
+            return textEdit.isNew && doc ? keepOnPage(changed, doc.width) : changed
+          }),
         onSelect: (start, end) => setTextPick({ start, end }),
         onDone: finishText,
       }
