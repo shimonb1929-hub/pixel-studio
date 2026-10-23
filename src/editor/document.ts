@@ -64,6 +64,11 @@ export function createLayer(name: string, width: number, height: number): PixelL
 export function duplicateLayer(layer: Layer): Layer {
   const id = createId('layer')
   const name = t('{name} copy', { name: layer.name })
+  if (layer.kind === 'text' && layer.flow) {
+    // A copy of a box the text runs on through is ordinary text holding what the box showed.
+    const { flow: _, ...plain } = layer
+    return { ...plain, id, name, locked: false }
+  }
   if (layer.kind !== 'raster') return { ...layer, id, name, locked: false }
   const canvas = createCanvas(layer.canvas.width, layer.canvas.height)
   getContext2d(canvas).drawImage(layer.canvas, 0, 0)
