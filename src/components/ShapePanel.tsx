@@ -1,4 +1,4 @@
-import { ArrowRight, Blend, CircleHelp, ImagePlus, Move, PenTool, Square, X } from 'lucide-react'
+import { ArrowRight, Blend, CircleHelp, Focus, ImagePlus, Move, PenTool, Square, X } from 'lucide-react'
 import { cssGradient, type Gradient } from '../editor/gradient.ts'
 import { GradientEditor } from './GradientEditor.tsx'
 import { isLineShape } from '../editor/objects.ts'
@@ -37,6 +37,8 @@ export interface ShapePhotoControls {
   onZoom: (zoom: number) => void
   onToggleMove: () => void
   onRemove: () => void
+  // Slides the photo so the shape shows its main thing (smart crop).
+  onCenter: () => void
 }
 
 interface ShapePanelProps {
@@ -251,6 +253,18 @@ export function ShapePanel(props: ShapePanelProps) {
                 display={`${Math.round(props.photo.zoom * 100)}%`}
                 onChange={(position) => props.photo!.onZoom(Math.round((1 + position * 3) * 100) / 100)}
               />
+              <Button
+                variant="secondary"
+                className="h-8 w-full px-3 text-[12px]"
+                onClick={props.photo.onCenter}
+                tip={{
+                  title: t('Center on the main thing'),
+                  description: t('Finds the most important part of the photo, like a flower, an animal or a bright object, and slides the photo so the shape shows it (pro: Content-Aware Crop).'),
+                }}
+              >
+                <Focus size={15} />
+                {t('Center on the main thing')}
+              </Button>
               <div className="flex items-center gap-1.5">
                 <Tooltip title={t("Move photo")} description={t("While this is on, drag on the shape to slide the photo inside it, to show the part you want.")} className="flex">
                   <button

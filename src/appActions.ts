@@ -74,6 +74,8 @@ export interface AppCommands {
   // Opens the Effects panel for what is picked.
   showEffects: () => void
   removeBackground: () => void
+  // Shows the picked photo turned so its lines are level, ready to fine-tune and apply.
+  straighten: () => void
 }
 
 interface ActionState {
@@ -723,6 +725,16 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
       run: c.removeBackground,
+    },
+    {
+      id: 'straighten',
+      group: 'Layers',
+      title: t('Straighten photo'),
+      description: t('Finds the horizon, walls or other long straight lines in the picked photo and turns it so they are level (pro: Auto Straighten). You see it first, can turn it a little more or less, and press Apply to keep it.'),
+      keywords: ['straighten', 'auto straighten', 'level', 'horizon', 'crooked', 'tilted', 'wonky', 'upright', 'align photo', 'fix angle', 'skew'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo first: click it on your design.') : undefined,
+      run: c.straighten,
     },
     ...LOOKS.filter((look) => look.id !== 'original').map(
       (look): Action => ({

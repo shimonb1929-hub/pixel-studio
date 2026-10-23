@@ -1324,5 +1324,20 @@
   "Copied. {hint}": "הועתק. {hint}",
   "Cut. {hint}": "נגזר. {hint}",
   "Effects: {name}": "אפקטים: {name}",
-  "Shows the spacing between letters and lines, and the reading direction.": "מציג את הרווח בין אותיות ושורות, ואת כיוון הקריאה."
+  "Shows the spacing between letters and lines, and the reading direction.": "מציג את הרווח בין אותיות ושורות, ואת כיוון הקריאה.",
+  "Straighten": "פילוס",
+  "Straighten photo": "פילוס תמונה",
+  "Finds the horizon, walls or other long straight lines in the picked photo and turns it so they are level (pro: Auto Straighten). You see it first, can turn it a little more or less, and press Apply to keep it.": "מוצא את קו האופק, קירות או קווים ישרים ארוכים אחרים בתמונה שנבחרה ומסובב אותה כך שיהיו ישרים (במקצועי: Auto Straighten). קודם רואים איך זה ייראה, אפשר לסובב קצת יותר או פחות, ולוחצים על החלה כדי לשמור.",
+  "Finds the horizon, walls or other long straight lines in “{name}” and turns it so they are level (pro: Auto Straighten). You see it first and can fine-tune it.": "מוצא את קו האופק, קירות או קווים ישרים ארוכים אחרים ב“{name}” ומסובב אותה כך שיהיו ישרים (במקצועי: Auto Straighten). קודם רואים איך זה ייראה, ואפשר לכוונן.",
+  "Finds the long straight lines in a photo, like the horizon or a wall, and turns the photo so they are level (pro: Auto Straighten). The photo grows just enough that no empty corners show.": "מוצא את הקווים הישרים הארוכים בתמונה, כמו קו האופק או קיר, ומסובב את התמונה כך שיהיו ישרים (במקצועי: Auto Straighten). התמונה גדלה רק כמה שצריך כדי שלא ייראו פינות ריקות.",
+  "Pick a photo first: click it on your design.": "בחר קודם תמונה: לחץ עליה בעיצוב שלך.",
+  "No clear straight lines (like a horizon or a wall) were found in “{name}”. You can still turn it with the slider.": "לא נמצאו קווים ישרים ברורים (כמו קו אופק או קיר) ב“{name}”. אפשר עדיין לסובב אותה עם המחוון.",
+  "“{name}” is already level. You can still turn it with the slider.": "“{name}” כבר ישרה. אפשר עדיין לסובב אותה עם המחוון.",
+  "Turned {degrees} so the lines in “{name}” are level. Nothing changes until you press Apply.": "סובבה ב־{degrees} כדי שהקווים ב“{name}” יהיו ישרים. שום דבר לא משתנה עד שלוחצים על החלה.",
+  "How much": "כמה",
+  "Turn the photo a little more or less. To the right turns it clockwise, to the left the other way.": "סובב את התמונה קצת יותר או פחות. ימינה מסובב עם כיוון השעון, שמאלה לכיוון השני.",
+  "Leave the photo as it was.": "השאר את התמונה כמו שהייתה.",
+  "Keep the photo turned like this. You can undo it.": "שמור את התמונה מסובבת כך. אפשר לבטל את זה.",
+  "Center on the main thing": "מרכז על הדבר העיקרי",
+  "Finds the most important part of the photo, like a flower, an animal or a bright object, and slides the photo so the shape shows it (pro: Content-Aware Crop).": "מוצא את החלק החשוב ביותר בתמונה, כמו פרח, חיה או חפץ בהיר, ומזיז את התמונה כך שהצורה תראה אותו (במקצועי: Content-Aware Crop)."
 }

@@ -91,6 +91,9 @@ import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
 import { useEditor } from './hooks/useEditor.ts'
+import { useStraighten } from './hooks/useStraighten.ts'
+import { StraightenPanel } from './components/StraightenPanel.tsx'
+import { photoOnMainThing, smartCropFrame } from './editor/smartPhoto.ts'
 import { usePen } from './hooks/usePen.ts'
 import { useInstallApp } from './hooks/useInstallApp.ts'
 import { useElementSize } from './hooks/useElementSize.ts'
@@ -422,6 +425,7 @@ export default function App() {
 
   const problem = (message: string) => setNotice({ message, tone: 'problem' })
   const inform = (message: string) => setNotice({ message, tone: 'info' })
+  const straighten = useStraighten(editor, problem)
   // Commands read the design through this, so they see changes made earlier in the same click.
   const current = () => editor.getDoc()
 
@@ -1242,11 +1246,13 @@ export default function App() {
     if (transformChanged && !applyTransform()) return false
     if (cropChanged) applyCrop()
     if (adjustChanged) applyAdjust()
+    if (straighten.pending) straighten.apply()
     return true
   }
 
   function setTool(next: ToolId) {
     finishText()
+    if (straighten.pending) straighten.apply()
     if (next !== tool) {
       if (tool === 'move') {
         if (!applyTransform()) return
@@ -1350,7 +1356,11 @@ export default function App() {
     try {
       const canvas = await imageFileToCanvas(file)
       settle()
-      editor.change(t('Put photo in shape'), (d) => updateShape(d, layerId, { fill: { kind: 'photo', canvas, zoom: 1, x: 0, y: 0 } }), { bytes: canvasBytes(canvas) })
+      // The shape starts on the photo's main thing, not its plain middle.
+      const shape = current()?.layers.find((l) => l.id === layerId)
+      const fill = { kind: 'photo' as const, canvas, zoom: 1, x: 0, y: 0 }
+      const start = shape?.kind === 'shape' ? photoOnMainThing(fill, Math.abs(shape.box.width), Math.abs(shape.box.height)) : null
+      editor.change(t('Put photo in shape'), (d) => updateShape(d, layerId, { fill: { ...fill, ...start } }), { bytes: canvasBytes(canvas) })
       editor.select(layerId)
       setTool('move')
       inform(t('The photo fills the shape. Use Photo size and Move photo in the Shape panel to show the part you want.'))
@@ -2025,11 +2035,12 @@ export default function App() {
       if (transformChanged) return cancelTransform()
       if (cropChanged) return setCropEdit(null)
       if (adjustChanged) return cancelAdjust()
+      if (straighten.pending) return straighten.cancel()
       editor.undo()
     },
     redo: () => {
       if (pen.drawing) return
-      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged) return
+      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straighten.pending) return
       finishText()
       editor.redo()
     },
@@ -2159,6 +2170,7 @@ export default function App() {
       if (pickedText && tool === 'move' && !doc?.selection && !picked) return editText(pickedText.id, 'all'), true
       if (tool === 'crop' && cropChanged) return applyCrop(), true
       if (adjustChanged) return applyAdjust(), true
+      if (straighten.pending) return straighten.apply(), true
       return false
     },
     cancelPending: () => {
@@ -2169,6 +2181,7 @@ export default function App() {
       if (picked) return pickOne(''), true
       if (tool === 'crop' && cropChanged) return setCropEdit(null), true
       if (adjustChanged) return cancelAdjust(), true
+      if (straighten.pending) return straighten.cancel(), true
       return false
     },
     pageLayout: () => {
@@ -2276,6 +2289,11 @@ export default function App() {
     removeBackground: () => {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') void removeBackground(layer.id)
+    },
+    straighten: () => {
+      if (!settle()) return
+      const layer = current() && activeLayer(current()!)
+      if (layer) void straighten.start(layer.id)
     },
   }
 
@@ -2443,13 +2461,8 @@ export default function App() {
   function changeCropShape(shape: CropShape) {
     if (!doc || !crop) return
     const ratio = cropRatio(shape, doc)
-    let box = crop.box
-    if (ratio) {
-      // The biggest frame of the new shape that fits inside the current one.
-      const width = Math.min(Math.abs(box.width), Math.abs(box.height) * ratio)
-      box = { ...box, width, height: width / ratio }
-    }
-    setCrop(box, shape)
+    // The biggest frame of the new shape that fits inside the current one, over the main thing.
+    setCrop(ratio ? smartCropFrame(doc, ratio, crop.box) : crop.box, shape)
   }
 
   const paintSettings = tool === 'eraser' ? eraser.settings : tool === 'heal' ? { ...brush.settings, size: healSize } : brush.settings
@@ -2486,7 +2499,8 @@ export default function App() {
         : null
 
   const override: LayerOverride | null =
-    textEdit && !textEdit.isNew
+    straighten.override ??
+    (textEdit && !textEdit.isNew
       ? { layerId: textEdit.layer.id, layer: { ...textEdit.layer, visible: false } }
       : fontPreviewLayer
       ? { layerId: fontPreviewLayer.id, layer: fontPreviewLayer }
@@ -2494,7 +2508,7 @@ export default function App() {
       ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) }
       : adjustPreview && !comparing
         ? adjustPreview
-        : null
+        : null)
 
   // The Arrange bar: the selected part, or the selected object, or why nothing can be arranged.
   const arrangeBar = ((): ArrangeBarControls => {
@@ -2578,6 +2592,7 @@ export default function App() {
       flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
       rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
+      straighten: activeNow.kind === 'raster' ? commands.straighten : undefined,
     }
   })()
 
@@ -2815,6 +2830,7 @@ export default function App() {
                 onEditText={editText}
               />
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
+              {straighten.panel && <StraightenPanel state={straighten.panel} />}
               {doc.layers.length === 0 && tool === 'move' && !textEdit ? (
                 <StartHere
                   onAddWords={() => addText('heading')}
@@ -2823,7 +2839,8 @@ export default function App() {
                   onDraw={() => setTool('brush')}
                 />
               ) : (
-                <ToolHint tool={hintTool} extra={hintExtra} />
+                // The Straighten card takes the hint's place while it's open.
+                !straighten.panel && <ToolHint tool={hintTool} extra={hintExtra} />
               )}
               <ZoomControls
                 zoom={viewport.zoom}
@@ -2943,6 +2960,7 @@ export default function App() {
                         moving: photoMoving,
                         onZoom: (zoom) => setPhotoFill({ zoom }, t('Photo size')),
                         onToggleMove: () => setPhotoMoving(!photoMoving),
+                        onCenter: () => editingShape.fill.kind === 'photo' && setPhotoFill(photoOnMainThing(editingShape.fill, Math.abs(editingShape.box.width), Math.abs(editingShape.box.height)), t('Center on the main thing')),
                         onRemove: () => editor.change(t('Remove photo'), (d) => updateShape(d, editingShape.id, { fill: { kind: 'color', color: DEFAULT_SHAPES.fill! } })),
                       }
                     : null
