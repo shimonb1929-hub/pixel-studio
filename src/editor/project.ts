@@ -14,12 +14,13 @@ import type { TextPath } from '../text/textCurve.ts'
 import { tidyGroups } from './layers.ts'
 import { allPages, pageIndex } from './pages.ts'
 import { hasLayout } from './pageLayout.ts'
-import type { DesignPage, EditorDocument, Layer, LayerHide, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TableLines, TextFlow, TextSpan, TextStyle, TextWrap } from './types.ts'
+import type { DesignPage, EditorDocument, Layer, LayerHide, PageLayout, LayerGroup, SavedTextStyle, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TableLines, TextFlow, TextSpan, TextStyle, TextWrap } from './types.ts'
 import type { Gradient, GradientStop } from './gradient.ts'
 import { paintPage } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
 import { msg, t } from '../i18n/i18n.ts'
 import { MAX_PPI } from './units.ts'
+import { MAX_DESIGN_COLORS, MAX_TEXT_STYLES } from './designStyles.ts'
 
 // A project keeps everything needed to carry on editing later: the design's size, every layer
 // with its pixels, position and settings, and the selection. The same format is used for
@@ -40,11 +41,12 @@ import { MAX_PPI } from './units.ts'
 // Version 13 added text flowing around pictures and shapes (textWrap).
 // Version 14 added pages with sizes of their own (width and height on a page). Version 15 added tables.
 // Version 16 added bent text (bend) and text along the edge of a shape (along).
-// Version 17 added photos inside text (photo) and softly hidden parts (hide), each with its own
+// Version 17 added the design's own colors and text styles (colors, textStyles, a text's styleId).
+// Version 18 added photos inside text (photo) and softly hidden parts (hide), each with its own
 // picture after the layer's other pictures.
 // Older files still open.
 
-export const PROJECT_VERSION = 17
+export const PROJECT_VERSION = 18
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -116,6 +118,7 @@ export interface ProjectTextLayer extends ProjectLayerBase {
   flow?: TextFlow
   pageNumber?: boolean
   photo?: ProjectPhoto
+  styleId?: string
   along?: TextPath
 }
 
@@ -162,6 +165,9 @@ export interface ProjectManifest {
   pages?: ProjectPage[]
   page?: number
   layout?: PageLayout
+  // The design's own colors and text styles. Older files don't have them.
+  colors?: string[]
+  textStyles?: SavedTextStyle[]
   // Fonts of your own the text uses, whose files come after the pictures, in this order.
   fonts?: ProjectFont[]
 }
@@ -275,7 +281,7 @@ function readBox(value: unknown): TransformBox {
 
 // Sliders added after the first six may be missing from older projects; they start at 0.
 const FIRST_ADJUSTMENT_KEYS = new Set(['brightness', 'contrast', 'saturation', 'warmth', 'blur', 'sharpen'])
-const ONE_WAY_ADJUSTMENTS = new Set(['blur', 'sharpen', 'grain'])
+const ONE_WAY_ADJUSTMENTS = new Set(['blur', 'sharpen', 'grain', 'denoise'])
 
 function readAdjust(value: unknown): Adjustments | null {
   if (value === null || value === undefined) return null
@@ -598,6 +604,10 @@ function readLayer(layer: unknown): ProjectLayer {
       text.pageNumber = true
     }
     if (layer.photo !== undefined) text.photo = readPhoto(layer.photo)
+    if (layer.styleId !== undefined) {
+      if (typeof layer.styleId !== 'string' || !layer.styleId || layer.styleId.length > 100) damaged()
+      text.styleId = layer.styleId
+    }
     return text
   }
   if (
@@ -673,8 +683,23 @@ export function validateManifest(value: unknown): ProjectManifest {
     selection: readSelection(value.selection),
     ...(pages ? { pages, page } : {}),
     ...(value.layout === undefined ? {} : { layout: readLayout(value.layout) }),
+    ...(value.colors === undefined ? {} : { colors: readColors(value.colors) }),
+    ...(value.textStyles === undefined ? {} : { textStyles: readTextStyles(value.textStyles) }),
     ...(value.fonts === undefined ? {} : { fonts: readFonts(value.fonts) }),
   }
+}
+
+function readColors(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length > MAX_DESIGN_COLORS) damaged()
+  return value.map(readColor)
+}
+
+function readTextStyles(value: unknown): SavedTextStyle[] {
+  if (!Array.isArray(value) || value.length > MAX_TEXT_STYLES) damaged()
+  return value.map((saved): SavedTextStyle => {
+    if (!isRecord(saved) || typeof saved.id !== 'string' || !saved.id || saved.id.length > 100 || typeof saved.name !== 'string') damaged()
+    return { id: saved.id, name: saved.name.slice(0, MAX_NAME_LENGTH), style: readTextStyle(saved.style) }
+  })
 }
 
 function readFonts(value: unknown): ProjectFont[] {
@@ -759,6 +784,7 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
       ...(layer.flow ? { flow: layer.flow } : {}),
       ...(layer.pageNumber ? { pageNumber: true } : {}),
       ...(layer.along ? { along: layer.along } : {}),
+      ...(layer.styleId ? { styleId: layer.styleId } : {}),
       ...(photo ? { photo: { zoom: photo.zoom, x: photo.x, y: photo.y, width: photo.canvas.width, height: photo.canvas.height, bytes: sizes[0] } } : {}),
     }
   }
@@ -802,6 +828,8 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
     selection: doc.selection,
     ...(several ? { pages: described, page: pageIndex(doc) } : {}),
     ...(hasLayout(doc.layout) ? { layout: doc.layout } : {}),
+    ...(doc.colors?.length ? { colors: doc.colors } : {}),
+    ...(doc.textStyles?.length ? { textStyles: doc.textStyles } : {}),
     ...(fonts.length ? { fonts: fonts.map(({ data, ...font }) => ({ ...font, bytes: data.size })) } : {}),
   }
   return packProject(manifest, [...pictures.flat(2), ...fonts.map((font) => font.data)])
@@ -864,6 +892,7 @@ async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer>
       ...(info.flow ? { flow: info.flow } : {}),
       ...(info.pageNumber ? { pageNumber: true } : {}),
       ...(info.along ? { along: info.along } : {}),
+      ...(info.styleId ? { styleId: info.styleId } : {}),
       ...(photo ? { photo } : {}),
     }
   }
@@ -916,6 +945,8 @@ export async function decodeProject(file: Blob, id = createDesignId()): Promise<
     selection: manifest.selection,
     ...(pages.length > 1 ? { pages, pageIndex: index } : {}),
     ...(manifest.layout ? { layout: manifest.layout } : {}),
+    ...(manifest.colors ? { colors: manifest.colors } : {}),
+    ...(manifest.textStyles ? { textStyles: manifest.textStyles } : {}),
   }
 }
 

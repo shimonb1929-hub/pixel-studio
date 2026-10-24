@@ -8,7 +8,8 @@ const typingBox = (page: Page) => page.getByRole('textbox', { name: 'Type your t
 async function undoLabel(page: Page) {
   await page.mouse.move(5, 5)
   await page.getByRole('button', { name: 'Undo', exact: true }).hover()
-  return page.getByRole('tooltip').textContent()
+  // A tip of a button that still has the keyboard can show too; read the Undo one.
+  return page.getByRole('tooltip').filter({ hasText: /^Undo/ }).textContent()
 }
 
 async function drawShape(page: Page, size: Size, type: string, from: [number, number], to: [number, number]) {
@@ -31,7 +32,7 @@ test('text flows around a circle, exactly as shown while typing, and follows it 
   await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
   await drawShape(page, size, 'Oval', [300, 60], [440, 200])
   await wrapAround(page, 'Its shape')
-  expect(await undoLabel(page)).toContain('Text around it')
+  expect(await undoLabel(page)).toContain('Undo text around it')
 
   await page.keyboard.press('t')
   await drag(page, size, [

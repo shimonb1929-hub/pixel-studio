@@ -1,5 +1,5 @@
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, FlipVertical2, Italic, List, ListOrdered, Minus, Plus, Search, Spline, WrapText, X, type LucideIcon } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { Gradient } from '../editor/gradient.ts'
 import type { TextStyle } from '../editor/types.ts'
 import type { FontCategory, FontInfo } from '../text/fontCatalog.ts'
@@ -10,6 +10,7 @@ import { FONT_PURPOSES, type FontPurpose } from '../text/fontPurposes.ts'
 import type { ListKind, TextAlign, TextDirection } from '../text/layout.ts'
 import { FillKindSwitch, GradientEditor } from './GradientEditor.tsx'
 import { PhotoControls, type ShapePhotoControls } from './ShapePanel.tsx'
+import { TextStyles, type TextStylesProps } from './TextStyles.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { Slider } from './ui.tsx'
 import { live, msg, t } from '../i18n/i18n.ts'
@@ -586,6 +587,10 @@ export interface TextPanelProps {
   flow?: { box: number; boxes: number } | null
   // Adds a box for the text to continue in. Missing while typing or with several things picked.
   onContinue?: () => void
+  // The design's text styles.
+  styles?: TextStylesProps | null
+  // A note when the words are hard to read where they are, with fixes.
+  note?: ReactNode
   // The words of a table: one color, no lists, and the table sets the boxes.
   table?: boolean
   // Set when the words run along the edge of a shape: where along it, and on which side.
@@ -629,11 +634,13 @@ export function TextPanel(props: TextPanelProps) {
               : t('Changes go to all the text. To change just some words, pick them with the mouse first.')}
           </p>
         )}
+        {props.note}
         {props.scope && (props.along || !!style.bend) && (
           <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">
             {t('Curved words show straight while you type, and bend again when you finish.')}
           </p>
         )}
+        {props.styles && <TextStyles {...props.styles} />}
         <FontPicker value={style.font} sample={props.sample} hasRtl={props.hasRtl} onPick={props.onFont} onPreview={props.onPreviewFont} />
         {props.hasRtl && font && !font.hebrew && (
           <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">

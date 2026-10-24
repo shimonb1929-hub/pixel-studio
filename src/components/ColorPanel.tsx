@@ -1,15 +1,34 @@
-import { CircleHelp, Pipette } from 'lucide-react'
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { CircleHelp, Pipette, Plus, X } from 'lucide-react'
+import { useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { hexToHsv, hsvToHex, normalizeHex, SWATCHES, type Hsv } from '../editor/color.ts'
 import { shortcut } from '../keys.ts'
 import { Tooltip } from './Tooltip.tsx'
+import { Button } from './ui.tsx'
 import { t } from '../i18n/i18n.ts'
+
+// The design's own colors: kept to use again, and changed everywhere at once.
+export interface DesignColors {
+  colors: string[]
+  // How many things use a color, on every page.
+  uses: (hex: string) => number
+  onKeep: (hex: string) => void
+  onForget: (hex: string) => void
+  // The color being changed everywhere right now, as it is now. While it's set, the panel's color
+  // is that color, and picking another changes it everywhere.
+  changing: string | null
+  onStartChange: (hex: string) => void
+  onDone: () => void
+  onPutBack: () => void
+}
 
 interface ColorPanelProps {
   color: string
   recent: string[]
   onChange: (hex: string) => void
   onPickFromDesign: () => void
+  design?: DesignColors
+  // The colors of the photos on the design, under the ready colors.
+  photoColors?: ReactNode
 }
 
 function clamp01(value: number): number {
@@ -33,7 +52,87 @@ function Swatch({ hex, name, selected, onClick }: { hex: string; name: string; s
   )
 }
 
-export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorPanelProps) {
+function DesignColorsRow({ color, design, onChange }: { color: string; design: DesignColors; onChange: (hex: string) => void }) {
+  const kept = design.colors.some((c) => c.toLowerCase() === color.toLowerCase())
+  if (design.changing !== null) {
+    const uses = design.uses(design.changing)
+    return (
+      <div role="group" aria-label={t('Changing a color everywhere')} className="mt-3 rounded-xl border border-accent/30 bg-accent-soft p-3">
+        <p className="text-[13px] font-medium text-ink">{t('Changing this color everywhere')}</p>
+        <p className="mt-0.5 text-xs text-ink-2">
+          {uses === 1 ? t('Pick a new color: 1 thing in your design changes as you pick.') : t('Pick a new color: {count} things in your design change as you pick.', { count: uses })}
+        </p>
+        <div className="mt-2.5 flex gap-2">
+          <Button variant="primary" className="h-8 px-3" onClick={design.onDone} tip={{ title: t('Done'), description: t('Keep the new color everywhere. Undo can still take it back.') }}>
+            {t('Done')}
+          </Button>
+          <Button variant="ghost" className="h-8 px-3" onClick={design.onPutBack} tip={{ title: t('Put back'), description: t('Bring back the color it was, everywhere.') }}>
+            {t('Put back')}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="mt-3">
+      <div className="mb-1.5 flex items-center justify-between">
+        <Tooltip title={t("This design's colors")} description={t('Colors you keep here are easy to use again anywhere in this design, on every page. Change one, and it changes everywhere it was used.')}>
+          <p className="cursor-help text-[11px] font-medium text-ink-3">{t("This design's colors")}</p>
+        </Tooltip>
+        {!kept && (
+          <Tooltip title={t('Keep this color')} description={t('Adds the color shown above to this design’s colors, so it is one click away later.')}>
+            <button
+              type="button"
+              aria-label={t('Keep this color')}
+              onClick={() => design.onKeep(color)}
+              className="flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium text-accent transition-colors hover:bg-accent-soft"
+            >
+              <Plus size={12} />
+              {t('Keep')}
+            </button>
+          </Tooltip>
+        )}
+      </div>
+      {design.colors.length > 0 ? (
+        <div className="grid grid-cols-9 gap-1.5">
+          {design.colors.map((hex) => (
+            <Swatch key={hex} hex={hex} name={t("This design's color")} selected={hex.toLowerCase() === color.toLowerCase()} onClick={() => onChange(hex)} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-[11px] text-ink-3">{t('None yet. Press Keep to save the color you are using.')}</p>
+      )}
+      {kept && (
+        <div className="mt-2 flex items-center gap-1">
+          <Tooltip
+            title={t('Change it everywhere')}
+            description={t('Change this color in every place it is used in your design, on every page: shapes, letters, outlines, gradients and the page. You see it change as you pick.')}
+          >
+            <button
+              type="button"
+              onClick={() => design.onStartChange(color)}
+              className="h-7 rounded-md px-2 text-[12px] font-medium text-accent transition-colors hover:bg-accent-soft"
+            >
+              {t('Change it everywhere…')}
+            </button>
+          </Tooltip>
+          <Tooltip title={t('Stop keeping this color')} description={t('Takes it out of this design’s colors. Nothing in your design changes.')}>
+            <button
+              type="button"
+              aria-label={t('Stop keeping this color')}
+              onClick={() => design.onForget(color)}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-subtle hover:text-ink"
+            >
+              <X size={13} />
+            </button>
+          </Tooltip>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function ColorPanel({ color, recent, onChange, onPickFromDesign, design, photoColors }: ColorPanelProps) {
   // Kept separately from the hex color so the hue doesn't jump when a color is gray or black.
   const [hsv, setHsv] = useState<Hsv>(() => hexToHsv(color))
   const [syncedColor, setSyncedColor] = useState(color)
@@ -150,6 +249,9 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign }: ColorP
           <Swatch key={swatch.hex} hex={swatch.hex} name={swatch.name} selected={swatch.hex === color} onClick={() => onChange(swatch.hex)} />
         ))}
       </div>
+      {photoColors}
+
+      {design && <DesignColorsRow color={color} design={design} onChange={onChange} />}
 
       <Tooltip
         title={t("Shade")}

@@ -191,6 +191,14 @@ describe('project files', () => {
     }
   })
 
+  it('keeps clean grain, and opens projects saved before it as no cleaning', () => {
+    const cleaned = { ...NO_ADJUSTMENTS, denoise: 0.6 }
+    expect(validateManifest(manifest({ layers: [pixels({ adjust: cleaned })], activeLayer: 0 })).layers[0].adjust).toEqual(cleaned)
+    const { denoise: _, ...before } = { ...NO_ADJUSTMENTS, grain: 0.2 }
+    expect(validateManifest(manifest({ layers: [pixels({ adjust: before as never })], activeLayer: 0 })).layers[0].adjust?.denoise).toBe(0)
+    expect(() => validateManifest(manifest({ layers: [pixels({ adjust: { ...cleaned, denoise: -0.2 } })], activeLayer: 0 }))).toThrow(ProjectError)
+  })
+
   it('keeps shapes, and finds the photo inside a shape among the pictures', async () => {
     const withPhoto = shape({ name: 'Frame', fill: { kind: 'photo', zoom: 1.5, x: -0.5, y: 0.25, width: 30, height: 20, bytes: 2 } })
     const original = manifest({ layers: [pixels(), shape(), withPhoto, pixels({ name: 'Top', bytes: 1 })], activeLayer: 1 })
@@ -342,5 +350,20 @@ describe('effects in projects', () => {
   it('refuses made-up effects and blend modes', () => {
     expect(() => validateManifest(manifest({ activeLayer: 0, layers: [shape({ blend: 'sparkle' as never })] }))).toThrow(ProjectError)
     expect(() => validateManifest(manifest({ activeLayer: 0, layers: [shape({ effects: { shadow: null, glow: { color: 'red', opacity: 1, size: 3 }, outline: null } })] }))).toThrow(ProjectError)
+  })
+
+  it("keeps the design's colors and text styles, and which texts use them", async () => {
+    const look = (words() as Extract<ProjectLayer, { kind: 'text' }>).style
+    const original = { ...manifest({ layers: [words({ styleId: 'style-1' })], activeLayer: 0 }), colors: ['#c4320a', '#ffffff'], textStyles: [{ id: 'style-1', name: 'כותרת', style: look }] }
+    const { manifest: read } = await unpackProject(packProject(original, []))
+    expect(read).toEqual(original)
+    const bad = [
+      { colors: ['red'] },
+      { colors: Array(40).fill('#ffffff') },
+      { textStyles: [{ id: '', name: 'x', style: look }] },
+      { textStyles: [{ id: 'a', name: 'x', style: { ...look, size: -1 } }] },
+    ]
+    for (const patch of bad) expect(() => validateManifest({ ...original, ...patch }), JSON.stringify(patch)).toThrow(ProjectError)
+    expect(() => validateManifest(manifest({ layers: [words({ styleId: 5 as never })], activeLayer: 0 }))).toThrow(ProjectError)
   })
 })

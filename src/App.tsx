@@ -1,8 +1,13 @@
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { buildActions, type AppCommands } from './appActions.ts'
 import { AdjustPanel } from './components/AdjustPanel.tsx'
+import { useMatchColors } from './components/useMatchColors.tsx'
 import { CanvasView, type ArrangeControls, type BoxEditing, type ShapeDrawing, type TextTool } from './components/CanvasView.tsx'
-import { ColorPanel } from './components/ColorPanel.tsx'
+import { ColorPanel, type DesignColors } from './components/ColorPanel.tsx'
+import { applyTextStyle, colorUses, designColors, findTextStyle, forgetColor, keepColor, lookPatch, matchesStyle, newStyleId, nextStyleName, recolorEverywhere, removeTextStyle, renameTextStyle, saveTextStyle, textStyles, updateTextStyle } from './editor/designStyles.ts'
+import type { TextStylesProps } from './components/TextStyles.tsx'
+import { LayoutsDialog } from './components/LayoutsDialog.tsx'
+import { buildLayout, loadLayoutFonts, type LayoutInfo, type LayoutKind } from './layouts/layouts.ts'
 import { CommandPalette } from './components/CommandPalette.tsx'
 import { HelpGuide } from './components/HelpGuide.tsx'
 import { Dialog } from './components/Dialog.tsx'
@@ -32,6 +37,8 @@ import { DesignInfo, SelectionBar, StartHere, ToolHint, ZoomControls } from './c
 import { PagePanel } from './components/PagePanel.tsx'
 import { GradientHandles } from './components/GradientHandles.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
+import { PhotoColors, ReadableNote, SmartPreviewBar } from './components/SmartHelpers.tsx'
+import { useSmartDesign } from './hooks/useSmartDesign.ts'
 import { effectThumbnails, flattenDocument } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
 import { adjustmentLabel, autoColor, autoLight, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, tidyAdjustments, type Adjustments } from './editor/adjust.ts'
@@ -52,7 +59,7 @@ import {
   MAX_DOCUMENT_SIDE,
 } from './editor/document.ts'
 import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocument } from './editor/documentOps.ts'
-import { addPage, changeEveryPage, movePage, pageDocuments, pageIndex, pagesSameSize, removePage } from './editor/pages.ts'
+import { addPage, changeEveryPage, goToPage, movePage, pageDocuments, pageIndex, pagesSameSize, removePage } from './editor/pages.ts'
 import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
 import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
@@ -86,6 +93,8 @@ import { healRegion } from './editor/healRegion.ts'
 import { layerVersion, pixelVersion } from './editor/pixelVersion.ts'
 import { combineFound, maskToOps } from './ai/maskSelection.ts'
 import { AI_PICTURE_SIDE, findThing, onAiProgress, prepareThing } from './ai/segment.ts'
+import { useBlurBackground } from './ai/useBlurBackground.ts'
+import { PictureHelper, type PictureHelperKind } from './components/PictureHelpers.tsx'
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
@@ -101,6 +110,9 @@ import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
 import { useEditor } from './hooks/useEditor.ts'
+import { useStraighten } from './hooks/useStraighten.ts'
+import { StraightenPanel } from './components/StraightenPanel.tsx'
+import { photoOnMainThing, smartCropFrame } from './editor/smartPhoto.ts'
 import { usePen } from './hooks/usePen.ts'
 import { useInstallApp } from './hooks/useInstallApp.ts'
 import { useElementSize } from './hooks/useElementSize.ts'
@@ -116,9 +128,10 @@ import { changeText, fitText, keepOnPage, newTextBox, textIndexAt, textLayout, t
 import { straighten, textAlongShape } from './text/textAlong.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
+import { useTurnIntoShapes } from './hooks/useTurnIntoShapes.tsx'
 import { isRtl, live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes'
+type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -385,6 +398,11 @@ export default function App() {
   const [tool, setToolState] = useState<ToolId>('move')
   const [cursor, setCursor] = useState<Point | null>(null)
   const [dialog, setDialog] = useState<DialogId | null>(null)
+  // Which kind of ready layout the layouts dialog shows first.
+  const [layoutsKind, setLayoutsKind] = useState<'all' | LayoutKind>('all')
+  const [layoutsStart, setLayoutsStart] = useState<string | undefined>(undefined)
+  // Bigger and sharper, or Words from a picture, open for a photo.
+  const [pictureHelper, setPictureHelper] = useState<{ kind: PictureHelperKind; layerId: string } | null>(null)
   const [exportFormat, setExportFormat] = useState<ExportFormat>('png')
   // Margins and columns being chosen, shown on the design before they're kept.
   const [layoutPreview, setLayoutPreview] = useState<PageLayout | null>(null)
@@ -397,6 +415,9 @@ export default function App() {
   const [newDesignName, setNewDesignName] = useState(t('My design 1'))
   const [color, setColor] = useState('#1b1d23')
   const [recentColors, setRecentColors] = useState<string[]>([])
+  // A color of the design being changed everywhere: what it was, what it is now, and the design
+  // from before, so each pick starts again from there. It ends when something else is picked.
+  const [recolor, setRecolor] = useState<{ from: string; now: string; before: EditorDocument; key: string; activeLayerId: string; tool: ToolId; changed: boolean } | null>(null)
   const [brush, setBrush] = useState<{ settings: BrushSettings; presetId: string | null }>({
     settings: DEFAULT_BRUSH.settings,
     presetId: DEFAULT_BRUSH.id,
@@ -441,6 +462,8 @@ export default function App() {
   const [edgeEdit, setEdgeEdit] = useState<{ base: Selection; soften: number; grow: number } | null>(null)
   // Adjustments being tried on one layer (and selection); they start over when either changes.
   const [adjustEdit, setAdjustEdit] = useState<{ layer: Layer; selection: Selection | null; settings: Adjustments } | null>(null)
+  // A part of the Adjust panel asked for from the menu or search ("Match colors", "Clean grain").
+  const [adjustFocus, setAdjustFocus] = useState<{ part: 'match' | 'denoise'; at: number } | null>(null)
   const [shapeDefaults, setShapeDefaults] = useState<ShapeDefaults>(DEFAULT_SHAPES)
   // Which part of a shape the Color panel colors.
   const [colorTarget, setColorTarget] = useState<ColorTarget>('fill')
@@ -479,6 +502,9 @@ export default function App() {
 
   const problem = (message: string) => setNotice({ message, tone: 'problem' })
   const inform = (message: string) => setNotice({ message, tone: 'info' })
+  // Turn a picture into shapes (pro: Image Trace); the new shapes end up picked together.
+  const traceShapes = useTurnIntoShapes(editor, { problem, inform }, (ids) => (setTool('move'), pickMany(ids)))
+  const straightenPhoto = useStraighten(editor, problem)
   // Commands read the design through this, so they see changes made earlier in the same click.
   const current = () => editor.getDoc()
 
@@ -518,6 +544,8 @@ export default function App() {
   // With Arrange and a selection, handles are ready around the selected part of the layer.
   // A new layer or selection, including one brought back by undo, starts fresh handles.
   const activeNow = doc ? activeLayer(doc) : undefined
+  // Blur the background: its slider shows in the Arrange bar until Apply or Cancel.
+  const blurBackground = useBlurBackground({ editor, active: activeNow, showing: tool === 'move', setNotice })
   // The spot Copy paint copies from, while its picture is still there.
   const copySource = copyFrom && doc && copyFrom.docId === doc.id && doc.layers.some((l) => l.id === copyFrom.layerId && l.kind === 'raster') ? copyFrom : null
   // A selection edge being tried out counts only while its selection is still the one shown.
@@ -609,6 +637,7 @@ export default function App() {
     }
     return counts
   }, [adjustSample])
+  const matchPart = useMatchColors({ doc, layer: adjustLayer, sample: adjustSample, settings: adjustments, onChange: setAdjustments })
   // "Fix light" and "Fix colors" set some sliders; the rest stay as they are.
   const autoAdjust = (fix: (data: Uint8ClampedArray) => Partial<Adjustments>) => {
     if (adjustSample) setAdjustments({ ...adjustments, ...fix(adjustSample) })
@@ -1069,6 +1098,8 @@ export default function App() {
   const tableTarget: TableLayer | null = textEdit?.cell?.table ?? pickedTable
   const [tablePart, setTablePart] = useState<TablePart>('words')
   const textPanelOn = !!doc && (textTarget !== null || tableTarget !== null || tool === 'text')
+  // Colors from the photos, words that are easy to read, and tidying the whole page.
+  const smart = useSmartDesign(editor, { pickedId: activeNow?.id, pickedText, notify: inform })
 
   function setTextPick(next: { start: number; end: number } | null) {
     textPickRef.current = next
@@ -1296,6 +1327,64 @@ export default function App() {
     }
   }
 
+  // The texts the Text panel changes: the picked one (and the boxes it runs on through), or every
+  // picked text.
+  function pickedTextIds(d: EditorDocument): string[] {
+    const layer = activeLayer(d)
+    if (layer?.kind !== 'text') return []
+    const many = manyIn(d)
+    const chosen = many ? d.layers.filter((l): l is TextLayer => many.includes(l.id) && l.kind === 'text') : [layer]
+    return [...new Set(chosen.flatMap((l) => storyBoxes(d, l)).map((l) => l.id))]
+  }
+
+  // Saved text styles: used, kept, changed and removed from the Text panel.
+  const textStyleControls = ((): TextStylesProps | null => {
+    if (!doc) return null
+    const target = textEdit?.layer ?? pickedText
+    const saved = target ? findTextStyle(doc, target.styleId) : undefined
+    return {
+      styles: textStyles(doc),
+      current: saved?.id ?? null,
+      differs: !!saved && !!target && !matchesStyle(target.style, saved.style),
+      target: target ? 'picked' : 'new',
+      onApply: (id) => {
+        const d = current()
+        const style = d && findTextStyle(d, id)
+        if (!d || !style) return
+        if (textEditRef.current) updateTextEdit((layer) => ({ ...changeText(layer, { style: lookPatch(style.style) }), styleId: id }))
+        else if (pickedText) editor.change(t('Use text style'), (next) => applyTextStyle(next, id, pickedTextIds(next)))
+        else setTextDefaults((defaults) => ({ ...defaults, ...lookPatch(style.style) }))
+      },
+      onSave: () => {
+        const d = current()
+        if (!d) return
+        const id = newStyleId(d)
+        const name = nextStyleName(d)
+        const editing = textEditRef.current
+        const style = editing?.layer.style ?? pickedText?.style ?? newTextStyle(d)
+        if (editing) updateTextEdit((layer) => ({ ...layer, styleId: id }))
+        editor.change(t('Save text style'), (next) => saveTextStyle(next, name, style, editing ? [] : pickedText ? pickedTextIds(next) : [], id))
+      },
+      onUpdate: () => {
+        const editing = textEditRef.current
+        const layer = editing?.layer ?? pickedText
+        if (!layer?.styleId) return
+        const styleId = layer.styleId
+        editor.change(t('Update text style'), (next) => updateTextStyle(next, styleId, layer.style))
+      },
+      onRename: (id, name) => editor.change(t('Rename text style'), (next) => renameTextStyle(next, id, name)),
+      onRemove: (id) => {
+        if (textEditRef.current?.layer.styleId === id) {
+          updateTextEdit((layer) => {
+            const { styleId: _, ...rest } = layer
+            return rest
+          })
+        }
+        editor.change(t('Remove text style'), (next) => removeTextStyle(next, id))
+      },
+    }
+  })()
+
   // A gradient across all the letters. Its first color is kept as the text's color too.
   function changeTextGradient(gradient: Gradient, label: string, mergeKey?: string) {
     changeTextStyle({ gradient, color: gradient.stops[0].color }, label, mergeKey ?? `text-gradient-${label}`)
@@ -1466,11 +1555,13 @@ export default function App() {
     if (transformChanged && !applyTransform()) return false
     if (cropChanged) applyCrop()
     if (adjustChanged) applyAdjust()
+    if (straightenPhoto.pending) straightenPhoto.apply()
     return true
   }
 
   function setTool(next: ToolId) {
     finishText()
+    if (straightenPhoto.pending) straightenPhoto.apply()
     if (next !== tool) {
       if (tool === 'move') {
         if (!applyTransform()) return
@@ -1590,9 +1681,12 @@ export default function App() {
       const target = current()?.layers.find((l) => l.id === layerId)
       if (target?.kind !== 'shape' && target?.kind !== 'text') return
       const text = target.kind === 'text'
+      // The photo starts on its main thing, not its plain middle.
+      const photo = { canvas, zoom: 1, x: 0, y: 0 }
+      const start = photoOnMainThing(photo, Math.abs(target.box.width), Math.abs(target.box.height))
       editor.change(text ? t('Put photo in letters') : t('Put photo in shape'), (d) => {
         const layer = d.layers.find((l) => l.id === layerId)
-        return layer ? replaceLayer(d, withPhoto(layer, { canvas, zoom: 1, x: 0, y: 0 })) : d
+        return layer ? replaceLayer(d, withPhoto(layer, { ...photo, ...start })) : d
       }, { bytes: canvasBytes(canvas) })
       editor.select(layerId)
       setTool('move')
@@ -1656,6 +1750,7 @@ export default function App() {
       onZoom: (zoom: number) => setPhotoFill({ zoom }, t('Photo size')),
       onToggleMove: () => setPhotoMoving(!photoMoving),
       onRemove: () => removePhoto(layer),
+      onCenter: () => setPhotoFill(photoOnMainThing(photo, Math.abs(layer.box.width), Math.abs(layer.box.height)), t('Center on the main thing')),
     }
   }
 
@@ -1739,6 +1834,22 @@ export default function App() {
   // `taken` are the names of the designs on the start screen.
   function createFromPreset(preset: SizePreset, taken: string[]) {
     createDocument({ name: uniqueName(preset.name, taken), width: preset.width, height: preset.height, background: 'white' })
+  }
+
+  // A ready layout becomes a new design: every part a shape or a text, its colors and text
+  // styles kept as the design's own.
+  async function startFromLayout(layout: LayoutInfo, colors: string) {
+    try {
+      await loadLayoutFonts(layout)
+      const next = buildLayout(layout, colors, uniqueName(layout.name, await savedNames()))
+      setDialog(null)
+      void leaveDesign(() => {
+        setTool('move')
+        showDocument(next)
+      })
+    } catch (e) {
+      problem(errorMessage(e))
+    }
   }
 
   async function download({ format, quality, fileName, pdf }: ExportOptions) {
@@ -2318,6 +2429,12 @@ export default function App() {
       setDialog('new')
       void savedNames().then((names) => setNewDesignName(nextNumberedName(t('My design'), names, designCount)))
     },
+    readyLayouts: () => {
+      settle()
+      setLayoutsKind('all')
+      setLayoutsStart(undefined)
+      setDialog('layouts')
+    },
     open: () => pickFile('open'),
     addPhoto: () => {
       if (current()) pickFile('place')
@@ -2374,11 +2491,12 @@ export default function App() {
       if (transformChanged) return cancelTransform()
       if (cropChanged) return setCropEdit(null)
       if (adjustChanged) return cancelAdjust()
+      if (straightenPhoto.pending) return straightenPhoto.cancel()
       editor.undo()
     },
     redo: () => {
       if (pen.drawing) return
-      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged) return
+      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending) return
       finishText()
       editor.redo()
     },
@@ -2508,6 +2626,8 @@ export default function App() {
       if (pickedText && tool === 'move' && !doc?.selection && !picked) return editText(pickedText.id, 'all'), true
       if (tool === 'crop' && cropChanged) return applyCrop(), true
       if (adjustChanged) return applyAdjust(), true
+      if (blurBackground.apply()) return true
+      if (straightenPhoto.pending) return straightenPhoto.apply(), true
       if (edgeShown) return applyEdge(), true
       return false
     },
@@ -2519,6 +2639,8 @@ export default function App() {
       if (picked) return pickOne(''), true
       if (tool === 'crop' && cropChanged) return setCropEdit(null), true
       if (adjustChanged) return cancelAdjust(), true
+      if (blurBackground.cancel()) return true
+      if (straightenPhoto.pending) return straightenPhoto.cancel(), true
       if (edgeShown) return setEdgeEdit(null), true
       return false
     },
@@ -2625,6 +2747,11 @@ export default function App() {
       setTool('adjust')
       setAdjustments(look.settings)
     },
+    showAdjustPart: (part) => {
+      if (!current()) return
+      setTool('adjust')
+      setAdjustFocus({ part, at: Date.now() })
+    },
     showEffects: () => {
       if (!current()) return
       if (tool !== 'move' && tool !== 'shape' && tool !== 'text') setTool('move')
@@ -2634,12 +2761,35 @@ export default function App() {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') void removeBackground(layer.id)
     },
+    matchPhotoColors: smart.matchDesign,
+    tidyPage: smart.tidyPage,
+    makeReadable: smart.makeReadable,
+    blurBackground: () => {
+      const layer = current() && activeLayer(current()!)
+      if (layer?.kind !== 'raster') return
+      setTool('move')
+      void blurBackground.start(layer.id)
+    },
+    turnIntoShapes: () => traceShapes.open(current()?.activeLayerId ?? ''),
+    straighten: () => {
+      if (!settle()) return
+      const layer = current() && activeLayer(current()!)
+      if (layer) void straightenPhoto.start(layer.id)
+    },
     textWrap: () => {
       const d = current()
       const layer = d && activeLayer(d)
       if (!d || !canWrapText(layer)) return
       setTool('move')
       if (!layer?.textWrap) textWrapControls(d, layer!).onMode('shape')
+    },
+    upscale: () => {
+      const layer = current() && activeLayer(current()!)
+      if (layer?.kind === 'raster') setPictureHelper({ kind: 'upscale', layerId: layer.id })
+    },
+    findWords: () => {
+      const layer = current() && activeLayer(current()!)
+      if (layer?.kind === 'raster') setPictureHelper({ kind: 'words', layerId: layer.id })
     },
   }
 
@@ -2658,10 +2808,10 @@ export default function App() {
   // A layout effect updates them together with the screen, so a key pressed right after a drag
   // acts on what is shown, not on the step before.
   const commandsRef = useRef(commands)
-  const stateRef = useRef({ hasDoc: !!doc, dialogOpen: dialog !== null, tool })
+  const stateRef = useRef({ hasDoc: !!doc, dialogOpen: dialog !== null || pictureHelper !== null, tool })
   useLayoutEffect(() => {
     commandsRef.current = commands
-    stateRef.current = { hasDoc: !!doc, dialogOpen: dialog !== null, tool }
+    stateRef.current = { hasDoc: !!doc, dialogOpen: dialog !== null || pictureHelper !== null, tool }
   })
 
   useEffect(() => {
@@ -2809,13 +2959,8 @@ export default function App() {
   function changeCropShape(shape: CropShape) {
     if (!doc || !crop) return
     const ratio = cropRatio(shape, doc)
-    let box = crop.box
-    if (ratio) {
-      // The biggest frame of the new shape that fits inside the current one.
-      const width = Math.min(Math.abs(box.width), Math.abs(box.height) * ratio)
-      box = { ...box, width, height: width / ratio }
-    }
-    setCrop(box, shape)
+    // The biggest frame of the new shape that fits inside the current one, over the main thing.
+    setCrop(ratio ? smartCropFrame(doc, ratio, crop.box) : crop.box, shape)
   }
 
   // The selection bar's Add more and Take away: they switch to Select (with the same shape as
@@ -2874,7 +3019,8 @@ export default function App() {
         : null
 
   const override: LayerOverride | null =
-    textEdit?.cell
+    straightenPhoto.override ??
+    (textEdit?.cell
       ? { layerId: textEdit.cell.table.id, layer: { ...textEdit.cell.table, hiddenCell: { row: textEdit.cell.row, column: textEdit.cell.column } } }
       : textEdit && !textEdit.isNew
       ? { layerId: textEdit.layer.id, layer: { ...textEdit.layer, visible: false } }
@@ -2886,7 +3032,7 @@ export default function App() {
       ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) }
       : adjustPreview && !comparing
         ? adjustPreview
-        : null
+        : blurBackground.override)
 
   // The Arrange bar: the selected part, or the selected object, or why nothing can be arranged.
   const arrangeBar = ((): ArrangeBarControls => {
@@ -2912,6 +3058,7 @@ export default function App() {
       fillGap,
       onFillGap: setFillGap,
       ppi: doc ? documentPpi(doc) : DEFAULT_PPI,
+      blurSession: blurBackground.controls,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
     // Its size and top-left corner before turning, as shown in the boxes.
@@ -2972,7 +3119,12 @@ export default function App() {
       rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
       putInside: activeNow.kind === 'raster' && insideTarget(doc, activeNow) ? { name: insideTarget(doc, activeNow)!.name, put: () => putInside(activeNow.id) } : undefined,
+      blurBackground: activeNow.kind === 'raster' ? () => void blurBackground.start(activeNow.id) : undefined,
+      turnIntoShapes: activeNow.kind === 'raster' ? () => traceShapes.open(activeNow.id) : undefined,
+      straighten: activeNow.kind === 'raster' ? commands.straighten : undefined,
       textWrap: canWrapText(activeNow) ? textWrapControls(doc, activeNow) : undefined,
+      upscale: activeNow.kind === 'raster' ? () => setPictureHelper({ kind: 'upscale', layerId: activeNow.id }) : undefined,
+      findWords: activeNow.kind === 'raster' ? () => setPictureHelper({ kind: 'words', layerId: activeNow.id }) : undefined,
     }
   })()
 
@@ -3110,6 +3262,34 @@ export default function App() {
             }
           : setColor
 
+  // Changing a color everywhere: the Color panel shows it, and every pick changes it in the whole design.
+  const recolorOn = recolor && doc && doc.id === recolor.before.id && doc.activeLayerId === recolor.activeLayerId && tool === recolor.tool && !textEdit ? recolor : null
+  const recolorLabel = t('Change color everywhere')
+  function recolorTo(hex: string) {
+    if (!recolorOn) return
+    const { before, from, key } = recolorOn
+    editor.change(recolorLabel, (d) => goToPage(recolorEverywhere(before, from, hex), pageIndex(d)), { mergeKey: key, mergeAlways: true })
+    setRecolor({ ...recolorOn, now: hex, changed: true })
+  }
+  const designColorsShown: DesignColors | undefined = doc
+    ? {
+        colors: designColors(doc),
+        uses: (hex) => colorUses(doc, hex),
+        onKeep: (hex) => editor.change(t('Keep color'), (d) => keepColor(d, hex)),
+        onForget: (hex) => editor.change(t('Stop keeping color'), (d) => forgetColor(d, hex)),
+        changing: recolorOn ? recolorOn.now : null,
+        onStartChange: (hex) => {
+          const d = current()
+          if (d) setRecolor({ from: hex, now: hex, before: d, key: createId('recolor'), activeLayerId: d.activeLayerId, tool, changed: false })
+        },
+        onDone: () => setRecolor(null),
+        onPutBack: () => {
+          if (recolorOn?.changed && editor.undoLabel === recolorLabel) editor.undo()
+          setRecolor(null)
+        },
+      }
+    : undefined
+
   return (
     <div className="flex h-full select-none flex-col" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       <TopBar
@@ -3229,7 +3409,7 @@ export default function App() {
           {doc ? (
             <>
               <CanvasView
-                doc={shownDoc ?? doc}
+                doc={smart.shown ?? shownDoc ?? doc}
                 revision={editor.revision}
                 viewport={viewport}
                 onViewportChange={setViewport}
@@ -3298,6 +3478,7 @@ export default function App() {
                 onEditTable={editTable}
               />
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
+              {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
               {doc.layers.length === 0 && tool === 'move' && !textEdit ? (
                 <StartHere
                   onAddWords={() => addText('heading')}
@@ -3306,22 +3487,29 @@ export default function App() {
                   onDraw={() => setTool('brush')}
                 />
               ) : (
-                <ToolHint
-                  tool={hintTool}
-                  extra={hintExtra}
-                  below={
-                    // While the edge is being tried out, its own Apply and Cancel are the way out.
-                    doc.selection && !edgeShown ? (
-                      <SelectionBar
-                        adding={tool === 'select' && selectionMode === 'add'}
-                        takingAway={tool === 'select' && selectionMode === 'subtract'}
-                        onAdd={() => changeSelectionBy('add')}
-                        onTakeAway={() => changeSelectionBy('subtract')}
-                        onLetGo={commands.deselect}
-                      />
-                    ) : undefined
-                  }
-                />
+                // The Straighten card takes the hint's place while it's open.
+                smart.preview ? (
+                  <SmartPreviewBar preview={smart.preview} onApply={smart.apply} onCancel={smart.cancel} />
+                ) : (
+                  !straightenPhoto.panel && (
+                    <ToolHint
+                      tool={hintTool}
+                      extra={hintExtra}
+                      below={
+                        // While the edge is being tried out, its own Apply and Cancel are the way out.
+                        doc.selection && !edgeShown ? (
+                          <SelectionBar
+                            adding={tool === 'select' && selectionMode === 'add'}
+                            takingAway={tool === 'select' && selectionMode === 'subtract'}
+                            onAdd={() => changeSelectionBy('add')}
+                            onTakeAway={() => changeSelectionBy('subtract')}
+                            onLetGo={commands.deselect}
+                          />
+                        ) : undefined
+                      }
+                    />
+                  )
+                )
               )}
               <ZoomControls
                 zoom={viewport.zoom}
@@ -3352,7 +3540,17 @@ export default function App() {
               />
             </>
           ) : (
-            <WelcomeScreen onPreset={createFromPreset} onCustom={commands.newDesign} onOpen={commands.open} onOpenDesign={openSaved} />
+            <WelcomeScreen
+              onPreset={createFromPreset}
+              onCustom={commands.newDesign}
+              onOpen={commands.open}
+              onOpenDesign={openSaved}
+              onLayouts={(kind, layoutId) => {
+                setLayoutsKind(kind)
+                setLayoutsStart(layoutId)
+                setDialog('layouts')
+              }}
+            />
           )}
           {dropActive && (
             <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-accent bg-accent-soft/80">
@@ -3416,6 +3614,8 @@ export default function App() {
                 onAlong={changeAlong}
                 onStraighten={textTarget && pickedTexts <= 1 ? straightenText : undefined}
                 onAlongShape={alongPair(doc) ? wordsAlongShape : undefined}
+                styles={textStyleControls}
+                note={smart.readable && pickedTexts <= 1 && <ReadableNote {...smart.readable} onFix={smart.applyFix} onHover={smart.hoverFix} />}
               />
             )}
             {pageColorOn && !adjustOn && doc && (
@@ -3476,13 +3676,17 @@ export default function App() {
                 onChange={setAdjustments}
                 onAutoLight={() => autoAdjust(autoLight)}
                 onAutoColor={() => autoAdjust(autoColor)}
+                match={matchPart}
+                focus={adjustFocus}
               />
             ) : tool === 'fade' && doc ? null : (
               <ColorPanel
-                color={panelColor ?? color}
+                color={recolorOn ? recolorOn.now : (panelColor ?? color)}
                 recent={recentColors}
-                onChange={onPanelColor}
+                onChange={recolorOn ? recolorTo : onPanelColor}
                 onPickFromDesign={() => setTool('picker')}
+                design={designColorsShown}
+                photoColors={<PhotoColors colors={smart.palette} fromPicked={smart.paletteFromPicked} current={panelColor ?? color} onPick={onPanelColor} onMatch={smart.matchDesign} />}
               />
             )}
             {effectsLayer && (
@@ -3557,6 +3761,7 @@ export default function App() {
           onClose={() => setDialog(null)}
         />
       )}
+      {dialog === 'layouts' && <LayoutsDialog kind={layoutsKind} layoutId={layoutsStart} onUse={(layout, colors) => void startFromLayout(layout, colors)} onClose={() => setDialog(null)} />}
       {dialog === 'export' && doc && (
         <ExportDialog doc={doc} initialFormat={exportFormat} onExport={download} onClose={() => setDialog(null)} />
       )}
@@ -3571,6 +3776,7 @@ export default function App() {
         />
       )}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
+      {traceShapes.dialog}
       {dialog === 'help' && <HelpGuide actions={actions} hasDocument={!!doc} onPickTool={setTool} onClose={() => setDialog(null)} />}
       {dialog === 'layout' && doc && (
         <PageLayoutDialog
@@ -3639,6 +3845,12 @@ export default function App() {
           }}
         />
       )}
+      {pictureHelper && doc && (() => {
+        const layer = doc.layers.find((l) => l.id === pictureHelper.layerId)
+        return layer?.kind === 'raster' ? (
+          <PictureHelper kind={pictureHelper.kind} doc={doc} layer={layer} change={editor.change} inform={inform} problem={problem} onClose={() => setPictureHelper(null)} />
+        ) : null
+      })()}
 
       {notice && <Toast notice={notice} onDismiss={() => setNotice(null)} />}
     </div>

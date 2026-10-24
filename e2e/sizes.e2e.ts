@@ -64,7 +64,7 @@ test('one click makes the design again at other sizes, each a page of its own si
   const bytes = readFileSync((await download.path())!)
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Close design' }).click()
-  await expect(page.getByRole('main').locator('canvas')).toHaveCount(0)
+  await expect(page.getByRole('main').locator('canvas:not([data-preview])')).toHaveCount(0)
   await page.locator('input[type=file]').setInputFiles({ name: 'Sizes.pixel', mimeType: '', buffer: bytes })
   await expect(pageButtons(page)).toHaveCount(4)
   await pageButtons(page).nth(2).click()

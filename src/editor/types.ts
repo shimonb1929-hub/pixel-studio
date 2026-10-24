@@ -200,6 +200,8 @@ export interface TextLayer extends LayerBase {
   pageNumber?: boolean
   // A photo showing through the letters instead of a color (words with their own color keep it).
   photo?: PhotoFill
+  // Set when the text uses one of the design's saved text styles: changing the style changes it.
+  styleId?: string
   // Pictures and shapes this paragraph box flows around. Missing when there are none.
   avoid?: AvoidArea[]
   // Set when the words run along the edge of a shape instead of in straight lines.
@@ -298,6 +300,17 @@ export interface EditorDocument {
   pageIndex?: number
   // Margins and columns: faint lines things line up with. Shared by every page; never printed.
   layout?: PageLayout
+  // The design's own colors, kept to use again anywhere in it. Shared by every page.
+  colors?: string[]
+  // The design's own text styles ("Title", "Details"): texts that use one change with it.
+  textStyles?: SavedTextStyle[]
+}
+
+// A look for text kept under a name. `direction` is never taken from it.
+export interface SavedTextStyle {
+  id: string
+  name: string
+  style: TextStyle
 }
 
 // In design pixels.

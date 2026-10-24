@@ -1,7 +1,7 @@
 import type { SegmentPoint, SegmentRequest, SegmentResponse } from './segmentTypes.ts'
 
 // Finding things in a picture with AI. The work happens in a worker, so the page stays smooth; the
-// model is downloaded the first time and kept by the browser after that.
+// model is downloaded from our own site the first time and kept by the browser after that.
 
 export interface FoundMask {
   mask: Uint8Array
@@ -23,6 +23,7 @@ const progressListeners = new Set<(share: number) => void>()
 function getWorker(): Worker {
   if (worker) return worker
   worker = new Worker(new URL('./segmentWorker.ts', import.meta.url), { type: 'module' })
+  worker.postMessage({ type: 'setup', siteBase: document.baseURI } satisfies SegmentRequest)
   worker.onmessage = (event: MessageEvent<SegmentResponse>) => {
     const message = event.data
     if (message.type === 'progress') {
@@ -55,7 +56,7 @@ export function onAiProgress(listener: (share: number) => void): () => void {
   return () => progressListeners.delete(listener)
 }
 
-function send(request: SegmentRequest): Promise<FoundMask | null> {
+function send(request: Exclude<SegmentRequest, { type: 'setup' }>): Promise<FoundMask | null> {
   const w = getWorker()
   return new Promise((resolve, reject) => {
     pending.set(request.id, { resolve, reject })
@@ -63,7 +64,7 @@ function send(request: SegmentRequest): Promise<FoundMask | null> {
   })
 }
 
-function pictureFor(key: string, picture: () => ImageData): SegmentRequest['image'] {
+function pictureFor(key: string, picture: () => ImageData): Extract<SegmentRequest, { type: 'segment' }>['image'] {
   if (workerKey === key) return null
   const data = picture()
   workerKey = key

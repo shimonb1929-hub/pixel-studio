@@ -52,6 +52,11 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   to move it, drag a side to bend it, click a side to add a point, and double-click a point to make it
   sharp or smooth. "Edit points" does the same for any rectangle, oval, star or line, and open
   curves can end in an arrow head.
+- **Turn a picture into shapes.** "Turn into shapes" (pro: Image Trace) makes a logo, a drawing, a
+  signature or a sketch into sharp shapes that stay crisp at any size and can be recolored: Black &
+  white for one ink color, or Colors for 2 to 16 colors, with a Detail slider and a live preview.
+  Each color becomes one smooth shape (holes included), kept together over the picture, which stays
+  hidden below so nothing is lost.
 - **Colors that fade.** Any shape can be filled with a gradient: pick a ready-made one, then click
   its markers to recolor them, drag them to move them, click the bar to add a color, fade a color
   to see-through, or make it round instead of straight.
@@ -93,6 +98,29 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Looks before sliders.** Adjust starts with ready-made looks (Black & white, Old photo, Vivid,
   Warm, Cool, Soft, Dramatic, Dreamy), each previewed on your own picture. The sliders underneath
   (brightness, contrast, color strength, warmth, blur, sharpen) fine-tune any look.
+- **Straighten in one click.** Straighten (pro: Auto Straighten) finds the horizon, walls and other
+  long straight lines in a photo and shows it turned level, grown just enough that no empty corners
+  show. A slider turns it a little more or less; Apply keeps it as one undo step. Plain code on the
+  photo's own pixels, nothing downloaded; a photo filling the page keeps every original pixel.
+- **Crops start on the main thing.** Picking a crop shape (Square, 4:5, 16:9) places the frame over
+  the most important part of the design instead of the plain middle (pro: Content-Aware Crop), and a
+  photo dropped into a shape starts on its main thing; "Center on the main thing" does it again.
+- **Small photos that print sharp.** "Bigger and sharper" gives a picked photo two or four times
+  as many pixels while it stays the same size on the design, so it prints crisp. It is plain math on
+  the photo's own pixels (careful resampling, then gentle sharpening only along real edges, with no
+  light or dark rims), never AI, so nothing is made up. Press and hold the preview to compare.
+- **Words from a picture.** A scanned flyer or a photo of a sign becomes real, editable text: the
+  words in English, Hebrew or Yiddish are found and put where they were, about the same size and
+  color, kept together above the photo. The word reader comes from Pixel Studio's own site (never
+  another one, so it works behind filters like NetFree), the first time it is used.
+- **Match another photo.** In Adjust, "Match another photo" shows the other photos on the design
+  (photos inside shapes too) as small tiles; pick one and the picked photo takes on its light and
+  colors (pro: Match Color), so photos side by side belong together. It only sets the red, green
+  and blue light curves and a little color strength, so everything stays changeable, and "How much"
+  goes from a hint to the full look.
+- **Clean grain.** A Detail slider that takes the speckles out of night and low-light photos while
+  edges stay sharp (pro: Reduce Noise). Colored specks get extra cleaning, it's done before
+  sharpening so the specks never get sharpened, and a 12-megapixel photo takes about a second.
 - **Mistakes are safe.** Painting never goes onto the page, a shape, text or a locked photo: it
   goes on a drawing above, so the eraser only rubs out your drawing. An opened photo starts
   locked. Undo goes back up to 100 steps, and a stroke that made a new drawing is one step.
@@ -128,6 +156,34 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   every page; changing it on any page changes it on all of them, and new pages get it too. Pages ›
   Add page numbers puts a number at the bottom of every page that counts itself. The Layers panel
   marks these, and one click keeps a thing on its own page again.
+- **Ready layouts.** Invitations, flyers and posters to start from, on the start screen and under
+  Menu › Ready layouts…. Each is made only of shapes, words and colors (never pictures), so every part
+  can be clicked, moved and retyped, and each can be tried in six color sets before it's kept.
+- **The design's own colors and text styles.** Colors kept under "This design's colors" are one click
+  away anywhere in the design, and "Change it everywhere…" changes a color in every place it's used, on
+  every page, live as you pick. A text's look can be saved as a style ("Title", "Details"); one click
+  gives another text that look, and updating the style changes every text that uses it. A ready
+  layout comes with its colors and text styles already kept.
+- **Colors from your photos.** The Color panel shows the five or six main colors of the photos on
+  the design (or of the picked photo), found by themselves: small bright colors count, big plain
+  skies count less. Click one to use it. "Match design" gives the shapes and words on the page those
+  colors, words always in a color that reads on what is behind them, shown first with Apply and
+  Cancel (pro: color theme, recolor artwork).
+- **Words always readable.** When picked words are hard to read on what is behind them (measured on
+  the real pixels, the way accessibility checks do), a quiet note in the Text panel offers fixes:
+  white or dark words, a color from the photos, a soft shadow, or a soft box behind them kept
+  together with the words. Pointing at a fix shows it first (pro: contrast check).
+- **Tidy the whole page.** With one action, things that are almost lined up (edges or middles a few
+  pixels apart, with each other or the page) or almost evenly spaced move the few pixels to line up
+  exactly. Nothing moves far, things already lined up stay, and you see it before you keep it.
+- **AI comes from our own site.** Magic select, Remove background and Blur the background use a
+  small AI that ships with the site (`public/models`, refreshed by `node scripts/models/fetch.mjs`),
+  engine included, so they work behind filters like NetFree that block other sites. Nothing is
+  fetched from anywhere else; a browser test blocks every other site and checks the AI still works.
+- **Blur the background.** With a photo picked, Arrange › Blur the background (pro: Lens Blur,
+  depth of field, portrait mode): the AI finds the main thing, which stays sharp, and everything
+  behind it goes soft with a gentle edge, like a photo from an expensive camera. A slider sets how
+  much, shown live; Apply keeps it as one undo step. Only the user's own pixels are used.
 - **Calm, light and clean.** Soft grays, white cards, one blue for "you can click this", and
   simple line icons with labels. No decorative pictures, logos or emojis.
 
@@ -191,6 +247,8 @@ src/
     hide.ts      Fade: softly hidden parts, the brush that paints them and the ready-made fades
     brushes.ts   The ready-made brushes and erasers
     color.ts     Color codes and the color picker math
+    straighten.ts  Finding how far a photo leans (Sobel edges and a Hough transform; straightenBox.ts turns it)
+    saliency.ts  Finding the important part of a picture, for crops and photos in shapes (smartPhoto.ts uses both)
     ...          The document, zoom math, drawing to screen, opening and downloading files
   text/
     layout.ts    Lines, wrapping, lining up and reading direction (with bidi-js for the Unicode rules)
@@ -241,6 +299,10 @@ only when a design uses them and kept for offline use after that. `node scripts/
 downloads them again and rebuilds the font list from `scripts/fonts/list.json`;
 `python3 scripts/fonts/culmus.py` remakes the Culmus, Taamey and Ezra files first. What each font
 is good for is chosen by hand in `src/text/fontPurposes.ts`.
+
+Words from a picture uses Tesseract through tesseract.js (Apache License 2.0). Its worker, engine
+and English, Hebrew and Yiddish models are in `public/ocr/<version>/`, served by our own site and
+kept by the browser after the first use; `node scripts/ocr/fetch.mjs` copies them again.
 
 A project (`.pixel`) is the letters `PXSTUDIO`, a JSON description of the design (size, layers
 with their kind, names, positions, boxes, visibility, opacity, locks and adjustments, shapes, text

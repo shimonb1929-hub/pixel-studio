@@ -430,7 +430,7 @@ test('text comes back from a project file with its font, direction and color', a
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Close design' }).click()
   // The design takes a moment to close; opening the file before then would race it.
-  await expect(page.getByRole('main').locator('canvas')).toHaveCount(0)
+  await expect(page.getByRole('main').locator('canvas:not([data-preview])')).toHaveCount(0)
   await page.locator('input[type=file]').setInputFiles({ name: 'card.pixel', mimeType: '', buffer: bytes })
 
   await expect(page.locator('header')).toContainText('My design 1')
@@ -609,7 +609,7 @@ test('an English list counts by itself and comes back from a project file', asyn
   const bytes = readFileSync((await download.path())!)
   await page.getByRole('button', { name: 'Menu' }).click()
   await page.getByRole('menuitem', { name: 'Close design' }).click()
-  await expect(page.getByRole('main').locator('canvas')).toHaveCount(0)
+  await expect(page.getByRole('main').locator('canvas:not([data-preview])')).toHaveCount(0)
   await page.locator('input[type=file]').setInputFiles({ name: 'list.pixel', mimeType: '', buffer: bytes })
   await expect.poll(async () => (await layerNames(page))[0]).toBe('Bread')
   await page.keyboard.press('v')

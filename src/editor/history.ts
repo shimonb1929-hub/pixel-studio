@@ -8,6 +8,9 @@ export interface HistoryEntry<T> {
   // Rough memory used, so very large edits push out the oldest steps first.
   bytes: number
   mergeKey?: string
+  // Joins the step before it with the same merge key however long ago that was (like changing a
+  // color everywhere until Done is pressed).
+  mergeAlways?: boolean
   time: number
 }
 
@@ -42,7 +45,7 @@ export class History<T> {
     }
 
     const top = this.entries[this.position - 1]
-    if (top && entry.mergeKey && top.mergeKey === entry.mergeKey && now - top.time < MERGE_WINDOW_MS) {
+    if (top && entry.mergeKey && top.mergeKey === entry.mergeKey && (entry.mergeAlways || now - top.time < MERGE_WINDOW_MS)) {
       this.entries[this.position - 1] = {
         ...top,
         change: this.merge(top.change, entry.change),

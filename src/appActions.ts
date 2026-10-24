@@ -2,6 +2,7 @@ import type { Action } from './actions.ts'
 import { LOOKS } from './editor/adjust.ts'
 import { activeLayer } from './editor/layers.ts'
 import { pageCount, pageIndex } from './editor/pages.ts'
+import { photoSources } from './editor/palette.ts'
 import { hasPageNumbers } from './editor/everyPage.ts'
 import type { LineUpEdge } from './editor/organize.ts'
 import type { EditorDocument, ToolId } from './editor/types.ts'
@@ -12,6 +13,7 @@ import { inSentence, msg, t } from './i18n/i18n.ts'
 
 export interface AppCommands {
   newDesign: () => void
+  readyLayouts: () => void
   open: () => void
   addPhoto: () => void
   addText: (kind: TextKind) => void
@@ -75,11 +77,24 @@ export interface AppCommands {
   setTool: (tool: ToolId) => void
   // Opens Adjust with a ready-made look ready to try.
   showLook: (lookId: string) => void
+  // Opens Adjust at "Match another photo" or at "Clean grain".
+  showAdjustPart: (part: 'match' | 'denoise') => void
   // Opens the Effects panel for what is picked.
   showEffects: () => void
   removeBackground: () => void
+  // The design helpers (src/hooks/useSmartDesign.ts): each shows its result first.
+  matchPhotoColors: () => void
+  tidyPage: () => void
+  makeReadable: () => void
+  blurBackground: () => void
+  turnIntoShapes: () => void
+  // Shows the picked photo turned so its lines are level, ready to fine-tune and apply.
+  straighten: () => void
   // Makes text in boxes flow around the picked picture or shape.
   textWrap: () => void
+  // Open Bigger and sharper, or Words from a picture, for the picked photo.
+  upscale: () => void
+  findWords: () => void
 }
 
 interface ActionState {
@@ -122,6 +137,14 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       keywords: ['new', 'blank', 'start', 'create', 'canvas', 'empty', 'begin', 'make', 'size'],
       shortcut: shortcut('mod', 'alt', 'N'),
       run: c.newDesign,
+    },
+    {
+      id: 'ready-layouts',
+      group: 'Design',
+      title: t('Ready layouts…'),
+      description: t('Start from a ready-made invitation, flyer or poster, made of shapes, words and colors you can change.'),
+      keywords: ['template', 'templates', 'layout', 'invitation', 'invite', 'flyer', 'poster', 'card', 'ready', 'design', 'example', 'start'],
+      run: c.readyLayouts,
     },
     {
       id: 'open',
@@ -768,6 +791,65 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       run: c.removeBackground,
     },
     {
+      id: 'match-photo-colors',
+      group: 'Whole design',
+      title: t('Match design to photo'),
+      description: t('Give the shapes and words on the page the main colors of your photos, with words kept easy to read (pro: recolor to color theme). You see it first; press Apply to keep it.'),
+      keywords: ['match', 'photo colors', 'palette', 'color theme', 'theme', 'recolor', 'color scheme', 'harmony', 'extract colors', 'colors from photo', 'matching colors'],
+      needsDocument: true,
+      disabledReason: doc && !photoSources(doc).canvases.length ? t('Add a photo first: its colors are used for the design.') : undefined,
+      run: c.matchPhotoColors,
+    },
+    {
+      id: 'tidy-page',
+      group: 'Line up',
+      title: t('Tidy the whole page'),
+      description: t('Find things that are almost lined up or almost evenly spaced, and nudge them a few pixels so they line up exactly. You see what moves before you keep it.'),
+      keywords: ['tidy', 'neat', 'clean up', 'align', 'auto align', 'snap', 'straighten', 'line up', 'even spacing', 'distribute', 'messy', 'page'],
+      needsDocument: true,
+      run: c.tidyPage,
+    },
+    {
+      id: 'make-readable',
+      group: 'Layers',
+      title: t('Make words readable'),
+      description: t('When the picked words are hard to read over a photo or a color, give them a clearer color, a soft shadow or a box behind them (pro: contrast check). You see it first.'),
+      keywords: ['readable', 'contrast', 'legible', 'hard to read', 'text over photo', 'text over image', 'accessibility', 'wcag', 'stand out', 'shadow', 'backing'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'text' ? t('Pick some words on your design first.') : undefined,
+      run: c.makeReadable,
+    },
+    {
+      id: 'blur-background',
+      group: 'Layers',
+      title: t('Blur the background'),
+      description: t('AI finds the main thing in the picked photo and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You see it first; press Apply to keep it.'),
+      keywords: ['blur background', 'background blur', 'lens blur', 'depth of field', 'dof', 'portrait mode', 'portrait', 'bokeh', 'soft background', 'focus', 'tilt shift', 'ai'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
+      run: c.blurBackground,
+    },
+    {
+      id: 'turn-into-shapes',
+      group: 'Layers',
+      title: t('Turn into shapes'),
+      description: t('Makes sharp shapes out of the picked picture that stay crisp at any size and can be recolored. Best for logos, drawings, signatures and sketches. (pro: Image Trace)'),
+      keywords: ['image trace', 'live trace', 'trace', 'vectorize', 'vectorise', 'vector', 'svg', 'turn into shapes', 'convert to vector', 'outline', 'logo', 'signature', 'sketch', 'bitmap to vector', 'potrace', 'sharp', 'crisp'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
+      run: c.turnIntoShapes,
+    },
+    {
+      id: 'straighten',
+      group: 'Layers',
+      title: t('Straighten photo'),
+      description: t('Finds the horizon, walls or other long straight lines in the picked photo and turns it so they are level (pro: Auto Straighten). You see it first, can turn it a little more or less, and press Apply to keep it.'),
+      keywords: ['straighten', 'auto straighten', 'level', 'horizon', 'crooked', 'tilted', 'wonky', 'upright', 'align photo', 'fix angle', 'skew'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo first: click it on your design.') : undefined,
+      run: c.straighten,
+    },
+    {
       id: 'text-wrap',
       group: 'Layers',
       title: t('Text around it (text wrap)'),
@@ -776,6 +858,46 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: doc && (!active || active.kind === 'text') ? t('Pick a picture or shape first: click it on your design.') : undefined,
       run: c.textWrap,
+    },
+    {
+      id: 'upscale',
+      group: 'Layers',
+      title: t('Bigger and sharper…'),
+      description: t('Give the picked photo two or four times as many pixels, so a small photo prints sharp. It stays the same size on your design. Plain math, no AI: nothing is made up. You see it first. (pro: Super Resolution, Preserve Details upscale)'),
+      keywords: ['upscale', 'super resolution', 'preserve details', 'enlarge', 'enhance', 'bigger', 'sharper', 'sharpen', 'resolution', 'more pixels', 'blurry', 'pixelated', 'print', 'dpi', 'ppi', 'hd', 'high resolution', 'quality'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
+      run: c.upscale,
+    },
+    {
+      id: 'find-words',
+      group: 'Layers',
+      title: t('Words from a picture…'),
+      description: t('Find the words in the picked photo (a scanned flyer, a photo of a sign) and turn them into real text you can change, in English, Hebrew or Yiddish. (pro: OCR, text recognition)'),
+      keywords: ['ocr', 'text recognition', 'recognize text', 'scan', 'scanned', 'read text', 'copy text', 'extract text', 'image to text', 'picture to text', 'words', 'letters', 'flyer', 'sign', 'document', 'hebrew', 'yiddish', 'editable text'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
+      run: c.findWords,
+    },
+    {
+      id: 'match-colors',
+      group: 'Looks',
+      title: t('Match colors of another photo'),
+      description: t('Pick another photo on your design, and the picked photo takes on its light and colors, so they look like they belong together (pro: Match Color). You see it first; press Apply to keep it.'),
+      keywords: ['match color', 'match colors', 'match colour', 'same colors', 'copy colors', 'color transfer', 'consistent', 'belong together', 'histogram'],
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: () => c.showAdjustPart('match'),
+    },
+    {
+      id: 'clean-grain',
+      group: 'Looks',
+      title: t('Clean grain'),
+      description: t('Take away the specks a photo gets in low light or at night, keeping edges sharp (pro: Reduce Noise). You see it first; press Apply to keep it.'),
+      keywords: ['reduce noise', 'noise reduction', 'denoise', 'noise', 'grain', 'grainy', 'speckles', 'specks', 'night photo', 'low light', 'smooth', 'clean up'],
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: () => c.showAdjustPart('denoise'),
     },
     ...LOOKS.filter((look) => look.id !== 'original').map(
       (look): Action => ({

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { clickAt, designPixel, drag, expectColor, newDesign, WHITE, type Size } from './helpers.ts'
+import { clickAt, designPixel, drag, expectColor, newDesign, WHITE, type Size, photoTool } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 // These tests download the AI the first time, so they get more time.
@@ -47,7 +47,7 @@ test('Remove background keeps the main thing and clears the rest', async ({ page
 
   await page.keyboard.press('v')
   await clickAt(page, size, 200, 150)
-  await page.getByRole('button', { name: 'Remove background' }).click()
+  await photoTool(page, 'Remove background')
   // The page is white, so where the sky was now shows white.
   await expectBallOnly(page, size, WHITE)
 
