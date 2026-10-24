@@ -14,7 +14,7 @@ async function undoLabel(page: Page) {
 // A thick horizontal line across the middle of the design.
 async function paintLine(page: Page, size: Size, y = 150) {
   await pickBrush(page, 'Marker')
-  await page.getByLabel('Opacity', { exact: true }).focus()
+  await page.getByLabel('Strength', { exact: true }).focus()
   await page.keyboard.press('End')
   await drag(page, size, [
     [20, y],
@@ -26,7 +26,7 @@ async function paintLine(page: Page, size: Size, y = 150) {
 async function paintDot(page: Page, size: Size, x: number, y: number) {
   await page.keyboard.press('b')
   await pickBrush(page, 'Marker')
-  await page.getByLabel('Opacity', { exact: true }).focus()
+  await page.getByLabel('Strength', { exact: true }).focus()
   await page.keyboard.press('End')
   await clickAt(page, size, x, y)
 }
@@ -63,7 +63,7 @@ test('Delete removes the selected area, and Escape clears the selection', async 
   expectColor(await designPixel(page, size, 100, 150), INK)
   expect(await undoLabel(page)).toContain('Undo delete selected area')
   await page.keyboard.press('Escape')
-  expect(await undoLabel(page)).toContain('Undo deselect')
+  expect(await undoLabel(page)).toContain('Undo let go')
   // With nothing selected, Delete does nothing rather than surprising anyone.
   await page.keyboard.press('Delete')
   expectColor(await designPixel(page, size, 100, 150), INK)
@@ -129,7 +129,7 @@ test('select all and invert', async ({ page }) => {
   await page.keyboard.press('Control+z')
 
   await selectRect(page, size, 100, 100, 300, 200)
-  await page.getByRole('button', { name: 'Invert selection' }).click()
+  await page.getByRole('button', { name: 'Select everything else' }).click()
   await page.keyboard.press('Alt+Backspace')
   expectColor(await designPixel(page, size, 200, 150), WHITE)
   expectColor(await designPixel(page, size, 50, 50), GREEN)
@@ -298,4 +298,73 @@ test('selection and arrange settings fit on common laptop screens', async ({ pag
       expect(scroll, `${tool} settings at ${width}px wide`).toBeLessThanOrEqual(client)
     }
   }
+})
+
+// The overlay (the top canvas) at a design point: where the selection tint and line are drawn.
+function overlayPixel(page: Page, size: Size, x: number, y: number): Promise<number[]> {
+  return page.evaluate(
+    async ([w, h, px, py]) => {
+      for (let i = 0; i < 2; i++) await new Promise(requestAnimationFrame)
+      const main = document.querySelector('main')!
+      const canvases = main.querySelectorAll('canvas')
+      const canvas = canvases[1]
+      const dpr = devicePixelRatio
+      const left = Math.round(((main.clientWidth - w) / 2) * dpr)
+      const top = Math.round(((main.clientHeight - h) / 2) * dpr)
+      return Array.from(canvas.getContext('2d')!.getImageData(left + Math.floor(px * dpr), top + Math.floor(py * dpr), 1, 1).data)
+    },
+    [size.width, size.height, x, y],
+  )
+}
+
+test('a selection shows calmly, and the selection bar adds, takes away and lets go', async ({ page }) => {
+  const size = await newDesign(page)
+  await selectRect(page, size, 100, 100, 300, 200)
+  const bar = page.getByRole('group', { name: 'Part selected' })
+  await expect(bar).toBeVisible()
+
+  // A soft blue tint over the selected part, nothing outside it, and nothing that moves.
+  const inside = await overlayPixel(page, size, 200, 150)
+  expect(inside[3]).toBeGreaterThan(20)
+  expect(inside[2]).toBeGreaterThan(inside[0])
+  expect((await overlayPixel(page, size, 50, 50))[3]).toBe(0)
+  const edge = await overlayPixel(page, size, 100, 150)
+  await page.waitForTimeout(400)
+  expect(await overlayPixel(page, size, 100, 150)).toEqual(edge)
+
+  // Add more, from another tool: it switches to Select and the next drag adds.
+  await page.keyboard.press('b')
+  await bar.getByRole('button', { name: 'Add more' }).click()
+  await expect(bar.getByRole('button', { name: 'Add more' })).toHaveAttribute('aria-pressed', 'true')
+  await drag(page, size, [
+    [20, 20],
+    [60, 60],
+  ])
+  expect(await undoLabel(page)).toContain('Undo add to selection')
+  expect((await overlayPixel(page, size, 40, 40))[3]).toBeGreaterThan(20)
+
+  // Take away a piece from the middle.
+  await bar.getByRole('button', { name: 'Take away' }).click()
+  await drag(page, size, [
+    [180, 130],
+    [220, 170],
+  ])
+  expect(await undoLabel(page)).toContain('Undo remove from selection')
+  expect((await overlayPixel(page, size, 200, 150))[3]).toBe(0)
+
+  // Let go clears it, and the next drag starts a fresh selection again.
+  await bar.getByRole('button', { name: 'Let go' }).click()
+  await expect(bar).toHaveCount(0)
+  await expect(page.getByRole('radio', { name: 'New' })).toHaveAttribute('aria-checked', 'true')
+})
+
+test('with Arrange, a click away from the selected part lets go of the selection', async ({ page }) => {
+  const size = await newDesign(page)
+  await paintLine(page, size)
+  await selectRect(page, size, 150, 100, 250, 200)
+  await page.keyboard.press('v')
+  await clickAt(page, size, 50, 50)
+  await expect(page.getByRole('group', { name: 'Part selected' })).toHaveCount(0)
+  // Nothing moved.
+  expectColor(await designPixel(page, size, 200, 150), INK)
 })

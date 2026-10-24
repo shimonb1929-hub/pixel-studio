@@ -12,8 +12,13 @@ export interface ToolInfo {
   icon: LucideIcon
   // Shown when hovering the tool.
   description: string
-  // Shown at the top of the canvas while the tool is in use.
+  // Shown at the top of the canvas while the tool is in use. The Help guide shows it as "How".
   hint: string
+  // When to reach for this tool, for the Help guide.
+  when: string
+  // What Photoshop, Illustrator and InDesign call it, so people who know them find their way. Kept
+  // in English, as those programs' users know these words (see "Naming" in CLAUDE.md).
+  pro: string
   // Extra words people might type into search to find this tool.
   keywords: string[]
   // The dock shows tools in small groups, each with a caption on tall screens: picking and moving
@@ -38,6 +43,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Click something to pick it, or drag a box around several. Drag to move; it lines up by itself (hold {alt} to move freely). Pull a corner to resize, the round handle to turn.', { alt: ALT_LABEL })
     },
+    get when() {
+      return t('Use it whenever you want to move, resize, turn or flip something you already added: a photo, a shape or some text.')
+    },
+    pro: 'Move tool, Selection tool',
     keywords: ['move', 'drag', 'position', 'place', 'resize', 'scale', 'rotate', 'turn', 'flip', 'mirror', 'arrange', 'pick', 'bigger', 'smaller', 'transform', 'nudge', 'stretch', 'select several', 'multiple'],
     group: 'arrange',
   },
@@ -55,8 +64,12 @@ export const TOOLS: ToolInfo[] = [
       return t('Choose part of your design to work on. Painting, erasing, deleting and moving then only affect that part. Draw a rectangle, an oval, or any shape by hand.')
     },
     get hint() {
-      return t('Drag to select an area. Hold Shift to add to it, {alt} to take away. Click outside to clear it.', { alt: ALT_LABEL })
+      return t('Drag over the part you want; it turns light blue. Hold Shift to add more, {alt} to take away. Click outside it or press Esc to let go.', { alt: ALT_LABEL })
     },
+    get when() {
+      return t('Use it when only part of a picture should change, like brightening just the sky or cutting one thing out of a photo.')
+    },
+    pro: 'Marquee, Lasso, Magic Wand, Select Subject',
     keywords: ['select', 'selection', 'marquee', 'lasso', 'choose area', 'cut out', 'rectangle', 'oval', 'circle', 'magic', 'magic wand', 'quick select', 'select subject', 'object', 'ai'],
     group: 'arrange',
   },
@@ -76,6 +89,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Drag the edges or corners to choose what to keep. Press Enter to crop, Esc to start over.')
     },
+    get when() {
+      return t("Use it to cut away the edges you don't want, or to make your design square for a post.")
+    },
+    pro: 'Crop tool',
     keywords: ['crop', 'trim', 'cut down', 'frame', 'canvas size', 'shape'],
     group: 'arrange',
   },
@@ -95,6 +112,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Drag to draw a shape, or click empty paper to drop one. Click a shape to pick it. Hold Shift for a perfect square or circle, or a straight line.')
     },
+    get when() {
+      return t('Use it for boxes, circles, buttons, badges, lines and arrows, or a shape to put a photo in.')
+    },
+    pro: 'Rectangle, Ellipse, Polygon, Star and Line tools',
     keywords: ['shape', 'rectangle', 'square', 'circle', 'oval', 'ellipse', 'triangle', 'polygon', 'hexagon', 'star', 'line', 'arrow', 'box', 'frame', 'vector', 'badge', 'button', 'rounded corners', 'round corners', 'photo in a shape', 'round photo', 'photo frame', 'picture frame'],
     group: 'add',
   },
@@ -114,6 +135,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Click to add points, or press and drag for a curve. Click the first point to close the shape, or press Enter to finish a line. Drag a point or a line to reshape; double-click a point to make it sharp or smooth.')
     },
+    get when() {
+      return t('Use it to draw your own shape that no ready-made shape has, like a logo, a leaf or a speech bubble.')
+    },
+    pro: 'Pen tool (Bézier paths)',
     keywords: ['pen', 'path', 'bezier', 'curve', 'vector', 'draw shape', 'custom shape', 'outline', 'trace', 'anchor', 'points', 'logo', 'icon', 'illustration', 'reshape', 'edit points', 'curved arrow'],
     group: 'add',
   },
@@ -133,6 +158,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Click where your text starts, or drag a box for a paragraph. Click text to change it. Esc when you are done.')
     },
+    get when() {
+      return t('Use it for titles, words, paragraphs and anything you want people to read.')
+    },
+    pro: 'Type tool',
     keywords: ['text', 'type', 'write', 'words', 'letters', 'font', 'title', 'heading', 'headline', 'caption', 'quote', 'paragraph', 'hebrew', 'yiddish', 'right to left', 'rtl', 'typography', 'text color', 'font color', 'letter color', 'text size', 'font size'],
     group: 'add',
   },
@@ -152,6 +181,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Drag to paint. Shift + click draws a straight line. Hold {alt} to pick a color.', { alt: ALT_LABEL })
     },
+    get when() {
+      return t('Use it to draw or paint by hand, like on paper.')
+    },
+    pro: 'Brush tool',
     keywords: ['paint', 'draw', 'pencil', 'pen', 'marker', 'sketch', 'color in', 'highlighter', 'oil paint', 'splatter', 'drips', 'spray', 'brushes'],
     group: 'paint',
   },
@@ -171,6 +204,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Drag to rub out paint on the selected layer. Shift + click erases in a straight line.')
     },
+    get when() {
+      return t('Use it to rub out paint you made with the Brush. To remove a whole photo or shape, pick it and press Delete instead.')
+    },
+    pro: 'Eraser tool',
     keywords: ['erase', 'rub out', 'remove', 'delete paint', 'clean up', 'rubber'],
     group: 'paint',
   },
@@ -190,6 +227,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Click an area to fill it with your color.')
     },
+    get when() {
+      return t('Use it to color in a closed area with one click, like the inside of a drawing.')
+    },
+    pro: 'Paint Bucket tool',
     keywords: ['fill', 'bucket', 'paint bucket', 'color in', 'flood', 'coloring'],
     group: 'paint',
   },
@@ -209,6 +250,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Click anywhere on your design to paint with that color.')
     },
+    get when() {
+      return t('Use it when you want the exact same color as something in your photo.')
+    },
+    pro: 'Eyedropper tool',
     keywords: ['eyedropper', 'pick color', 'sample', 'dropper', 'copy color', 'match color'],
     group: 'paint',
   },
@@ -228,6 +273,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Pick a look or move the sliders on the right. Press and hold on your design to compare. Enter applies, Esc cancels.')
     },
+    get when() {
+      return t('Use it when a photo is too dark, too gray, too blue, or you want a look like Black & white.')
+    },
+    pro: 'Adjustments, Filters (Brightness/Contrast, Hue/Saturation, Gaussian Blur)',
     keywords: [
       'adjust',
       'brightness',
@@ -291,6 +340,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Brush over what you want gone. When you let go, it is filled in from what is around it.')
     },
+    get when() {
+      return t('Use it to clean up a photo: dust, spots, scratches or a small thing in the way.')
+    },
+    pro: 'Spot Healing Brush',
     keywords: ['fix', 'heal', 'healing', 'spot', 'blemish', 'scratch', 'dust', 'remove object', 'repair', 'clean up', 'content aware', 'retouch', 'erase thing'],
     group: 'adjust',
   },
@@ -310,6 +363,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('First click the part you want to copy. Then paint where the copy should go. Hold {alt} and click to copy from somewhere else.', { alt: ALT_LABEL })
     },
+    get when() {
+      return t('Use it when you want to choose exactly which part to copy over something, like more grass over a path.')
+    },
+    pro: 'Clone Stamp tool',
     keywords: ['clone', 'clone stamp', 'stamp', 'copy', 'copy paint', 'duplicate', 'repeat', 'cover', 'retouch', 'remove object', 'patch', 'repair', 'paint over'],
     group: 'adjust',
   },
@@ -329,6 +386,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Drag to slide your design around.')
     },
+    get when() {
+      return t('Use it when you have zoomed in and want to see another part.')
+    },
+    pro: 'Hand tool',
     keywords: ['move around', 'pan', 'scroll', 'slide', 'drag', 'navigate', 'look around'],
     group: 'view',
   },
@@ -348,6 +409,10 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Click to zoom in. Hold {alt} and click to zoom out.', { alt: ALT_LABEL })
     },
+    get when() {
+      return t('Use it to look closely at small details, then step back to see everything.')
+    },
+    pro: 'Zoom tool',
     keywords: ['magnify', 'magnifying glass', 'closer', 'bigger', 'smaller', 'look closer'],
     group: 'view',
   },

@@ -69,6 +69,7 @@ export interface AppCommands {
   fit: () => void
   actualSize: () => void
   search: () => void
+  help: () => void
   biggerBrush: () => void
   smallerBrush: () => void
   setTool: (tool: ToolId) => void
@@ -225,6 +226,15 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       run: c.renameDesign,
     },
     {
+      id: 'help',
+      group: 'Design',
+      title: t('Help: which tool do I need?'),
+      description: t('Find the right tool for what you want to do, and see what each tool does, when to use it and how. Photoshop, Illustrator and InDesign words work too.'),
+      keywords: ['help', 'how', 'how to', 'tutorial', 'learn', 'guide', 'explain', 'which tool', 'what does', 'manual', 'question', 'photoshop', 'illustrator', 'indesign'],
+      shortcut: 'F1',
+      run: c.help,
+    },
+    {
       id: 'install',
       group: 'Design',
       title: t('Install as an app'),
@@ -312,9 +322,9 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'deselect',
       group: 'Select',
-      title: t('Deselect'),
+      title: t('Let go'),
       description: t('Clear the selection, so you can work on the whole design again.'),
-      keywords: ['deselect', 'select none', 'clear selection', 'unselect', 'nothing'],
+      keywords: ['deselect', 'select none', 'clear selection', 'unselect', 'nothing', 'let go', 'marching ants', 'stop selecting'],
       shortcut: shortcut('mod', 'D'),
       needsDocument: true,
       disabledReason: noSelection && t('Nothing is selected.'),
@@ -323,7 +333,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'invert',
       group: 'Select',
-      title: t('Invert selection'),
+      title: t('Select everything else'),
       description: t('Swap what is selected and what is not.'),
       keywords: ['invert', 'reverse', 'opposite', 'swap', 'everything else'],
       needsDocument: true,

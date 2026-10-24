@@ -8,6 +8,7 @@ import type { TextStylesProps } from './components/TextStyles.tsx'
 import { LayoutsDialog } from './components/LayoutsDialog.tsx'
 import { buildLayout, loadLayoutFonts, type LayoutInfo, type LayoutKind } from './layouts/layouts.ts'
 import { CommandPalette } from './components/CommandPalette.tsx'
+import { HelpGuide } from './components/HelpGuide.tsx'
 import { Dialog } from './components/Dialog.tsx'
 import { PagesBar } from './components/PagesBar.tsx'
 import { ExportDialog, type ExportOptions } from './components/ExportDialog.tsx'
@@ -31,7 +32,7 @@ import { canWrapText, defaultTextWrap, wrapTextOn } from './text/wrapAround.ts'
 import { ScrollRegion } from './components/ui.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
-import { DesignInfo, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
+import { DesignInfo, SelectionBar, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
 import { PagePanel } from './components/PagePanel.tsx'
 import { GradientHandles } from './components/GradientHandles.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
@@ -117,7 +118,7 @@ import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
 import { isRtl, live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts'
+type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -412,6 +413,13 @@ export default function App() {
   })
   const [selectionShape, setSelectionShape] = useState<SelectionShape>('rectangle')
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('replace')
+  // Once a selection is let go, the next drag starts a fresh one again (not "take away" from nothing).
+  const hadSelectionRef = useRef(false)
+  useEffect(() => {
+    const has = !!doc?.selection
+    if (hadSelectionRef.current && !has) setSelectionMode('replace')
+    hadSelectionRef.current = has
+  }, [doc?.selection])
   const [transformEdit, setTransformEdit] = useState<TransformState | null>(null)
   const [keepProportions, setKeepProportions] = useState(true)
   // Moving the selected part of a picture fills the gap it leaves (see gapFill.ts).
@@ -2010,7 +2018,7 @@ export default function App() {
       const mask = createCanvas(found.width, found.height)
       const maskCtx = getContext2d(mask)
       const pixels = maskCtx.createImageData(found.width, found.height)
-      for (let i = 0; i < size; i++) pixels.data[i * 4 + 3] = found.mask[i] ? 255 : 0
+      for (let i = 0; i < size; i++) pixels.data[i * 4 + 3] = found.alpha[i]
       maskCtx.putImageData(pixels, 0, 0)
       const out = createCanvas(source.width, source.height)
       const ctx = getContext2d(out)
@@ -2195,7 +2203,7 @@ export default function App() {
     // Changes the opacity of everything picked together with the layer.
     opacity: (layerId: string, opacity: number) => {
       const ids = picked?.includes(layerId) ? picked : [layerId]
-      editor.change(t('Change layer opacity'), (d) => ids.reduce((doc, id) => updateLayer(doc, id, { opacity }), d), { mergeKey: `opacity:${ids.join()}` })
+      editor.change(t('Change how solid'), (d) => ids.reduce((doc, id) => updateLayer(doc, id, { opacity }), d), { mergeKey: `opacity:${ids.join()}` })
     },
     toggleVisibility: (layerId: string) => {
       settle()
@@ -2360,11 +2368,11 @@ export default function App() {
     },
     deselect: () => {
       settle()
-      if (current()?.selection) setSelection(t('Deselect'), () => null)
+      if (current()?.selection) setSelection(t('Let go'), () => null)
     },
     invert: () => {
       settle()
-      if (current()) setSelection(t('Invert selection'), (d) => invertSelection(d.selection, d.width, d.height))
+      if (current()) setSelection(t('Select everything else'), (d) => invertSelection(d.selection, d.width, d.height))
     },
     fill: () => {
       settle()
@@ -2556,6 +2564,7 @@ export default function App() {
     fit: () => doc && setViewport(fitted(doc)),
     actualSize: () => doc && setViewport(centeredViewport(doc.width, doc.height, workspace.width, workspace.height, 1)),
     search: () => setDialog('search'),
+    help: () => setDialog('help'),
     biggerBrush: () => changeBrushSize(1),
     smallerBrush: () => changeBrushSize(-1),
     setTool,
@@ -2637,6 +2646,7 @@ export default function App() {
       let action: (() => unknown) | undefined
       if (mod && code === 'KeyK') action = c.search
       else if (plain && event.key === '/') action = c.search
+      else if (event.key === 'F1' || (plain && event.key === '?')) action = c.help
       else if (mod && event.altKey && code === 'KeyN') action = c.newDesign
       else if (mod && event.shiftKey && code === 'KeyO' && hasDoc) action = c.addPhoto
       else if (mod && !event.shiftKey && code === 'KeyO') action = c.open
@@ -2754,6 +2764,17 @@ export default function App() {
       box = { ...box, width, height: width / ratio }
     }
     setCrop(box, shape)
+  }
+
+  // The selection bar's Add more and Take away: they switch to Select (with the same shape as
+  // before) and make the next drags add or take away; pressing again goes back to a new selection.
+  function changeSelectionBy(mode: 'add' | 'subtract') {
+    if (tool !== 'select') {
+      setTool('select')
+      setSelectionMode(mode)
+    } else {
+      setSelectionMode(selectionMode === mode ? 'replace' : mode)
+    }
   }
 
   const paintSettings =
@@ -3070,6 +3091,7 @@ export default function App() {
         onUndo={commands.undo}
         onRedo={commands.redo}
         onSearch={commands.search}
+        onHelp={commands.help}
         onDownload={commands.download}
       />
 
@@ -3242,7 +3264,22 @@ export default function App() {
                   onDraw={() => setTool('brush')}
                 />
               ) : (
-                <ToolHint tool={hintTool} extra={hintExtra} />
+                <ToolHint
+                  tool={hintTool}
+                  extra={hintExtra}
+                  below={
+                    // While the edge is being tried out, its own Apply and Cancel are the way out.
+                    doc.selection && !edgeShown ? (
+                      <SelectionBar
+                        adding={tool === 'select' && selectionMode === 'add'}
+                        takingAway={tool === 'select' && selectionMode === 'subtract'}
+                        onAdd={() => changeSelectionBy('add')}
+                        onTakeAway={() => changeSelectionBy('subtract')}
+                        onLetGo={commands.deselect}
+                      />
+                    ) : undefined
+                  }
+                />
               )}
               <ZoomControls
                 zoom={viewport.zoom}
@@ -3499,6 +3536,7 @@ export default function App() {
         />
       )}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
+      {dialog === 'help' && <HelpGuide actions={actions} hasDocument={!!doc} onPickTool={setTool} onClose={() => setDialog(null)} />}
       {dialog === 'layout' && doc && (
         <PageLayoutDialog
           doc={doc}

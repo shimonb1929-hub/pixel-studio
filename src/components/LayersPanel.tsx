@@ -431,7 +431,8 @@ export function LayersPanel(props: LayersPanelProps) {
         {active && (
           <Slider
             className="mb-2 px-1"
-            label={t("Layer opacity")}
+            label={t("How solid")}
+            pro="Opacity"
             help={t("How solid the selected layer is. Lower it to let the layers below show through.")}
             value={active.opacity}
             display={`${Math.round(active.opacity * 100)}%`}

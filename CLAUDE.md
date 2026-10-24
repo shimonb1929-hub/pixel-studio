@@ -23,6 +23,21 @@ Pixel Studio is Photoshop, Illustrator and InDesign in one program, in the brows
   illustrations anywhere in the app, and never pictures of people. Previews show the user's own
   work, or plain shapes, colors and words. The user's own photos in their designs are fine.
 
+## Naming and help (every thread must follow this)
+
+- **Plain name first**: every tool, panel, setting and button gets a name a 10-year-old understands
+  ("Color strength", "How solid", "Keep together", "Fix spots"), never the pro word alone
+  ("Saturation", "Opacity", "Group", "Healing brush").
+- **The pro word stays findable**: add the pro word to `PRO_NAMES` in `src/proNames.ts` (keyed by the
+  English plain word). Every hover tip then ends with "Other programs call this …", the Help guide's
+  Pro words list shows it, and searching Help for the pro word finds it. Pro words stay in English.
+  If the same plain word means different things in different places (Size, Softness, Strength),
+  pass `pro="…"` on that tip or slider instead. A test checks every `PRO_NAMES` word is still used.
+- **Every tool explains itself**: a new tool in `src/tools.ts` needs `description` (what it does),
+  `when` (when to use it), `hint` (how) and `pro`. A new kind of task people come to do gets a line
+  in `GOALS` in `src/help.ts` ("I want to…", how, and the tool or action that does it).
+- Hover tips stay short: one or two sentences of what it does, in everyday words.
+
 When choosing what to build next, ask: what is the biggest gap between what a professional can make
 with Photoshop, Illustrator or InDesign and what someone can make here? The README's design
 principles and roadmap describe the plan.

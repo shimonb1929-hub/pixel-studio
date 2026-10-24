@@ -181,7 +181,7 @@ test('a project file keeps every layer, and opens again with all of them', async
   // Layer settings and the selection come back too.
   await page.getByRole('button', { name: 'Hide Drawing 2' }).click()
   await page.getByRole('button', { name: 'Layer: Drawing 1' }).click()
-  const opacity = page.getByLabel('Layer opacity')
+  const opacity = page.getByLabel('How solid')
   await opacity.focus()
   for (let i = 0; i < 5; i++) await opacity.press('Shift+ArrowLeft')
   await expect(opacity).toHaveAttribute('aria-valuetext', '50%')
@@ -215,15 +215,15 @@ async function expectLayersBack(page: Page, size: Size) {
   await expect(layerButtons(page)).toHaveText(['Drawing 2', 'Drawing 1'])
   await expect(page.getByRole('button', { name: 'Show Drawing 2' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Layer: Drawing 1' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByLabel('Layer opacity')).toHaveAttribute('aria-valuetext', '50%')
+  await expect(page.getByLabel('How solid')).toHaveAttribute('aria-valuetext', '50%')
   // Hidden red line, half-faded ink line.
   expectColor(await designPixel(page, size, 200, 200), WHITE)
   expectColor(await designPixel(page, size, 200, 100), [141, 142, 145], 10)
   await page.getByRole('button', { name: 'Show Drawing 2' }).click()
   expectColor(await designPixel(page, size, 200, 200), RED)
-  await expect(page.getByRole('menuitem', { name: 'Deselect' })).toHaveCount(0)
+  await expect(page.getByRole('menuitem', { name: 'Let go' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Menu' }).click()
-  await expect(page.getByRole('menuitem', { name: 'Deselect' })).not.toHaveAttribute('aria-disabled', 'true')
+  await expect(page.getByRole('menuitem', { name: 'Let go' })).not.toHaveAttribute('aria-disabled', 'true')
   await page.keyboard.press('Escape')
 }
 
