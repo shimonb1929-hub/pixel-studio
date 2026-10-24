@@ -782,7 +782,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     },
     {
       id: 'remove-background',
-      group: 'Layers',
+      group: 'Photo',
       title: t('Remove background'),
       description: t('AI finds the main thing in the picked photo and makes everything around it see-through. You can undo it.'),
       keywords: ['remove background', 'background eraser', 'cut out', 'cutout', 'transparent', 'see-through', 'isolate', 'remove bg', 'ai'],
@@ -821,7 +821,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     },
     {
       id: 'blur-background',
-      group: 'Layers',
+      group: 'Photo',
       title: t('Blur the background'),
       description: t('AI finds the main thing in the picked photo and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You see it first; press Apply to keep it.'),
       keywords: ['blur background', 'background blur', 'lens blur', 'depth of field', 'dof', 'portrait mode', 'portrait', 'bokeh', 'soft background', 'focus', 'tilt shift', 'ai'],
@@ -831,7 +831,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     },
     {
       id: 'turn-into-shapes',
-      group: 'Layers',
+      group: 'Photo',
       title: t('Turn into shapes'),
       description: t('Makes sharp shapes out of the picked picture that stay crisp at any size and can be recolored. Best for logos, drawings, signatures and sketches. (pro: Image Trace)'),
       keywords: ['image trace', 'live trace', 'trace', 'vectorize', 'vectorise', 'vector', 'svg', 'turn into shapes', 'convert to vector', 'outline', 'logo', 'signature', 'sketch', 'bitmap to vector', 'potrace', 'sharp', 'crisp'],
@@ -841,7 +841,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     },
     {
       id: 'straighten',
-      group: 'Layers',
+      group: 'Photo',
       title: t('Straighten photo'),
       description: t('Finds the horizon, walls or other long straight lines in the picked photo and turns it so they are level (pro: Auto Straighten). You see it first, can turn it a little more or less, and press Apply to keep it.'),
       keywords: ['straighten', 'auto straighten', 'level', 'horizon', 'crooked', 'tilted', 'wonky', 'upright', 'align photo', 'fix angle', 'skew'],
@@ -861,7 +861,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     },
     {
       id: 'upscale',
-      group: 'Layers',
+      group: 'Photo',
       title: t('Bigger and sharper…'),
       description: t('Give the picked photo two or four times as many pixels, so a small photo prints sharp. It stays the same size on your design. Plain math, no AI: nothing is made up. You see it first. (pro: Super Resolution, Preserve Details upscale)'),
       keywords: ['upscale', 'super resolution', 'preserve details', 'enlarge', 'enhance', 'bigger', 'sharper', 'sharpen', 'resolution', 'more pixels', 'blurry', 'pixelated', 'print', 'dpi', 'ppi', 'hd', 'high resolution', 'quality'],
@@ -871,7 +871,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     },
     {
       id: 'find-words',
-      group: 'Layers',
+      group: 'Photo',
       title: t('Words from a picture…'),
       description: t('Find the words in the picked photo (a scanned flyer, a photo of a sign) and turn them into real text you can change, in English, Hebrew or Yiddish. (pro: OCR, text recognition)'),
       keywords: ['ocr', 'text recognition', 'recognize text', 'scan', 'scanned', 'read text', 'copy text', 'extract text', 'image to text', 'picture to text', 'words', 'letters', 'flyer', 'sign', 'document', 'hebrew', 'yiddish', 'editable text'],

@@ -10,7 +10,10 @@ import { Button } from './ui.tsx'
 
 // The menu shows everything at once, in columns on a wide screen (one long list on a narrow one),
 // so nothing has to be scrolled to or remembered.
-const MENU_COLUMNS: ActionGroup[][] = [['Design'], ['Edit', 'Select', 'View'], ['Layers'], ['Whole design', 'Pages']]
+// Wide screens get a fifth column so even a short laptop screen shows every group without scrolling.
+const MENU_COLUMNS: ActionGroup[][] = [['Design'], ['Edit', 'Select', 'View'], ['Layers', 'Photo'], ['Whole design', 'Pages']]
+const WIDE_MENU_COLUMNS: ActionGroup[][] = [['Design'], ['Edit', 'Select', 'View'], ['Layers'], ['Photo', 'Whole design'], ['Pages']]
+const WIDE_MENU = '(min-width: 1280px)'
 
 function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: boolean }) {
   const [open, setOpen] = useState(false)
@@ -76,7 +79,7 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
           onKeyDown={handleMenuKeyDown}
           className="absolute start-0 top-full z-40 mt-2 flex max-h-[calc(100vh-5rem)] w-72 flex-col overflow-y-auto rounded-2xl border border-line bg-surface p-2 shadow-float lg:fixed lg:start-4 lg:top-14 lg:mt-0 lg:w-max lg:flex-row lg:gap-2 lg:p-3"
         >
-          {MENU_COLUMNS.map((column, columnIndex) => (
+          {(window.matchMedia(WIDE_MENU).matches ? WIDE_MENU_COLUMNS : MENU_COLUMNS).map((column, columnIndex) => (
             <div key={columnIndex} className="flex flex-col lg:w-56 lg:border-s lg:border-line lg:ps-2 lg:first:border-s-0 lg:first:ps-0">
               {column.map((group, groupIndex) => (
                 <div key={group} role="group" aria-label={groupName(group)}>

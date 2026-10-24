@@ -1,12 +1,13 @@
 import { msg, t } from './i18n/i18n.ts'
 
-export type ActionGroup = 'Design' | 'Edit' | 'Select' | 'Layers' | 'Line up' | 'Whole design' | 'Pages' | 'View' | 'Tools' | 'Brush' | 'Looks'
+export type ActionGroup = 'Design' | 'Edit' | 'Select' | 'Layers' | 'Photo' | 'Line up' | 'Whole design' | 'Pages' | 'View' | 'Tools' | 'Brush' | 'Looks'
 
 const GROUP_NAMES: Record<ActionGroup, string> = {
   Design: msg('Design'),
   Edit: msg('Edit'),
   Select: msg('Select'),
   Layers: msg('Layers'),
+  Photo: msg('Photo'),
   'Line up': msg('Line up'),
   'Whole design': msg('Whole design'),
   Pages: msg('Pages'),
