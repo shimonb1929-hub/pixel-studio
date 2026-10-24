@@ -1,5 +1,5 @@
 import { ChevronDown, CircleHelp, Palette, RotateCcw, SunMedium } from 'lucide-react'
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ADJUSTMENT_NAMES,
   COLOR_RANGE_HUES,
@@ -37,6 +37,7 @@ const HELP: Record<AdjustmentKey, string> = live({
   sharpen: msg('Makes edges and small details crisper.'),
   clarity: msg('Makes texture and detail stand out, without making edges rough. Move it left for a soft glow.'),
   blur: msg('Makes it soft and out of focus.'),
+  denoise: msg('Takes away the fine colored specks a photo gets in low light or at night, and keeps edges sharp (pro: Reduce Noise). Use only as much as you need: too much makes skin and leaves look smooth, like plastic.'),
   vignette: msg('Darkens the corners and edges, which draws the eye to the middle. Move it left for light corners instead.'),
   grain: msg('Adds fine, even specks, like a photo printed from film. A little makes a picture feel real.'),
 })
@@ -45,7 +46,7 @@ const HELP: Record<AdjustmentKey, string> = live({
 const GROUPS: { id: string; title: string; keys: AdjustmentKey[]; more: AdjustmentKey[] }[] = live([
   { id: 'light', title: msg('Lighting'), keys: ['brightness', 'contrast', 'highlights', 'shadows'], more: ['whites', 'blacks'] },
   { id: 'color', title: msg('Color'), keys: ['saturation', 'warmth'], more: ['vibrance', 'tint'] },
-  { id: 'detail', title: msg('Detail'), keys: ['sharpen', 'clarity', 'blur'], more: [] },
+  { id: 'detail', title: msg('Detail'), keys: ['denoise', 'sharpen', 'clarity', 'blur'], more: [] },
   { id: 'finish', title: msg('Finishing touches'), keys: ['vignette', 'grain'], more: [] },
 ])
 
@@ -104,9 +105,9 @@ function signed(value: number, twoWay = true): string {
 }
 
 // A slider for a value from -1 to 1 (or 0 to 1), in steps of one point on the -100 to +100 scale.
-function AmountSlider(props: { label: string; help: string; value: number; twoWay?: boolean; note: string; onChange: (value: number) => void }) {
+function AmountSlider(props: { label: string; help: string; value: number; twoWay?: boolean; note: string; part?: string; onChange: (value: number) => void }) {
   const twoWay = props.twoWay ?? true
-  return (
+  const slider = (
     <Slider
       label={props.label}
       help={props.help}
@@ -118,6 +119,7 @@ function AmountSlider(props: { label: string; help: string; value: number; twoWa
       onChange={(position) => props.onChange(Math.round((twoWay ? position * 2 - 1 : position) * 100) / 100)}
     />
   )
+  return props.part ? <div data-part={props.part}>{slider}</div> : slider
 }
 
 // A "More" switch that shows a few extra controls under a group.
@@ -212,11 +214,15 @@ interface AdjustPanelProps {
   onChange: (settings: Adjustments) => void
   onAutoLight: () => void
   onAutoColor: () => void
+  // "Match another photo": the photos to pick from, ready to show.
+  match?: ReactNode
+  // Opens a part of the panel and brings it into view, when asked for from the menu or search.
+  focus?: { part: 'match' | 'denoise'; at: number } | null
 }
 
 type ThumbnailList = HTMLCanvasElement[] | null
 
-export function AdjustPanel({ settings, thumbnails, histogram, blocked, onChange, onAutoLight, onAutoColor }: AdjustPanelProps) {
+export function AdjustPanel({ settings, thumbnails, histogram, blocked, onChange, onAutoLight, onAutoColor, match, focus }: AdjustPanelProps) {
   const current = matchingLook(settings)
   // Which "More" parts people opened or closed; untouched ones open by themselves when something
   // in them is changed.
@@ -227,12 +233,25 @@ export function AdjustPanel({ settings, thumbnails, histogram, blocked, onChange
     curve: hasCurve(settings),
     oneColor: hasColorChanges(settings),
   }
-  const isOpen = (id: string) => opened[id] ?? hiddenChanged[id] ?? false
-  const toggle = (id: string) => setOpened({ ...opened, [id]: !isOpen(id) })
+  // Asking for "Match colors" from the menu opens its part, until it's closed again.
+  const focusKey = focus && `focus${focus.at}`
+  const isOpen = (id: string) => (id === 'match' && focus?.part === 'match' && !opened[focusKey!]) || (opened[id] ?? hiddenChanged[id] ?? false)
+  const toggle = (id: string) => setOpened({ ...opened, [id]: !isOpen(id), ...(focusKey && id === 'match' ? { [focusKey]: true } : {}) })
+  const panel = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!focus) return
+    const id = requestAnimationFrame(() => {
+      const part = panel.current?.querySelector<HTMLElement>(`[data-part="${focus.part}"]`)
+      part?.scrollIntoView({ block: 'nearest' })
+      part?.querySelector<HTMLElement>('input, button')?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [focus])
 
   const slider = (key: AdjustmentKey) => (
     <AmountSlider
       key={key}
+      part={key}
       label={ADJUSTMENT_NAMES[key]}
       help={HELP[key]}
       value={settings[key]}
@@ -243,7 +262,7 @@ export function AdjustPanel({ settings, thumbnails, histogram, blocked, onChange
   )
 
   return (
-    <section aria-label={t("Adjust")} className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
+    <section ref={panel} aria-label={t("Adjust")} className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
       <div className="mb-3 flex items-center justify-between">
         <Tooltip
           title={t("Adjust")}
@@ -298,6 +317,18 @@ export function AdjustPanel({ settings, thumbnails, histogram, blocked, onChange
               {t('Fix colors')}
             </Button>
           </div>
+          {match && (
+            <div data-part="match" className="-mt-2 mb-4">
+              <More
+                open={isOpen('match')}
+                onToggle={() => toggle('match')}
+                label={t('Match another photo')}
+                help={t('Pick another photo on your design, and this one takes on its light and colors, so photos side by side look like they belong together (pro: Match Color). It sets the light curves for you; change anything after.')}
+              >
+                {match}
+              </More>
+            </div>
+          )}
 
           <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{t('Looks')}</h3>
           <div role="radiogroup" aria-label={t("Looks")} className="grid grid-cols-3 gap-1.5">

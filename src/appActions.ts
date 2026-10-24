@@ -77,6 +77,8 @@ export interface AppCommands {
   setTool: (tool: ToolId) => void
   // Opens Adjust with a ready-made look ready to try.
   showLook: (lookId: string) => void
+  // Opens Adjust at "Match another photo" or at "Clean grain".
+  showAdjustPart: (part: 'match' | 'denoise') => void
   // Opens the Effects panel for what is picked.
   showEffects: () => void
   removeBackground: () => void
@@ -876,6 +878,26 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
       run: c.findWords,
+    },
+    {
+      id: 'match-colors',
+      group: 'Looks',
+      title: t('Match colors of another photo'),
+      description: t('Pick another photo on your design, and the picked photo takes on its light and colors, so they look like they belong together (pro: Match Color). You see it first; press Apply to keep it.'),
+      keywords: ['match color', 'match colors', 'match colour', 'same colors', 'copy colors', 'color transfer', 'consistent', 'belong together', 'histogram'],
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: () => c.showAdjustPart('match'),
+    },
+    {
+      id: 'clean-grain',
+      group: 'Looks',
+      title: t('Clean grain'),
+      description: t('Take away the specks a photo gets in low light or at night, keeping edges sharp (pro: Reduce Noise). You see it first; press Apply to keep it.'),
+      keywords: ['reduce noise', 'noise reduction', 'denoise', 'noise', 'grain', 'grainy', 'speckles', 'specks', 'night photo', 'low light', 'smooth', 'clean up'],
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: () => c.showAdjustPart('denoise'),
     },
     ...LOOKS.filter((look) => look.id !== 'original').map(
       (look): Action => ({

@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { buildActions, type AppCommands } from './appActions.ts'
 import { AdjustPanel } from './components/AdjustPanel.tsx'
+import { useMatchColors } from './components/useMatchColors.tsx'
 import { CanvasView, type ArrangeControls, type BoxEditing, type ShapeDrawing, type TextTool } from './components/CanvasView.tsx'
 import { ColorPanel, type DesignColors } from './components/ColorPanel.tsx'
 import { applyTextStyle, colorUses, designColors, findTextStyle, forgetColor, keepColor, lookPatch, matchesStyle, newStyleId, nextStyleName, recolorEverywhere, removeTextStyle, renameTextStyle, saveTextStyle, textStyles, updateTextStyle } from './editor/designStyles.ts'
@@ -453,6 +454,8 @@ export default function App() {
   const [edgeEdit, setEdgeEdit] = useState<{ base: Selection; soften: number; grow: number } | null>(null)
   // Adjustments being tried on one layer (and selection); they start over when either changes.
   const [adjustEdit, setAdjustEdit] = useState<{ layer: Layer; selection: Selection | null; settings: Adjustments } | null>(null)
+  // A part of the Adjust panel asked for from the menu or search ("Match colors", "Clean grain").
+  const [adjustFocus, setAdjustFocus] = useState<{ part: 'match' | 'denoise'; at: number } | null>(null)
   const [shapeDefaults, setShapeDefaults] = useState<ShapeDefaults>(DEFAULT_SHAPES)
   // Which part of a shape the Color panel colors.
   const [colorTarget, setColorTarget] = useState<ColorTarget>('fill')
@@ -626,6 +629,7 @@ export default function App() {
     }
     return counts
   }, [adjustSample])
+  const matchPart = useMatchColors({ doc, layer: adjustLayer, sample: adjustSample, settings: adjustments, onChange: setAdjustments })
   // "Fix light" and "Fix colors" set some sliders; the rest stay as they are.
   const autoAdjust = (fix: (data: Uint8ClampedArray) => Partial<Adjustments>) => {
     if (adjustSample) setAdjustments({ ...adjustments, ...fix(adjustSample) })
@@ -2641,6 +2645,11 @@ export default function App() {
       setTool('adjust')
       setAdjustments(look.settings)
     },
+    showAdjustPart: (part) => {
+      if (!current()) return
+      setTool('adjust')
+      setAdjustFocus({ part, at: Date.now() })
+    },
     showEffects: () => {
       if (!current()) return
       if (tool !== 'move' && tool !== 'shape' && tool !== 'text') setTool('move')
@@ -3548,6 +3557,8 @@ export default function App() {
                 onChange={setAdjustments}
                 onAutoLight={() => autoAdjust(autoLight)}
                 onAutoColor={() => autoAdjust(autoColor)}
+                match={matchPart}
+                focus={adjustFocus}
               />
             ) : (
               <ColorPanel
