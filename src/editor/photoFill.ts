@@ -14,11 +14,12 @@ export function photoPlacement(fill: PhotoFill, w: number, h: number): Rect {
 }
 
 // The photo as something to paint letters with, for a w × h box whose middle is at cx, cy.
-export function photoPattern(ctx: CanvasRenderingContext2D, fill: PhotoFill, w: number, h: number, cx: number, cy: number): CanvasPattern | string {
+export function photoPattern(ctx: CanvasRenderingContext2D, fill: PhotoFill, w: number, h: number, cx: number, cy: number, then?: DOMMatrix): CanvasPattern | string {
   const pattern = ctx.createPattern(fill.canvas, 'no-repeat')
   if (!pattern) return '#000000'
   const place = photoPlacement(fill, w, h)
-  pattern.setTransform(new DOMMatrix([place.width / fill.canvas.width, 0, 0, place.height / fill.canvas.height, cx + place.x, cy + place.y]))
+  const at = new DOMMatrix([place.width / fill.canvas.width, 0, 0, place.height / fill.canvas.height, cx + place.x, cy + place.y])
+  pattern.setTransform(then ? then.multiply(at) : at)
   return pattern
 }
 

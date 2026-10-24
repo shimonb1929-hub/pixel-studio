@@ -55,7 +55,7 @@ test('Shift + click draws a straight line from the last point', async ({ page })
 test('Marker paint is see-through and stays even where one stroke crosses itself', async ({ page }) => {
   const size = await newDesign(page)
   await pickBrush(page, 'Marker')
-  await expect(page.getByLabel('Opacity', { exact: true })).toHaveAttribute('aria-valuetext', '70%')
+  await expect(page.getByLabel('Strength', { exact: true })).toHaveAttribute('aria-valuetext', '70%')
   // Right, then back left over the same path, in one stroke.
   await drag(page, size, [
     [60, 150],
@@ -224,7 +224,7 @@ test('layer opacity fades a layer, and a whole slider drag is one undo step', as
     [50, 150],
     [350, 150],
   ])
-  const opacity = page.getByLabel('Layer opacity')
+  const opacity = page.getByLabel('How solid')
   await opacity.focus()
   for (let i = 0; i < 5; i++) await opacity.press('Shift+ArrowLeft')
   await expect(opacity).toHaveAttribute('aria-valuetext', '50%')

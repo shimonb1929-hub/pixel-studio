@@ -1,6 +1,7 @@
-import { drawText, textLocalPoint, textReach } from '../text/textLayer.ts'
+import { drawText, textCurve, textLocalPoint, textReach } from '../text/textLayer.ts'
 import { avoidSlots } from '../text/avoid.ts'
 import { tableParts } from './table.ts'
+import { hitsCurved } from '../text/textCurve.ts'
 import { createCanvas, getContext2d, MAX_LAYER_SIDE } from './document.ts'
 import { intersectRect, polygonBounds, snapRect, type Rect } from './geometry.ts'
 import { canvasGradient } from './gradient.ts'
@@ -419,6 +420,12 @@ export function hitsLayer(layer: Layer, point: Point, slack = 0): boolean {
     const dy = point.y - box.cy
     const cos = Math.cos(-box.rotation)
     const sin = Math.sin(-box.rotation)
+    const curved = textCurve(layer)
+    // Curved text is picked by its letters, so a shape inside a ring of words can still be clicked.
+    if (curved) {
+      const local = { x: (dx * cos - dy * sin) * (box.width < 0 ? -1 : 1) + curved.center.x, y: (dx * sin + dy * cos) * (box.height < 0 ? -1 : 1) + curved.center.y }
+      return hitsCurved(curved, local, slack + layer.style.size * 0.15)
+    }
     const inBox = Math.abs(dx * cos - dy * sin) <= Math.abs(box.width) / 2 + slack && Math.abs(dx * sin + dy * cos) <= Math.abs(box.height) / 2 + slack
     if (!inBox || !layer.wrap || !layer.avoid?.length) return inBox
     // Where the text flows around a picture or shape, a click goes through to it.

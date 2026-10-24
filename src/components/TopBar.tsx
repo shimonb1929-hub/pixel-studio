@@ -1,4 +1,4 @@
-import { Check, CircleAlert, Download, Menu as MenuIcon, Redo2, Search, Undo2 } from 'lucide-react'
+import { Check, CircleAlert, CircleHelp, Download, Menu as MenuIcon, Redo2, Search, Undo2 } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { actionBlocker, groupName, NEEDS_DOCUMENT_HINT, type Action, type ActionGroup } from '../actions.ts'
 import { inSentence, msg, t } from '../i18n/i18n.ts'
@@ -168,6 +168,7 @@ interface TopBarProps {
   onUndo: () => void
   onRedo: () => void
   onSearch: () => void
+  onHelp: () => void
   onDownload: () => void
 }
 
@@ -182,6 +183,7 @@ export function TopBar({
   onUndo,
   onRedo,
   onSearch,
+  onHelp,
   onDownload,
 }: TopBarProps) {
   const hasDocument = documentName !== null
@@ -246,6 +248,21 @@ export function TopBar({
       </Tooltip>
 
       <div className="flex min-w-0 items-center justify-end gap-3">
+        <Button
+          variant="ghost"
+          className="h-9 px-2.5"
+          aria-label={t('Help')}
+          onClick={onHelp}
+          tip={{
+            title: t('Help'),
+            shortcut: 'F1',
+            description: t('Not sure which tool to use? Find it by what you want to do, and see what each tool does, when to use it and how.'),
+            pro: false,
+          }}
+        >
+          <CircleHelp size={17} />
+          <span className="hidden lg:inline">{t('Help')}</span>
+        </Button>
         <LanguagePicker compact />
         {documentName && (
           <Tooltip title={t("Rename design")} description={t("Click to change your design's name. It's used in Your designs and for downloaded files.")} className="hidden min-w-0 lg:flex">

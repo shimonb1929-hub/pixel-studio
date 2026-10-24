@@ -10,6 +10,7 @@ import type { ListKind, TextAlign, TextDirection } from '../text/layout.ts'
 import { loadDesignFonts } from '../text/textLayer.ts'
 import { addFontsFromDesign, FONT_FORMATS, MAX_FONT_BYTES, OWN_FONT_ID, ownFontData, type FontFormat, type OwnFont } from '../text/ownFonts.ts'
 import { tidySpans } from '../text/spans.ts'
+import type { TextPath } from '../text/textCurve.ts'
 import { tidyGroups } from './layers.ts'
 import { allPages, pageIndex } from './pages.ts'
 import { hasLayout } from './pageLayout.ts'
@@ -38,11 +39,12 @@ import { MAX_PPI } from './units.ts'
 // lists (a text's style.list) and fonts of your own (fonts): their files come after the pictures.
 // Version 13 added text flowing around pictures and shapes (textWrap).
 // Version 14 added pages with sizes of their own (width and height on a page). Version 15 added tables.
-// Version 16 added photos inside text (photo) and softly hidden parts (hide), each with its own
+// Version 16 added bent text (bend) and text along the edge of a shape (along).
+// Version 17 added photos inside text (photo) and softly hidden parts (hide), each with its own
 // picture after the layer's other pictures.
 // Older files still open.
 
-export const PROJECT_VERSION = 16
+export const PROJECT_VERSION = 17
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -114,6 +116,7 @@ export interface ProjectTextLayer extends ProjectLayerBase {
   flow?: TextFlow
   pageNumber?: boolean
   photo?: ProjectPhoto
+  along?: TextPath
 }
 
 export interface ProjectTableLayer extends ProjectLayerBase {
@@ -457,12 +460,13 @@ function readFlow(value: unknown): TextFlow {
 
 function readTextStyle(value: unknown): TextStyle {
   if (!isRecord(value)) damaged()
-  const { font, size, weight, italic, color, align, direction, letterSpacing, lineHeight, gradient, list } = value
+  const { font, size, weight, italic, color, align, direction, letterSpacing, lineHeight, gradient, list, bend } = value
   if (typeof font !== 'string' || font.length === 0 || font.length > 100) damaged()
   if (!isBetween(size, 0.1, 100000) || !isBetween(weight, 1, 1000) || typeof italic !== 'boolean') damaged()
   if (!TEXT_ALIGNS.includes(align as TextAlign) || !TEXT_DIRECTIONS.includes(direction as TextDirection)) damaged()
   if (!isBetween(letterSpacing, -1, 5) || !isBetween(lineHeight, 0.3, 10)) damaged()
   if (list !== undefined && list !== null && !LIST_KINDS.includes(list as ListKind)) damaged()
+  if (bend !== undefined && !isBetween(bend, -1, 1)) damaged()
   return {
     font,
     size,
@@ -475,6 +479,7 @@ function readTextStyle(value: unknown): TextStyle {
     lineHeight,
     ...(gradient === undefined || gradient === null ? {} : { gradient: readGradient(gradient) }),
     ...(list ? { list: list as ListKind } : {}),
+    ...(bend ? { bend: bend as number } : {}),
   }
 }
 
@@ -512,6 +517,11 @@ function readTable(layer: Record<string, unknown>, base: ProjectLayerBase): Proj
     lines: { kind: lines.kind, color: readColor(lines.color), width: lines.width },
     rtl,
   }
+}
+
+function readTextPath(value: unknown): TextPath {
+  if (!isRecord(value) || !isBetween(value.at, 0, 1) || typeof value.flip !== 'boolean') damaged()
+  return { path: readPath(value.path), at: value.at, flip: value.flip }
 }
 
 // Words with their own look. Spans that reach past the text are cut to fit it.
@@ -582,6 +592,7 @@ function readLayer(layer: unknown): ProjectLayer {
     const spans = readSpans(layer.spans, style, layer.text.length)
     const text: ProjectTextLayer = { ...base, kind: 'text', box: readBox(layer.box), text: layer.text, style, ...(spans ? { spans } : {}), wrap: layer.wrap }
     if (layer.flow !== undefined) text.flow = readFlow(layer.flow)
+    if (layer.along !== undefined) text.along = readTextPath(layer.along)
     if (layer.pageNumber !== undefined) {
       if (layer.pageNumber !== true) damaged()
       text.pageNumber = true
@@ -747,6 +758,7 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
       wrap: layer.wrap,
       ...(layer.flow ? { flow: layer.flow } : {}),
       ...(layer.pageNumber ? { pageNumber: true } : {}),
+      ...(layer.along ? { along: layer.along } : {}),
       ...(photo ? { photo: { zoom: photo.zoom, x: photo.x, y: photo.y, width: photo.canvas.width, height: photo.canvas.height, bytes: sizes[0] } } : {}),
     }
   }
@@ -851,6 +863,7 @@ async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer>
       wrap: info.wrap,
       ...(info.flow ? { flow: info.flow } : {}),
       ...(info.pageNumber ? { pageNumber: true } : {}),
+      ...(info.along ? { along: info.along } : {}),
       ...(photo ? { photo } : {}),
     }
   }

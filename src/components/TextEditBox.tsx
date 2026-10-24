@@ -5,8 +5,9 @@ import type { TextLayer, TextSpan, TextStyle, Viewport } from '../editor/types.t
 import { fontStack } from '../text/fonts.ts'
 import { resolveAlign } from '../text/layout.ts'
 import { editSpans, styledPieces, tidySpans } from '../text/spans.ts'
-import { textLayout } from '../text/textLayer.ts'
+import { straightBox, textLayout } from '../text/textLayer.ts'
 import { avoidMargins } from '../text/avoid.ts'
+import { isCurved } from '../text/textCurve.ts'
 import { t } from '../i18n/i18n.ts'
 
 export interface TextEditing {
@@ -31,7 +32,9 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
   const ref = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const { layer } = editing
-  const { box, style } = layer
+  const { style } = layer
+  // Curved text is typed straight, in the middle of where it sits; it bends again when typing ends.
+  const box = straightBox(layer)
   const layout = textLayout(layer)
   const width = Math.abs(box.width)
   const height = Math.abs(box.height)
@@ -115,8 +118,11 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
 
   // Text that grows as you type gets room for the next letter on the side it grows toward.
   const align = resolveAlign(style.align, layout.direction)
-  const room = layer.wrap ? 0 : style.size
-  const offset = align === 'right' ? -room : align === 'center' ? -room / 2 : 0
+  const curved = isCurved(layer)
+  const wraps = layer.wrap && !curved
+  const room = wraps ? 0 : style.size
+  // Curved text grows from its middle.
+  const offset = align === 'right' && !curved ? -room : align === 'center' || curved ? -room / 2 : 0
 
   // A photo inside the letters shows through them while typing, placed exactly as on the design.
   const place = layer.photo && photoPlacement(layer.photo, width, height)
@@ -138,7 +144,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
   // A list's markers go inside the room each row has, so a row with something beside it starts
   // its words that much further in.
   const indent = layout.indent ?? 0
-  const margins = (layer.wrap && layer.avoid?.length ? avoidMargins(layer.avoid, width, lineHeight, style.size) : []).map((m) =>
+  const margins = (wraps && layer.avoid?.length ? avoidMargins(layer.avoid, width, lineHeight, style.size) : []).map((m) =>
     layout.direction === 'ltr' ? { ...m, left: m.left > 0 && m.left < width ? m.left + indent : m.left } : { ...m, right: m.right > 0 ? m.right + indent : m.right },
   )
 
@@ -234,7 +240,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
           caretColor: style.gradient && !layer.photo ? style.gradient.stops[0].color : style.color,
           // A photo or gradient shows through the letters, like on the design.
           ...(through ? { ...through, backgroundClip: 'text', WebkitBackgroundClip: 'text' } : {}),
-          whiteSpace: layer.wrap ? 'pre-wrap' : 'pre',
+          whiteSpace: wraps ? 'pre-wrap' : 'pre',
           overflowWrap: 'break-word',
           textAlign: style.align === 'auto' ? 'start' : style.align,
           direction: layout.direction,

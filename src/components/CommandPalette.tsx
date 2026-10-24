@@ -117,7 +117,7 @@ export function CommandPalette({ actions, hasDocument, onClose }: CommandPalette
         })}
         {results.length === 0 && (
           <li className="px-3 py-8 text-center text-sm text-ink-2">
-            Nothing found for “{query.trim()}”. Try words like “save”, “zoom” or “new”.
+            {t('Nothing found for “{query}”. Try words like “save”, “zoom” or “new”, or press F1 for Help.', { query: query.trim() })}
           </li>
         )}
       </ul>

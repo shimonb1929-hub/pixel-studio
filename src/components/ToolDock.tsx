@@ -41,7 +41,7 @@ export function ToolDock({ tool, onToolChange, onAddPhoto }: ToolDockProps) {
       // instead, still all in view.
       className="flex w-[72px] shrink-0 flex-col items-center gap-0.5 overflow-y-auto rounded-card border border-line bg-surface p-1.5 shadow-card [@media(max-height:820px)]:grid [@media(max-height:820px)]:w-[136px] [@media(max-height:820px)]:grid-cols-2 [@media(max-height:820px)]:content-start"
     >
-      {TOOLS.map(({ id, name, label, key, icon: Icon, description, group }, index) => (
+      {TOOLS.map(({ id, name, label, key, icon: Icon, description, pro, group }, index) => (
         <Fragment key={id}>
           {index > 0 && TOOLS[index - 1].group !== group && <div role="separator" className="my-1 h-px w-8 shrink-0 bg-line [@media(min-height:1000px)]:hidden [@media(max-height:820px)]:hidden" />}
           {(index === 0 || TOOLS[index - 1].group !== group) && (
@@ -49,7 +49,7 @@ export function ToolDock({ tool, onToolChange, onAddPhoto }: ToolDockProps) {
               {groupCaption(group)}
             </span>
           )}
-          <Tooltip side="right" title={t('{tool} tool', { tool: name })} shortcut={key} description={description}>
+          <Tooltip side="right" title={t('{tool} tool', { tool: name })} shortcut={key} description={description} pro={pro}>
             <button
               type="button"
               aria-label={t('{tool} tool', { tool: name })}
@@ -67,6 +67,7 @@ export function ToolDock({ tool, onToolChange, onAddPhoto }: ToolDockProps) {
               title={t('Add a photo')}
               shortcut={shortcut('mod', 'shift', 'O')}
               description={t('Pick a photo or picture from your computer to put on the page. It keeps all its quality, however often you resize it.')}
+              pro="Place"
             >
               <button
                 type="button"

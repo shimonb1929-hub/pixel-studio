@@ -4,6 +4,7 @@ import { AdjustPanel } from './components/AdjustPanel.tsx'
 import { CanvasView, type ArrangeControls, type BoxEditing, type ShapeDrawing, type TextTool } from './components/CanvasView.tsx'
 import { ColorPanel } from './components/ColorPanel.tsx'
 import { CommandPalette } from './components/CommandPalette.tsx'
+import { HelpGuide } from './components/HelpGuide.tsx'
 import { Dialog } from './components/Dialog.tsx'
 import { PagesBar } from './components/PagesBar.tsx'
 import { ExportDialog, type ExportOptions } from './components/ExportDialog.tsx'
@@ -112,11 +113,12 @@ import { useFontsVersion } from './hooks/useFontsVersion.ts'
 import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
 import { changeText, fitText, keepOnPage, newTextBox, textIndexAt, textLayout, textName } from './text/textLayer.ts'
+import { straighten, textAlongShape } from './text/textAlong.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
 import { isRtl, live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes'
+type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -1358,6 +1360,43 @@ export default function App() {
     if (pickedText) editor.change(label, (d) => replaceLayer(d, changeText(pickedText, { wrap })))
   }
 
+  // Where curved words sit along the shape's edge, and on which side.
+  function changeAlong(patch: { at?: number; flip?: boolean }, label: string, mergeKey?: string) {
+    const move = (layer: TextLayer): TextLayer => (layer.along ? fitText({ ...layer, along: { ...layer.along, ...patch } }) : layer)
+    if (textEditRef.current) {
+      updateTextEdit(move)
+      return
+    }
+    if (pickedText?.along) editor.change(label, (d) => replaceLayer(d, move(pickedText)), { mergeKey: mergeKey && `${mergeKey}:${pickedText.id}` })
+  }
+
+  function straightenText() {
+    if (textEditRef.current) {
+      updateTextEdit(straighten)
+      return
+    }
+    if (pickedText) editor.change(t('Straight again'), (d) => replaceLayer(d, straighten(pickedText)))
+  }
+
+  // The text and the shape picked together, when the words can run along the shape's edge.
+  function alongPair(d: EditorDocument | null): { text: TextLayer; shape: ShapeLayer } | null {
+    const ids = manyIn(d)
+    if (!d || !ids || ids.length !== 2) return null
+    const text = d.layers.find((l): l is TextLayer => ids.includes(l.id) && l.kind === 'text')
+    const shape = d.layers.find((l): l is ShapeLayer => ids.includes(l.id) && l.kind === 'shape')
+    if (!text || !shape || text.flow || text.group || shape.group) return null
+    return { text, shape }
+  }
+
+  function wordsAlongShape() {
+    settle()
+    const pair = alongPair(current())
+    if (!pair) return problem(t('Pick one text and one shape together first: click one, then hold Shift and click the other.'))
+    editor.change(t('Words along the shape'), (d) => replaceLayer(d, textAlongShape(pair.text, pair.shape)))
+    pickOne(pair.text.id)
+    inform(t('The words now follow the edge of the shape. Slide them along it in the Text panel.'))
+  }
+
   // An empty box after the picked text, for the words to run on into.
   function continueInAnotherBox() {
     const d = current()
@@ -2215,7 +2254,7 @@ export default function App() {
     // Changes the opacity of everything picked together with the layer.
     opacity: (layerId: string, opacity: number) => {
       const ids = picked?.includes(layerId) ? picked : [layerId]
-      editor.change(t('Change layer opacity'), (d) => ids.reduce((doc, id) => updateLayer(doc, id, { opacity }), d), { mergeKey: `opacity:${ids.join()}` })
+      editor.change(t('Change how solid'), (d) => ids.reduce((doc, id) => updateLayer(doc, id, { opacity }), d), { mergeKey: `opacity:${ids.join()}` })
     },
     toggleVisibility: (layerId: string) => {
       settle()
@@ -2379,11 +2418,11 @@ export default function App() {
     },
     deselect: () => {
       settle()
-      if (current()?.selection) setSelection(t('Deselect'), () => null)
+      if (current()?.selection) setSelection(t('Let go'), () => null)
     },
     invert: () => {
       settle()
-      if (current()) setSelection(t('Invert selection'), (d) => invertSelection(d.selection, d.width, d.height))
+      if (current()) setSelection(t('Select everything else'), (d) => invertSelection(d.selection, d.width, d.height))
     },
     fill: () => {
       settle()
@@ -2566,6 +2605,7 @@ export default function App() {
     layerToggle: () => activeNow && layers.toggleVisibility(activeNow.id),
     layerDelete: layers.remove,
     keepTogether: organize.keepTogether,
+    wordsAlongShape,
     takeApart: organize.takeApart,
     tidyUp: organize.tidyUp,
     lineUp: organize.lineUp,
@@ -2575,6 +2615,7 @@ export default function App() {
     fit: () => doc && setViewport(fitted(doc)),
     actualSize: () => doc && setViewport(centeredViewport(doc.width, doc.height, workspace.width, workspace.height, 1)),
     search: () => setDialog('search'),
+    help: () => setDialog('help'),
     biggerBrush: () => changeBrushSize(1),
     smallerBrush: () => changeBrushSize(-1),
     setTool,
@@ -2608,7 +2649,7 @@ export default function App() {
       undoLabel: editor.undoLabel,
       redoLabel: editor.redoLabel,
       app,
-      organize: { keepTogether: keepTogetherBlocker(doc), takeApart: pickedGroups(doc).length === 0 ? t('Pick something kept together first.') : null, picked },
+      organize: { keepTogether: keepTogetherBlocker(doc), alongShape: alongPair(doc) ? null : t('Pick one text and one shape together first: click one, then hold Shift and click the other.'), takeApart: pickedGroups(doc).length === 0 ? t('Pick something kept together first.') : null, picked },
     },
     commands,
   )
@@ -2656,6 +2697,7 @@ export default function App() {
       let action: (() => unknown) | undefined
       if (mod && code === 'KeyK') action = c.search
       else if (plain && event.key === '/') action = c.search
+      else if (event.key === 'F1' || (plain && event.key === '?')) action = c.help
       else if (mod && event.altKey && code === 'KeyN') action = c.newDesign
       else if (mod && event.shiftKey && code === 'KeyO' && hasDoc) action = c.addPhoto
       else if (mod && !event.shiftKey && code === 'KeyO') action = c.open
@@ -2675,7 +2717,8 @@ export default function App() {
       else if (plain && (code === 'Delete' || code === 'Backspace') && c.hasSelection()) action = c.deleteArea
       else if (plain && (code === 'Delete' || code === 'Backspace') && hasDoc && currentTool === 'move') action = c.deleteObject
       else if (code === 'Escape' && c.hasSelection()) action = c.deselect
-      else if (!mod && !event.altKey && ARROWS[event.key] && hasDoc && currentTool === 'move') {
+      // A slider or list that used the arrow keys itself doesn't also move what's picked.
+      else if (!mod && !event.altKey && ARROWS[event.key] && hasDoc && currentTool === 'move' && !event.defaultPrevented) {
         const step = event.shiftKey ? 10 : 1
         const [dx, dy] = ARROWS[event.key]
         action = () => c.nudge(dx * step, dy * step)
@@ -2909,6 +2952,7 @@ export default function App() {
         rotate90: (direction) => placeAll(rotateBox90(frame, direction), direction > 0 ? t('Turn right') : t('Turn left')),
         combine: (mode) => combineShapes(picked, mode),
         combineBlocked: combineProblem(doc, picked),
+        alongShape: alongPair(doc) ? wordsAlongShape : undefined,
       }
     }
     if (!activeNow.visible) return { ...base, blocked: t('“{name}” is hidden. Click its eye in the Layers panel to show it.', { name: activeNow.name }) }
@@ -3079,6 +3123,7 @@ export default function App() {
         onUndo={commands.undo}
         onRedo={commands.redo}
         onSearch={commands.search}
+        onHelp={commands.help}
         onDownload={commands.download}
       />
 
@@ -3366,7 +3411,11 @@ export default function App() {
                 gradientStop={gradientStop}
                 onGradientStop={setGradientStop}
                 flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
-                onContinue={!tableTarget && pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 ? continueInAnotherBox : undefined}
+                onContinue={!tableTarget && pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 && !pickedText.along && !pickedText.style.bend ? continueInAnotherBox : undefined}
+                along={textTarget?.along ? { at: textTarget.along.at, flip: textTarget.along.flip } : null}
+                onAlong={changeAlong}
+                onStraighten={textTarget && pickedTexts <= 1 ? straightenText : undefined}
+                onAlongShape={alongPair(doc) ? wordsAlongShape : undefined}
               />
             )}
             {pageColorOn && !adjustOn && doc && (
@@ -3522,6 +3571,7 @@ export default function App() {
         />
       )}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
+      {dialog === 'help' && <HelpGuide actions={actions} hasDocument={!!doc} onPickTool={setTool} onClose={() => setDialog(null)} />}
       {dialog === 'layout' && doc && (
         <PageLayoutDialog
           doc={doc}

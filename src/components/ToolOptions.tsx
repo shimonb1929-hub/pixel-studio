@@ -85,6 +85,7 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
         className="w-24 shrink-0 xl:w-32"
         label={t("Softness")}
         help={t("How blurry the edge of the line is.")}
+        pro="Hardness (the other way round)"
         value={settings.softness}
         display={`${Math.round(settings.softness * 100)}%`}
         note={describeSoftness(settings.softness)}
@@ -92,7 +93,8 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
       />
       <Slider
         className="w-24 shrink-0 xl:w-32"
-        label={erasing ? t('Strength') : t('Opacity')}
+        label={t('Strength')}
+        pro="Opacity"
         help={erasing ? t('How much paint the eraser removes.') : t('How solid the paint is. Lower lets what is underneath show through.')}
         value={settings.opacity}
         display={`${Math.round(settings.opacity * 100)}%`}
@@ -563,7 +565,7 @@ function SelectOptions({
       <div className="flex shrink-0 items-center">
         <BarButton icon={SquareDashed} label={t("All")} title={t("Select all")} description={t("Select the whole design.")} onClick={commands.selectAll} />
         <BarButton icon={SquareSlash} roomy label={t("Let go")} description={t('Stop selecting (Deselect), so the whole design can be changed again. Nothing in your design changes.')} disabledReason={nothing} onClick={commands.deselect} />
-        <BarButton icon={Contrast} label={t("Invert")} title={t("Invert selection")} description={t("Swap what is selected and what is not.")} onClick={commands.invert} />
+        <BarButton icon={Contrast} label={t("Swap")} title={t("Select everything else")} description={t("Swap what is selected and what is not.")} onClick={commands.invert} />
         <BarButton
           icon={Blend}
           label={t('Edge')}
@@ -629,6 +631,8 @@ export interface ArrangeBarControls {
   // Set when several things are picked: makes one shape out of them, or says why it can't.
   combine?: (mode: CombineMode) => void
   combineBlocked?: string | null
+  // Set when one text and one shape are picked: runs the words along the shape's edge.
+  alongShape?: () => void
   // With a selected part: whether moving it fills the gap it leaves.
   fillGap: boolean
   onFillGap: (on: boolean) => void
@@ -1239,6 +1243,9 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
             {target.kind === 'many' && <BarButton icon={LayoutGrid} label={t("Tidy up")} title={t("Tidy up")} description={t("Put them in a neat row or column, with even gaps, lined up through their middles.")} onClick={controls.tidyUp} />}
             {target.kind === 'many' && <LineUpMenu several onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
             {controls.combine && <CombineMenu blocked={controls.combineBlocked ?? null} onCombine={controls.combine} />}
+            {controls.alongShape && (
+              <BarButton icon={Spline} label={t('Along the shape')} title={t('Along the shape')} description={t('The words follow the edge of the shape picked with them, like words around a round badge. The shape stays; delete it if you want only the words.')} onClick={controls.alongShape} />
+            )}
           </div>
           <Divider />
         </>

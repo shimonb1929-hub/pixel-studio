@@ -2,7 +2,7 @@ import { t } from '../i18n/i18n.ts'
 import { drawLayer } from './compose.ts'
 import { createCanvas, getContext2d } from './document.ts'
 import { paintPage } from './gradient.ts'
-import { placeText } from '../text/textLayer.ts'
+import { curveMatrix, placeText, textCurve } from '../text/textLayer.ts'
 import { tableTexts } from './table.ts'
 import { buildPdf, type PdfImage, type PdfPage, type PdfTextLine } from './pdf.ts'
 import { pageDocuments } from './pages.ts'
@@ -75,6 +75,19 @@ function pageText(doc: EditorDocument, layout: PdfLayout): PdfTextLine[] {
   const texts = doc.layers.flatMap((layer) => (!layer.visible || layer.opacity <= 0 ? [] : layer.kind === 'text' ? [layer] : layer.kind === 'table' ? tableTexts(layer) : []))
   for (const layer of texts) {
     if (!layer.text.trim()) continue
+    const curved = textCurve(layer)
+    if (curved) {
+      // Each letter of curved text is its own little line, turned the way it's drawn.
+      const frame = toPage.multiply(curveMatrix(layer, curved))
+      for (const glyph of curved.glyphs) {
+        if (!glyph.text.trim()) continue
+        const m = frame
+          .multiply(new DOMMatrix().translate(glyph.x, glyph.y).rotate((glyph.angle * 180) / Math.PI))
+          .multiply(new DOMMatrix([1, 0, 0, -1, 0, 0]))
+        lines.push({ matrix: [m.a, m.b, m.c, m.d, m.e, m.f], size: glyph.style.size, glyphs: [{ text: glyph.text, x: 0, width: glyph.width }] })
+      }
+      continue
+    }
     const placed = placeText(layer)
     for (const line of placed.lines) {
       if (line.glyphs.length === 0) continue

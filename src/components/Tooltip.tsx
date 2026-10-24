@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { t } from '../i18n/i18n.ts'
+import { proNameOf } from '../proNames.ts'
 
 export interface TipContent {
   title: string
@@ -8,6 +10,9 @@ export interface TipContent {
   // Highlighted line: why something can't be used yet, or what the current value means.
   note?: string
   noteTone?: 'warning' | 'info'
+  // What Photoshop, Illustrator or InDesign call it. Found from the title when left out (see
+  // src/proNames.ts); false when the title's usual pro word doesn't fit here.
+  pro?: string | false
 }
 
 interface TooltipProps extends TipContent {
@@ -32,6 +37,7 @@ export function Tooltip({
   shortcut,
   note,
   noteTone = 'warning',
+  pro,
   side = 'bottom',
   children,
   className,
@@ -128,9 +134,17 @@ export function Tooltip({
                 {note}
               </p>
             )}
+            {proLine(title, pro)}
           </div>,
           container,
         )}
     </span>
   )
+}
+
+// A quiet last line for people who know the professional programs.
+function proLine(title: string, pro: string | false | undefined) {
+  const name = pro === false ? undefined : (pro ?? proNameOf(title))
+  if (!name) return null
+  return <p className="mt-1.5 border-t border-white/10 pt-1.5 text-[11px] leading-relaxed text-white/55">{t('Other programs call this {name}.', { name })}</p>
 }

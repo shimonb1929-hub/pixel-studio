@@ -201,6 +201,7 @@ export function EffectsPanel(props: EffectsPanelProps) {
             <Slider
               label={t("Strength")}
               help={t("How dark the shadow is.")}
+              pro="Opacity"
               value={shadow.opacity}
               display={`${Math.round(shadow.opacity * 100)}%`}
               onChange={(p) => onChange({ ...effects, shadow: { ...shadow, opacity: Math.round(p * 100) / 100 } }, t('Shadow strength'), 'shadow-opacity')}
@@ -208,6 +209,7 @@ export function EffectsPanel(props: EffectsPanelProps) {
             <Slider
               label={t("Softness")}
               help={t("How soft the shadow's edge is. All the way left is a hard, sharp shadow.")}
+              pro="Size"
               value={toSlider(shadow.blur, big)}
               display={`${shadow.blur} px`}
               onChange={(p) => onChange({ ...effects, shadow: { ...shadow, blur: fromSlider(p, big) } }, t('Shadow softness'), 'shadow-blur')}
@@ -222,6 +224,7 @@ export function EffectsPanel(props: EffectsPanelProps) {
             <Slider
               label={t("Direction")}
               help={t("Which way the shadow falls, as if the light comes from the other side.")}
+              pro="Angle"
               value={shadow.angle / 360}
               display={`${Math.round(shadow.angle)}°`}
               note={directionName(shadow.angle)}
@@ -237,6 +240,7 @@ export function EffectsPanel(props: EffectsPanelProps) {
             <Slider
               label={t("Strength")}
               help={t("How bright the glow is.")}
+              pro="Opacity"
               value={glow.opacity}
               display={`${Math.round(glow.opacity * 100)}%`}
               onChange={(p) => onChange({ ...effects, glow: { ...glow, opacity: Math.round(p * 100) / 100 } }, t('Glow strength'), 'glow-opacity')}
@@ -256,6 +260,7 @@ export function EffectsPanel(props: EffectsPanelProps) {
           <Slider
             label={t("Width")}
             help={t("How thick the outline is.")}
+            pro="Stroke size"
             value={toSlider(outline.width, 60 * unit)}
             display={`${outline.width} px`}
             onChange={(p) => onChange({ ...effects, outline: { ...outline, width: Math.max(1, fromSlider(p, 60 * unit)) } }, t('Outline width'), 'outline-width')}
@@ -264,7 +269,7 @@ export function EffectsPanel(props: EffectsPanelProps) {
       </div>
 
       <div className="mt-4 border-t border-line pt-3">
-        <Tooltip title={t("Mix with what's below")} description={blend.description} note={blend.mode === 'normal' ? undefined : t('Other programs call this {name}.', { name: blend.proName })} noteTone="info" className="flex flex-col gap-1">
+        <Tooltip title={t("Mix with what's below")} description={blend.description} pro={blend.mode === 'normal' ? 'Blend Mode' : `Blend Mode: ${blend.proName}`} className="flex flex-col gap-1">
           <label htmlFor="blend-mode" className="text-[11px] font-medium text-ink-2">
             {t("Mix with what's below")}
           </label>
