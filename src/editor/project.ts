@@ -4,7 +4,7 @@ import { BLEND_MODES, hasEffects, type BlendMode, type LayerEffects } from './ef
 import { createCanvas, createDesignId, createId, getContext2d, layerFromCanvas, MAX_LAYER_SIDE, validateDocumentSize } from './document.ts'
 import { EXPORT_FORMATS } from './fileNames.ts'
 import { pixelVersion } from './pixelVersion.ts'
-import type { Selection, SelectionOp } from './selection.ts'
+import { MAX_EDGE_CHANGE, type Selection, type SelectionOp } from './selection.ts'
 import type { TransformBox } from './transform.ts'
 import type { ListKind, TextAlign, TextDirection } from '../text/layout.ts'
 import { loadDesignFonts } from '../text/textLayer.ts'
@@ -37,9 +37,10 @@ import { MAX_PPI } from './units.ts'
 // Version 11 added things on every page (everyPage) and page numbers (pageNumber). Version 12 added
 // lists (a text's style.list) and fonts of your own (fonts): their files come after the pictures.
 // Version 13 added text flowing around pictures and shapes (textWrap).
+// Version 14 added pages with sizes of their own (width and height on a page).
 // Older files still open.
 
-export const PROJECT_VERSION = 13
+export const PROJECT_VERSION = 14
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -145,6 +146,9 @@ export interface ProjectFont {
 const MAX_FONTS = 100
 
 export interface ProjectPage {
+  // The page's own size. Missing means the design's size (older files, and one-page designs).
+  width?: number
+  height?: number
   background: string | null
   // Colors fading across the page instead of one color. Older files don't have it.
   pageGradient?: Gradient
@@ -493,6 +497,10 @@ function readSelection(value: unknown): Selection | null {
   if (!isRecord(value) || !Array.isArray(value.ops)) throw new ProjectError(t(DAMAGED))
   const ops = value.ops.map((op): SelectionOp => {
     if (isRecord(op) && op.kind === 'invert') return { kind: 'invert' }
+    if (isRecord(op) && (op.kind === 'grow' || op.kind === 'soften')) {
+      if (!isBetween(op.by, -MAX_EDGE_CHANGE, MAX_EDGE_CHANGE)) throw new ProjectError(t(DAMAGED))
+      return { kind: op.kind, by: op.by as number }
+    }
     if (!isRecord(op) || op.kind !== 'polygon' || typeof op.subtract !== 'boolean' || !Array.isArray(op.points)) {
       throw new ProjectError(t(DAMAGED))
     }
@@ -554,12 +562,14 @@ function readLayout(value: unknown): PageLayout {
 }
 
 function readPage(value: Record<string, unknown>): ProjectPage {
-  const { activeLayer, layers, background, pageGradient } = value
+  const { activeLayer, layers, background, pageGradient, width, height } = value
   if (!Array.isArray(layers) || layers.length > MAX_LAYERS) damaged()
+  const sized = width !== undefined || height !== undefined
+  if (sized && (typeof width !== 'number' || typeof height !== 'number' || validateDocumentSize(width, height))) damaged()
   const checked = layers.map(readLayer)
   if (!isWhole(activeLayer, -1, checked.length - 1)) damaged()
   const color = background === undefined || background === null ? null : readColor(background)
-  return { background: color, ...(color && pageGradient !== undefined ? { pageGradient: readGradient(pageGradient) } : {}), activeLayer, layers: checked }
+  return { ...(sized ? { width: width as number, height: height as number } : {}), background: color, ...(color && pageGradient !== undefined ? { pageGradient: readGradient(pageGradient) } : {}), activeLayer, layers: checked }
 }
 
 // Encoding a big picture takes a moment, so each PNG is kept until its pixels change.
@@ -618,13 +628,14 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
   // Pages are read now, before waiting, so later changes don't end up half in the file.
   const pages = allPages(doc)
   const pictures = await Promise.all(pages.map((page) => Promise.all(page.layers.map((layer) => Promise.all(layerPictures(layer).map(canvasPng))))))
+  const several = pages.length > 1
   const described = pages.map((page, p): ProjectPage => ({
+    ...(several ? { width: page.width, height: page.height } : {}),
     background: page.background,
     ...(page.background && page.pageGradient ? { pageGradient: page.pageGradient } : {}),
     activeLayer: page.layers.findIndex((layer) => layer.id === page.activeLayerId),
     layers: page.layers.map((layer, i) => describeLayer(layer, pictures[p][i].map((png) => png.size))),
   }))
-  const several = pages.length > 1
   // Fonts of your own go inside, so the design looks the same on any computer.
   const used = new Set(pages.flatMap((page) => page.layers.flatMap((layer) => (layer.kind === 'text' ? [layer.style.font, ...(layer.spans ?? []).flatMap((span) => (span.style.font ? [span.style.font] : []))] : []))))
   const fonts = [...used].flatMap((id) => {
@@ -713,7 +724,7 @@ export async function decodeProject(file: Blob, id = createDesignId()): Promise<
         return { ...layer, group: { id: groupIds.get(layer.group.id)!, name: layer.group.name } }
       })
       const tidy = tidyGroups({ id, name: '', width: 1, height: 1, background: null, layers: regrouped, activeLayerId: regrouped[info.activeLayer]?.id ?? '', selection: null })
-      return { id: createId('page'), background: info.background, pageGradient: info.pageGradient ?? null, layers: tidy.layers, activeLayerId: tidy.activeLayerId }
+      return { id: createId('page'), width: info.width ?? manifest.width, height: info.height ?? manifest.height, background: info.background, pageGradient: info.pageGradient ?? null, layers: tidy.layers, activeLayerId: tidy.activeLayerId }
     }),
   )
   const index = manifest.page ?? 0
@@ -721,8 +732,8 @@ export async function decodeProject(file: Blob, id = createDesignId()): Promise<
   return {
     id,
     name: manifest.name,
-    width: manifest.width,
-    height: manifest.height,
+    width: open.width,
+    height: open.height,
     background: open.background,
     pageGradient: open.pageGradient ?? null,
     ...(manifest.ppi ? { ppi: manifest.ppi } : {}),

@@ -42,6 +42,7 @@ export interface AppCommands {
   rotateDesign: (direction: 1 | -1) => void
   flipDesign: (axis: 'horizontal' | 'vertical') => void
   addPage: () => void
+  otherSizes: () => void
   pageLayout: () => void
   copyPage: () => void
   everyPage: () => void
@@ -549,6 +550,15 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       keywords: ['page', 'add page', 'new page', 'pages', 'booklet', 'menu', 'brochure', 'magazine', 'book', 'card', 'multi', 'more pages'],
       needsDocument: true,
       run: c.addPage,
+    },
+    {
+      id: 'other-sizes',
+      group: 'Pages',
+      title: t('Make other sizes…'),
+      description: t('Make this page again at other sizes, like a phone story, a post and a banner. Everything is moved to fit each size, and each one becomes a new page. Pro programs call this alternate layouts or magic resize.'),
+      keywords: ['resize', 'other sizes', 'sizes', 'alternate layout', 'alternate layouts', 'magic resize', 'story', 'post', 'banner', 'instagram', 'social', 'formats', 'adapt', 'many sizes', 'responsive', 'artboards'],
+      needsDocument: true,
+      run: c.otherSizes,
     },
     {
       id: 'page-layout',

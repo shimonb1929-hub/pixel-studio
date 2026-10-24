@@ -11,6 +11,8 @@ import { LayersPanel } from './components/LayersPanel.tsx'
 import { NewDocumentDialog, type NewDocumentOptions } from './components/NewDocumentDialog.tsx'
 import { RenameDialog } from './components/RenameDialog.tsx'
 import { ResizeDialog } from './components/ResizeDialog.tsx'
+import { SizesDialog } from './components/SizesDialog.tsx'
+import { makeOtherSizes } from './editor/otherSizes.ts'
 import { PageLayoutDialog } from './components/PageLayoutDialog.tsx'
 import { defaultGap, hasLayout } from './editor/pageLayout.ts'
 import { ShapePanel, type ColorTarget } from './components/ShapePanel.tsx'
@@ -35,7 +37,7 @@ import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, typ
 import { adjustArea, lookThumbnails, paintAdjusted, previewParts } from './editor/adjustSession.ts'
 import { DEFAULT_PPI, documentPpi } from './editor/units.ts'
 import { arrangeBox, changeBox, frameOf, layerInFrame, placeInBox, type BoxChange } from './editor/arrange.ts'
-import { BRUSH_PRESETS, ERASER_PRESETS, stepBrushSize, type BrushSettings } from './editor/brushes.ts'
+import { BRUSH_PRESETS, COPY_BRUSH, ERASER_PRESETS, stepBrushSize, type BrushSettings, type CopyBrush } from './editor/brushes.ts'
 import { getClipboard, ownCopyCheck, setClipboard } from './editor/clipboard.ts'
 import {
   createBlankDocument,
@@ -49,7 +51,7 @@ import {
   MAX_DOCUMENT_SIDE,
 } from './editor/document.ts'
 import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocument } from './editor/documentOps.ts'
-import { addPage, changeEveryPage, movePage, pageDocuments, pageIndex, removePage } from './editor/pages.ts'
+import { addPage, changeEveryPage, movePage, pageDocuments, pageIndex, pagesSameSize, removePage } from './editor/pages.ts'
 import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
 import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
@@ -87,7 +89,8 @@ import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
 import { decodeProject } from './editor/project.ts'
 import type { LayerOverride } from './editor/render.ts'
-import { invertSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
+import { invertSelection, refineSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
+import { colorMaskAt } from './editor/colorSelect.ts'
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
@@ -116,7 +119,7 @@ import { TOOLS } from './tools.ts'
 import { useTurnIntoShapes } from './hooks/useTurnIntoShapes.tsx'
 import { live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout'
+type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -393,6 +396,16 @@ export default function App() {
   const [cropEdit, setCropEdit] = useState<CropState | null>(null)
   const [fillTolerance, setFillTolerance] = useState(0.15)
   const [healSize, setHealSize] = useState(40)
+  // Copy paint: its brush, whether the copy follows along from stroke to stroke, and the spot it
+  // copies from (with how far that is from where painting started, while it follows along).
+  const [copyBrush, setCopyBrush] = useState<CopyBrush>({ size: 40, softness: 0.5, opacity: 1 })
+  const [copyAligned, setCopyAligned] = useState(true)
+  const [copyFrom, setCopyFrom] = useState<{ docId: string; layerId: string; point: Point; offset: Point | null } | null>(null)
+  // Selecting by color: how similar a color must be, and whether only touching parts count.
+  const [colorTolerance, setColorTolerance] = useState(0.12)
+  const [colorTouching, setColorTouching] = useState(true)
+  // A softer, bigger or smaller selection edge being tried out on `base`, before it's kept.
+  const [edgeEdit, setEdgeEdit] = useState<{ base: Selection; soften: number; grow: number } | null>(null)
   // Adjustments being tried on one layer (and selection); they start over when either changes.
   const [adjustEdit, setAdjustEdit] = useState<{ layer: Layer; selection: Selection | null; settings: Adjustments } | null>(null)
   const [shapeDefaults, setShapeDefaults] = useState<ShapeDefaults>(DEFAULT_SHAPES)
@@ -477,6 +490,15 @@ export default function App() {
   const activeNow = doc ? activeLayer(doc) : undefined
   // Blur the background: its slider shows in the Arrange bar until Apply or Cancel.
   const blurBackground = useBlurBackground({ editor, active: activeNow, showing: tool === 'move', setNotice })
+  // The spot Copy paint copies from, while its picture is still there.
+  const copySource = copyFrom && doc && copyFrom.docId === doc.id && doc.layers.some((l) => l.id === copyFrom.layerId && l.kind === 'raster') ? copyFrom : null
+  // A selection edge being tried out counts only while its selection is still the one shown.
+  const edgeShown = edgeEdit && tool === 'select' && doc?.selection === edgeEdit.base ? edgeEdit : null
+  const edgePreview = useMemo(
+    () => (edgeShown && (edgeShown.soften > 0 || edgeShown.grow !== 0) ? refineSelection(edgeShown.base, edgeShown) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [edgeShown?.base, edgeShown?.soften, edgeShown?.grow],
+  )
   const transformOn = tool === 'move' && !!doc?.selection
   const session = useMemo(
     () => (transformOn && doc ? startTransform(doc, fillGap) : null),
@@ -1333,6 +1355,19 @@ export default function App() {
     setFitPending(null)
   }, [fitPending, workspace])
 
+  // Going to a page of another size (by picking it, or by undo going back to it) fits that page in
+  // view, like opening a design.
+  const shownPageRef = useRef<{ id: string; page: number; width: number; height: number } | null>(null)
+  useEffect(() => {
+    if (!doc) return
+    const now = { id: doc.id, page: pageIndex(doc), width: doc.width, height: doc.height }
+    const before = shownPageRef.current
+    shownPageRef.current = now
+    if (before && before.id === now.id && before.page !== now.page && (before.width !== now.width || before.height !== now.height)) {
+      setViewport(fitted(now, false))
+    }
+  }, [doc])
+
   // Before leaving the open design, its latest changes are saved in the browser. If that doesn't
   // work and they haven't been downloaded either, it asks first.
   const leaveTicketRef = useRef(0)
@@ -1571,6 +1606,26 @@ export default function App() {
     return layer.kind === 'raster' ? canvasBytes(layer.canvas) : 0
   }
 
+  // Same color: everything of a similar color to the clicked spot, in what you see.
+  function colorSelect(point: Point, mode: SelectionMode) {
+    const d = current()
+    if (!d) return
+    const mask = colorMaskAt(d, point, Math.round(colorTolerance * 255), colorTouching)
+    const ops = mask ? maskToOps(mask, d.width, d.height, 1, 1) : []
+    if (ops.length === 0) {
+      problem(t('Nothing big enough was found there. Try a higher “Similar colors”.'))
+      return
+    }
+    setSelection(mode === 'add' ? t('Add to selection') : mode === 'subtract' ? t('Remove from selection') : t('Select same color'), (doc) => combineFound(doc.selection, ops, mode))
+  }
+
+  function applyEdge() {
+    const edit = edgeShown
+    setEdgeEdit(null)
+    if (!edit || (edit.soften === 0 && edit.grow === 0)) return
+    setSelection(t('Change selection edge'), (d) => (d.selection === edit.base ? refineSelection(edit.base, edit) : d.selection))
+  }
+
   function handleSelect(selection: Selection | null, label: string) {
     editor.change(label, (d) => ({ ...d, selection }))
   }
@@ -1626,6 +1681,7 @@ export default function App() {
     })
     if (tool === 'eraser') setEraser(update)
     else if (tool === 'heal') setHealSize((size) => stepBrushSize(size, direction))
+    else if (tool === 'clone') setCopyBrush((b) => ({ ...b, size: stepBrushSize(b.size, direction) }))
     else setBrush(update)
   }
 
@@ -1884,6 +1940,7 @@ export default function App() {
     editor.change(label, onePage ? update : (doc) => changeEveryPage(doc, update), { bytes })
     const next = current()
     if (next) setViewport(fitted(next, false))
+    if (!onePage && !pagesSameSize(d)) inform(t('Only the pages the size of this one changed. Pages of other sizes stay as they are.'))
   }
 
   const layers = {
@@ -2189,6 +2246,7 @@ export default function App() {
       if (adjustChanged) return applyAdjust(), true
       if (blurBackground.apply()) return true
       if (straighten.pending) return straighten.apply(), true
+      if (edgeShown) return applyEdge(), true
       return false
     },
     cancelPending: () => {
@@ -2201,6 +2259,7 @@ export default function App() {
       if (adjustChanged) return cancelAdjust(), true
       if (blurBackground.cancel()) return true
       if (straighten.pending) return straighten.cancel(), true
+      if (edgeShown) return setEdgeEdit(null), true
       return false
     },
     pageLayout: () => {
@@ -2210,6 +2269,10 @@ export default function App() {
     resizeDesign: () => {
       settle()
       if (current()) setDialog('resize')
+    },
+    otherSizes: () => {
+      settle()
+      if (current()) setDialog('sizes')
     },
     cropToSelection: () => {
       const d = current()
@@ -2510,7 +2573,14 @@ export default function App() {
     setCrop(ratio ? smartCropFrame(doc, ratio, crop.box) : crop.box, shape)
   }
 
-  const paintSettings = tool === 'eraser' ? eraser.settings : tool === 'heal' ? { ...brush.settings, size: healSize } : brush.settings
+  const paintSettings =
+    tool === 'eraser'
+      ? eraser.settings
+      : tool === 'heal'
+        ? { ...brush.settings, size: healSize }
+        : tool === 'clone'
+          ? { ...COPY_BRUSH, ...copyBrush }
+          : brush.settings
   const hintTool: ToolId = spaceHeld ? 'hand' : altHeld && tool === 'brush' ? 'picker' : tool
   const hintExtra =
     doc?.selection && (hintTool === 'brush' || hintTool === 'eraser' || hintTool === 'adjust')
@@ -2845,6 +2915,30 @@ export default function App() {
         onFillToleranceChange={setFillTolerance}
         healSize={healSize}
         onHealSizeChange={setHealSize}
+        copy={{
+          brush: copyBrush,
+          onBrushChange: setCopyBrush,
+          aligned: copyAligned,
+          onAlignedChange: (aligned) => {
+            setCopyAligned(aligned)
+            setCopyFrom((from) => from && { ...from, offset: null })
+          },
+          picked: !!copySource,
+          pickAgain: () => setCopyFrom(null),
+        }}
+        colorSelect={{
+          tolerance: colorTolerance,
+          onToleranceChange: setColorTolerance,
+          touching: colorTouching,
+          onTouchingChange: setColorTouching,
+        }}
+        edge={{
+          editing: edgeShown && { soften: edgeShown.soften, grow: edgeShown.grow },
+          start: () => doc?.selection && setEdgeEdit({ base: doc.selection, soften: 0, grow: 0 }),
+          change: (change) => setEdgeEdit((edit) => edit && { ...edit, ...change }),
+          apply: applyEdge,
+          cancel: () => setEdgeEdit(null),
+        }}
       />}
 
       <div className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
@@ -2883,6 +2977,22 @@ export default function App() {
                 fillGap={fillGap}
                 onSelect={handleSelect}
                 onMagicSelect={(target, mode) => void magicSelect(target, mode)}
+                onColorSelect={colorSelect}
+                selectionPreview={edgePreview}
+                clone={
+                  tool === 'clone'
+                    ? {
+                        source: copySource && { layerId: copySource.layerId, point: copySource.point },
+                        offset: copySource?.offset ?? null,
+                        aligned: copyAligned,
+                        onSource: (layerId, point) => {
+                          setCopyFrom({ docId: doc.id, layerId, point, offset: null })
+                          setNotice({ message: t('Got it. Now paint where the copy should go.'), tone: 'info' })
+                        },
+                        onOffset: (offset) => setCopyFrom((from) => from && { ...from, offset }),
+                      }
+                    : null
+                }
                 onBlocked={problem}
                 override={override}
                 box={box}
@@ -2930,6 +3040,7 @@ export default function App() {
                   editor.goToPage(index)
                 }}
                 onAdd={commands.addPage}
+                onOtherSizes={commands.otherSizes}
                 onCopy={commands.copyPage}
                 onMove={commands.movePage}
                 onDelete={commands.deletePage}
@@ -3142,6 +3253,25 @@ export default function App() {
               else delete next.layout
               return next
             })
+          }}
+        />
+      )}
+      {dialog === 'sizes' && doc && (
+        <SizesDialog
+          doc={doc}
+          onClose={() => setDialog(null)}
+          onMake={(sizes) => {
+            setDialog(null)
+            settle()
+            const d = current()
+            if (!d) return
+            editor.change(t('Make other sizes'), (next) => makeOtherSizes(next, sizes), { bytes: documentBytes(d) * sizes.length })
+            setTool('move')
+            inform(
+              sizes.length > 1
+                ? t('Made {count} new pages, one for each size. Change each one as you like; a PDF download has them all.', { count: sizes.length })
+                : t('Made a new page at that size. Change it as you like; a PDF download has every page.'),
+            )
           }}
         />
       )}
