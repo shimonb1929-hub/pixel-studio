@@ -50,9 +50,11 @@ function copyFor(source: Layer, copy: Layer | null, number: number): Layer {
   return numbered(next, number)
 }
 
-// Brings every page in line with the open one: its things-on-every-page are copied to the other
+// Brings every page the size of the open one in line with it: its things-on-every-page are copied to the other
 // pages (added on top where missing, removed where the open page no longer has them), and page
-// numbers show their own page. Returns the same design when nothing changes.
+// numbers show their own page. Pages of another size, like a story made from a post, keep their own
+// things-on-every-page, shared only with the pages of their size. Returns the same design when
+// nothing changes.
 export function syncEveryPage(doc: EditorDocument): EditorDocument {
   const index = pageIndex(doc)
   const pages = doc.pages
@@ -78,6 +80,12 @@ export function syncEveryPage(doc: EditorDocument): EditorDocument {
   const links = new Map(source.map((l) => [l.everyPage!, l]))
   const nextPages = pages.map((page, i) => {
     if (i === index) return page
+    if (page.width !== doc.width || page.height !== doc.height) {
+      const numberedLayers = own(page.layers, i + 1)
+      if (numberedLayers === page.layers) return page
+      changed = true
+      return { ...page, layers: numberedLayers }
+    }
     let pageChanged = false
     const seen = new Set<string>()
     const kept = page.layers.flatMap((l): Layer[] => {

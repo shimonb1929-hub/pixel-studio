@@ -1,4 +1,4 @@
-import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
+import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon, Droplet, Blend, Footprints, MapPin } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -13,6 +13,7 @@ import {
   sliderToSize,
   type BrushPreset,
   type BrushSettings,
+  type CopyBrush,
 } from '../editor/brushes.ts'
 import type { BoxChange } from '../editor/arrange.ts'
 import type { LineUpEdge } from '../editor/organize.ts'
@@ -21,8 +22,8 @@ import { signedDecimalInput, formatInUnit, pixelsToUnit, unitToPixels, useUnit, 
 import { MAX_LAYER_SIDE } from '../editor/document.ts'
 import { UnitPicker } from './UnitPicker.tsx'
 import { unitShort } from './unitWords.ts'
-import type { SelectionMode, SelectionShape } from '../editor/selection.ts'
-import type { ShapeType, ToolId } from '../editor/types.ts'
+import { MAX_EDGE_CHANGE, type SelectionMode, type SelectionShape } from '../editor/selection.ts'
+import type { ShapeType, TextWrap, TextWrapMode, ToolId } from '../editor/types.ts'
 import { ALT_LABEL } from '../keys.ts'
 import { TEXT_KINDS, type TextKind } from '../text/presets.ts'
 import { toolInfo } from '../tools.ts'
@@ -230,7 +231,9 @@ interface Choice<T extends string> {
   description: string
 }
 
-function Segmented<T extends string>({ label, value, choices, onChange }: { label: string; value: T; choices: Choice<T>[]; onChange: (value: T) => void }) {
+// `compact` names only the chosen one on smaller screens; the others show their icon, and their
+// name on hover.
+function Segmented<T extends string>({ label, value, choices, compact, onChange }: { label: string; value: T; choices: Choice<T>[]; compact?: boolean; onChange: (value: T) => void }) {
   return (
     <div role="radiogroup" aria-label={label} className="flex shrink-0 gap-0.5 rounded-[10px] border border-line bg-subtle p-0.5">
       {choices.map((choice) => (
@@ -246,7 +249,7 @@ function Segmented<T extends string>({ label, value, choices, onChange }: { labe
             }`}
           >
             <choice.icon size={15} strokeWidth={1.9} />
-            {choice.label}
+            <span className={compact && value !== choice.value ? 'hidden 2xl:inline' : undefined}>{choice.label}</span>
           </button>
         </Tooltip>
       ))}
@@ -264,6 +267,12 @@ const SHAPES: Choice<SelectionShape>[] = live([
     icon: WandSparkles,
     description: msg('Click a thing (a person, an animal, a house, a tree) and it is selected for you, right to its edges. Or drag a box around it. The first time, it takes a moment to get ready.'),
   },
+  {
+    value: 'color',
+    label: msg('Same color'),
+    icon: Droplet,
+    description: msg('Click a color, and everything of a similar color is selected: a blue sky, a white wall, a green background. Professionals call this the Magic wand.'),
+  },
 ])
 
 const MODES: Choice<SelectionMode>[] = live([
@@ -278,6 +287,182 @@ const MODES: Choice<SelectionMode>[] = live([
     },
   },
 ])
+
+export interface ColorSelectControls {
+  tolerance: number
+  onToleranceChange: (tolerance: number) => void
+  // Only the parts touching the clicked spot, or that color everywhere.
+  touching: boolean
+  onTouchingChange: (touching: boolean) => void
+}
+
+export interface EdgeControls {
+  // The edge being tried out, or null when the edge isn't being changed.
+  editing: { soften: number; grow: number } | null
+  start: () => void
+  change: (change: { soften?: number; grow?: number }) => void
+  apply: () => void
+  cancel: () => void
+}
+
+export interface CopyBarControls {
+  brush: CopyBrush
+  onBrushChange: (brush: CopyBrush) => void
+  aligned: boolean
+  onAlignedChange: (aligned: boolean) => void
+  // A spot to copy from has been clicked.
+  picked: boolean
+  pickAgain: () => void
+}
+
+// A button that stays pressed while its setting is on.
+function OnOff({ on, icon: Icon, label, description, onChange }: { on: boolean; icon: LucideIcon; label: string; description: string; onChange: (on: boolean) => void }) {
+  return (
+    <Tooltip title={label} description={description}>
+      <button
+        type="button"
+        aria-pressed={on}
+        aria-label={label}
+        onClick={() => onChange(!on)}
+        className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
+          on ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
+        }`}
+      >
+        <Icon size={15} />
+        <span className="hidden xl:inline">{label}</span>
+      </button>
+    </Tooltip>
+  )
+}
+
+// The edge sliders move a pixel at a time with the arrow keys.
+const SOFTEN_MAX = 100
+const GROW_MAX = Math.min(100, MAX_EDGE_CHANGE)
+
+function describeEdge(soften: number, grow: number): string {
+  if (soften === 0 && grow === 0) return t('Move a slider to see the new edge. The parts left out are dimmed.')
+  return t('The dimmed parts are left out. Press Apply to keep the new edge.')
+}
+
+// Changing the edge of the selection: softer (feather), bigger (expand) or smaller (contract),
+// seen on the design before it's kept.
+function EdgeOptions({ controls, editing }: { controls: EdgeControls; editing: { soften: number; grow: number } }) {
+  const { soften, grow } = editing
+  const notYet = soften === 0 && grow === 0 ? t('Move a slider first.') : undefined
+  return (
+    <>
+      <Slider
+        className="w-44 shrink-0"
+        label={t('Soften edge (Feather)')}
+        help={t('Makes the edge of the selection fade out gently, so what you paint, delete, move or change blends in without a hard line.')}
+        value={soften / SOFTEN_MAX}
+        step={1 / SOFTEN_MAX}
+        display={`${soften} px`}
+        onChange={(position) => controls.change({ soften: Math.round(position * SOFTEN_MAX) })}
+      />
+      <Slider
+        className="w-48 shrink-0"
+        label={t('Grow or shrink (Expand, Contract)')}
+        help={t('Moves the edge of the selection outward to take in a little more, or inward to leave a little out. Good for catching a thin edge that was missed.')}
+        value={(grow / GROW_MAX + 1) / 2}
+        origin={0.5}
+        step={1 / (GROW_MAX * 2)}
+        display={`${grow > 0 ? '+' : ''}${grow} px`}
+        onChange={(position) => controls.change({ grow: Math.round((position * 2 - 1) * GROW_MAX) })}
+      />
+      <Hint>{describeEdge(soften, grow)}</Hint>
+      <Button variant="ghost" className="h-8 shrink-0 px-3 text-[13px]" onClick={controls.cancel} tip={{ title: t('Cancel'), shortcut: 'Esc', description: t('Keep the edge as it was.') }}>
+        {t('Cancel')}
+      </Button>
+      <Button variant="primary" className="h-8 shrink-0 px-3.5 text-[13px]" disabled={!!notYet} onClick={controls.apply} tip={{ title: t('Apply'), shortcut: 'Enter', description: t('Keep the new edge. You can undo it.'), note: notYet }}>
+        <Check size={15} />
+        {t('Apply')}
+      </Button>
+    </>
+  )
+}
+
+function describeColorReach(tolerance: number): string {
+  if (tolerance < 0.02) return t('Only exactly the same color gets selected.')
+  if (tolerance < 0.25) return t('Selects very similar colors. Good for flat areas and drawings.')
+  if (tolerance < 0.6) return t('Selects somewhat similar colors too. Good for photos.')
+  return t('Selects almost any color. Be careful, it may select a lot.')
+}
+
+function ColorSelectOptions({ controls }: { controls: ColorSelectControls }) {
+  return (
+    <>
+      <Slider
+        className="w-36 shrink-0"
+        label={t('Similar colors')}
+        help={t('How different a color can be and still get selected. Low picks only one exact color; high picks more. Professionals call this Tolerance.')}
+        value={controls.tolerance}
+        display={`${Math.round(controls.tolerance * 100)}%`}
+        note={describeColorReach(controls.tolerance)}
+        onChange={(position) => controls.onToleranceChange(Math.round(position * 100) / 100)}
+      />
+      <OnOff
+        on={controls.touching}
+        icon={Footprints}
+        label={t('Only touching')}
+        description={t('When on, only the part connected to where you click is selected. When off, that color is selected everywhere on the design. Professionals call this Contiguous.')}
+        onChange={controls.onTouchingChange}
+      />
+    </>
+  )
+}
+
+// Copy paint: the spot to copy from, the brush, and whether the copy follows along.
+function CopyOptions({ controls }: { controls: CopyBarControls }) {
+  const { brush } = controls
+  return (
+    <>
+      <Slider
+        className="w-32 shrink-0"
+        label={t('Size')}
+        help={t('How wide the brush is.')}
+        note={describeSize(brush.size)}
+        value={sizeToSlider(brush.size)}
+        display={`${brush.size} px`}
+        onChange={(position) => controls.onBrushChange({ ...brush, size: sliderToSize(position) })}
+      />
+      <Slider
+        className="w-28 shrink-0"
+        label={t('Softness')}
+        help={t('How gently the copy fades into what is around it. Soft edges hide the join.')}
+        note={describeSoftness(brush.softness)}
+        value={brush.softness}
+        display={`${Math.round(brush.softness * 100)}%`}
+        onChange={(position) => controls.onBrushChange({ ...brush, softness: Math.round(position * 100) / 100 })}
+      />
+      <Slider
+        className="w-28 shrink-0"
+        label={t('Strength')}
+        help={t('How fully the copy covers what is there. Lower lets some of the old picture show through, for a gentle blend.')}
+        value={brush.opacity}
+        display={`${Math.round(brush.opacity * 100)}%`}
+        onChange={(position) => controls.onBrushChange({ ...brush, opacity: Math.max(0.01, Math.round(position * 100) / 100) })}
+      />
+      <Divider />
+      <OnOff
+        on={controls.aligned}
+        icon={Link}
+        label={t('Follow along (Aligned)')}
+        description={t('When on, the copy keeps following your brush from one stroke to the next, as if the two were tied together. When off, every new stroke starts copying from the spot you picked.')}
+        onChange={controls.onAlignedChange}
+      />
+      <BarButton
+        icon={MapPin}
+        label={t('New spot')}
+        title={t('Copy from a new spot')}
+        description={t('Pick another part of the photo to copy from: click it next. Tip: holding {alt} and clicking does this too.', { alt: ALT_LABEL })}
+        disabledReason={controls.picked ? undefined : t('Click the part you want to copy first.')}
+        onClick={controls.pickAgain}
+      />
+      <Hint>{controls.picked ? t('Paint where the copy should go. The cross shows what is being copied.') : t('Click the part of your photo you want to copy.')}</Hint>
+    </>
+  )
+}
 
 export interface SelectionCommands {
   hasSelection: boolean
@@ -352,25 +537,39 @@ function SelectOptions({
   shape,
   mode,
   commands,
+  colorSelect,
+  edge,
   onShapeChange,
   onModeChange,
 }: {
   shape: SelectionShape
   mode: SelectionMode
   commands: SelectionCommands
+  colorSelect: ColorSelectControls
+  edge: EdgeControls
   onShapeChange: (shape: SelectionShape) => void
   onModeChange: (mode: SelectionMode) => void
 }) {
   const nothing = commands.hasSelection ? undefined : t('Select an area first.')
+  if (edge.editing) return <EdgeOptions controls={edge} editing={edge.editing} />
   return (
     <>
-      <Segmented label={t("Shape")} value={shape} choices={SHAPES} onChange={onShapeChange} />
+      <Segmented label={t("Shape")} value={shape} choices={SHAPES} compact onChange={onShapeChange} />
+      {shape === 'color' && <ColorSelectOptions controls={colorSelect} />}
       <Segmented label={t("When you drag")} value={mode} choices={MODES} onChange={onModeChange} />
       <Divider />
       <div className="flex shrink-0 items-center">
         <BarButton icon={SquareDashed} label={t("All")} title={t("Select all")} description={t("Select the whole design.")} onClick={commands.selectAll} />
         <BarButton icon={SquareSlash} label={t("None")} title={t("Deselect")} description={t("Clear the selection, so you can work on the whole design again.")} disabledReason={nothing} onClick={commands.deselect} />
         <BarButton icon={Contrast} label={t("Invert")} title={t("Invert selection")} description={t("Swap what is selected and what is not.")} onClick={commands.invert} />
+        <BarButton
+          icon={Blend}
+          label={t('Edge')}
+          title={t('Soften, grow or shrink the edge')}
+          description={t('Make the edge of the selection soft so changes blend in (Feather), or move it out or in a little (Expand, Contract). You see the new edge before you keep it.')}
+          disabledReason={nothing}
+          onClick={edge.start}
+        />
       </div>
       <Divider />
       <div className="flex shrink-0 items-center">
@@ -421,12 +620,25 @@ export interface ArrangeBarControls {
   spreadOut: (axis: 'x' | 'y') => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
+  // Set when one picture or shape is picked: whether text flows around it, and how.
+  textWrap?: TextWrapControls
   // Set when several things are picked: makes one shape out of them, or says why it can't.
   combine?: (mode: CombineMode) => void
   combineBlocked?: string | null
   // With a selected part: whether moving it fills the gap it leaves.
   fillGap: boolean
   onFillGap: (on: boolean) => void
+}
+
+export interface TextWrapControls {
+  value: TextWrap | null
+  // Off, or a way for text to flow around it.
+  onMode: (mode: TextWrapMode | null) => void
+  // The space kept free around it, in design pixels; `done` is false while a slider is being dragged.
+  onGap: (gap: number) => void
+  // The most space the slider gives.
+  maxGap: number
+  ppi: number
 }
 
 export type CropShape = 'free' | 'original' | 'square' | 'portrait' | 'wide'
@@ -786,6 +998,99 @@ function CombineMenu({ blocked, onCombine }: { blocked: string | null; onCombine
   )
 }
 
+const WRAPS: { mode: TextWrapMode | null; label: string; description: string; icon: LucideIcon }[] = live([
+  { mode: null, label: msg('Off'), description: msg('Text runs over or under it, as if it were not there.'), icon: CircleOff },
+  { mode: 'shape', label: msg('Its shape'), description: msg('Text hugs its outline: round text edges beside a circle, and close around what is left of a photo with its background removed.'), icon: Shapes },
+  { mode: 'box', label: msg('Its box'), description: msg('Text keeps out of the rectangle it sits in, in straight lines.'), icon: Square },
+  { mode: 'jump', label: msg('Above and below'), description: msg('Text stops above it and goes on below it, with nothing beside it.'), icon: BetweenHorizontalStart },
+])
+
+// Text flowing around a picture or shape (text wrap): a small menu of ways, and the space kept free.
+function TextWrapMenu({ controls }: { controls: TextWrapControls }) {
+  const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="menuitemradio"][aria-checked="true"]')
+  const [unit] = useUnit()
+  const on = !!controls.value
+  const item = 'flex flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-center text-[11px] font-medium leading-tight outline-none focus-visible:bg-subtle'
+  const gap = controls.value?.gap ?? 0
+  return (
+    <>
+      <Tooltip
+        title={t('Text around it (text wrap)')}
+        description={t('Make text in a box flow around this, instead of running over or under it. It works on text in a box: drag a box with the Text tool.')}
+      >
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label={t('Text around it')}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => {
+            setPosition(null)
+            setOpen(!open)
+          }}
+          className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${open || on ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
+        >
+          <WrapText size={15} />
+          <span className="hidden 2xl:inline">{t('Text around it')}</span>
+          <ChevronDown size={13} />
+        </button>
+      </Tooltip>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={t('Text around it')}
+            onKeyDown={(event) => {
+              const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])
+              const index = items.indexOf(document.activeElement as HTMLElement)
+              if (index < 0) return
+              const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
+              if (step === 0) return
+              event.preventDefault()
+              event.stopPropagation()
+              items[(index + step + items.length) % items.length]?.focus()
+            }}
+            className="fixed z-40 w-80 rounded-xl border border-line bg-surface p-2 shadow-float"
+            style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
+          >
+            <p className="px-1 pb-2 text-[12px] leading-snug text-ink-2">{t('How text in a box flows around it:')}</p>
+            <div className="grid grid-cols-4 gap-1">
+              {WRAPS.map(({ mode, label, description, icon: Icon }) => {
+                const chosen = (controls.value?.mode ?? null) === mode
+                return (
+                  <Tooltip key={mode ?? 'off'} title={label} description={description} className="flex">
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={chosen}
+                      onClick={() => controls.onMode(mode)}
+                      className={`${item} flex-1 ${chosen ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
+                    >
+                      <Icon size={18} />
+                      {label}
+                    </button>
+                  </Tooltip>
+                )
+              })}
+            </div>
+            {on && (
+              <Slider
+                className="px-1 pb-1 pt-3"
+                label={t('Space around')}
+                help={t('How much empty space is kept between it and the text.')}
+                value={gap / controls.maxGap}
+                display={`${formatInUnit(gap, unit, controls.ppi)} ${unitShort(unit)}`}
+                onChange={(position) => controls.onGap(Math.round(position * controls.maxGap))}
+              />
+            )}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
+
 function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineUp: (edge: LineUpEdge) => void; onSpread: (axis: 'x' | 'y') => void }) {
   const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="menuitem"]')
 
@@ -936,8 +1241,8 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
       )}
       <div className="flex shrink-0 items-center">
         {/* The icon names describe the mirror line: a vertical line flips left to right. */}
-        <BarButton icon={FlipVertical2} label={t("Mirror")} title={t("Flip left to right")} description={several ? t('Mirror them, so the left side becomes the right side.') : t('Mirror it, so the left side becomes the right side.')} onClick={() => controls.flip('horizontal')} />
-        <BarButton icon={FlipHorizontal2} label={t("Upside down")} title={t("Flip upside down")} description={several ? t('Mirror them top to bottom, so the top becomes the bottom.') : t('Mirror it top to bottom, so the top becomes the bottom.')} onClick={() => controls.flip('vertical')} />
+        <BarButton icon={FlipVertical2} roomy label={t("Mirror")} title={t("Flip left to right")} description={several ? t('Mirror them, so the left side becomes the right side.') : t('Mirror it, so the left side becomes the right side.')} onClick={() => controls.flip('horizontal')} />
+        <BarButton icon={FlipHorizontal2} roomy label={t("Upside down")} title={t("Flip upside down")} description={several ? t('Mirror them top to bottom, so the top becomes the bottom.') : t('Mirror it top to bottom, so the top becomes the bottom.')} onClick={() => controls.flip('vertical')} />
         <BarButton icon={RotateCcw} label={t("Left")} title={t("Turn left")} description={several ? t('Turn them a quarter turn to the left.') : t('Turn it a quarter turn to the left.')} onClick={() => controls.rotate90(-1)} />
         <BarButton icon={RotateCw} label={t("Right")} title={t("Turn right")} description={several ? t('Turn them a quarter turn to the right.') : t('Turn it a quarter turn to the right.')} onClick={() => controls.rotate90(1)} />
       </div>
@@ -971,6 +1276,7 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
           onClick={controls.center}
         />
         {!part && target.kind !== 'many' && <LineUpMenu several={false} onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
+        {controls.textWrap && <TextWrapMenu controls={controls.textWrap} />}
         {controls.removeBackground && (
           <BarButton
             icon={Eraser}
@@ -1191,6 +1497,9 @@ interface ToolOptionsProps {
   onFillToleranceChange: (tolerance: number) => void
   healSize: number
   onHealSizeChange: (size: number) => void
+  copy: CopyBarControls
+  colorSelect: ColorSelectControls
+  edge: EdgeControls
   brush: BrushSettings
   brushPresetId: string | null
   eraser: BrushSettings
@@ -1226,6 +1535,8 @@ export function ToolOptions(props: ToolOptionsProps) {
           shape={props.selectionShape}
           mode={props.selectionMode}
           commands={props.selection}
+          colorSelect={props.colorSelect}
+          edge={props.edge}
           onShapeChange={props.onSelectionShapeChange}
           onModeChange={props.onSelectionModeChange}
         />
@@ -1271,6 +1582,8 @@ export function ToolOptions(props: ToolOptionsProps) {
             onChange={(position) => props.onFillToleranceChange(Math.round(position * 100) / 100)}
           />
         </>
+      ) : props.tool === 'clone' ? (
+        <CopyOptions controls={props.copy} />
       ) : props.tool === 'heal' ? (
         <>
           <Slider

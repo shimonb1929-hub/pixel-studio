@@ -98,7 +98,7 @@ function EffectHeader({
       </Tooltip>
       <div className="flex items-center gap-1">
         {on && color && (
-          <Tooltip title={COLOR_NAMES[kind]} description={t("While this is picked, the Color panel above colors it.")} className="flex">
+          <Tooltip title={COLOR_NAMES[kind]} description={t("While this is picked, the Color panel below colors it.")} className="flex">
             <button
               type="button"
               aria-label={COLOR_NAMES[kind]}

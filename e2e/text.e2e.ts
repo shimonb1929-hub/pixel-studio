@@ -78,6 +78,27 @@ test('Hebrew starts where you clicked and grows to the left', async ({ page }) =
   expect(ink!.left).toBeLessThan(280)
 })
 
+test('new words reaching the page edge wrap there instead of running off the page, in English and Hebrew', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.keyboard.press('t')
+  await clickAt(page, size, 150, 60)
+  await page.keyboard.type('Hello there, wide world of words')
+  await page.keyboard.press('Escape')
+  const english = await inkBounds(page, size, 0, 0, 400, 300)
+  expect(english!.left).toBeGreaterThanOrEqual(148)
+  expect(english!.right).toBeLessThanOrEqual(400)
+  // It wrapped onto more lines rather than leaving the page.
+  expect(english!.bottom - english!.top).toBeGreaterThan(35)
+
+  await page.keyboard.press('t')
+  await clickAt(page, size, 250, 200)
+  await page.keyboard.type('שלום עולם ומלואו כולו')
+  await page.keyboard.press('Escape')
+  const hebrew = await inkBounds(page, size, 0, 180, 400, 120)
+  expect(hebrew!.right).toBeLessThanOrEqual(252)
+  expect(hebrew!.left).toBeGreaterThanOrEqual(0)
+})
+
 // A picture of part of the screen (in design pixels at 100%), compared in the page.
 async function shot(page: Page, size: Size, x: number, y: number, width: number, height: number): Promise<string> {
   const corner = await screenPoint(page, size, x, y)
@@ -528,4 +549,116 @@ test('picked words get their own font, boldness and color, exactly as shown whil
   await expect(page.locator('header')).toContainText('My design 1')
   await expect.poll(() => redPixels(page, size, middle, 50, ends.right - middle + 2, 120), { timeout: 15000 }).toBeGreaterThan(100)
   expect(await redPixels(page, size, 0, 50, middle, 120)).toBe(0)
+})
+
+test('a list in Hebrew counts א ב ג on the right, exactly as shown while typing', async ({ page }) => {
+  const size = await newDesign(page, 500, 400)
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.keyboard.press('t')
+  await drag(page, size, [
+    [40, 40],
+    [300, 80],
+  ])
+  const box = typingBox(page)
+  await page.keyboard.insertText('לקנות חלות ויין לשבת, וגם נרות')
+  await page.keyboard.press('Enter')
+  await page.keyboard.insertText('להתקשר לסבא 050-1234567')
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Enter')
+  await page.keyboard.insertText('ללמוד 2 דפים')
+  await textPanel(page).getByRole('radio', { name: 'Letters' }).click()
+  // The markers show beside the words while typing; the empty line gets none.
+  const markers = page.locator('[aria-hidden] > span[dir="rtl"]')
+  await expect(markers).toHaveText(['א.', 'ב.', 'ג.'])
+  await expect(box).toBeFocused()
+  const typed = (await box.boundingBox())!
+  const height = Math.round(typed.height)
+  const whileTyping = await shot(page, size, 44, 44, 252, height - 8)
+
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('b')
+  await page.mouse.move(5, 5)
+  await expect(page.getByRole('toolbar')).toContainText('Brush')
+  const afterwards = await shot(page, size, 44, 44, 252, height - 8)
+  const { ink, different } = await compareShots(page, whileTyping, afterwards)
+  expect(ink).toBeGreaterThan(800)
+  expect(different / ink, `${different} of ${ink} ink pixels moved`).toBeLessThan(0.01)
+})
+
+test('an English list counts by itself and comes back from a project file', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.keyboard.press('t')
+  await clickAt(page, size, 60, 60)
+  await page.keyboard.insertText('Bread\nMilk')
+  await textPanel(page).getByRole('radio', { name: 'Numbers' }).click()
+  const markers = page.locator('[aria-hidden] > span[dir="ltr"]')
+  await expect(markers).toHaveText(['1.', '2.'])
+  await page.keyboard.press('Enter')
+  await page.keyboard.insertText('Eggs')
+  await expect(markers).toHaveText(['1.', '2.', '3.'])
+  await page.keyboard.press('Escape')
+  await expect(textPanel(page).getByRole('radio', { name: 'Numbers' })).toHaveAttribute('aria-checked', 'true')
+
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: 'Download project…' }).click()
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('dialog', { name: 'Download your design' }).getByRole('button', { name: 'Download' }).click(),
+  ])
+  const { readFileSync } = await import('node:fs')
+  const bytes = readFileSync((await download.path())!)
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: 'Close design' }).click()
+  await expect(page.getByRole('main').locator('canvas')).toHaveCount(0)
+  await page.locator('input[type=file]').setInputFiles({ name: 'list.pixel', mimeType: '', buffer: bytes })
+  await expect.poll(async () => (await layerNames(page))[0]).toBe('Bread')
+  await page.keyboard.press('v')
+  await page.getByRole('button', { name: /^Layer: .?Bread.?$/ }).click()
+  await expect(textPanel(page).getByRole('radio', { name: 'Numbers' })).toHaveAttribute('aria-checked', 'true')
+})
+
+test('your own font file is added, used, kept for next time and goes inside downloads', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.keyboard.press('t')
+  await clickAt(page, size, 300, 100)
+  await page.keyboard.insertText('שלום עולם')
+  await page.keyboard.press('Escape')
+  await textPanel(page).getByRole('button', { name: /^Font:/ }).click()
+
+  // Not a font: said in plain words, and nothing changes.
+  await textPanel(page).getByLabel('Font file').setInputFiles({ name: 'photo.ttf', mimeType: 'font/ttf', buffer: Buffer.from('this is not a font at all') })
+  await expect(textPanel(page).getByRole('alert')).toContainText('isn’t a font file')
+
+  const { readFileSync } = await import('node:fs')
+  const font = readFileSync('public/fonts/heebo/heebo-hebrew-wght-normal.woff2')
+  await textPanel(page).getByLabel('Font file').setInputFiles({ name: 'My-Hebrew_Letters.woff2', mimeType: 'font/woff2', buffer: font })
+  // It's used right away, and has the Hebrew letters the text needs.
+  await expect(textPanel(page).getByRole('button', { name: 'Font: My Hebrew Letters' })).toBeVisible()
+  await expect(textPanel(page).getByText('has no Hebrew letters')).toHaveCount(0)
+  await textPanel(page).getByRole('button', { name: /^Font:/ }).click()
+  await expect(textPanel(page).getByRole('group', { name: 'Your fonts' }).getByRole('option', { name: 'My Hebrew Letters' })).toBeVisible()
+  await textPanel(page).getByRole('button', { name: /^Font:/ }).click()
+
+  // An SVG download carries the font inside.
+  await page.getByRole('button', { name: /What do you want to do/ }).click()
+  await page.getByRole('combobox', { name: 'What do you want to do?' }).fill('svg')
+  await page.getByRole('combobox', { name: 'What do you want to do?' }).press('Enter')
+  const dialog = page.getByRole('dialog', { name: 'Download your design' })
+  const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download' }).click()])
+  const svg = readFileSync((await download.path())!, 'utf8')
+  expect(svg).toMatch(/@font-face\{font-family:"ps-own-[0-9a-f]{16}";src:url\(data:font\/woff2;base64,/)
+
+  // Still on the list after the page is opened again.
+  await page.reload()
+  await page.getByRole('button', { name: /Custom size/ }).waitFor()
+  await newDesign(page)
+  await page.keyboard.press('t')
+  await clickAt(page, size, 100, 100)
+  await page.keyboard.insertText('Hi')
+  await page.keyboard.press('Escape')
+  await textPanel(page).getByRole('button', { name: /^Font:/ }).click()
+  const mine = textPanel(page).getByRole('group', { name: 'Your fonts' })
+  await expect(mine.getByRole('option', { name: 'My Hebrew Letters' })).toBeVisible()
+  await mine.getByRole('button', { name: 'Remove My Hebrew Letters from your fonts' }).click()
+  await expect(mine).toHaveCount(0)
 })

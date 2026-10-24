@@ -35,7 +35,7 @@ function redraw(
 }
 
 // A layer with a new box, keeping a shape's outline and text's letters in step with how much it grew.
-function withBox(layer: Layer, box: TransformBox, scale = 1): Layer {
+export function withBox(layer: Layer, box: TransformBox, scale = 1): Layer {
   if (layer.kind === 'shape') {
     const outline = layer.outline && { ...layer.outline, width: layer.outline.width * scale }
     return { ...layer, box, outline }
@@ -45,7 +45,7 @@ function withBox(layer: Layer, box: TransformBox, scale = 1): Layer {
 }
 
 // The box a layer is shown in; plain pixel layers get one that matches where they sit.
-function boxOf(layer: Layer): TransformBox {
+export function boxOf(layer: Layer): TransformBox {
   if (layer.kind === 'raster' && !layer.box) return boxFromRect({ x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height })
   return layer.box!
 }

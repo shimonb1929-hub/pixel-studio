@@ -13,6 +13,8 @@ import bidiFactory from 'bidi-js'
 export type Direction = 'ltr' | 'rtl'
 export type TextAlign = 'auto' | 'left' | 'center' | 'right' | 'justify'
 export type TextDirection = 'auto' | Direction
+// A list: each paragraph starts with a dot, a number or a letter (א ב ג for right-to-left text).
+export type ListKind = 'bullet' | 'number' | 'letter'
 
 export interface TextMeasure {
   // How wide a piece of text is, in design pixels, read in the given direction.
@@ -31,6 +33,26 @@ export interface LayoutSettings {
   lineHeight: number
   align: TextAlign
   direction: TextDirection
+  // Each paragraph is a point in a list. Missing or null: plain paragraphs.
+  list?: ListKind | null
+}
+
+// Where a list starts, for text that runs on from an earlier box: the number its first point
+// gets, and whether its first paragraph began in the box before (then it has no marker here).
+export interface ListStart {
+  number: number
+  continued: boolean
+}
+
+// The dot, number or letter before a point of a list, and where it's drawn.
+export interface ListMarker {
+  text: string
+  // Left edge and baseline, from the top-left of the text, and which line it's on.
+  x: number
+  baseline: number
+  line: number
+  width: number
+  direction: Direction
 }
 
 // A piece of a line that reads one way, from `start` to `end` in the text.
@@ -48,6 +70,9 @@ export interface LayoutLine {
   // What's drawn: the line without the spaces it ends with.
   text: string
   width: number
+  // Which row of the box it's in: the lines' rows go up one by one, except where the text flows
+  // around something and skips rows with no room.
+  row: number
   // Left edge of the line and its baseline, from the top-left of the text.
   x: number
   baseline: number
@@ -65,6 +90,9 @@ export interface TextLayout {
   lines: LayoutLine[]
   // The direction of the text as a whole: the first paragraph with letters decides.
   direction: Direction
+  // For a list: the room kept for the markers at the start side of every line, and the markers.
+  indent?: number
+  markers?: ListMarker[]
 }
 
 // Letters of scripts written right to left.
@@ -159,18 +187,53 @@ function trimEnd(text: string): string {
 // A tiny allowance, so a line that fits exactly doesn't wrap because of rounding.
 const FIT_SLACK = 0.01
 
-// Breaks a paragraph into lines no wider than `maxWidth`. Each line keeps the spaces it ends with,
-// so the lines put together give back the paragraph exactly. `width` is told where in the paragraph
-// the piece it measures starts, for text whose words look different from each other.
-export function wrapParagraph(paragraph: string, maxWidth: number, width: (text: string, start: number) => number): string[] {
+// Where a line can go in one row of a paragraph box: from `x`, `width` wide. A row is `narrowed`
+// when something the text flows around takes part of it; there, a word that doesn't fit moves down
+// to the next row instead of being split between letters, as browsers do beside floating things.
+export interface LineSlot {
+  x: number
+  width: number
+  narrowed: boolean
+}
+
+// The room in each row of a box (row 0 at the top), or null where no text can go at all. Past the
+// things text flows around, every row has the whole width.
+export type RowSlots = (row: number) => LineSlot | null
+
+export interface WrappedLine {
+  // The line with the spaces it ends with.
+  text: string
+  row: number
+  slot: LineSlot
+}
+
+// Rows are looked at no further than this below where a paragraph starts, in case nothing fits.
+const MAX_SKIPPED_ROWS = 10000
+
+// Breaks a paragraph into lines, each as wide as the room in its row, starting at `firstRow`. Each
+// line keeps the spaces it ends with, so the lines put together give back the paragraph exactly.
+// `width` is told where in the paragraph the piece it measures starts, for text whose words look
+// different from each other.
+export function wrapInRows(paragraph: string, firstRow: number, slots: RowSlots, width: (text: string, start: number) => number): WrappedLine[] {
+  let row = firstRow
+  let slot = openSlot()
+  function openSlot(): LineSlot {
+    for (let i = 0; i < MAX_SKIPPED_ROWS; i++, row++) {
+      const found = slots(row)
+      if (found) return found
+    }
+    return slots(Number.MAX_SAFE_INTEGER) ?? { x: 0, width: 1, narrowed: false }
+  }
   let lineStart = 0
-  const fits = (text: string) => width(trimEnd(text), lineStart) <= maxWidth + FIT_SLACK
-  const lines: string[] = []
+  const fits = (text: string) => width(trimEnd(text), lineStart) <= slot.width + FIT_SLACK
+  const lines: WrappedLine[] = []
   let line = ''
   const push = (next: string) => {
-    lines.push(line)
+    lines.push({ text: line, row, slot })
     lineStart += line.length
     line = next
+    row++
+    slot = openSlot()
   }
   for (const piece of wrapPieces(paragraph)) {
     if (fits(line + piece)) {
@@ -178,6 +241,11 @@ export function wrapParagraph(paragraph: string, maxWidth: number, width: (text:
       continue
     }
     if (line) push('')
+    // Beside something the text flows around, a word that doesn't fit goes on down.
+    while (slot.narrowed && !fits(piece)) {
+      row++
+      slot = openSlot()
+    }
     if (fits(piece)) {
       line = piece
       continue
@@ -188,8 +256,14 @@ export function wrapParagraph(paragraph: string, maxWidth: number, width: (text:
       else line += letter
     }
   }
-  lines.push(line)
+  lines.push({ text: line, row, slot })
   return lines
+}
+
+// Breaks a paragraph into lines no wider than `maxWidth` (see wrapInRows).
+export function wrapParagraph(paragraph: string, maxWidth: number, width: (text: string, start: number) => number): string[] {
+  const slot = { x: 0, width: maxWidth, narrowed: false }
+  return wrapInRows(paragraph, 0, () => slot, width).map((line) => line.text)
 }
 
 let bidi: ReturnType<typeof bidiFactory> | null = null
@@ -243,28 +317,137 @@ export function plainWidth(text: string, measure: TextMeasure): RangeWidth {
   return (start, end, direction) => measure.width(text.slice(start, end), direction)
 }
 
-// Lays text out. With `wrapWidth`, paragraphs wrap to fit that width; without it, lines only break
-// where Enter was pressed, and the text is as wide as its longest line.
-export function layoutText(text: string, settings: LayoutSettings, wrapWidth: number | null, measure: TextMeasure, rangeWidth = plainWidth(text, measure)): TextLayout {
+// The Hebrew way of counting with letters, as in lists and chapters: א ב ... י יא ... טו טז ... כ.
+export function hebrewNumber(n: number): string {
+  if (n <= 0) return String(n)
+  const ones = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט']
+  const tens = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ']
+  const hundreds = ['', 'ק', 'ר', 'ש', 'ת']
+  let rest = n % 1000
+  let out = ''
+  const thousands = Math.floor(n / 1000)
+  if (thousands) out += hebrewNumber(thousands) + "'"
+  while (rest >= 400) {
+    out += 'ת'
+    rest -= 400
+  }
+  out += hundreds[Math.floor(rest / 100)]
+  rest %= 100
+  // 15 and 16 are written ט״ו and ט״ז, so they don't spell a name of Hashem.
+  if (rest === 15 || rest === 16) return out + 'ט' + ones[rest - 9]
+  return out + tens[Math.floor(rest / 10)] + ones[rest % 10]
+}
+
+// a, b, ... z, aa, ab ... like a spreadsheet's columns.
+function latinLetters(n: number): string {
+  let out = ''
+  for (let rest = n; rest > 0; rest = Math.floor((rest - 1) / 26)) out = String.fromCharCode(97 + ((rest - 1) % 26)) + out
+  return out
+}
+
+// The marker before the `n`th point of a list. Right to left, letters are Hebrew.
+export function listMarker(kind: ListKind, n: number, direction: Direction): string {
+  if (kind === 'bullet') return '•'
+  if (kind === 'number') return `${n}.`
+  return `${direction === 'rtl' ? hebrewNumber(n) : latinLetters(n)}.`
+}
+
+// The room kept for markers: as wide as a two-digit one (so it doesn't jump at the tenth point),
+// plus a gap before the words.
+export function listIndent(kind: ListKind, direction: Direction, measure: TextMeasure, size: number): number {
+  const widest = kind === 'bullet' ? '•' : kind === 'number' ? '00.' : direction === 'rtl' ? 'טו.' : 'mm.'
+  return Math.max(size * 1.2, measure.width(widest, direction) + listGap(size))
+}
+
+function listGap(size: number): number {
+  return size * 0.45
+}
+
+// A list: the text is laid out in the room left beside the markers, and every paragraph with words
+// gets the next marker in front of its first line. Empty paragraphs get none, so a blank line can
+// space out the points.
+function layoutList(text: string, settings: LayoutSettings, wrapWidth: number | null, measure: TextMeasure, rangeWidth: RangeWidth, start: ListStart, rows?: RowSlots): TextLayout {
+  const kind = settings.list!
+  const direction = mainDirection(text, settings.direction)
+  const indent = listIndent(kind, direction, measure, settings.size)
+  const shift = direction === 'ltr' ? indent : 0
+  const innerWidth = wrapWidth === null ? null : Math.max(1, wrapWidth - indent)
+  // Beside things the text flows around, each row keeps room for the markers inside the room it has.
+  const innerRows: RowSlots | undefined =
+    rows && innerWidth !== null
+      ? (row) => {
+          const slot = rows(row)
+          return slot && slot.width > indent ? { x: slot.x, width: slot.width - indent, narrowed: slot.narrowed } : null
+        }
+      : undefined
+  const inner = layoutText(text, { ...settings, list: null }, innerWidth, measure, rangeWidth, undefined, innerRows)
+  const markers: ListMarker[] = []
+  let number = start.number
+  const lines = inner.lines.map((line, i) => {
+    const first = i === 0 ? !start.continued : text[line.start - 1] === '\n'
+    const close = text.indexOf('\n', line.start)
+    if (first && text.slice(line.start, close === -1 ? text.length : close).trim()) {
+      const marker = listMarker(kind, number++, direction)
+      const width = measure.width(marker, direction)
+      // Next to the room its row has, when the text flows around something.
+      const room = innerRows?.(line.row) ?? { x: 0, width: inner.width }
+      const x = direction === 'ltr' ? room.x + indent - listGap(settings.size) - width : room.x + room.width + listGap(settings.size)
+      markers.push({ text: marker, x, baseline: line.baseline, line: i, width, direction })
+    }
+    return { ...line, x: line.x + shift }
+  })
+  return { ...inner, width: inner.width + indent, lines, indent, markers }
+}
+
+// How many points of a list come before `index` in the text, and whether `index` is in the middle
+// of a paragraph: where the part of a story shown in a later box starts counting.
+export function listStartAt(text: string, index: number): ListStart {
+  const before = text.slice(0, index).split('\n')
+  const started = before.pop()!
+  const continued = index > 0 && text[index - 1] !== '\n'
+  // A paragraph that began in the box before got its number there.
+  const number = 1 + before.filter((paragraph) => paragraph.trim()).length + (continued && started.trim() ? 1 : 0)
+  return { number, continued }
+}
+
+// Lays text out. With `wrapWidth`, paragraphs wrap to fit that width (or the room `rows` leaves in
+// each row, for text that flows around things); without it, lines only break where Enter was
+// pressed, and the text is as wide as its longest line.
+export function layoutText(
+  text: string,
+  settings: LayoutSettings,
+  wrapWidth: number | null,
+  measure: TextMeasure,
+  rangeWidth = plainWidth(text, measure),
+  listStart: ListStart = { number: 1, continued: false },
+  rows?: RowSlots,
+): TextLayout {
+  if (settings.list) return layoutList(text, settings, wrapWidth, measure, rangeWidth, listStart, rows)
   const direction = mainDirection(text, settings.direction)
   const lineHeight = settings.size * settings.lineHeight
-  const raw: { start: number; full: string; direction: Direction; last: boolean; runs: TextRun[] }[] = []
+  const raw: { start: number; full: string; direction: Direction; last: boolean; runs: TextRun[]; row: number; slot: LineSlot | null }[] = []
+  const fullWidth = wrapWidth === null ? null : { x: 0, width: wrapWidth, narrowed: false }
+  const slots: RowSlots | null = wrapWidth === null ? null : (rows ?? (() => fullWidth))
   let offset = 0
+  let row = 0
   for (const paragraph of text.split('\n')) {
     // A paragraph with no letters reads like the text as a whole.
     const paragraphDirection = settings.direction === 'auto' ? (firstStrongDirection(paragraph) ?? direction) : settings.direction
     const levels = readingLevels(paragraph, paragraphDirection)
     const at = offset
-    const lines = wrapWidth === null ? [paragraph] : wrapParagraph(paragraph, wrapWidth, (t, from) => rangeWidth(at + from, at + from + t.length, paragraphDirection))
+    const lines: { text: string; row: number; slot: LineSlot | null }[] =
+      slots === null ? [{ text: paragraph, row, slot: null }] : wrapInRows(paragraph, row, slots, (t, from) => rangeWidth(at + from, at + from + t.length, paragraphDirection))
     let start = 0
-    lines.forEach((full, i) => {
+    lines.forEach((line, i) => {
+      const full = line.text
       const end = start + trimEnd(full).length
       const runs = visualRuns(levels, start, end).map((run) => {
         const rtl = run.level % 2 === 1
         return { start: offset + run.start, end: offset + run.end, rtl, width: rangeWidth(offset + run.start, offset + run.end, rtl ? 'rtl' : 'ltr') }
       })
-      raw.push({ start: offset + start, full, direction: paragraphDirection, last: i === lines.length - 1, runs })
+      raw.push({ start: offset + start, full, direction: paragraphDirection, last: i === lines.length - 1, runs, row: line.row, slot: line.slot })
       start += full.length
+      row = line.row + 1
     })
     offset += paragraph.length + 1
   }
@@ -276,32 +459,45 @@ export function layoutText(text: string, settings: LayoutSettings, wrapWidth: nu
   const width = wrapWidth ?? Math.max(1, ...measured.map((line) => line.width))
   const ascentOffset = measure.baseline?.(lineHeight) ?? (lineHeight - (measure.ascent + measure.descent)) / 2 + measure.ascent
 
-  const lines = measured.map((line, i): LayoutLine => {
+  const lines = measured.map((line): LayoutLine => {
+    // Each line lines up inside the room its row has.
+    const room = line.slot ?? { x: 0, width }
     const justify = settings.align === 'justify' && wrapWidth !== null && !line.last
     const spaces = justify ? countSpaces(line.text) : 0
     const align = justify && spaces > 0 ? 'left' : resolveAlign(settings.align, line.direction)
-    const x = align === 'right' ? width - line.width : align === 'center' ? (width - line.width) / 2 : 0
+    const x = room.x + (align === 'right' ? room.width - line.width : align === 'center' ? (room.width - line.width) / 2 : 0)
     return {
       start: line.start,
       end: line.start + line.text.length,
       text: line.text,
-      width: spaces > 0 ? width : line.width,
+      width: spaces > 0 ? room.width : line.width,
+      row: line.row,
       x,
-      baseline: i * lineHeight + ascentOffset,
+      baseline: line.row * lineHeight + ascentOffset,
       direction: line.direction,
-      wordSpacing: spaces > 0 ? (width - line.width) / spaces : 0,
+      wordSpacing: spaces > 0 ? (room.width - line.width) / spaces : 0,
       runs: line.runs,
     }
   })
-  return { width, height: Math.max(lineHeight, lines.length * lineHeight), lineHeight, lines, direction }
+  const rowsUsed = lines.length ? lines[lines.length - 1].row + 1 : 1
+  return { width, height: Math.max(lineHeight, rowsUsed * lineHeight), lineHeight, lines, direction }
+}
+
+// The line in a row of the text, or the nearest one when that row has none.
+export function lineInRow(layout: TextLayout, row: number): LayoutLine | null {
+  let best: LayoutLine | null = null
+  for (const line of layout.lines) {
+    if (!best || Math.abs(line.row - row) < Math.abs(best.row - row)) best = line
+    if (line.row >= row) break
+  }
+  return best
 }
 
 // The place in the text nearest a point (from the top-left of the text), for putting the cursor
 // where someone clicked.
 export function indexAt(text: string, layout: TextLayout, x: number, y: number, measure: TextMeasure, rangeWidth = plainWidth(text, measure)): number {
-  if (layout.lines.length === 0) return 0
-  const row = Math.max(0, Math.min(layout.lines.length - 1, Math.floor(y / layout.lineHeight)))
-  const line = layout.lines[row]
+  const line = lineInRow(layout, Math.floor(y / layout.lineHeight))
+  if (!line) return 0
   let best = line.start
   let bestDistance = Infinity
   let left = line.x

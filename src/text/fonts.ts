@@ -9,6 +9,43 @@ const HEBREW_FALLBACK = 'noto-sans-hebrew'
 const LATIN_FALLBACK = 'heebo'
 
 const byId = new Map(FONTS.map((font) => [font.id, font]))
+// Fonts people added from their own computer, newest first; and the ones taken off their list
+// (still known, so designs that use them keep drawing with them).
+let own: FontInfo[] = []
+const hidden = new Set<string>()
+// The kind of file each font file is, when it isn't woff2.
+const formats = new Map<string, string>()
+
+// Adds a font of someone's own to the list. Its file is a blob URL of the font's bytes.
+export function addOwnFontInfo(info: FontInfo, format: string): void {
+  hidden.delete(info.id)
+  if (!byId.has(info.id)) {
+    byId.set(info.id, info)
+    for (const file of info.files) formats.set(file.url, format)
+  }
+  own = [byId.get(info.id)!, ...own.filter((f) => f.id !== info.id)]
+  fontsChanged()
+}
+
+// Takes a font of someone's own off the list; text that uses it still draws with it.
+export function hideOwnFont(id: string): void {
+  hidden.add(id)
+  fontsChanged()
+}
+
+export function isOwnFont(id: string): boolean {
+  return own.some((f) => f.id === id)
+}
+
+// The fonts added from this computer that are on the list.
+export function ownFonts(): FontInfo[] {
+  return own.filter((f) => !hidden.has(f.id))
+}
+
+// The CSS name of a font file's kind ("woff2", "truetype"…).
+export function fontFormat(url: string): string {
+  return formats.get(url) ?? 'woff2'
+}
 
 export function fontInfo(id: string): FontInfo | undefined {
   return byId.get(id)
@@ -62,7 +99,7 @@ function register(id: string) {
   registered.add(id)
   for (const file of info.files) {
     const url = new URL(file.url, document.baseURI).href
-    const face = new FontFace(familyName(id), `url("${url}") format("woff2")`, { weight: file.weight, style: file.style, unicodeRange: file.unicodeRange })
+    const face = new FontFace(familyName(id), `url("${url}") format("${fontFormat(file.url)}")`, { weight: file.weight, style: file.style, unicodeRange: file.unicodeRange })
     document.fonts.add(face)
   }
 }
@@ -73,6 +110,11 @@ const listeners = new Set<() => void>()
 
 export function fontsVersion(): number {
   return version
+}
+
+function fontsChanged() {
+  version++
+  for (const listener of listeners) listener()
 }
 
 export function onFontsLoaded(listener: () => void): () => void {
@@ -120,15 +162,13 @@ export function loadFont(choice: FontChoice, text: string): Promise<void> {
         () => undefined,
         () => undefined,
       )
-      .then(() => {
-        version++
-        for (const listener of listeners) listener()
-      })
+      .then(fontsChanged)
     loading.set(key, promise)
   }
   return promise
 }
 
+// Your own fonts first, then the ones that come with Pixel Studio.
 export function allFonts(): FontInfo[] {
-  return FONTS
+  return [...ownFonts(), ...FONTS]
 }
