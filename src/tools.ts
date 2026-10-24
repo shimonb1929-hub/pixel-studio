@@ -1,4 +1,4 @@
-import { Bandage, Brush, Crop, Eclipse, Eraser, Hand, MousePointer2, PaintBucket, Spline, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
+import { Bandage, Brush, Stamp, Crop, Eclipse, Eraser, Hand, MousePointer2, PaintBucket, Spline, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
 import type { ToolId } from './editor/types.ts'
 import { t } from './i18n/i18n.ts'
 import { ALT_LABEL } from './keys.ts'
@@ -287,7 +287,26 @@ export const TOOLS: ToolInfo[] = [
     get hint() {
       return t('Brush over what you want gone. When you let go, it is filled in from what is around it.')
     },
-    keywords: ['fix', 'heal', 'healing', 'spot', 'blemish', 'scratch', 'dust', 'remove object', 'clone', 'repair', 'clean up', 'content aware', 'retouch', 'erase thing'],
+    keywords: ['fix', 'heal', 'healing', 'spot', 'blemish', 'scratch', 'dust', 'remove object', 'repair', 'clean up', 'content aware', 'retouch', 'erase thing'],
+    group: 'adjust',
+  },
+  {
+    id: 'clone',
+    get name() {
+      return t('Copy paint (Clone)')
+    },
+    get label() {
+      return t('Copy')
+    },
+    key: 'S',
+    icon: Stamp,
+    get description() {
+      return t('Paint with a copy of another part of your photo. Click the part you want to copy, then paint where it should go: more grass over a path, a second cloud, a wall without a sign. Use it when you choose exactly what to copy; Fix spots chooses for you.')
+    },
+    get hint() {
+      return t('First click the part you want to copy. Then paint where the copy should go. Hold {alt} and click to copy from somewhere else.', { alt: ALT_LABEL })
+    },
+    keywords: ['clone', 'clone stamp', 'stamp', 'copy', 'copy paint', 'duplicate', 'repeat', 'cover', 'retouch', 'remove object', 'patch', 'repair', 'paint over'],
     group: 'adjust',
   },
   {

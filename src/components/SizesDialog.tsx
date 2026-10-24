@@ -120,13 +120,13 @@ export function SizesDialog({ doc, onMake, onClose }: SizesDialogProps) {
             const on = picked.has(choice.id)
             return (
               <li key={choice.id}>
-                <Tooltip title={choice.name} description={choice.use || t('A size you typed in.')}>
+                <Tooltip className="flex h-full w-full" title={choice.name} description={choice.use || t('A size you typed in.')}>
                   <button
                     type="button"
                     aria-pressed={on}
                     aria-label={`${choice.name}, ${shown(choice.width)} × ${shown(choice.height)} ${short}`}
                     onClick={() => toggle(choice.id)}
-                    className={`relative flex w-full flex-col items-center gap-1.5 rounded-xl border p-2 text-center transition-colors ${
+                    className={`relative flex h-full w-full flex-col items-center gap-1.5 rounded-xl border p-2 text-center transition-colors ${
                       on ? 'border-accent bg-accent-soft' : 'border-line hover:bg-subtle'
                     }`}
                   >
