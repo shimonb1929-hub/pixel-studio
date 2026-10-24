@@ -749,6 +749,7 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
       ...(layer.pageNumber ? { pageNumber: true } : {}),
       ...(photo ? { photo: { zoom: photo.zoom, x: photo.x, y: photo.y, width: photo.canvas.width, height: photo.canvas.height, bytes: sizes[0] } } : {}),
     }
+  }
   if (layer.kind === 'table') {
     const { box, cells, columnWidths, align, style, padding, background, header, stripes, lines, rtl } = layer
     return { ...base, kind: 'table', box, cells, columnWidths, align, style, padding, background, header, stripes, lines, rtl }
