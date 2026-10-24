@@ -1,0 +1,124 @@
+import { englishOf } from './i18n/i18n.ts'
+
+// What Photoshop, Illustrator and InDesign call the things we name in plain words. People who know
+// those programs see the word they know in the hover tip ("Other programs call this …") and in the
+// Help guide, and can search for it. The left side is the app's English word, exactly as written
+// in t('…') or msg('…'); a test checks every one is still used. The right side stays in English,
+// as people who learned those programs know these words in English. Words that mean different
+// things in different places (Size, Softness, Strength) are left out here and given right where
+// they are used, through the tip's `pro`.
+export const PRO_NAMES: Record<string, string> = {
+  // Photos and colors
+  Adjust: 'Adjustments, Filters',
+  Looks: 'Presets, Filters',
+  'Color strength': 'Saturation',
+  Warmth: 'Temperature, White balance',
+  'Dark parts': 'Shadows',
+  'Bright parts': 'Highlights',
+  'Whitest parts': 'Whites',
+  'Darkest parts': 'Blacks',
+  'Gentle color boost': 'Vibrance',
+  'Green or pink': 'Tint',
+  'Clear details': 'Clarity',
+  'Dark corners': 'Vignette',
+  'Film grain': 'Grain',
+  'Light curve': 'Curves',
+  'Change one color': 'HSL, Color Mixer',
+  'Shift color': 'Hue',
+  'How colorful': 'Saturation',
+  'How light': 'Luminance',
+  'Fix light': 'Auto Tone',
+  'Fix colors': 'Auto Color, White Balance',
+  'Whites and blacks': 'Levels',
+  Blur: 'Gaussian Blur',
+  Sharpen: 'Sharpen, Unsharp Mask',
+  'Fix spots': 'Spot Healing Brush',
+  'Fill the gap': 'Content-Aware Fill',
+  'Move and fill the gap': 'Content-Aware Move',
+  'Remove background': 'Remove Background',
+  'Magic select': 'Select Subject',
+  Magic: 'Magic Wand, Select Subject',
+  Freehand: 'Lasso',
+  'Take away': 'Subtract from selection',
+  'Add to selection': 'Add to selection',
+  'Select everything else': 'Select Inverse',
+  'Let go': 'Deselect',
+  'Copy to new layer': 'Layer via Copy',
+  'Similar colors': 'Tolerance',
+  'Steady hand': 'Smoothing',
+  'Brushes': 'Brush presets',
+  'Ready-made brushes': 'Brush presets',
+  'Pick from design': 'Eyedropper',
+  'Color code': 'Hex code',
+  Shade: 'Saturation and Brightness',
+  'Resize design': 'Image Size',
+  'Pixels per inch': 'Resolution (PPI)',
+  // Layers
+  Effects: 'Layer Styles (fx)',
+  "Mix with what's below": 'Blend Mode',
+  'See-through page': 'Transparent background',
+  'Keep together': 'Group',
+  'Take apart': 'Ungroup',
+  'Lock layer': 'Lock',
+  // Shapes and drawing
+  'Make one shape': 'Pathfinder, Shape Builder',
+  Join: 'Unite',
+  'Cut out': 'Minus Front',
+  Overlap: 'Intersect',
+  Apart: 'Exclude',
+  'Round corners': 'Corner radius',
+  Outline: 'Stroke',
+  'Outline color': 'Stroke color',
+  'Outline width': 'Stroke weight',
+  'Outline style': 'Stroke style, Dashes',
+  'Straight gradient': 'Linear gradient',
+  'Round gradient': 'Radial gradient',
+  'Edit points': 'Direct Selection',
+  'Sharp corner': 'Corner point',
+  'Smooth curve': 'Smooth point',
+  'Put photo in shape': 'Clipping mask, Frame',
+  'Fill with a photo': 'Clipping mask, Frame',
+  Shadow: 'Drop Shadow',
+  Glow: 'Outer Glow',
+  // Arranging
+  'Line up': 'Align',
+  'Tidy up': 'Distribute',
+  'Space evenly across': 'Distribute horizontally',
+  'Space evenly down': 'Distribute vertically',
+  'Flip left to right': 'Flip Horizontal',
+  'Flip upside down': 'Flip Vertical',
+  'Turn left': 'Rotate 90° counterclockwise',
+  'Turn right': 'Rotate 90° clockwise',
+  'Keep shape': 'Constrain proportions',
+  'Size and place': 'Transform (W, H, X, Y)',
+  'From the left': 'X position',
+  'From the top': 'Y position',
+  Angle: 'Rotation',
+  // Text
+  Boldness: 'Font weight',
+  'Letter spacing': 'Tracking',
+  'Line spacing': 'Leading',
+  'Even edges': 'Justify',
+  'Wrap in a box': 'Area type, Text frame',
+  'Continue in another box': 'Threaded text frames',
+  'Reading direction': 'Paragraph direction (RTL, LTR)',
+  // Pages and printing
+  'Color the page': 'Background color',
+  'Page fill': 'Background color',
+  'On every page': 'Parent page (Master page)',
+  'Show on every page': 'Parent page (Master page)',
+  'Add page numbers': 'Auto page numbering',
+  'Margins and columns': 'Margins and Columns',
+  'Space around the edge': 'Margins',
+  'Extra edge for cutting': 'Bleed',
+  'Cut lines': 'Crop marks',
+  Download: 'Export',
+}
+
+// The pro word for a word on screen, in any language, or undefined when it has none or it is the
+// same word.
+export function proNameOf(shown: string): string | undefined {
+  const english = englishOf(shown)
+  const pro = PRO_NAMES[english]
+  return pro && pro.toLowerCase() !== english.toLowerCase() ? pro : undefined
+}

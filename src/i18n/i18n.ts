@@ -61,6 +61,20 @@ export function t(text: string, vars?: Record<string, string | number>): string 
   return marking ? `⟦${filled}⟧` : filled
 }
 
+let reverse = new Map<string, string>()
+let reverseVersion = -1
+
+// The English sentence that says what is on screen, so a word can be looked up whatever the
+// language (like the pro names in src/proNames.ts). Gives back what it was given when unknown.
+export function englishOf(said: string): string {
+  if (current === 'en') return said
+  if (reverseVersion !== version) {
+    reverse = new Map(Object.entries(words).map(([english, translated]) => [translated, english]))
+    reverseVersion = version
+  }
+  return reverse.get(said) ?? said
+}
+
 // While developing, every translated sentence can be marked ⟦like this⟧, so words that were
 // missed stand out on screen (run markTranslations() in the browser console).
 let marking = false

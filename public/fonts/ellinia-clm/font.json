@@ -7,19 +7,19 @@
       "file": "ellinia-clm-300-normal.woff2",
       "weight": "300",
       "style": "normal",
-      "unicodeRange": "U+0000,U+0020-003F,U+0053,U+005E-005F,U+00A0,U+05BE,U+05D0-05EA,U+05F3-05F4,U+2013-2015,U+2026,U+20AA"
+      "unicodeRange": "U+0000,U+0020-003F,U+0053,U+005E-005F,U+00A0,U+05BE,U+05D0-05EA,U+05F0-05F4,U+2013-2015,U+2026,U+20AA"
     },
     {
       "file": "ellinia-clm-700-normal.woff2",
       "weight": "700",
       "style": "normal",
-      "unicodeRange": "U+0000,U+0020-003F,U+0053,U+005E-005F,U+00A0,U+05BE,U+05D0-05EA,U+05F3-05F4,U+2013-2015,U+2026,U+20AA"
+      "unicodeRange": "U+0000,U+0020-003F,U+0053,U+005E-005F,U+00A0,U+05BE,U+05D0-05EA,U+05F0-05F4,U+2013-2015,U+2026,U+20AA"
     },
     {
       "file": "ellinia-clm-300-italic.woff2",
       "weight": "300",
       "style": "italic",
-      "unicodeRange": "U+0000,U+0020-003F,U+0053,U+005E-005F,U+00A0,U+05BE,U+05D0-05EA,U+05F3-05F4,U+2013-2015,U+2026,U+20AA"
+      "unicodeRange": "U+0000,U+0020-003F,U+0053,U+005E-005F,U+00A0,U+05BE,U+05D0-05EA,U+05F0-05F4,U+2013-2015,U+2026,U+20AA"
     }
   ]
 }

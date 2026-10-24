@@ -18,5 +18,5 @@ export function pixelVersion(canvas: HTMLCanvasElement): number {
 // looks different once its font arrives.
 export function layerVersion(layer: Layer): number {
   if (layer.kind === 'raster') return pixelVersion(layer.canvas)
-  return layer.kind === 'text' ? fontsVersion() : 0
+  return layer.kind === 'text' || layer.kind === 'table' ? fontsVersion() : 0
 }

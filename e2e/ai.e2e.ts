@@ -64,9 +64,9 @@ test('Magic select picks the thing that was clicked', async ({ page }) => {
   await page.getByRole('radio', { name: 'Magic' }).click()
   await clickAt(page, size, 200, 150)
   // Inverting the selection and deleting leaves just the ball.
-  await expect(page.getByRole('button', { name: 'Invert selection' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Select everything else' })).toBeVisible()
   await expect.poll(async () => page.getByRole('button', { name: 'Delete selected area' }).isEnabled(), { timeout: AI_TIMEOUT }).toBe(true)
-  await page.getByRole('button', { name: 'Invert selection' }).click()
+  await page.getByRole('button', { name: 'Select everything else' }).click()
   await page.getByRole('button', { name: 'Delete selected area' }).click()
   await expectBallOnly(page, size, WHITE)
 })

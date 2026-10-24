@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { clickAt, designPixel, drag, expectColor, newDesign, screenPoint, type Size } from './helpers.ts'
+import { clickAt, compareShots, designPixel, drag, expectColor, inkIn, newDesign, shot, type Size } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 const BLUE: [number, number, number] = [59, 91, 253]
@@ -22,70 +22,6 @@ async function wrapAround(page: Page, way: string) {
   await page.getByRole('button', { name: 'Text around it' }).click()
   await page.getByRole('menuitemradio', { name: way }).click()
   await page.keyboard.press('Escape')
-}
-
-// How many ink pixels (dark) are in a part of the design.
-function inkIn(page: Page, size: Size, x: number, y: number, width: number, height: number): Promise<number> {
-  return page.evaluate(
-    ([w, h, rx, ry, rw, rh]) => {
-      const main = document.querySelector('main')!
-      const canvas = main.querySelector('canvas')!
-      const dpr = devicePixelRatio
-      const left = Math.round(((main.clientWidth - w) / 2) * dpr)
-      const top = Math.round(((main.clientHeight - h) / 2) * dpr)
-      const data = canvas.getContext('2d')!.getImageData(left + Math.round(rx * dpr), top + Math.round(ry * dpr), Math.round(rw * dpr), Math.round(rh * dpr)).data
-      let ink = 0
-      for (let i = 0; i < data.length; i += 4) if ((data[i] + data[i + 1] + data[i + 2]) / 3 < 100) ink++
-      return ink
-    },
-    [size.width, size.height, x, y, width, height] as const,
-  )
-}
-
-async function shot(page: Page, size: Size, x: number, y: number, width: number, height: number): Promise<string> {
-  const corner = await screenPoint(page, size, x, y)
-  const png = await page.screenshot({ clip: { x: corner.x, y: corner.y, width, height } })
-  return png.toString('base64')
-}
-
-// How many pixels are ink in the first picture, and how many differ clearly between the two.
-async function compareShots(page: Page, a: string, b: string) {
-  return page.evaluate(
-    async ([first, second]) => {
-      const pixels = async (data: string) => {
-        const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0))
-        const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
-        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(bitmap, 0, 0)
-        return { data: ctx.getImageData(0, 0, bitmap.width, bitmap.height).data, width: bitmap.width, height: bitmap.height }
-      }
-      const [pa, pb] = await Promise.all([pixels(first), pixels(second)])
-      const light = (p: Uint8ClampedArray, i: number) => (p[i] + p[i + 1] + p[i + 2]) / 3
-      const slack = Math.round(devicePixelRatio) - 1
-      let ink = 0
-      let different = 0
-      for (let y = 0; y < pa.height; y++) {
-        for (let x = 0; x < pa.width; x++) {
-          const i = (y * pa.width + x) * 4
-          const value = light(pa.data, i)
-          if (value < 128) ink++
-          let matched = false
-          for (let dy = -slack; dy <= slack && !matched; dy++) {
-            for (let dx = -slack; dx <= slack && !matched; dx++) {
-              const bx = x + dx
-              const by = y + dy
-              if (bx < 0 || by < 0 || bx >= pb.width || by >= pb.height) continue
-              if (Math.abs(value - light(pb.data, (by * pb.width + bx) * 4)) <= 96) matched = true
-            }
-          }
-          if (!matched) different++
-        }
-      }
-      return { ink, different }
-    },
-    [a, b] as const,
-  )
 }
 
 const ENGLISH =

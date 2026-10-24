@@ -246,6 +246,50 @@ describe('project files', () => {
     for (const layer of bad) expect(() => validateManifest(manifest({ layers: [layer], activeLayer: 0 })), JSON.stringify(layer)).toThrow(ProjectError)
   })
 
+  it('keeps tables, right to left too, and turns away a damaged one', async () => {
+    const style = { ...(words() as Extract<ProjectLayer, { kind: 'text' }>).style, list: null, gradient: null }
+    const table = (patch: Partial<Extract<ProjectLayer, { kind: 'table' }>> = {}): ProjectLayer => ({
+      kind: 'table',
+      name: 'תפריט',
+      box: { cx: 200, cy: 150, width: 300, height: 120, rotation: 0 },
+      cells: [
+        ['מנה', 'מחיר'],
+        ['מרק עוף', '₪25'],
+        ['Kugel', '12.50'],
+      ],
+      columnWidths: [200, 100],
+      align: ['auto', 'left'],
+      style,
+      padding: 8,
+      background: null,
+      header: '#eef2ff',
+      stripes: '#f4f5f7',
+      lines: { kind: 'rows', color: '#d0d5dd', width: 1 },
+      rtl: true,
+      visible: true,
+      opacity: 1,
+      locked: false,
+      adjust: null,
+      ...patch,
+    })
+    const original = manifest({ layers: [pixels(), table(), table({ rtl: false, header: null, background: '#ffffff' })], activeLayer: 1 })
+    const { manifest: read } = await unpackProject(packProject(original, [new Blob([new Uint8Array([1, 2, 3])])]))
+    expect(read).toEqual(original)
+    const bad = [
+      table({ cells: [['one'], ['two', 'three']] }),
+      table({ cells: [] }),
+      table({ cells: [['a', 5 as unknown as string]] }),
+      table({ columnWidths: [200] }),
+      table({ columnWidths: [200, 0] }),
+      table({ align: ['auto', 'middle' as 'left'] }),
+      table({ lines: { kind: 'dots' as 'all', color: '#000000', width: 1 } }),
+      table({ header: 'blue' }),
+      table({ rtl: 'yes' as unknown as boolean }),
+      table({ padding: -1 }),
+    ]
+    for (const layer of bad) expect(() => validateManifest(manifest({ layers: [layer], activeLayer: 0 })), JSON.stringify(layer)).toThrow(ProjectError)
+  })
+
   it('keeps the page color, and designs with nothing on the page yet', async () => {
     const empty = manifest({ layers: [], activeLayer: -1, background: null })
     const { manifest: read } = await unpackProject(packProject(empty, []))

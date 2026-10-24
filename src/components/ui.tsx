@@ -61,11 +61,13 @@ interface SliderProps {
   origin?: number
   // How far an arrow key moves it (Shift moves ten times as far), 0–1.
   step?: number
+  // What the professional programs call it, when the label alone doesn't say (see Tooltip).
+  pro?: string | false
 }
 
 const KEY_STEP = 0.01
 
-export function Slider({ label, help, value, display, note, onChange, className = '', origin = 0, step = KEY_STEP }: SliderProps) {
+export function Slider({ label, help, value, display, note, onChange, className = '', origin = 0, step = KEY_STEP, pro }: SliderProps) {
   const id = useId()
   const position = Math.min(1, Math.max(0, value))
 
@@ -79,7 +81,7 @@ export function Slider({ label, help, value, display, note, onChange, className 
   }
 
   return (
-    <Tooltip side="bottom" title={label} description={help} note={note} noteTone="info" keepOpenOnPress className={`flex flex-col gap-1 ${className}`}>
+    <Tooltip side="bottom" title={label} description={help} note={note} noteTone="info" pro={pro} keepOpenOnPress className={`flex flex-col gap-1 ${className}`}>
       <span className="flex items-center justify-between gap-2 text-[11px] font-medium text-ink-2">
         <label htmlFor={id}>{label}</label>
         <span aria-hidden dir="auto" className="tabular-nums text-ink">

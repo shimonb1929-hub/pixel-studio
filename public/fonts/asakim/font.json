@@ -1,0 +1,13 @@
+{
+  "name": "Asakim",
+  "license": "OFL-1.1",
+  "version": "",
+  "faces": [
+    {
+      "file": "asakim-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+0020-0040,U+005B-005F,U+007B-007E,U+02C6-02C7,U+05BE,U+05C3,U+05D0-05EA,U+05F3-05F4,U+2010,U+2018-2019,U+201C-201D,U+20AA"
+    }
+  ]
+}

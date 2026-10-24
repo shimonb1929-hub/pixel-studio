@@ -40,6 +40,7 @@ export function withBox(layer: Layer, box: TransformBox, scale = 1): Layer {
     const outline = layer.outline && { ...layer.outline, width: layer.outline.width * scale }
     return { ...layer, box, outline }
   }
+  if (layer.kind === 'table') return { ...layer, box, style: { ...layer.style, size: layer.style.size * scale }, columnWidths: layer.columnWidths.map((w) => w * scale), padding: layer.padding * scale, lines: { ...layer.lines, width: layer.lines.width * scale } }
   if (layer.kind === 'text') return { ...layer, box, style: { ...layer.style, size: layer.style.size * scale }, ...(layer.flow ? { flow: { ...layer.flow, height: layer.flow.height * scale } } : {}) }
   return { ...layer, box }
 }
@@ -62,7 +63,7 @@ export function resizeDocument(doc: EditorDocument, width: number, height: numbe
     const straight = Math.abs(Math.sin(box.rotation)) < 1e-9
     const sideways = Math.abs(Math.cos(box.rotation)) < 1e-9
     // Text grows evenly, so its letters keep their shape.
-    const [fw, fh] = layer.kind === 'text' ? [even, even] : straight ? [sx, sy] : sideways ? [sy, sx] : [even, even]
+    const [fw, fh] = layer.kind === 'text' || layer.kind === 'table' ? [even, even] : straight ? [sx, sy] : sideways ? [sy, sx] : [even, even]
     return withBox(layer, { ...box, cx: box.cx * sx, cy: box.cy * sy, width: box.width * fw, height: box.height * fh }, even)
   })
   // Margins and column gaps grow with the design, so the layout keeps its look.

@@ -1,0 +1,31 @@
+{
+  "name": "Shuneet Classic",
+  "license": "CC-BY-SA-3.0",
+  "version": "",
+  "faces": [
+    {
+      "file": "shuneet-classic-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+000D,U+0020-007E,U+00A0-00B7,U+00B9-00BF,U+00D7,U+00F7,U+05B0-05C3,U+05D0-05EA,U+05F0-05F4,U+200C-200F,U+2013-2014,U+2018-2019,U+201C-201D,U+2022,U+2026,U+20AA,U+20AC,U+25CC,U+E802-E805,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    },
+    {
+      "file": "shuneet-classic-700-normal.woff2",
+      "weight": "700",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+000D,U+0020-007E,U+00A0-00B7,U+00B9-00BF,U+00D7,U+00F7,U+05B0-05C3,U+05D0-05EA,U+05F0-05F4,U+200C-200F,U+2013-2014,U+2018-2019,U+201C-201D,U+2022,U+2026,U+20AA,U+20AC,U+25CC,U+E802-E805,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    },
+    {
+      "file": "shuneet-classic-400-italic.woff2",
+      "weight": "400",
+      "style": "italic",
+      "unicodeRange": "U+0000,U+000D,U+0020-007E,U+00A0-00B7,U+00B9-00BF,U+00D7,U+00F7,U+05B0-05C3,U+05D0-05EA,U+05F0-05F4,U+200C-200F,U+2013-2014,U+2018-2019,U+201C-201D,U+2022,U+2026,U+20AA,U+20AC,U+25CC,U+E802-E805,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    },
+    {
+      "file": "shuneet-classic-700-italic.woff2",
+      "weight": "700",
+      "style": "italic",
+      "unicodeRange": "U+0000,U+000D,U+0020-007E,U+00A0-00B7,U+00B9-00BF,U+00D7,U+00F7,U+05B0-05C3,U+05D0-05EA,U+05F0-05F4,U+200C-200F,U+2013-2014,U+2018-2019,U+201C-201D,U+2022,U+2026,U+20AA,U+20AC,U+25CC,U+E802-E805,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    }
+  ]
+}

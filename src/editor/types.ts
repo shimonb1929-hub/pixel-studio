@@ -189,8 +189,45 @@ export interface TextFlow {
   height: number
 }
 
+export interface TableLines {
+  // Lines around every cell, only between the rows, or none.
+  kind: 'all' | 'rows' | 'none'
+  color: string
+  // In design pixels.
+  width: number
+}
+
+// A table: rows and columns of cells with words, for menus, price lists and timetables.
+export interface TableLayer extends LayerBase {
+  kind: 'table'
+  // Where it sits. Its size always fits its columns and rows.
+  box: TransformBox
+  // The words in each cell, row by row; every row has one for each column.
+  cells: string[][]
+  // How wide each column is, in design pixels, first column first.
+  columnWidths: number[]
+  // How each column lines its words up ('auto': the way they read).
+  align: TextAlign[]
+  // How the words in every cell look.
+  style: TextStyle
+  // Space between a cell's edges and its words, in design pixels.
+  padding: number
+  // The color under every cell, or null to see the page through.
+  background: string | null
+  // The top row is a heading row, with bold words on this color. Null: no heading row.
+  header: string | null
+  // Every other row gets this color, so long lists are easy to read across. Null: none.
+  stripes: string | null
+  lines: TableLines
+  // The first column is on the right, the way Hebrew and Yiddish tables read.
+  rtl: boolean
+  // While a cell is being typed in, its words are shown in the typing box, not on the table.
+  // Never saved.
+  hiddenCell?: { row: number; column: number }
+}
+
 // One object in the design. Bottom layer first.
-export type Layer = PixelLayer | ShapeLayer | TextLayer
+export type Layer = PixelLayer | ShapeLayer | TextLayer | TableLayer
 
 // One page of a design with several pages. Pages can each have their own size, like a post, a
 // story and a banner of the same design side by side.

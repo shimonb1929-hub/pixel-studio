@@ -1,0 +1,13 @@
+{
+  "name": "Noot",
+  "license": "OFL-1.1",
+  "version": "",
+  "faces": [
+    {
+      "file": "noot-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+0020-007E,U+00A1,U+00A9,U+00AE,U+00BF,U+00F7,U+02C2-02C3,U+05B0-05BC,U+05BE-05C0,U+05C3,U+05D0-05EA,U+05F3-05F4,U+20AA,U+20AC,U+FB1D,U+FB2A-FB35,U+FB38-FB39,U+FB3B-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB47,U+FB49-FB4F"
+    }
+  ]
+}

@@ -29,6 +29,7 @@ export type SegmentRequest =
 
 export type SegmentResponse =
   | { type: 'progress'; loaded: number; total: number }
-  | { type: 'mask'; id: number; mask: Uint8Array; width: number; height: number }
+  // `mask` is 1 for every pixel of the thing; `alpha` says the same softly (0 to 255), for smooth cut-out edges.
+  | { type: 'mask'; id: number; mask: Uint8Array; alpha: Uint8Array; width: number; height: number }
   | { type: 'prepared'; id: number }
   | { type: 'error'; id: number; message: string }

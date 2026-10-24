@@ -3,6 +3,7 @@ import { drawLayer } from './compose.ts'
 import { createCanvas, getContext2d } from './document.ts'
 import { paintPage } from './gradient.ts'
 import { placeText } from '../text/textLayer.ts'
+import { tableTexts } from './table.ts'
 import { buildPdf, type PdfImage, type PdfPage, type PdfTextLine } from './pdf.ts'
 import { pageDocuments } from './pages.ts'
 import { defaultWidthInches, pdfLayout, type PdfLayout, type PdfSettings } from './pdfLayout.ts'
@@ -71,8 +72,9 @@ function pageText(doc: EditorDocument, layout: PdfLayout): PdfTextLine[] {
   const k = imageBox.width / area.width
   const toPage = new DOMMatrix([k, 0, 0, -k, imageBox.x - area.x * k, pageHeight - imageBox.y + area.y * k])
   const lines: PdfTextLine[] = []
-  for (const layer of doc.layers) {
-    if (layer.kind !== 'text' || !layer.visible || layer.opacity <= 0 || !layer.text.trim()) continue
+  const texts = doc.layers.flatMap((layer) => (!layer.visible || layer.opacity <= 0 ? [] : layer.kind === 'text' ? [layer] : layer.kind === 'table' ? tableTexts(layer) : []))
+  for (const layer of texts) {
+    if (!layer.text.trim()) continue
     const placed = placeText(layer)
     for (const line of placed.lines) {
       if (line.glyphs.length === 0) continue

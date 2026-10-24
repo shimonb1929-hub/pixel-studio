@@ -1,0 +1,13 @@
+{
+  "name": "Dyslexia Hebrew",
+  "license": "OFL-1.1",
+  "version": "",
+  "faces": [
+    {
+      "file": "dyslexia-hebrew-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+000D,U+0020,U+002D,U+0326-0328,U+0591-05C7,U+05D0-05EA,U+05EF-05F4,U+200D,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    }
+  ]
+}
