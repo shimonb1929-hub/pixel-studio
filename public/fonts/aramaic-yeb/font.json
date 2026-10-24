@@ -1,0 +1,13 @@
+{
+  "name": "Aramaic Yeb",
+  "license": "GPL-2.0-with-font-exception",
+  "version": "",
+  "faces": [
+    {
+      "file": "aramaic-yeb-500-normal.woff2",
+      "weight": "500",
+      "style": "normal",
+      "unicodeRange": "U+0020-0040,U+005B-0060,U+007B-007E,U+0307-0308,U+05C3,U+05D0-05EA,U+2009,U+10840-10855,U+10857-1085F"
+    }
+  ]
+}

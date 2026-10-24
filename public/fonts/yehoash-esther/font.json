@@ -1,0 +1,13 @@
+{
+  "name": "Yehoash Esther",
+  "license": "OFL-1.1",
+  "version": "",
+  "faces": [
+    {
+      "file": "yehoash-esther-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+0020-0022,U+002C,U+002E,U+003A-003B,U+003F,U+0075,U+05B4,U+05B7-05B8,U+05BC,U+05BE-05BF,U+05C2,U+05D0-05EA,U+05F0-05F2,U+05F4,U+203D,U+2E18,U+FB1D,U+FB1F,U+FB2B,U+FB2E-FB2F,U+FB31,U+FB35,U+FB3B,U+FB44,U+FB4A,U+FB4C,U+FB4E"
+    }
+  ]
+}

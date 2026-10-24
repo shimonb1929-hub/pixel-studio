@@ -1,0 +1,13 @@
+{
+  "name": "Felix007",
+  "license": "OFL-1.1",
+  "version": "",
+  "faces": [
+    {
+      "file": "felix007-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+0000,U+000D,U+0020-007E,U+00A0,U+00A2-00A3,U+00A5,U+00A8-00A9,U+00AB,U+00AD-00AE,U+00B4,U+00B8,U+00BB,U+02C6,U+02DC,U+0591-05A1,U+05A3-05B9,U+05BB-05C4,U+05D0-05EA,U+05F0-05F4,U+2000-200A,U+200C-2014,U+2018-201A,U+201C-201E,U+2020-2022,U+2026,U+202F-2030,U+2039-203A,U+205F,U+20A7,U+20AA,U+20AC,U+2122,U+E000,U+FB01-FB02,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    }
+  ]
+}

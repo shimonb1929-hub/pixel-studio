@@ -1,0 +1,13 @@
+{
+  "name": "CJ Hebrew",
+  "license": "LPPL-1.3c",
+  "version": "",
+  "faces": [
+    {
+      "file": "cjhebrew-500-normal.woff2",
+      "weight": "500",
+      "style": "normal",
+      "unicodeRange": "U+0020,U+002A-002F,U+05B0-05B9,U+05BB-05BC,U+05BE,U+05C1-05C3,U+05D0-05EA,U+200C,U+25CC,U+FB2A-FB2B,U+FB31-FB36,U+FB38-FB39,U+FB3B-FB3C,U+FB3E,U+FB40-FB41,U+FB44,U+FB46-FB47,U+FB49-FB4B"
+    }
+  ]
+}

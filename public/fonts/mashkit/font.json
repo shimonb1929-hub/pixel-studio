@@ -1,0 +1,13 @@
+{
+  "name": "Mashkit",
+  "license": "GPL-2.0-with-font-exception",
+  "version": "",
+  "faces": [
+    {
+      "file": "mashkit-500-normal.woff2",
+      "weight": "500",
+      "style": "normal",
+      "unicodeRange": "U+0020-0021,U+002C-002E,U+003F,U+05B0-05BF,U+05C1-05C3,U+05C7,U+05D0-05EA,U+05F0-05F2,U+2E17,U+FB1F,U+FB2A-FB2B,U+FB2E-FB35,U+FB3B,U+FB44,U+FB4A,U+FB4C-FB4E"
+    }
+  ]
+}

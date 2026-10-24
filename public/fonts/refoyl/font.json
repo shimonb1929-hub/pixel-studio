@@ -1,0 +1,13 @@
+{
+  "name": "Refoyl",
+  "license": "GPL-2.0-with-font-exception",
+  "version": "",
+  "faces": [
+    {
+      "file": "refoyl-500-normal.woff2",
+      "weight": "500",
+      "style": "normal",
+      "unicodeRange": "U+0020-0022,U+0027-0029,U+002C-002E,U+0030-003B,U+003F,U+05B4,U+05B7-05B8,U+05BC,U+05BE-05BF,U+05C1-05C2,U+05D0-05EA,U+05F0-05F2,U+2010-2015,U+2019,U+201C-201E,U+2032,U+FB1D,U+FB1F,U+FB2A-FB2B,U+FB2E-FB2F,U+FB35,U+FB3B,U+FB44,U+FB4A,U+FB4C,U+FB4E"
+    }
+  ]
+}

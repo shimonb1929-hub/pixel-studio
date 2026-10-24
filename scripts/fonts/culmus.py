@@ -15,6 +15,7 @@
 # design that uses or embeds the fonts is not covered by the GPL. The files are not changed beyond
 # keeping fewer letters, which the license allows. The other Culmus Fancy fonts (Anka, Gan, Ktav
 # Yad and more) are under the plain GPL, without the exception, so they are left out.
+# Fonts that lack the Yiddish double letters or the rafe get them made from their own letters.
 # Ezra SIL is under the SIL Open Font License with "Ezra" as a reserved name: changing the font
 # would mean renaming it, so its files are only turned into woff2, with every letter kept.
 
@@ -28,6 +29,8 @@ from pathlib import Path
 
 from fontTools import subset
 from fontTools.ttLib import TTFont
+
+from yiddish import add_yiddish
 
 VERSION = '0.140'
 URL = f'https://downloads.sourceforge.net/project/culmus/culmus/{VERSION}/culmus-{VERSION}.tar.gz'
@@ -90,6 +93,7 @@ EXTRA_FAMILIES = {
     'makabi-yg': ('Makabi YG', 'culmus-fancy', 'Copyright 2009 by Yoram Gnat (yoram.gnat@gmail.com)', [('MakabiYG.ttf', 'normal')]),
     'shmulik-clm': ('Shmulik CLM', 'culmus-fancy', 'Copyright 2010 by Yoram Gnat (yoram.gnat@gmail.com). In memory of Shmuel Katz, whose hand-drawn letters inspired it.', [('ShmulikCLM.ttf', 'normal')]),
     'ezra-sil': ('Ezra SIL', 'ezra', EZRA_COPYRIGHT, [('SILEOT.ttf', 'normal')]),
+    'ezra-sil-sr': ('Ezra SIL SR', 'ezra', EZRA_COPYRIGHT, [('SILEOTSR.ttf', 'normal')]),
 }
 
 # The letters kept: Latin (as Fontsource's latin and latin-ext), punctuation, ₪, and all of Hebrew.
@@ -189,6 +193,8 @@ def save_family(font_id, name, license_name, license_text, version, faces, files
             subsetter = subset.Subsetter(options)
             subsetter.populate(unicodes=codepoints)
             subsetter.subset(font)
+            # The Yiddish double letters and rafe, when the font lacks them (see yiddish.py).
+            codepoints += add_yiddish(font)
         file = f'{font_id}-{weight}-{style}.woff2'
         font.flavor = 'woff2'
         font.save(out / file)
