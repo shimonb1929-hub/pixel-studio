@@ -191,6 +191,14 @@ describe('project files', () => {
     }
   })
 
+  it('keeps clean grain, and opens projects saved before it as no cleaning', () => {
+    const cleaned = { ...NO_ADJUSTMENTS, denoise: 0.6 }
+    expect(validateManifest(manifest({ layers: [pixels({ adjust: cleaned })], activeLayer: 0 })).layers[0].adjust).toEqual(cleaned)
+    const { denoise: _, ...before } = { ...NO_ADJUSTMENTS, grain: 0.2 }
+    expect(validateManifest(manifest({ layers: [pixels({ adjust: before as never })], activeLayer: 0 })).layers[0].adjust?.denoise).toBe(0)
+    expect(() => validateManifest(manifest({ layers: [pixels({ adjust: { ...cleaned, denoise: -0.2 } })], activeLayer: 0 }))).toThrow(ProjectError)
+  })
+
   it('keeps shapes, and finds the photo inside a shape among the pictures', async () => {
     const withPhoto = shape({ name: 'Frame', fill: { kind: 'photo', zoom: 1.5, x: -0.5, y: 0.25, width: 30, height: 20, bytes: 2 } })
     const original = manifest({ layers: [pixels(), shape(), withPhoto, pixels({ name: 'Top', bytes: 1 })], activeLayer: 1 })

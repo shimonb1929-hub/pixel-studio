@@ -13,6 +13,7 @@ import {
   type Adjustments,
   type PixelPlace,
 } from './adjust.ts'
+import { denoisePixels } from './denoise.ts'
 import { createCanvas, getContext2d, layerRect } from './document.ts'
 import { intersectRect, unionRect, type Rect } from './geometry.ts'
 import type { RenderPart } from './render.ts'
@@ -113,6 +114,13 @@ export function renderAdjusted(
   } else {
     work = capture(layer.canvas, layerRect(layer), read, scale)
     if (a.blur > 0) process(work, read, { ...NO_ADJUSTMENTS, blur: a.blur }, size, frame)
+  }
+  // Grain is cleaned after the blur and before sharpening, so the specks never get sharpened.
+  if (a.denoise > 0) {
+    const ctx = work.getContext('2d', { willReadFrequently: true })!
+    const image = ctx.getImageData(0, 0, work.width, work.height)
+    denoisePixels(image.data, work.width, work.height, a.denoise, size * (work.width / read.width))
+    ctx.putImageData(image, 0, 0)
   }
   if (sharpen || rest) {
     const ctx = work.getContext('2d', { willReadFrequently: true })!

@@ -1827,5 +1827,22 @@
  "Words along a shape": "Palabras a lo largo de una forma",
  "Runs the picked text along the edge of the shape picked with it, like words around a round badge. To bend text into an arch, use Bend in the Text panel.": "Lleva el texto elegido a lo largo del borde de la forma elegida con él, como palabras alrededor de una insignia redonda. Para curvar el texto en un arco, usa Curvar en el panel Texto.",
  "Bend words or put them around a circle": "Curvar palabras o ponerlas alrededor de un círculo",
- "Click the text and move Bend in the Text panel. For words around a shape, pick the text and the shape together and press Along the shape.": "Haz clic en el texto y mueve Curvar en el panel Texto. Para palabras alrededor de una forma, elige el texto y la forma a la vez y pulsa A lo largo de la forma."
+ "Click the text and move Bend in the Text panel. For words around a shape, pick the text and the shape together and press Along the shape.": "Haz clic en el texto y mueve Curvar en el panel Texto. Para palabras alrededor de una forma, elige el texto y la forma a la vez y pulsa A lo largo de la forma.",
+ "Match another photo": "Igualar con otra foto",
+ "Match colors of another photo": "Igualar colores con otra foto",
+ "Pick another photo on your design, and this one takes on its light and colors, so photos side by side look like they belong together (pro: Match Color). It sets the light curves for you; change anything after.": "Elige otra foto de tu diseño y esta toma su luz y sus colores, para que las fotos una junto a otra parezcan del mismo conjunto (en programas profesionales: Match Color). Ajusta las curvas de luz por ti; después puedes cambiar lo que quieras.",
+ "Pick another photo on your design, and the picked photo takes on its light and colors, so they look like they belong together (pro: Match Color). You see it first; press Apply to keep it.": "Elige otra foto de tu diseño y la foto elegida toma su luz y sus colores, para que parezcan del mismo conjunto (en programas profesionales: Match Color). Primero lo ves; pulsa Aplicar para quedártelo.",
+ "There is no other photo on this design yet. Add the photo whose light and colors you like, then pick it here.": "Todavía no hay otra foto en este diseño. Añade la foto cuya luz y colores te gustan y luego elígela aquí.",
+ "Give the photo you are adjusting the light and colors of “{name}”.": "Dar a la foto que estás ajustando la luz y los colores de «{name}».",
+ "How strongly this photo takes on the other one’s light and colors. All the way to the left changes nothing.": "Cuánto toma esta foto la luz y los colores de la otra. Del todo a la izquierda no cambia nada.",
+ "A hint of the other photo’s look.": "Un toque del aspecto de la otra foto.",
+ "Close to the other photo’s look.": "Cerca del aspecto de la otra foto.",
+ "The full look of the other photo.": "Todo el aspecto de la otra foto.",
+ "Clean grain": "Limpiar grano",
+ "Takes away the fine colored specks a photo gets in low light or at night, and keeps edges sharp (pro: Reduce Noise). Use only as much as you need: too much makes skin and leaves look smooth, like plastic.": "Quita los puntitos de colores que salen en una foto con poca luz o de noche, y mantiene los bordes nítidos (en programas profesionales: Reduce Noise). Usa solo lo que necesites: demasiado deja la piel y las hojas lisas como plástico.",
+ "Take away the specks a photo gets in low light or at night, keeping edges sharp (pro: Reduce Noise). You see it first; press Apply to keep it.": "Quitar los puntitos de una foto con poca luz o de noche, con los bordes nítidos (en programas profesionales: Reduce Noise). Primero lo ves; pulsa Aplicar para quedártelo.",
+ "No cleaning.": "Sin limpiar.",
+ "Fewer specks, all the detail kept.": "Menos puntitos, con todo el detalle.",
+ "Smooth and clean, edges still sharp.": "Liso y limpio, con los bordes aún nítidos.",
+ "Very smooth: the finest texture may soften.": "Muy liso: la textura más fina puede suavizarse."
 }
