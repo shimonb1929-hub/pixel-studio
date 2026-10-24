@@ -5,6 +5,7 @@ import { effectsReach } from './effects.ts'
 import { gradientLine, type Gradient } from './gradient.ts'
 import { arrowLength, canFill, fillRule, hasArrow, isLineShape, layerBounds, outlineDash, photoPlacement, scaledPath, shapePath, type PathSink } from './objects.ts'
 import { endDirection } from './path.ts'
+import { tableParts, tableTexts } from './table.ts'
 import type { EditorDocument, Layer, PixelLayer, ShapeLayer, TextLayer } from './types.ts'
 import { cssFont, familyName, fontFormat, fontInfo, fontStack, fontStackIds } from '../text/fonts.ts'
 import { styledPieces } from '../text/spans.ts'
@@ -235,6 +236,7 @@ function layerSvg(doc: EditorDocument, layer: Layer, ids: Ids, defs: string[]): 
   if (picture || (layer.effects && Object.values(layer.effects).some(Boolean)) || (layer.adjust && !isNeutral(layer.adjust))) return pictureOfLayer(doc, layer)
   if (layer.kind === 'raster') return pixelLayerSvg(layer)
   if (layer.kind === 'shape') return shapeSvg(layer, ids, defs)
+  if (layer.kind === 'table') return tableParts(layer).map((part) => layerSvg(doc, part, ids, defs)).join('')
   return textSvg(layer, ids, defs)
 }
 
@@ -325,7 +327,7 @@ export async function exportSvg(doc: EditorDocument): Promise<Blob> {
     const blend = layer.blend && layer.blend !== 'normal' ? ` style="mix-blend-mode:${layer.blend}"` : ''
     body.push(`<g data-name="${escape(layer.name)}"${opacity}${blend}>${content}</g>`)
   }
-  const fonts = await fontFaces(doc.layers.filter((l): l is TextLayer => l.kind === 'text' && l.visible))
+  const fonts = await fontFaces(doc.layers.flatMap((l) => (!l.visible ? [] : l.kind === 'text' ? [l] : l.kind === 'table' ? tableTexts(l) : [])))
   const style = fonts ? `<style>${fonts}</style>` : ''
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${doc.width}" height="${doc.height}" viewBox="0 0 ${doc.width} ${doc.height}">` +

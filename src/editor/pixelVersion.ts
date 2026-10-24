@@ -20,5 +20,5 @@ export function pixelVersion(canvas: HTMLCanvasElement): number {
 export function layerVersion(layer: Layer): number {
   const hidden = layer.hide ? pixelVersion(layer.hide.canvas) : 0
   if (layer.kind === 'raster') return pixelVersion(layer.canvas) + hidden
-  return (layer.kind === 'text' ? fontsVersion() : 0) + hidden
+  return (layer.kind === 'text' || layer.kind === 'table' ? fontsVersion() : 0) + hidden
 }

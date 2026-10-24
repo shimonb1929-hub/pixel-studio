@@ -1,8 +1,12 @@
-import { CircleHelp, RotateCcw } from 'lucide-react'
-import { useLayoutEffect, useRef } from 'react'
+import { ChevronDown, CircleHelp, Palette, RotateCcw, SunMedium } from 'lucide-react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ADJUSTMENT_NAMES,
+  COLOR_RANGE_HUES,
+  COLOR_RANGES,
   describeAdjustment,
+  hasColorChanges,
+  hasCurve,
   isNeutral,
   LOOKS,
   matchingLook,
@@ -10,25 +14,53 @@ import {
   TWO_WAY,
   type AdjustmentKey,
   type Adjustments,
+  type ColorChange,
+  type ColorRange,
 } from '../editor/adjust.ts'
+import { CurveEditor } from './CurveEditor.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { live, msg, t } from '../i18n/i18n.ts'
 import { Button, Slider } from './ui.tsx'
 
+// What each slider does, when to use it and how, in a sentence or two.
 const HELP: Record<AdjustmentKey, string> = live({
   brightness: msg('Makes it lighter or darker. Pure black and pure white stay as they are.'),
   contrast: msg('The difference between the light and dark parts. More makes it punchy; less makes it soft and flat.'),
+  highlights: msg('Changes only the bright parts. When the sky or a window is too bright, move it left to bring back their detail.'),
+  shadows: msg('Changes only the dark parts. When faces or things in the shade are too dark, move it right to see them.'),
+  whites: msg('How bright the very brightest parts are. Move it right to make a dull photo shine, or left if whites look harsh.'),
+  blacks: msg('How deep the very darkest parts are. Move it left for rich, deep blacks, or right for a soft, faded look.'),
   saturation: msg('How strong the colors are. All the way to the left is black and white.'),
+  vibrance: msg('Makes dull colors livelier but leaves colors that are already strong nearly alone. Good for a natural look.'),
   warmth: msg('To the right is warmer and more golden, like sunshine. To the left is cooler and more blue.'),
-  blur: msg('Makes it soft and out of focus.'),
+  tint: msg('Fixes a green or pink cast, for example from indoor lights. Move it right for more pink, left for more green.'),
   sharpen: msg('Makes edges and small details crisper.'),
+  clarity: msg('Makes texture and detail stand out, without making edges rough. Move it left for a soft glow.'),
+  blur: msg('Makes it soft and out of focus.'),
+  vignette: msg('Darkens the corners and edges, which draws the eye to the middle. Move it left for light corners instead.'),
+  grain: msg('Adds fine, even specks, like a photo printed from film. A little makes a picture feel real.'),
 })
 
-const GROUPS: { title: string; keys: AdjustmentKey[] }[] = live([
-  { title: msg('Lighting'), keys: ['brightness', 'contrast'] },
-  { title: msg('Color'), keys: ['saturation', 'warmth'] },
-  { title: msg('Detail'), keys: ['blur', 'sharpen'] },
+// The sliders always shown, and those under "More", for each group.
+const GROUPS: { id: string; title: string; keys: AdjustmentKey[]; more: AdjustmentKey[] }[] = live([
+  { id: 'light', title: msg('Lighting'), keys: ['brightness', 'contrast', 'highlights', 'shadows'], more: ['whites', 'blacks'] },
+  { id: 'color', title: msg('Color'), keys: ['saturation', 'warmth'], more: ['vibrance', 'tint'] },
+  { id: 'detail', title: msg('Detail'), keys: ['sharpen', 'clarity', 'blur'], more: [] },
+  { id: 'finish', title: msg('Finishing touches'), keys: ['vignette', 'grain'], more: [] },
 ])
+
+const COLOR_NAMES: Record<ColorRange, string> = live({
+  red: msg('Red'),
+  orange: msg('Orange'),
+  yellow: msg('Yellow'),
+  green: msg('Green'),
+  aqua: msg('Aqua'),
+  blue: msg('Blue'),
+  purple: msg('Purple'),
+  pink: msg('Pink'),
+})
+
+const NO_COLOR_CHANGE: ColorChange = { hue: 0, strength: 0, light: 0 }
 
 const PREVIEW_WIDTH = 66
 const PREVIEW_HEIGHT = 50
@@ -65,23 +97,150 @@ export function LookPreview({ source }: { source: HTMLCanvasElement | undefined 
   return <canvas ref={ref} aria-hidden className="block rounded-md" style={{ width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT }} />
 }
 
-function sliderDisplay(key: AdjustmentKey, value: number): string {
+function signed(value: number, twoWay = true): string {
   const amount = Math.round(value * 100)
-  if (!TWO_WAY[key] || amount === 0) return String(amount)
+  if (!twoWay || amount === 0) return String(amount)
   return amount > 0 ? `+${amount}` : `−${-amount}`
+}
+
+// A slider for a value from -1 to 1 (or 0 to 1), in steps of one point on the -100 to +100 scale.
+function AmountSlider(props: { label: string; help: string; value: number; twoWay?: boolean; note: string; onChange: (value: number) => void }) {
+  const twoWay = props.twoWay ?? true
+  return (
+    <Slider
+      label={props.label}
+      help={props.help}
+      value={twoWay ? (props.value + 1) / 2 : props.value}
+      origin={twoWay ? 0.5 : 0}
+      step={twoWay ? 0.005 : 0.01}
+      display={signed(props.value, twoWay)}
+      note={props.note}
+      onChange={(position) => props.onChange(Math.round((twoWay ? position * 2 - 1 : position) * 100) / 100)}
+    />
+  )
+}
+
+// A "More" switch that shows a few extra controls under a group.
+function More({ open, onToggle, label, help, children }: { open: boolean; onToggle: () => void; label: string; help?: string; children: ReactNode }) {
+  const button = (
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={onToggle}
+      className="flex items-center gap-1 rounded-md py-0.5 text-[11px] font-medium text-ink-2 hover:text-ink"
+    >
+      {label}
+      <ChevronDown size={13} className={`transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+    </button>
+  )
+  return (
+    <div>
+      {help ? (
+        <Tooltip title={label} description={help} side="bottom" className="flex">
+          {button}
+        </Tooltip>
+      ) : (
+        button
+      )}
+      {open && <div className="mt-2 flex flex-col gap-2.5">{children}</div>}
+    </div>
+  )
+}
+
+// Change one color: pick a color family, then change its shade, strength and lightness.
+function OneColor({ settings, onChange }: { settings: Adjustments; onChange: (settings: Adjustments) => void }) {
+  const [range, setRange] = useState<ColorRange>(() => COLOR_RANGES.find((r) => settings.colors?.[r]) ?? 'blue')
+  const change = settings.colors?.[range] ?? NO_COLOR_CHANGE
+  const set = (patch: Partial<ColorChange>) => onChange({ ...settings, colors: { ...settings.colors, [range]: { ...change, ...patch } } })
+  const index = COLOR_RANGES.indexOf(range)
+  const toward = COLOR_NAMES[COLOR_RANGES[(index + (change.hue > 0 ? 1 : COLOR_RANGES.length - 1)) % COLOR_RANGES.length]]
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div role="radiogroup" aria-label={t('Which color')} className="flex justify-between gap-1">
+        {COLOR_RANGES.map((r) => {
+          const changed = !!settings.colors?.[r] && Object.values(settings.colors[r]!).some((v) => v !== 0)
+          return (
+            <Tooltip key={r} title={COLOR_NAMES[r]} description={t('Change only the {color} parts of the photo.', { color: COLOR_NAMES[r] })} side="bottom">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={range === r}
+                aria-label={COLOR_NAMES[r]}
+                onClick={() => setRange(r)}
+                className={`relative h-6 w-6 rounded-full border-2 transition-transform ${range === r ? 'scale-110 border-ink' : 'border-surface hover:scale-110'}`}
+                style={{ background: `hsl(${COLOR_RANGE_HUES[r]} 80% 52%)`, boxShadow: '0 0 0 1px var(--color-line)' }}
+              >
+                {changed && <span aria-hidden className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-ink" />}
+              </button>
+            </Tooltip>
+          )
+        })}
+      </div>
+      <AmountSlider
+        label={t('Shift color')}
+        help={t('Turns this color toward its neighbors, for example blue toward purple or toward aqua.')}
+        value={change.hue}
+        note={change.hue === 0 ? t('No change.') : t('Turns toward {color}.', { color: toward })}
+        onChange={(hue) => set({ hue })}
+      />
+      <AmountSlider
+        label={t('How colorful')}
+        help={t('How strong just this color is. All the way left takes this color away and leaves the rest.')}
+        value={change.strength}
+        note={describeAdjustment('saturation', change.strength)}
+        onChange={(strength) => set({ strength })}
+      />
+      <AmountSlider
+        label={t('How light')}
+        help={t('Makes just this color lighter or darker. In black and white, it lightens or darkens the parts that had this color.')}
+        value={change.light}
+        note={describeAdjustment('brightness', change.light)}
+        onChange={(light) => set({ light })}
+      />
+    </div>
+  )
 }
 
 interface AdjustPanelProps {
   settings: Adjustments
   // Small pictures of each look, in the same order as LOOKS.
-  thumbnails: HTMLCanvasElement[] | null
+  thumbnails: ThumbnailList
+  // How many pixels have each tone, for the light curve.
+  histogram: Uint32Array | null
   // Why nothing can be adjusted right now, if that's the case.
   blocked: string | null
   onChange: (settings: Adjustments) => void
+  onAutoLight: () => void
+  onAutoColor: () => void
 }
 
-export function AdjustPanel({ settings, thumbnails, blocked, onChange }: AdjustPanelProps) {
+type ThumbnailList = HTMLCanvasElement[] | null
+
+export function AdjustPanel({ settings, thumbnails, histogram, blocked, onChange, onAutoLight, onAutoColor }: AdjustPanelProps) {
   const current = matchingLook(settings)
+  // Which "More" parts people opened or closed; untouched ones open by themselves when something
+  // in them is changed.
+  const [opened, setOpened] = useState<Record<string, boolean>>({})
+  const hiddenChanged: Record<string, boolean> = {
+    light: settings.whites !== 0 || settings.blacks !== 0,
+    color: settings.vibrance !== 0 || settings.tint !== 0,
+    curve: hasCurve(settings),
+    oneColor: hasColorChanges(settings),
+  }
+  const isOpen = (id: string) => opened[id] ?? hiddenChanged[id] ?? false
+  const toggle = (id: string) => setOpened({ ...opened, [id]: !isOpen(id) })
+
+  const slider = (key: AdjustmentKey) => (
+    <AmountSlider
+      key={key}
+      label={ADJUSTMENT_NAMES[key]}
+      help={HELP[key]}
+      value={settings[key]}
+      twoWay={TWO_WAY[key]}
+      note={describeAdjustment(key, settings[key])}
+      onChange={(value) => onChange({ ...settings, [key]: value })}
+    />
+  )
 
   return (
     <section aria-label={t("Adjust")} className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
@@ -115,6 +274,31 @@ export function AdjustPanel({ settings, thumbnails, blocked, onChange }: AdjustP
         <p className="text-[13px] leading-snug text-ink-2">{blocked}</p>
       ) : (
         <>
+          <div className="mb-4 grid grid-cols-2 gap-1.5">
+            <Button
+              className="h-8 w-full px-2 text-[12px]"
+              onClick={onAutoLight}
+              tip={{
+                title: t('Fix light'),
+                description: t('Looks at your photo and sets the light for you: brightness, dark parts, bright parts, whites and blacks. You see it at once, and can change any slider after.'),
+              }}
+            >
+              <SunMedium size={14} aria-hidden />
+              {t('Fix light')}
+            </Button>
+            <Button
+              className="h-8 w-full px-2 text-[12px]"
+              onClick={onAutoColor}
+              tip={{
+                title: t('Fix colors'),
+                description: t('Takes away a yellow, blue, green or pink cast, so whites look white. It sets Warmth and Green or pink for you; change them after if you like.'),
+              }}
+            >
+              <Palette size={14} aria-hidden />
+              {t('Fix colors')}
+            </Button>
+          </div>
+
           <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{t('Looks')}</h3>
           <div role="radiogroup" aria-label={t("Looks")} className="grid grid-cols-3 gap-1.5">
             {LOOKS.map((look, i) => (
@@ -137,30 +321,40 @@ export function AdjustPanel({ settings, thumbnails, blocked, onChange }: AdjustP
           </div>
 
           {GROUPS.map((group) => (
-            <div key={group.title} className="mt-4">
+            <div key={group.id} className="mt-4">
               <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{group.title}</h3>
               <div className="flex flex-col gap-2.5">
-                {group.keys.map((key) => {
-                  const twoWay = TWO_WAY[key]
-                  const value = settings[key]
-                  return (
-                    <Slider
-                      key={key}
-                      label={ADJUSTMENT_NAMES[key]}
-                      help={HELP[key]}
-                      value={twoWay ? (value + 1) / 2 : value}
-                      origin={twoWay ? 0.5 : 0}
-                      // One step is one point on the -100 to +100 scale.
-                      step={twoWay ? 0.005 : 0.01}
-                      display={sliderDisplay(key, value)}
-                      note={describeAdjustment(key, value)}
-                      onChange={(position) => {
-                        const next = Math.round((twoWay ? position * 2 - 1 : position) * 100) / 100
-                        onChange({ ...settings, [key]: next })
-                      }}
-                    />
-                  )
-                })}
+                {group.keys.map(slider)}
+                {group.id === 'light' && (
+                  <>
+                    <More open={isOpen('light')} onToggle={() => toggle('light')} label={t('Whites and blacks')}>
+                      {group.more.map(slider)}
+                    </More>
+                    <More
+                      open={isOpen('curve')}
+                      onToggle={() => toggle('curve')}
+                      label={t('Light curve')}
+                      help={t('Exact control of light. The line goes from the darkest parts (left) to the brightest (right). Drag it up to make those parts lighter, or down to make them darker. Click the line to add a point; drag a point out of the box to remove it.')}
+                    >
+                      <CurveEditor curves={settings.curve} histogram={histogram} onChange={(curve) => onChange({ ...settings, curve })} />
+                    </More>
+                  </>
+                )}
+                {group.id === 'color' && (
+                  <>
+                    <More open={isOpen('color')} onToggle={() => toggle('color')} label={t('Gentle boost and green or pink')}>
+                      {group.more.map(slider)}
+                    </More>
+                    <More
+                      open={isOpen('oneColor')}
+                      onToggle={() => toggle('oneColor')}
+                      label={t('Change one color')}
+                      help={t('Pick a color, then change only that color in the photo: its shade, how strong it is and how light it is. For example, make the sky a deeper blue or the grass less yellow.')}
+                    >
+                      <OneColor settings={settings} onChange={onChange} />
+                    </More>
+                  </>
+                )}
               </div>
             </div>
           ))}

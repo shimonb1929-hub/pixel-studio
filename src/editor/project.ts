@@ -1,4 +1,4 @@
-import type { Adjustments } from './adjust.ts'
+import { COLOR_RANGES, CURVE_CHANNELS, NO_ADJUSTMENTS, SLIDER_KEYS, tidyAdjustments, type Adjustments, type CurvePoint } from './adjust.ts'
 import { drawLayer } from './compose.ts'
 import { BLEND_MODES, hasEffects, type BlendMode, type LayerEffects } from './effects.ts'
 import { createCanvas, createDesignId, createId, getContext2d, layerFromCanvas, MAX_LAYER_SIDE, validateDocumentSize } from './document.ts'
@@ -13,7 +13,7 @@ import { tidySpans } from '../text/spans.ts'
 import { tidyGroups } from './layers.ts'
 import { allPages, pageIndex } from './pages.ts'
 import { hasLayout } from './pageLayout.ts'
-import type { DesignPage, EditorDocument, Layer, LayerHide, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TextFlow, TextSpan, TextStyle, TextWrap } from './types.ts'
+import type { DesignPage, EditorDocument, Layer, LayerHide, PageLayout, LayerGroup, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TableLines, TextFlow, TextSpan, TextStyle, TextWrap } from './types.ts'
 import type { Gradient, GradientStop } from './gradient.ts'
 import { paintPage } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
@@ -37,12 +37,12 @@ import { MAX_PPI } from './units.ts'
 // Version 11 added things on every page (everyPage) and page numbers (pageNumber). Version 12 added
 // lists (a text's style.list) and fonts of your own (fonts): their files come after the pictures.
 // Version 13 added text flowing around pictures and shapes (textWrap).
-// Version 14 added pages with sizes of their own (width and height on a page).
-// Version 15 added photos inside text (photo) and softly hidden parts (hide), each with its own
+// Version 14 added pages with sizes of their own (width and height on a page). Version 15 added tables.
+// Version 16 added photos inside text (photo) and softly hidden parts (hide), each with its own
 // picture after the layer's other pictures.
 // Older files still open.
 
-export const PROJECT_VERSION = 15
+export const PROJECT_VERSION = 16
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -116,11 +116,26 @@ export interface ProjectTextLayer extends ProjectLayerBase {
   photo?: ProjectPhoto
 }
 
-export type ProjectLayer = ProjectPixelLayer | ProjectShapeLayer | ProjectTextLayer
+export interface ProjectTableLayer extends ProjectLayerBase {
+  kind: 'table'
+  box: TransformBox
+  cells: string[][]
+  columnWidths: number[]
+  align: TextAlign[]
+  style: TextStyle
+  padding: number
+  background: string | null
+  header: string | null
+  stripes: string | null
+  lines: TableLines
+  rtl: boolean
+}
+
+export type ProjectLayer = ProjectPixelLayer | ProjectShapeLayer | ProjectTextLayer | ProjectTableLayer
 
 // The PNGs a layer brings along, in order: its pixels or its photo, then its hidden parts.
 function pictureSizes(layer: ProjectLayer): number[] {
-  const own = layer.kind === 'raster' ? [layer.bytes] : layer.kind === 'text' ? (layer.photo ? [layer.photo.bytes] : []) : layer.fill.kind === 'photo' ? [layer.fill.bytes] : []
+  const own = layer.kind === 'raster' ? [layer.bytes] : layer.kind === 'text' ? (layer.photo ? [layer.photo.bytes] : []) : layer.kind === 'table' ? [] : layer.fill.kind === 'photo' ? [layer.fill.bytes] : []
   return layer.hide ? [...own, layer.hide.bytes] : own
 }
 
@@ -255,19 +270,45 @@ function readBox(value: unknown): TransformBox {
   return { cx, cy, width, height, rotation }
 }
 
-const ADJUSTMENT_KEYS = ['brightness', 'contrast', 'saturation', 'warmth', 'blur', 'sharpen'] as const
+// Sliders added after the first six may be missing from older projects; they start at 0.
+const FIRST_ADJUSTMENT_KEYS = new Set(['brightness', 'contrast', 'saturation', 'warmth', 'blur', 'sharpen'])
+const ONE_WAY_ADJUSTMENTS = new Set(['blur', 'sharpen', 'grain'])
 
 function readAdjust(value: unknown): Adjustments | null {
   if (value === null || value === undefined) return null
   if (!isRecord(value)) damaged()
-  const settings = {} as Adjustments
-  for (const key of ADJUSTMENT_KEYS) {
+  const settings = { ...NO_ADJUSTMENTS }
+  for (const key of SLIDER_KEYS) {
     const v = value[key]
-    const min = key === 'blur' || key === 'sharpen' ? 0 : -1
-    if (!isBetween(v, min, 1)) damaged()
+    if (v === undefined && !FIRST_ADJUSTMENT_KEYS.has(key)) continue
+    if (!isBetween(v, ONE_WAY_ADJUSTMENTS.has(key) ? 0 : -1, 1)) damaged()
     settings[key] = v
   }
-  return settings
+  const { colors, curve } = value
+  if (colors !== undefined) {
+    if (!isRecord(colors)) damaged()
+    settings.colors = {}
+    for (const range of COLOR_RANGES) {
+      const change = colors[range]
+      if (change === undefined) continue
+      if (!isRecord(change) || !isBetween(change.hue, -1, 1) || !isBetween(change.strength, -1, 1) || !isBetween(change.light, -1, 1)) damaged()
+      settings.colors[range] = { hue: change.hue, strength: change.strength, light: change.light }
+    }
+  }
+  if (curve !== undefined) {
+    if (!isRecord(curve)) damaged()
+    settings.curve = {}
+    for (const channel of CURVE_CHANNELS) {
+      const points = curve[channel]
+      if (points === undefined) continue
+      if (!Array.isArray(points) || points.length > 64) damaged()
+      settings.curve[channel] = points.map((point: unknown): CurvePoint => {
+        if (!Array.isArray(point) || !isBetween(point[0], 0, 1) || !isBetween(point[1], 0, 1)) damaged()
+        return [point[0], point[1]]
+      })
+    }
+  }
+  return tidyAdjustments(settings)
 }
 
 const MAX_EFFECT_SIZE = 100000
@@ -437,6 +478,42 @@ function readTextStyle(value: unknown): TextStyle {
   }
 }
 
+const MAX_TABLE_SIDE = 1000
+
+function readTable(layer: Record<string, unknown>, base: ProjectLayerBase): ProjectTableLayer {
+  const { cells, columnWidths, align, padding, background, header, stripes, lines, rtl } = layer
+  if (!Array.isArray(columnWidths) || columnWidths.length < 1 || columnWidths.length > MAX_TABLE_SIDE || !columnWidths.every((w) => isBetween(w, 0.1, 1e6))) damaged()
+  const columns = columnWidths.length
+  if (!Array.isArray(cells) || cells.length < 1 || cells.length > MAX_TABLE_SIDE) damaged()
+  let length = 0
+  for (const row of cells) {
+    if (!Array.isArray(row) || row.length !== columns || !row.every((cell) => typeof cell === 'string')) damaged()
+    length += row.reduce((sum: number, cell: string) => sum + cell.length, 0)
+  }
+  if (length > MAX_TEXT_LENGTH) damaged()
+  if (!Array.isArray(align) || align.length !== columns || !align.every((a) => TEXT_ALIGNS.includes(a as TextAlign))) damaged()
+  if (!isBetween(padding, 0, 1e5) || typeof rtl !== 'boolean') damaged()
+  if (!isRecord(lines) || (lines.kind !== 'all' && lines.kind !== 'rows' && lines.kind !== 'none') || !isBetween(lines.width, 0, 1e4)) damaged()
+  const color = (value: unknown) => (value === null || value === undefined ? null : readColor(value))
+  const style = readTextStyle(layer.style)
+  return {
+    ...base,
+    kind: 'table',
+    box: readBox(layer.box),
+    cells: cells as string[][],
+    columnWidths: columnWidths as number[],
+    align: align as TextAlign[],
+    // Cells are plain words: no list points or fading colors.
+    style: { ...style, list: null, gradient: null },
+    padding,
+    background: color(background),
+    header: color(header),
+    stripes: color(stripes),
+    lines: { kind: lines.kind, color: readColor(lines.color), width: lines.width },
+    rtl,
+  }
+}
+
 // Words with their own look. Spans that reach past the text are cut to fit it.
 function readSpans(value: unknown, base: TextStyle, length: number): TextSpan[] | undefined {
   if (value === undefined) return undefined
@@ -498,6 +575,7 @@ function readLayer(layer: unknown): ProjectLayer {
   if (layer.kind === 'shape') {
     return { ...base, kind: 'shape', box: readBox(layer.box), geometry: readGeometry(layer.geometry), fill: readFill(layer.fill), outline: readOutline(layer.outline) }
   }
+  if (layer.kind === 'table') return readTable(layer, base)
   if (layer.kind === 'text') {
     if (typeof layer.text !== 'string' || layer.text.length > MAX_TEXT_LENGTH || typeof layer.wrap !== 'boolean') damaged()
     const style = readTextStyle(layer.style)
@@ -529,6 +607,7 @@ function picturePixels(layer: ProjectLayer): number {
   const hidden = layer.hide ? layer.hide.width * layer.hide.height : 0
   if (layer.kind === 'raster') return layer.width * layer.height + hidden
   if (layer.kind === 'text') return (layer.photo ? layer.photo.width * layer.photo.height : 0) + hidden
+  if (layer.kind === 'table') return hidden
   return (layer.fill.kind === 'photo' ? layer.fill.width * layer.fill.height : 0) + hidden
 }
 
@@ -635,7 +714,7 @@ function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
 // The pictures a layer brings along: its pixels, or the photo inside a shape or text, then its
 // hidden parts.
 function layerPictures(layer: Layer): HTMLCanvasElement[] {
-  const own = layer.kind === 'raster' ? [layer.canvas] : layer.kind === 'text' ? (layer.photo ? [layer.photo.canvas] : []) : layer.fill.kind === 'photo' ? [layer.fill.canvas] : []
+  const own = layer.kind === 'raster' ? [layer.canvas] : layer.kind === 'text' ? (layer.photo ? [layer.photo.canvas] : []) : layer.kind === 'table' ? [] : layer.fill.kind === 'photo' ? [layer.fill.canvas] : []
   return layer.hide ? [...own, layer.hide.canvas] : own
 }
 
@@ -670,6 +749,9 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
       ...(layer.pageNumber ? { pageNumber: true } : {}),
       ...(photo ? { photo: { zoom: photo.zoom, x: photo.x, y: photo.y, width: photo.canvas.width, height: photo.canvas.height, bytes: sizes[0] } } : {}),
     }
+  if (layer.kind === 'table') {
+    const { box, cells, columnWidths, align, style, padding, background, header, stripes, lines, rtl } = layer
+    return { ...base, kind: 'table', box, cells, columnWidths, align, style, padding, background, header, stripes, lines, rtl }
   }
   const { fill } = layer
   const savedFill: ProjectFill =
@@ -692,7 +774,7 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
     layers: page.layers.map((layer, i) => describeLayer(layer, pictures[p][i].map((png) => png.size))),
   }))
   // Fonts of your own go inside, so the design looks the same on any computer.
-  const used = new Set(pages.flatMap((page) => page.layers.flatMap((layer) => (layer.kind === 'text' ? [layer.style.font, ...(layer.spans ?? []).flatMap((span) => (span.style.font ? [span.style.font] : []))] : []))))
+  const used = new Set(pages.flatMap((page) => page.layers.flatMap((layer) => (layer.kind === 'text' ? [layer.style.font, ...(layer.spans ?? []).flatMap((span) => (span.style.font ? [span.style.font] : []))] : layer.kind === 'table' ? [layer.style.font] : []))))
   const fonts = [...used].flatMap((id) => {
     const font = ownFontData(id)
     return font ? [font] : []
@@ -745,6 +827,10 @@ async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer>
   if (info.kind === 'raster') {
     const canvas = await decodePicture(pngs[0], info.width, info.height)
     return { ...layerFromCanvas(name, canvas, info.x, info.y), box: info.box, visible, opacity, locked, adjust, ...extras }
+  }
+  if (info.kind === 'table') {
+    const { box, cells, columnWidths, align, style, padding, background, header, stripes, lines, rtl } = info
+    return { id: createId('layer'), kind: 'table', name, visible, opacity, locked, adjust, ...extras, box, cells, columnWidths, align, style, padding, background, header, stripes, lines, rtl }
   }
   if (info.kind === 'text') {
     const photo = info.photo ? { canvas: await decodePicture(pngs[0], info.photo.width, info.photo.height), zoom: info.photo.zoom, x: info.photo.x, y: info.photo.y } : null

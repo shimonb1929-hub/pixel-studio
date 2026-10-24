@@ -4,6 +4,7 @@ import { cachedContentBounds } from './pixels.ts'
 import { polygonBounds, unionRect } from './geometry.ts'
 import { applyAffine, boxCorners, boxFromRect, boxMatrix, normalizeAngle, type TransformBox } from './transform.ts'
 import type { Layer, PixelLayer } from './types.ts'
+import { tableInBox } from './table.ts'
 
 // Arranging objects: where their handles go, and placing them in a new box. Moving, resizing and
 // turning only ever change the box, so pictures never lose quality however often they change.
@@ -39,6 +40,7 @@ function onlySlid(layer: PixelLayer, box: TransformBox): { dx: number; dy: numbe
 // How the layer looks in a new box, for showing while handles are dragged. Nothing is copied.
 export function previewInBox(layer: Layer, box: TransformBox): Layer {
   if (layer.kind === 'text') return textInBox(layer, box)
+  if (layer.kind === 'table') return tableInBox(layer, box)
   if (layer.kind === 'shape' || layer.box) return { ...layer, box }
   const slid = onlySlid(layer, box)
   if (slid) return { ...layer, x: layer.x + slid.dx, y: layer.y + slid.dy }
@@ -49,6 +51,7 @@ export function previewInBox(layer: Layer, box: TransformBox): Layer {
 // it, so from then on its handles hug the drawing.
 export function placeInBox(layer: Layer, box: TransformBox): Layer {
   if (layer.kind === 'text') return textInBox(layer, box)
+  if (layer.kind === 'table') return tableInBox(layer, box)
   if (layer.kind === 'shape' || layer.box) return { ...layer, box }
   const slid = onlySlid(layer, box)
   if (slid) return { ...layer, x: layer.x + slid.dx, y: layer.y + slid.dy }

@@ -1,0 +1,13 @@
+{
+  "name": "Romm Vilna Title",
+  "license": "OFL-1.1",
+  "version": "",
+  "faces": [
+    {
+      "file": "romm-vilna-title-700-normal.woff2",
+      "weight": "700",
+      "style": "normal",
+      "unicodeRange": "U+0020-0023,U+0025-003F,U+005B-005D,U+005F,U+007B-007E,U+00B0,U+0591-05C7,U+05D0-05EA,U+05EF-05F4,U+200C-200F,U+2013-2014,U+2018-201F,U+20AA,U+25CC,U+E801-E803,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F"
+    }
+  ]
+}

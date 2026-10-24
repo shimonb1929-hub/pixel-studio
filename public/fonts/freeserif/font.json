@@ -1,0 +1,25 @@
+{
+  "name": "FreeSerif",
+  "license": "GPL-3.0-with-font-exception",
+  "version": "",
+  "faces": [
+    {
+      "file": "freeserif-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+000D,U+0020-007E,U+00A0-024F,U+02BB-02BC,U+02C6,U+02DA-02DC,U+0300-036F,U+0591-05C7,U+05D0-05EA,U+05F0-05F4,U+1E00-1EFF,U+2000-2064,U+20A0-20B9,U+2122,U+2190-2193,U+2212-2215,U+25CC,U+FB1D-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F,U+FEFF,U+FFFD"
+    },
+    {
+      "file": "freeserif-700-normal.woff2",
+      "weight": "700",
+      "style": "normal",
+      "unicodeRange": "U+0020-007E,U+00A0-024F,U+02BB-02BC,U+02C6,U+02DA-02DC,U+0300-036F,U+0591-05C7,U+05D0-05EA,U+05F0-05F4,U+1E00-1EF9,U+2000-2064,U+20A0-20B5,U+20B8-20B9,U+2122,U+2190-2193,U+2212-2215,U+25CC,U+FB1D-FB20,U+FB29-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F,U+FEFF,U+FFFD"
+    },
+    {
+      "file": "freeserif-400-italic.woff2",
+      "weight": "400",
+      "style": "italic",
+      "unicodeRange": "U+0020-007E,U+00A0-024F,U+02BB-02BC,U+02C6,U+02DA-02DC,U+0300-036F,U+0591-05C7,U+05D0-05EA,U+05F0-05F4,U+1E00-1EF9,U+2000-2064,U+20A0-20B6,U+20B8-20B9,U+2122,U+2190-2193,U+2212-2215,U+25CC,U+FB1D-FB20,U+FB29-FB36,U+FB38-FB3C,U+FB3E,U+FB40-FB41,U+FB43-FB44,U+FB46-FB4F,U+FFFD"
+    }
+  ]
+}

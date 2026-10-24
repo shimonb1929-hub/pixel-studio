@@ -114,6 +114,12 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   beside the text (on the left for Hebrew and Yiddish); what doesn't fit in one box continues in the
   next, like newspaper columns. Typing, sizes and fonts follow the whole story; removing a box puts
   its words back. Faint numbered outlines show the boxes, even empty ones.
+- **Tables.** Text › Table adds rows and columns of words for a menu, price list or timetable,
+  right to left when the app is in Hebrew or Yiddish. Click a cell and type; Tab goes to the next
+  cell and Tab in the last one adds a row. Rows grow to fit their words. The Table panel adds and
+  removes rows and columns, turns on a heading row and stripes, chooses the lines and the space in
+  cells, and colors each part; the Text panel sets how the words look. Pull the sides to make the
+  columns wider, or a corner to make it all bigger. Downloads keep the words as real words.
 - **Same on every page.** Pages › Show on every page puts the picked thing (a logo, a heading) on
   every page; changing it on any page changes it on all of them, and new pages get it too. Pages ›
   Add page numbers puts a number at the bottom of every page that counts itself. The Layers panel
@@ -163,6 +169,7 @@ src/
     selection.ts Selections as shapes (rectangle, oval, freehand) that add, take away or invert
     objects.ts   What's on a layer: drawing shapes and pictures, finding what's under the pointer
     arrange.ts   Moving, resizing and turning objects without losing any quality
+    table.ts     Tables: rows that fit their words, columns right to left, and the plain parts they're drawn from
     compose.ts   Putting all layers together at full detail, for downloads and previews
     transform.ts Boxes with handles: resizing, turning, flipping and the math behind them
     flood.ts     Finding the area the fill bucket fills
@@ -282,7 +289,8 @@ pulling in see-through pixels, so blurred photos keep solid edges.
    (outline, shadow, fill with a photo: done), your own font files (done), lists (done) and columns.
 9. **Pages and print** (InDesign) — multi-page documents (done), margins and columns (done),
    text that flows from box to box (done), text that flows around pictures and shapes, close
-   around their outline, around their box, or above and below them (done), things and page
+   around their outline, around their box, or above and below them (done), tables for menus,
+   price lists and timetables, right to left too (done), things and page
    numbers on every page (done), print-ready PDF (several pages, bleed, cut lines and
    selectable text are done).
 10. **Pro layers and photo tools** (Photoshop) — blend modes, effects (shadow, glow,

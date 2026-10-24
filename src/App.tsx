@@ -18,6 +18,8 @@ import { defaultGap, hasLayout } from './editor/pageLayout.ts'
 import { ShapePanel, type ColorTarget } from './components/ShapePanel.tsx'
 import type { TextEditing } from './components/TextEditBox.tsx'
 import { TextPanel } from './components/TextPanel.tsx'
+import { TablePanel, type TablePart } from './components/TablePanel.tsx'
+import { addColumn, addRow, cellAt, fitTable, newTable, placedCell, removeColumn, removeRow, TABLE_HEADING, TABLE_STRIPES, withCell } from './editor/table.ts'
 import { Toast, type Notice } from './components/Toast.tsx'
 import { ToolDock } from './components/ToolDock.tsx'
 import { ToolOptions, type ArrangeBarControls, type CropShape, type TextWrapControls } from './components/ToolOptions.tsx'
@@ -25,14 +27,14 @@ import { canWrapText, defaultTextWrap, wrapTextOn } from './text/wrapAround.ts'
 import { ScrollRegion } from './components/ui.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
-import { DesignInfo, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
+import { DesignInfo, SelectionBar, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
 import { PagePanel } from './components/PagePanel.tsx'
 import { GradientHandles } from './components/GradientHandles.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
 import { effectThumbnails, flattenDocument } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
-import { adjustmentLabel, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, type Adjustments } from './editor/adjust.ts'
-import { adjustArea, lookThumbnails, paintAdjusted, previewParts } from './editor/adjustSession.ts'
+import { adjustmentLabel, autoColor, autoLight, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, tidyAdjustments, type Adjustments } from './editor/adjust.ts'
+import { adjustArea, lookThumbnails, paintAdjusted, pixelsToMeasure, previewParts } from './editor/adjustSession.ts'
 import { DEFAULT_PPI, documentPpi } from './editor/units.ts'
 import { arrangeBox, changeBox, frameOf, layerInFrame, placeInBox, type BoxChange } from './editor/arrange.ts'
 import { BRUSH_PRESETS, COPY_BRUSH, ERASER_PRESETS, stepBrushSize, type BrushSettings, type CopyBrush } from './editor/brushes.ts'
@@ -93,7 +95,7 @@ import { colorMaskAt } from './editor/colorSelect.ts'
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
-import type { EditorDocument, Layer, LayerHide, PageLayout, PhotoFill, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, OutlineDash, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport, TextWrap } from './editor/types.ts'
+import type { EditorDocument, Layer, LayerHide, PageLayout, PhotoFill, TextWrap, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, OutlineDash, ShapeOutline, ShapeType, TableLayer, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
 import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
@@ -109,10 +111,10 @@ import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './te
 import { useFontsVersion } from './hooks/useFontsVersion.ts'
 import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
-import { changeText, fitText, keepOnPage, newTextBox, textLayout, textName } from './text/textLayer.ts'
+import { changeText, fitText, keepOnPage, newTextBox, textIndexAt, textLayout, textName } from './text/textLayer.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
-import { live, msg, t, useLanguage } from './i18n/i18n.ts'
+import { isRtl, live, msg, t, useLanguage } from './i18n/i18n.ts'
 
 type DialogId = 'new' | 'export' | 'search' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes'
 
@@ -314,6 +316,30 @@ interface TextEditState {
   caret: number | 'all'
   // The text as it was before typing started.
   original: TextLayer | null
+  // Typing in a table's cell: the table as it is while typing, which cell, and the table before.
+  cell?: { table: TableLayer; row: number; column: number; original: TableLayer }
+}
+
+// Typing in one cell of a table: its words are typed in a box laid right over the cell.
+function typeInCell(table: TableLayer, row: number, column: number, caret: number | 'all', original: TableLayer): TextEditState {
+  return { layer: placedCell(table, row, column), isNew: false, caret, original: null, cell: { table, row, column, original } }
+}
+
+// The color of one part of a table, and the table with that part in a new color.
+function tablePartColor(table: TableLayer, part: TablePart): string | null {
+  if (part === 'heading') return table.header
+  if (part === 'stripes') return table.stripes
+  if (part === 'lines') return table.lines.kind === 'none' ? null : table.lines.color
+  if (part === 'background') return table.background ?? '#ffffff'
+  return table.style.color
+}
+
+function colorTablePart(table: TableLayer, part: TablePart, color: string): TableLayer {
+  if (part === 'heading') return { ...table, header: color }
+  if (part === 'stripes') return { ...table, stripes: color }
+  if (part === 'lines') return { ...table, lines: { ...table.lines, color } }
+  if (part === 'background') return { ...table, background: color }
+  return { ...table, style: { ...table.style, color } }
 }
 
 type TextDefaults = Omit<TextStyle, 'size'> & { size: number | null }
@@ -379,6 +405,13 @@ export default function App() {
   })
   const [selectionShape, setSelectionShape] = useState<SelectionShape>('rectangle')
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('replace')
+  // Once a selection is let go, the next drag starts a fresh one again (not "take away" from nothing).
+  const hadSelectionRef = useRef(false)
+  useEffect(() => {
+    const has = !!doc?.selection
+    if (hadSelectionRef.current && !has) setSelectionMode('replace')
+    hadSelectionRef.current = has
+  }, [doc?.selection])
   const [transformEdit, setTransformEdit] = useState<TransformState | null>(null)
   const [keepProportions, setKeepProportions] = useState(true)
   // Moving the selected part of a picture fills the gap it leaves (see gapFill.ts).
@@ -560,11 +593,30 @@ export default function App() {
     [adjustLayer, doc?.selection, editor.revision],
   )
 
+  // The photo's pixels as they are, for the light curve's tones and the automatic fixes.
+  const adjustSample = useMemo(
+    () => (doc && adjustLayer ? pixelsToMeasure(doc, layerPixels(adjustLayer)) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [adjustLayer, doc?.selection, editor.revision],
+  )
+  const adjustHistogram = useMemo(() => {
+    if (!adjustSample) return null
+    const counts = new Uint32Array(256)
+    for (let i = 0; i < adjustSample.length; i += 4) {
+      if (adjustSample[i + 3] >= 128) counts[Math.round(0.2126 * adjustSample[i] + 0.7152 * adjustSample[i + 1] + 0.0722 * adjustSample[i + 2])]++
+    }
+    return counts
+  }, [adjustSample])
+  // "Fix light" and "Fix colors" set some sliders; the rest stay as they are.
+  const autoAdjust = (fix: (data: Uint8ClampedArray) => Partial<Adjustments>) => {
+    if (adjustSample) setAdjustments({ ...adjustments, ...fix(adjustSample) })
+  }
+
   // Keeps the adjustments: as the layer's setting, or (for a selected part) in its pixels.
   function applyAdjust() {
     const d = current()
     const layer = d && activeLayer(d)
-    const settings = adjustments
+    const settings = tidyAdjustments(adjustments)
     setAdjustEdit(null)
     setComparing(false)
     if (!adjustChanged || !d || !layer) return
@@ -1010,7 +1062,11 @@ export default function App() {
   // picked with Arrange or the Text tool, or (with nothing picked) how new text looks.
   const pickedText = !textEdit && (tool === 'move' || tool === 'text') && activeNow?.kind === 'text' ? activeNow : null
   const textTarget: TextLayer | null = textEdit?.layer ?? pickedText
-  const textPanelOn = !!doc && (textTarget !== null || tool === 'text')
+  // A table's words are set in the Text panel too; its rows, columns and colors in the Table panel.
+  const pickedTable = !textEdit && (tool === 'move' || tool === 'text') && activeNow?.kind === 'table' && !(picked && picked.length > 1) ? activeNow : null
+  const tableTarget: TableLayer | null = textEdit?.cell?.table ?? pickedTable
+  const [tablePart, setTablePart] = useState<TablePart>('words')
+  const textPanelOn = !!doc && (textTarget !== null || tableTarget !== null || tool === 'text')
 
   function setTextPick(next: { start: number; end: number } | null) {
     textPickRef.current = next
@@ -1021,7 +1077,7 @@ export default function App() {
     if (next?.layer.id !== textEditRef.current?.layer.id) setTextPick(null)
     // While typing, the text already flows around the pictures and shapes on the page.
     const page = current()?.layers
-    if (next && page) next = { ...next, layer: wrapTextOn(page, next.layer) }
+    if (next && page && !next.cell) next = { ...next, layer: wrapTextOn(page, next.layer) }
     textEditRef.current = next
     setTextEditState(next)
   }
@@ -1032,7 +1088,15 @@ export default function App() {
   }
 
   // A font that loads while typing changes the letters' widths, so the box is fitted again.
-  useEffect(() => onFontsLoaded(() => updateTextEdit(fitText)), [])
+  useEffect(
+    () =>
+      onFontsLoaded(() => {
+        const cell = textEditRef.current?.cell
+        if (cell) changeTable('', (table) => fitTable(table))
+        else updateTextEdit(fitText)
+      }),
+    [],
+  )
 
   function newTextStyle(d: EditorDocument, kind?: TextKind): TextStyle {
     const info = kind && TEXT_KINDS[kind]
@@ -1090,12 +1154,85 @@ export default function App() {
     setTextEdit({ layer, isNew: false, caret, original: layer })
   }
 
+  // Starts typing in the cell of a table under a design point.
+  function editTable(layerId: string, point: Point) {
+    settle()
+    const table = current()?.layers.find((l) => l.id === layerId)
+    if (table?.kind !== 'table') return
+    if (!table.visible) {
+      problem(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then change it.', { name: table.name }))
+      return
+    }
+    const cell = cellAt(table, point) ?? { row: 0, column: 0 }
+    pickOne(layerId)
+    setTextEdit(typeInCell(table, cell.row, cell.column, textIndexAt(placedCell(table, cell.row, cell.column), point), table))
+  }
+
+  // A new table in the middle of the design, ready for typing in its first cell. It reads right to
+  // left when the app is in Hebrew or Yiddish.
+  function addTable() {
+    setTool('text')
+    const d = current()
+    if (!d) return
+    const style = newTextStyle(d, 'body')
+    const made = newTable(4, 3, { x: d.width / 2, y: 0 }, Math.round(d.width * 0.7), style, isRtl(), t('Table'))
+    const table = { ...made, box: { ...made.box, cy: d.height / 2 } }
+    editor.change(t('Add a table'), (doc) => ({ ...insertLayerAboveActive(doc, table), selection: null }))
+    setToolState('text')
+    setTextEdit(typeInCell(table, 0, 0, 0, table))
+  }
+
+  // Changes the table being typed in (kept as one step when typing ends), or the picked table.
+  // `cell` is the cell being typed in, so rows and columns are added next to it.
+  function changeTable(label: string, change: (table: TableLayer, cell: { row: number; column: number } | null) => TableLayer, mergeKey?: string) {
+    const edit = textEditRef.current
+    if (edit?.cell) {
+      const { row, column, original } = edit.cell
+      const table = change(edit.cell.table, { row, column })
+      const r = Math.min(row, table.cells.length - 1)
+      const c = Math.min(column, table.columnWidths.length - 1)
+      setTextEdit(typeInCell(table, r, c, r === row && c === column ? edit.caret : 'all', original))
+      return
+    }
+    const layer = current() && activeLayer(current()!)
+    if (layer?.kind !== 'table') return
+    editor.change(
+      label,
+      (d) => {
+        const now = d.layers.find((l) => l.id === layer.id)
+        return now?.kind === 'table' ? replaceLayer(d, change(now, null)) : d
+      },
+      { mergeKey: mergeKey && `${mergeKey}:${layer.id}` },
+    )
+  }
+
+  // Tab goes on to the next cell (a new row after the last one); Shift+Tab goes back.
+  function nextCell(step: 1 | -1) {
+    const cell = textEditRef.current?.cell
+    if (!cell) return
+    let table = cell.table
+    const columns = table.columnWidths.length
+    const index = cell.row * columns + cell.column + step
+    if (index < 0) return
+    if (index >= table.cells.length * columns) {
+      const longer = addRow(table, table.cells.length)
+      if (longer === table) return
+      table = longer
+    }
+    setTextEdit(typeInCell(table, Math.floor(index / columns), index % columns, 'all', cell.original))
+  }
+
   // Keeps what was typed: new text joins the design (with handles ready to place it), changed text
   // is updated, and text with every letter taken out is removed.
   function finishText() {
     const edit = textEditRef.current
     if (!edit) return
     setTextEdit(null)
+    if (edit.cell) {
+      const { table, original } = edit.cell
+      if (table !== original) editor.change(t('Edit table'), (d) => replaceLayer(d, table))
+      return
+    }
     const { layer, original } = edit
     const empty = !layer.text.trim()
     // Names follow the words, unless the text was given a name of its own.
@@ -1123,6 +1260,12 @@ export default function App() {
   }
 
   function changeTextStyle(patch: Partial<TextStyle>, label: string, mergeKey?: string) {
+    // A table's words all look the same.
+    const tableNow = current() && activeLayer(current()!)
+    if (textEditRef.current?.cell || (!textEditRef.current && tableNow?.kind === 'table' && (tool === 'move' || tool === 'text'))) {
+      changeTable(label, (table) => fitTable({ ...table, style: { ...table.style, ...patch } }), mergeKey)
+      return
+    }
     if (textEditRef.current) {
       const pick = textPickRef.current
       // With some words picked, their font, boldness, slant and color change; everything else
@@ -1175,11 +1318,12 @@ export default function App() {
   // A new font is loaded before it's used, so the text's box fits its real letters.
   async function changeFont(id: string) {
     const target = textEditRef.current?.layer ?? pickedText
-    const base = target?.style ?? { ...textDefaults, size: 16 }
+    const table = textEditRef.current?.cell?.table ?? pickedTable
+    const base = table?.style ?? target?.style ?? { ...textDefaults, size: 16 }
     const weight = nearestWeight(id, base.weight)
     // Every picked text's letters, so they all fit their boxes once the font is in.
     const many = textEditRef.current ? null : manyIn(current())
-    const letters = many ? (current()?.layers.flatMap((l) => (many.includes(l.id) && l.kind === 'text' ? [l.text] : [])).join('') ?? '') : (target?.text ?? '')
+    const letters = many ? (current()?.layers.flatMap((l) => (many.includes(l.id) && l.kind === 'text' ? [l.text] : [])).join('') ?? '') : table ? table.cells.flat().join('') : (target?.text ?? '')
     await loadFont({ ...base, font: id, weight }, letters || 'Aא')
     changeTextStyle({ font: id, weight }, t('Change font'))
   }
@@ -1886,7 +2030,7 @@ export default function App() {
       const mask = createCanvas(found.width, found.height)
       const maskCtx = getContext2d(mask)
       const pixels = maskCtx.createImageData(found.width, found.height)
-      for (let i = 0; i < size; i++) pixels.data[i * 4 + 3] = found.mask[i] ? 255 : 0
+      for (let i = 0; i < size; i++) pixels.data[i * 4 + 3] = found.alpha[i]
       maskCtx.putImageData(pixels, 0, 0)
       const out = createCanvas(source.width, source.height)
       const ctx = getContext2d(out)
@@ -2141,6 +2285,9 @@ export default function App() {
     },
     addText: (kind) => {
       if (current()) addText(kind)
+    },
+    addTable: () => {
+      if (current()) addTable()
     },
     colorPage: () => {
       if (current()) layers.pickPage()
@@ -2628,6 +2775,17 @@ export default function App() {
     setCrop(box, shape)
   }
 
+  // The selection bar's Add more and Take away: they switch to Select (with the same shape as
+  // before) and make the next drags add or take away; pressing again goes back to a new selection.
+  function changeSelectionBy(mode: 'add' | 'subtract') {
+    if (tool !== 'select') {
+      setTool('select')
+      setSelectionMode(mode)
+    } else {
+      setSelectionMode(selectionMode === mode ? 'replace' : mode)
+    }
+  }
+
   const paintSettings =
     tool === 'eraser'
       ? eraser.settings
@@ -2673,7 +2831,9 @@ export default function App() {
         : null
 
   const override: LayerOverride | null =
-    textEdit && !textEdit.isNew
+    textEdit?.cell
+      ? { layerId: textEdit.cell.table.id, layer: { ...textEdit.cell.table, hiddenCell: { row: textEdit.cell.row, column: textEdit.cell.column } } }
+      : textEdit && !textEdit.isNew
       ? { layerId: textEdit.layer.id, layer: { ...textEdit.layer, visible: false } }
       : fontPreviewLayer
       ? { layerId: fontPreviewLayer.id, layer: fontPreviewLayer }
@@ -2814,24 +2974,30 @@ export default function App() {
         }
       : null
 
-  const textTool: TextTool | null = tool === 'text' && doc ? { onNew: newTextAt, onEdit: editText } : null
+  const textTool: TextTool | null = tool === 'text' && doc ? { onNew: newTextAt, onEdit: editText, onEditTable: editTable } : null
   const textEditing: TextEditing | null = textEdit
     ? {
         layer: textEdit.layer,
         caret: textEdit.caret,
-        onChange: (text, spans) =>
+        onChange: (text, spans) => {
+          const cell = textEditRef.current?.cell
+          if (cell) return changeTable(t('Edit table'), (table) => withCell(table, cell.row, cell.column, text))
           updateTextEdit((layer) => {
             const changed = changeText(layer, { text, spans })
             return textEdit.isNew && doc ? keepOnPage(changed, doc.width) : changed
-          }),
+          })
+        },
         onSelect: (start, end) => setTextPick({ start, end }),
         onDone: finishText,
+        onTab: textEdit.cell ? (back) => nextCell(back ? -1 : 1) : undefined,
       }
     : null
   // How the picked words look, for the Text and Color panels (a setting they don't share keeps the
   // whole text's).
   const pickedWords = textEdit && textPick && textPick.end > textPick.start ? textPick : null
-  const textShown: TextStyle | null = textTarget
+  const textShown: TextStyle | null = tableTarget
+    ? tableTarget.style
+    : textTarget
     ? pickedWords
       ? { ...textTarget.style, ...sharedStyle(textTarget.spans, textTarget.style, pickedWords.start, pickedWords.end) }
       : textTarget.style
@@ -2866,10 +3032,18 @@ export default function App() {
     }
     return null
   })()
-  const panelColor = effectColorShown ?? textColor ?? shapeColor ?? manyColor ?? (pageColorOn ? pageShownColor : null)
+  // A table's chosen part: its words, heading row, stripes, lines or background.
+  const tablePartShown: TablePart = tableTarget && tablePartColor(tableTarget, tablePart) !== null ? tablePart : 'words'
+  const tableColor = tableTarget ? tablePartColor(tableTarget, tablePartShown) : null
+  const panelColor = effectColorShown ?? tableColor ?? textColor ?? shapeColor ?? manyColor ?? (pageColorOn ? pageShownColor : null)
   const onPanelColor =
     effectColorShown !== null
       ? colorEffect
+      : tableColor !== null
+      ? (hex: string) => {
+          rememberColor(hex)
+          changeTable(t('Table color'), (table) => colorTablePart(table, tablePartShown, hex), `table-color-${tablePartShown}`)
+        }
       : manyColor !== null
       ? colorMany
       : textColor !== null
@@ -2947,6 +3121,7 @@ export default function App() {
         }}
         onShapeTypeChange={(type) => setShapeDefaults((d) => ({ ...d, geometry: { ...d.geometry, type } }))}
         onAddText={commands.addText}
+        onAddTable={commands.addTable}
         crop={{
           width: crop ? cropRect(crop.box).width : 0,
           height: crop ? cropRect(crop.box).height : 0,
@@ -3075,6 +3250,7 @@ export default function App() {
                 textTool={textTool}
                 textEditing={textEditing}
                 onEditText={editText}
+                onEditTable={editTable}
               />
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
               {doc.layers.length === 0 && tool === 'move' && !textEdit ? (
@@ -3085,7 +3261,22 @@ export default function App() {
                   onDraw={() => setTool('brush')}
                 />
               ) : (
-                <ToolHint tool={hintTool} extra={hintExtra} />
+                <ToolHint
+                  tool={hintTool}
+                  extra={hintExtra}
+                  below={
+                    // While the edge is being tried out, its own Apply and Cancel are the way out.
+                    doc.selection && !edgeShown ? (
+                      <SelectionBar
+                        adding={tool === 'select' && selectionMode === 'add'}
+                        takingAway={tool === 'select' && selectionMode === 'subtract'}
+                        onAdd={() => changeSelectionBy('add')}
+                        onTakeAway={() => changeSelectionBy('subtract')}
+                        onLetGo={commands.deselect}
+                      />
+                    ) : undefined
+                  }
+                />
               )}
               <ZoomControls
                 zoom={viewport.zoom}
@@ -3132,13 +3323,36 @@ export default function App() {
               column (then they scroll); the Layers panel always keeps the rest, so it never slips
               off a short screen. */}
           <ScrollRegion className="max-h-[64%] shrink-0 gap-3 [@media(max-height:820px)]:max-h-[56%]">
+            {tableTarget && !adjustOn && (
+              <TablePanel
+                table={tableTarget}
+                cell={textEdit?.cell ? { row: textEdit.cell.row, column: textEdit.cell.column } : null}
+                colorPart={tablePartShown}
+                onColorPart={(part) => {
+                  setEffectColor(null)
+                  setTablePart(part)
+                }}
+                onAddRow={() => changeTable(t('Add a row'), (table, cell) => addRow(table, cell ? cell.row + 1 : table.cells.length))}
+                onRemoveRow={() => changeTable(t('Remove a row'), (table, cell) => removeRow(table, cell ? cell.row : table.cells.length - 1))}
+                onAddColumn={() => changeTable(t('Add a column'), (table, cell) => addColumn(table, cell ? cell.column + 1 : table.columnWidths.length))}
+                onRemoveColumn={() => changeTable(t('Remove a column'), (table, cell) => removeColumn(table, cell ? cell.column : table.columnWidths.length - 1))}
+                onHeading={(on) => changeTable(t('Heading row'), (table) => fitTable({ ...table, header: on ? TABLE_HEADING : null }))}
+                onStripes={(on) => changeTable(t('Stripes'), (table) => ({ ...table, stripes: on ? TABLE_STRIPES : null }))}
+                onLines={(kind) => changeTable(t('Lines'), (table) => ({ ...table, lines: { ...table.lines, kind } }))}
+                onLineWidth={(width) => changeTable(t('Line thickness'), (table) => ({ ...table, lines: { ...table.lines, width } }), 'table-lines')}
+                onPadding={(padding) => changeTable(t('Space in cells'), (table) => fitTable({ ...table, padding }), 'table-padding')}
+                onRtl={(rtl) => changeTable(t('Right to left'), (table) => fitTable({ ...table, rtl }))}
+                onNoBackground={() => changeTable(t('No background color'), (table) => ({ ...table, background: null }))}
+              />
+            )}
             {textPanelOn && !adjustOn && doc && (
               <TextPanel
-                title={pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
+                table={!!tableTarget}
+                title={tableTarget ? t('Words in the table') : pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
                 style={textShown ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
                 scope={textEdit ? (pickedWords ? 'words' : 'all') : null}
                 wrap={textTarget?.wrap ?? false}
-                hasRtl={!!textTarget && hasRtlLetters(textTarget.text)}
+                hasRtl={tableTarget ? hasRtlLetters(tableTarget.cells.flat().join('')) : !!textTarget && hasRtlLetters(textTarget.text)}
                 sample={fontSample(textTarget?.text ?? '')}
                 resolvedAlign={textTarget ? resolveAlign(textTarget.style.align, textLayout(textTarget).direction) : 'left'}
                 onFont={(id) => void changeFont(id)}
@@ -3152,7 +3366,7 @@ export default function App() {
                 gradientStop={gradientStop}
                 onGradientStop={setGradientStop}
                 flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
-                onContinue={pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 ? continueInAnotherBox : undefined}
+                onContinue={!tableTarget && pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 ? continueInAnotherBox : undefined}
               />
             )}
             {pageColorOn && !adjustOn && doc && (
@@ -3205,7 +3419,15 @@ export default function App() {
             )}
             {/* The picked thing's own settings come first; the Color panel colors it from below. */}
             {adjustOn && doc ? (
-              <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
+              <AdjustPanel
+                settings={adjustments}
+                thumbnails={lookPictures}
+                histogram={adjustHistogram}
+                blocked={adjustBlocked}
+                onChange={setAdjustments}
+                onAutoLight={() => autoAdjust(autoLight)}
+                onAutoColor={() => autoAdjust(autoColor)}
+              />
             ) : tool === 'fade' && doc ? null : (
               <ColorPanel
                 color={panelColor ?? color}

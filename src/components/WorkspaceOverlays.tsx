@@ -1,8 +1,8 @@
-import { Brush, ImagePlus, Maximize2, Minus, Plus, Shapes, Type, type LucideIcon } from 'lucide-react'
+import { Brush, ImagePlus, Maximize2, Minus, Plus, Shapes, SquareMinus, SquarePlus, Type, X, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { EditorDocument, Point, ToolId } from '../editor/types.ts'
 import { formatZoom } from '../editor/viewport.ts'
-import { shortcut } from '../keys.ts'
+import { ALT_LABEL, shortcut } from '../keys.ts'
 import { TOOLS } from '../tools.ts'
 import { Tooltip, type TipContent } from './Tooltip.tsx'
 import { t } from '../i18n/i18n.ts'
@@ -12,23 +12,78 @@ import { unitShort } from './unitWords.ts'
 
 const PILL = 'absolute z-10 items-center border border-line bg-surface/95 shadow-card backdrop-blur'
 
-// Always says what the current tool will do, right where you're looking.
-export function ToolHint({ tool, extra }: { tool: ToolId; extra?: string }) {
+// Always says what the current tool will do, right where you're looking. `below` sits just under
+// it (the bar that says something is selected).
+export function ToolHint({ tool, extra, below }: { tool: ToolId; extra?: string; below?: ReactNode }) {
   const info = TOOLS.find((t) => t.id === tool)!
   const Icon = info.icon
   // Centered with auto margins rather than left: 50%, which would limit it to half the width.
   return (
+    <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-col items-center gap-2">
+      <div
+        role="status"
+        className="flex w-fit max-w-full items-center gap-2 rounded-2xl border border-line bg-surface/95 px-3.5 py-1.5 text-xs leading-[18px] shadow-card backdrop-blur"
+      >
+        <Icon size={14} className="shrink-0 text-accent" />
+        <span className="shrink-0 whitespace-nowrap font-semibold text-ink">{info.name}</span>
+        {/* Wraps rather than cutting the end off, so the whole hint can always be read. */}
+        <span className="line-clamp-2 text-ink-2">
+          {info.hint}
+          {extra && <span className="font-medium text-accent"> {extra}</span>}
+        </span>
+      </div>
+      {below}
+    </div>
+  )
+}
+
+export interface SelectionBarProps {
+  // Which way the next drag with Select changes the selection, if Select is the tool.
+  adding: boolean
+  takingAway: boolean
+  onAdd: () => void
+  onTakeAway: () => void
+  onLetGo: () => void
+}
+
+// Shows while part of the design is selected, whatever the tool: says so, and offers the plain
+// ways to change it or let go of it, so no one is ever stuck with a selection.
+export function SelectionBar({ adding, takingAway, onAdd, onTakeAway, onLetGo }: SelectionBarProps) {
+  const toggle = (on: boolean) =>
+    `flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${on ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`
+  return (
     <div
-      role="status"
-      className={`${PILL} pointer-events-none inset-x-3 top-3 mx-auto flex w-fit max-w-[calc(100%-1.5rem)] gap-2 rounded-2xl px-3.5 py-1.5 text-xs leading-[18px]`}
+      role="group"
+      aria-label={t('Part selected')}
+      className="pointer-events-auto flex w-fit max-w-full items-center gap-1 rounded-2xl border border-line bg-surface/95 py-1 ps-3 pe-1 shadow-card backdrop-blur"
     >
-      <Icon size={14} className="shrink-0 text-accent" />
-      <span className="shrink-0 whitespace-nowrap font-semibold text-ink">{info.name}</span>
-      {/* Wraps rather than cutting the end off, so the whole hint can always be read. */}
-      <span className="line-clamp-2 text-ink-2">
-        {info.hint}
-        {extra && <span className="font-medium text-accent"> {extra}</span>}
+      <span className="me-1 flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-ink">
+        <span aria-hidden className="h-3 w-3 shrink-0 rounded-[3px] border border-accent bg-accent/15" />
+        {t('Part selected')}
       </span>
+      <Tooltip side="bottom" title={t('Add more')} description={t('Drag (or click with Magic) over more of the design to add it to what is selected. Holding Shift does this too. Click again to stop adding.')}>
+        <button type="button" aria-pressed={adding} aria-label={t('Add more')} onClick={onAdd} className={toggle(adding)}>
+          <SquarePlus size={15} />
+          <span className="hidden sm:inline">{t('Add more')}</span>
+        </button>
+      </Tooltip>
+      <Tooltip side="bottom" title={t('Take away')} description={t('Drag (or click with Magic) over a part to take it out of what is selected. Holding {alt} does this too. Click again to stop taking away.', { alt: ALT_LABEL })}>
+        <button type="button" aria-pressed={takingAway} aria-label={t('Take away')} onClick={onTakeAway} className={toggle(takingAway)}>
+          <SquareMinus size={15} />
+          <span className="hidden sm:inline">{t('Take away')}</span>
+        </button>
+      </Tooltip>
+      <Tooltip side="bottom" title={t('Let go')} description={t('Stop selecting (Deselect), so the whole design can be changed again. Nothing in your design changes.')} shortcut="Esc">
+        <button
+          type="button"
+          aria-label={t('Let go')}
+          onClick={onLetGo}
+          className="flex h-8 items-center gap-1.5 rounded-xl bg-accent px-3 text-[12px] font-semibold text-white transition-colors hover:bg-accent-hover"
+        >
+          <X size={15} />
+          {t('Let go')}
+        </button>
+      </Tooltip>
     </div>
   )
 }

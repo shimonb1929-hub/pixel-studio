@@ -1,4 +1,4 @@
-import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, ImageDown, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon, Droplet, Blend, Footprints, MapPin } from 'lucide-react'
+import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, ImageDown, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -562,7 +562,7 @@ function SelectOptions({
       <Divider />
       <div className="flex shrink-0 items-center">
         <BarButton icon={SquareDashed} label={t("All")} title={t("Select all")} description={t("Select the whole design.")} onClick={commands.selectAll} />
-        <BarButton icon={SquareSlash} label={t("None")} title={t("Deselect")} description={t("Clear the selection, so you can work on the whole design again.")} disabledReason={nothing} onClick={commands.deselect} />
+        <BarButton icon={SquareSlash} roomy label={t("Let go")} description={t('Stop selecting (Deselect), so the whole design can be changed again. Nothing in your design changes.')} disabledReason={nothing} onClick={commands.deselect} />
         <BarButton icon={Contrast} label={t("Invert")} title={t("Invert selection")} description={t("Swap what is selected and what is not.")} onClick={commands.invert} />
         <BarButton
           icon={Blend}
@@ -1506,6 +1506,7 @@ interface ToolOptionsProps {
   pen: PenBarControls
   onShapeTypeChange: (type: ShapeType) => void
   onAddText: (kind: TextKind) => void
+  onAddTable: () => void
   adjust: AdjustControls
   fillTolerance: number
   onFillToleranceChange: (tolerance: number) => void
@@ -1579,6 +1580,18 @@ export function ToolOptions(props: ToolOptionsProps) {
                 {TEXT_KINDS[kind].name}
               </Button>
             ))}
+            <Button
+              variant="secondary"
+              className="h-8 shrink-0 px-3 text-[13px]"
+              onClick={props.onAddTable}
+              tip={{
+                title: t('Add a table'),
+                description: t('Rows and columns of words, for menus, price lists and timetables. Click a cell to type in it; Tab goes to the next cell.'),
+              }}
+            >
+              <Table2 size={15} />
+              {t('Table')}
+            </Button>
           </div>
         </>
       ) : props.tool === 'crop' ? (

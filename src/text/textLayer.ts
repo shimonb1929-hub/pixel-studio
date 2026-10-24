@@ -386,5 +386,5 @@ export { mainDirection }
 
 // Waits until every font the design's text uses has loaded, so downloads never show a stand-in.
 export async function loadDesignFonts(doc: EditorDocument): Promise<void> {
-  await Promise.all(doc.layers.flatMap((layer) => (layer.kind === 'text' ? eachFont(layer).map((font) => loadFont(font.style, font.text)) : [])))
+  await Promise.all(doc.layers.flatMap((layer) => (layer.kind === 'text' ? eachFont(layer).map((font) => loadFont(font.style, font.text)) : layer.kind === 'table' ? [loadFont(layer.style, layer.cells.flat().join('')), loadFont({ ...layer.style, weight: 700 }, layer.cells[0].join(''))] : [])))
 }

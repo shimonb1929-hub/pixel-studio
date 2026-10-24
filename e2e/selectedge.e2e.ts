@@ -71,7 +71,8 @@ test('the edge of a selection can grow and be softened, seen before it is kept',
   await expect(page.getByRole('toolbar')).toContainText('+10 px')
   // The part left out is dimmed while trying it.
   expect(await dimmedAt(page, size, 50, 50)).toBeGreaterThan(80)
-  expect(await dimmedAt(page, size, 150, 150)).toBe(0)
+  // Inside shows only the light blue of a selection, not the dimming.
+  expect(await dimmedAt(page, size, 150, 150)).toBeLessThan(60)
   await page.keyboard.press('Enter')
   await page.keyboard.press('Alt+Backspace')
   expectColor(await designPixel(page, size, 95, 150), GREEN)
