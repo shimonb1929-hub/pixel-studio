@@ -1,4 +1,4 @@
-import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
+import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -22,7 +22,7 @@ import { MAX_LAYER_SIDE } from '../editor/document.ts'
 import { UnitPicker } from './UnitPicker.tsx'
 import { unitShort } from './unitWords.ts'
 import type { SelectionMode, SelectionShape } from '../editor/selection.ts'
-import type { ShapeType, ToolId } from '../editor/types.ts'
+import type { ShapeType, TextWrap, TextWrapMode, ToolId } from '../editor/types.ts'
 import { ALT_LABEL } from '../keys.ts'
 import { TEXT_KINDS, type TextKind } from '../text/presets.ts'
 import { toolInfo } from '../tools.ts'
@@ -421,12 +421,25 @@ export interface ArrangeBarControls {
   spreadOut: (axis: 'x' | 'y') => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
+  // Set when one picture or shape is picked: whether text flows around it, and how.
+  textWrap?: TextWrapControls
   // Set when several things are picked: makes one shape out of them, or says why it can't.
   combine?: (mode: CombineMode) => void
   combineBlocked?: string | null
   // With a selected part: whether moving it fills the gap it leaves.
   fillGap: boolean
   onFillGap: (on: boolean) => void
+}
+
+export interface TextWrapControls {
+  value: TextWrap | null
+  // Off, or a way for text to flow around it.
+  onMode: (mode: TextWrapMode | null) => void
+  // The space kept free around it, in design pixels; `done` is false while a slider is being dragged.
+  onGap: (gap: number) => void
+  // The most space the slider gives.
+  maxGap: number
+  ppi: number
 }
 
 export type CropShape = 'free' | 'original' | 'square' | 'portrait' | 'wide'
@@ -786,6 +799,99 @@ function CombineMenu({ blocked, onCombine }: { blocked: string | null; onCombine
   )
 }
 
+const WRAPS: { mode: TextWrapMode | null; label: string; description: string; icon: LucideIcon }[] = live([
+  { mode: null, label: msg('Off'), description: msg('Text runs over or under it, as if it were not there.'), icon: CircleOff },
+  { mode: 'shape', label: msg('Its shape'), description: msg('Text hugs its outline: round text edges beside a circle, and close around what is left of a photo with its background removed.'), icon: Shapes },
+  { mode: 'box', label: msg('Its box'), description: msg('Text keeps out of the rectangle it sits in, in straight lines.'), icon: Square },
+  { mode: 'jump', label: msg('Above and below'), description: msg('Text stops above it and goes on below it, with nothing beside it.'), icon: BetweenHorizontalStart },
+])
+
+// Text flowing around a picture or shape (text wrap): a small menu of ways, and the space kept free.
+function TextWrapMenu({ controls }: { controls: TextWrapControls }) {
+  const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="menuitemradio"][aria-checked="true"]')
+  const [unit] = useUnit()
+  const on = !!controls.value
+  const item = 'flex flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-center text-[11px] font-medium leading-tight outline-none focus-visible:bg-subtle'
+  const gap = controls.value?.gap ?? 0
+  return (
+    <>
+      <Tooltip
+        title={t('Text around it (text wrap)')}
+        description={t('Make text in a box flow around this, instead of running over or under it. It works on text in a box: drag a box with the Text tool.')}
+      >
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label={t('Text around it')}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => {
+            setPosition(null)
+            setOpen(!open)
+          }}
+          className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${open || on ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
+        >
+          <WrapText size={15} />
+          <span className="hidden 2xl:inline">{t('Text around it')}</span>
+          <ChevronDown size={13} />
+        </button>
+      </Tooltip>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={t('Text around it')}
+            onKeyDown={(event) => {
+              const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])
+              const index = items.indexOf(document.activeElement as HTMLElement)
+              if (index < 0) return
+              const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
+              if (step === 0) return
+              event.preventDefault()
+              event.stopPropagation()
+              items[(index + step + items.length) % items.length]?.focus()
+            }}
+            className="fixed z-40 w-80 rounded-xl border border-line bg-surface p-2 shadow-float"
+            style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
+          >
+            <p className="px-1 pb-2 text-[12px] leading-snug text-ink-2">{t('How text in a box flows around it:')}</p>
+            <div className="grid grid-cols-4 gap-1">
+              {WRAPS.map(({ mode, label, description, icon: Icon }) => {
+                const chosen = (controls.value?.mode ?? null) === mode
+                return (
+                  <Tooltip key={mode ?? 'off'} title={label} description={description} className="flex">
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={chosen}
+                      onClick={() => controls.onMode(mode)}
+                      className={`${item} flex-1 ${chosen ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
+                    >
+                      <Icon size={18} />
+                      {label}
+                    </button>
+                  </Tooltip>
+                )
+              })}
+            </div>
+            {on && (
+              <Slider
+                className="px-1 pb-1 pt-3"
+                label={t('Space around')}
+                help={t('How much empty space is kept between it and the text.')}
+                value={gap / controls.maxGap}
+                display={`${formatInUnit(gap, unit, controls.ppi)} ${unitShort(unit)}`}
+                onChange={(position) => controls.onGap(Math.round(position * controls.maxGap))}
+              />
+            )}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
+
 function LineUpMenu({ several, onLineUp, onSpread }: { several: boolean; onLineUp: (edge: LineUpEdge) => void; onSpread: (axis: 'x' | 'y') => void }) {
   const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="menuitem"]')
 
@@ -936,8 +1042,8 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
       )}
       <div className="flex shrink-0 items-center">
         {/* The icon names describe the mirror line: a vertical line flips left to right. */}
-        <BarButton icon={FlipVertical2} label={t("Mirror")} title={t("Flip left to right")} description={several ? t('Mirror them, so the left side becomes the right side.') : t('Mirror it, so the left side becomes the right side.')} onClick={() => controls.flip('horizontal')} />
-        <BarButton icon={FlipHorizontal2} label={t("Upside down")} title={t("Flip upside down")} description={several ? t('Mirror them top to bottom, so the top becomes the bottom.') : t('Mirror it top to bottom, so the top becomes the bottom.')} onClick={() => controls.flip('vertical')} />
+        <BarButton icon={FlipVertical2} roomy label={t("Mirror")} title={t("Flip left to right")} description={several ? t('Mirror them, so the left side becomes the right side.') : t('Mirror it, so the left side becomes the right side.')} onClick={() => controls.flip('horizontal')} />
+        <BarButton icon={FlipHorizontal2} roomy label={t("Upside down")} title={t("Flip upside down")} description={several ? t('Mirror them top to bottom, so the top becomes the bottom.') : t('Mirror it top to bottom, so the top becomes the bottom.')} onClick={() => controls.flip('vertical')} />
         <BarButton icon={RotateCcw} label={t("Left")} title={t("Turn left")} description={several ? t('Turn them a quarter turn to the left.') : t('Turn it a quarter turn to the left.')} onClick={() => controls.rotate90(-1)} />
         <BarButton icon={RotateCw} label={t("Right")} title={t("Turn right")} description={several ? t('Turn them a quarter turn to the right.') : t('Turn it a quarter turn to the right.')} onClick={() => controls.rotate90(1)} />
       </div>
@@ -971,6 +1077,7 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
           onClick={controls.center}
         />
         {!part && target.kind !== 'many' && <LineUpMenu several={false} onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
+        {controls.textWrap && <TextWrapMenu controls={controls.textWrap} />}
         {controls.removeBackground && (
           <BarButton
             icon={Eraser}

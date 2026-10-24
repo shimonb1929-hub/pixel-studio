@@ -185,6 +185,7 @@ src/
   text/
     layout.ts    Lines, wrapping, lining up and reading direction (with bidi-js for the Unicode rules)
     textLayer.ts Text objects: measured with the real fonts, drawn, and kept fitted to their box
+    wrapAround.ts, avoid.ts  Text in a box flowing around pictures and shapes (text wrap)
     fonts.ts     The built-in fonts: loaded only when used, with Hebrew stand-ins for English-only fonts
     fontCatalog.ts  The font list, made by scripts/fonts/fetch.mjs
   components/    The screens: top bar, tool settings, canvas, color, layers, dialogs, search, tips
@@ -280,7 +281,9 @@ pulling in see-through pixels, so blurred photos keep solid edges.
 8. **More text** — different fonts and colors inside one text, text along a path, text effects
    (outline, shadow, fill with a photo), your own font files (done), lists (done) and columns.
 9. **Pages and print** (InDesign) — multi-page documents (done), margins and columns (done),
-   text that flows from box to box (done), things and page numbers on every page (done), print-ready PDF (several pages, bleed, cut lines and
+   text that flows from box to box (done), text that flows around pictures and shapes, close
+   around their outline, around their box, or above and below them (done), things and page
+   numbers on every page (done), print-ready PDF (several pages, bleed, cut lines and
    selectable text are done).
 10. **Pro layers and photo tools** (Photoshop) — blend modes, effects (shadow, glow,
    outline), curves and levels, clone and heal, select by color and select subject, and an easy

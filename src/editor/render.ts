@@ -7,6 +7,7 @@ import { layerVersion } from './pixelVersion.ts'
 import { applyAffine, type Affine } from './transform.ts'
 import type { EditorDocument, Layer, Viewport } from './types.ts'
 import { paintPage } from './gradient.ts'
+import { wrapLayers } from '../text/wrapAround.ts'
 
 export const WORKSPACE_COLOR = '#e7e9ee'
 
@@ -134,6 +135,14 @@ function drawParts(ctx: CanvasRenderingContext2D, parts: RenderPart[]) {
   }
 }
 
+// The layers as they look right now, with the ones being changed shown changed. While something
+// text flows around is moved or resized (or the text is), the text flows around it as it goes.
+function shownLayers(layers: Layer[], override: LayerOverride | null | undefined): Layer[] {
+  if (!override || 'parts' in override) return layers
+  const changed = layers.map((l) => ('layers' in override ? (override.layers.get(l.id) ?? l) : override.layerId === l.id ? override.layer : l))
+  return changed.some((l) => l.textWrap) ? wrapLayers(changed) : changed
+}
+
 export function renderScene(
   ctx: CanvasRenderingContext2D,
   surface: Surface,
@@ -199,20 +208,14 @@ export function renderScene(
   target.imageSmoothingEnabled = width < doc.width
   target.imageSmoothingQuality = 'high'
   const screenScale = width / doc.width
-  for (const original of doc.layers) {
-    let layer = original
-    if (override && 'layers' in override) {
-      layer = override.layers.get(original.id) ?? original
-    } else if (override?.layerId === original.id) {
-      if ('parts' in override) {
-        if (original.visible && original.opacity > 0) {
-          target.globalAlpha = original.opacity
-          const parts = override.parts
-          drawWithEffects(target, original.effects, original.blend, partsBounds(parts), (c) => drawParts(c, parts), parts, 0)
-        }
-        continue
+  for (const layer of shownLayers(doc.layers, override)) {
+    if (override && 'parts' in override && override.layerId === layer.id) {
+      if (layer.visible && layer.opacity > 0) {
+        target.globalAlpha = layer.opacity
+        const parts = override.parts
+        drawWithEffects(target, layer.effects, layer.blend, partsBounds(parts), (c) => drawParts(c, parts), parts, 0)
       }
-      layer = override.layer
+      continue
     }
     if (!layer.visible || layer.opacity <= 0) continue
     target.globalAlpha = layer.opacity

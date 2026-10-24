@@ -78,6 +78,27 @@ test('Hebrew starts where you clicked and grows to the left', async ({ page }) =
   expect(ink!.left).toBeLessThan(280)
 })
 
+test('new words reaching the page edge wrap there instead of running off the page, in English and Hebrew', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.keyboard.press('t')
+  await clickAt(page, size, 150, 60)
+  await page.keyboard.type('Hello there, wide world of words')
+  await page.keyboard.press('Escape')
+  const english = await inkBounds(page, size, 0, 0, 400, 300)
+  expect(english!.left).toBeGreaterThanOrEqual(148)
+  expect(english!.right).toBeLessThanOrEqual(400)
+  // It wrapped onto more lines rather than leaving the page.
+  expect(english!.bottom - english!.top).toBeGreaterThan(35)
+
+  await page.keyboard.press('t')
+  await clickAt(page, size, 250, 200)
+  await page.keyboard.type('שלום עולם ומלואו כולו')
+  await page.keyboard.press('Escape')
+  const hebrew = await inkBounds(page, size, 0, 180, 400, 120)
+  expect(hebrew!.right).toBeLessThanOrEqual(252)
+  expect(hebrew!.left).toBeGreaterThanOrEqual(0)
+})
+
 // A picture of part of the screen (in design pixels at 100%), compared in the page.
 async function shot(page: Page, size: Size, x: number, y: number, width: number, height: number): Promise<string> {
   const corner = await screenPoint(page, size, x, y)

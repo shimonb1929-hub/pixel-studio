@@ -109,7 +109,7 @@ export function ShapePanel(props: ShapePanelProps) {
       <div className="mb-3 flex items-center justify-between gap-2">
         <Tooltip
           title={t("Shape")}
-          description={t("How the shape looks. Pick Fill or Outline, then choose a color in the Color panel above. Shapes stay sharp at any size.")}
+          description={t("How the shape looks. Pick Fill or Outline, then choose a color in the Color panel below. Shapes stay sharp at any size.")}
         >
           <h2 className="flex min-w-0 cursor-help items-center gap-1.5 text-[14px] font-semibold text-ink">
             <bdi className="truncate">{props.title}</bdi>

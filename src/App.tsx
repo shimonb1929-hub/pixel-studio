@@ -22,7 +22,8 @@ import type { TextEditing } from './components/TextEditBox.tsx'
 import { TextPanel } from './components/TextPanel.tsx'
 import { Toast, type Notice } from './components/Toast.tsx'
 import { ToolDock } from './components/ToolDock.tsx'
-import { ToolOptions, type ArrangeBarControls, type CropShape } from './components/ToolOptions.tsx'
+import { ToolOptions, type ArrangeBarControls, type CropShape, type TextWrapControls } from './components/ToolOptions.tsx'
+import { canWrapText, defaultTextWrap, wrapTextOn } from './text/wrapAround.ts'
 import { ScrollRegion } from './components/ui.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
@@ -90,7 +91,7 @@ import { invertSelection, selectAll, selectionInfo, type Selection, type Selecti
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
-import type { EditorDocument, Layer, PageLayout, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, OutlineDash, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
+import type { EditorDocument, Layer, PageLayout, TextWrap, PixelLayer, Point, ShapeFill, ShapeGeometry, ShapeLayer, OutlineDash, ShapeOutline, ShapeType, TextLayer, TextStyle, ToolId, Viewport } from './editor/types.ts'
 import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
@@ -106,7 +107,7 @@ import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './te
 import { useFontsVersion } from './hooks/useFontsVersion.ts'
 import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
-import { changeText, fitText, newTextBox, textLayout, textName } from './text/textLayer.ts'
+import { changeText, fitText, keepOnPage, newTextBox, textLayout, textName } from './text/textLayer.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
 import { live, msg, t, useLanguage } from './i18n/i18n.ts'
@@ -996,6 +997,9 @@ export default function App() {
 
   function setTextEdit(next: TextEditState | null) {
     if (next?.layer.id !== textEditRef.current?.layer.id) setTextPick(null)
+    // While typing, the text already flows around the pictures and shapes on the page.
+    const page = current()?.layers
+    if (next && page) next = { ...next, layer: wrapTextOn(page, next.layer) }
     textEditRef.current = next
     setTextEditState(next)
   }
@@ -2367,6 +2371,13 @@ export default function App() {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') void removeBackground(layer.id)
     },
+    textWrap: () => {
+      const d = current()
+      const layer = d && activeLayer(d)
+      if (!d || !canWrapText(layer)) return
+      setTool('move')
+      if (!layer?.textWrap) textWrapControls(d, layer!).onMode('shape')
+    },
   }
 
   const actions = buildActions(
@@ -2668,8 +2679,26 @@ export default function App() {
       flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
       rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
+      textWrap: canWrapText(activeNow) ? textWrapControls(doc, activeNow) : undefined,
     }
   })()
+
+  // Whether text flows around a picture or shape, and how.
+  function textWrapControls(doc: EditorDocument, layer: Layer): TextWrapControls {
+    const value = layer.textWrap ?? null
+    const set = (wrap: TextWrap | null, label: string, mergeKey?: string) =>
+      editor.change(label, (d) => ({ ...d, layers: d.layers.map((l) => (l.id === layer.id ? { ...l, textWrap: wrap } : l)) }), { mergeKey })
+    return {
+      value,
+      onMode: (mode) => {
+        if ((value?.mode ?? null) === mode) return
+        set(mode ? { ...(value ?? defaultTextWrap(doc)), mode } : null, mode ? t('Text around it') : t('Text around it off'))
+      },
+      onGap: (gap) => value && gap !== value.gap && set({ ...value, gap }, t('Space around'), `wrap-gap-${layer.id}`),
+      maxGap: Math.max(10, Math.round(Math.min(doc.width, doc.height) * 0.1)),
+      ppi: documentPpi(doc),
+    }
+  }
 
   const arrangeControls: ArrangeControls | null =
     tool === 'move' && doc && !doc.selection
@@ -2701,7 +2730,11 @@ export default function App() {
     ? {
         layer: textEdit.layer,
         caret: textEdit.caret,
-        onChange: (text, spans) => updateTextEdit((layer) => changeText(layer, { text, spans })),
+        onChange: (text, spans) =>
+          updateTextEdit((layer) => {
+            const changed = changeText(layer, { text, spans })
+            return textEdit.isNew && doc ? keepOnPage(changed, doc.width) : changed
+          }),
         onSelect: (start, end) => setTextPick({ start, end }),
         onDone: finishText,
       }
@@ -2997,17 +3030,6 @@ export default function App() {
               column (then they scroll); the Layers panel always keeps the rest, so it never slips
               off a short screen. */}
           <ScrollRegion className="max-h-[64%] shrink-0 gap-3 [@media(max-height:820px)]:max-h-[56%]">
-            {adjustOn && doc ? (
-              <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
-            ) : (
-              <ColorPanel
-                color={recolorOn ? recolorOn.now : (panelColor ?? color)}
-                recent={recentColors}
-                onChange={recolorOn ? recolorTo : onPanelColor}
-                onPickFromDesign={() => setTool('picker')}
-                design={designColorsShown}
-              />
-            )}
             {textPanelOn && !adjustOn && doc && (
               <TextPanel
                 title={pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
@@ -3077,6 +3099,18 @@ export default function App() {
                       }
                     : null
                 }
+              />
+            )}
+            {/* The picked thing's own settings come first; the Color panel colors it from below. */}
+            {adjustOn && doc ? (
+              <AdjustPanel settings={adjustments} thumbnails={lookPictures} blocked={adjustBlocked} onChange={setAdjustments} />
+            ) : (
+              <ColorPanel
+                color={recolorOn ? recolorOn.now : (panelColor ?? color)}
+                recent={recentColors}
+                onChange={recolorOn ? recolorTo : onPanelColor}
+                onPickFromDesign={() => setTool('picker')}
+                design={designColorsShown}
               />
             )}
             {effectsLayer && (
