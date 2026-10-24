@@ -243,7 +243,7 @@ function readBox(value: unknown): TransformBox {
 
 // Sliders added after the first six may be missing from older projects; they start at 0.
 const FIRST_ADJUSTMENT_KEYS = new Set(['brightness', 'contrast', 'saturation', 'warmth', 'blur', 'sharpen'])
-const ONE_WAY_ADJUSTMENTS = new Set(['blur', 'sharpen', 'grain'])
+const ONE_WAY_ADJUSTMENTS = new Set(['blur', 'sharpen', 'grain', 'denoise'])
 
 function readAdjust(value: unknown): Adjustments | null {
   if (value === null || value === undefined) return null

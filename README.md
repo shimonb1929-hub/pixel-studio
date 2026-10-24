@@ -84,6 +84,14 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Looks before sliders.** Adjust starts with ready-made looks (Black & white, Old photo, Vivid,
   Warm, Cool, Soft, Dramatic, Dreamy), each previewed on your own picture. The sliders underneath
   (brightness, contrast, color strength, warmth, blur, sharpen) fine-tune any look.
+- **Match another photo.** In Adjust, "Match another photo" shows the other photos on the design
+  (photos inside shapes too) as small tiles; pick one and the picked photo takes on its light and
+  colors (pro: Match Color), so photos side by side belong together. It only sets the red, green
+  and blue light curves and a little color strength, so everything stays changeable, and "How much"
+  goes from a hint to the full look.
+- **Clean grain.** A Detail slider that takes the speckles out of night and low-light photos while
+  edges stay sharp (pro: Reduce Noise). Colored specks get extra cleaning, it's done before
+  sharpening so the specks never get sharpened, and a 12-megapixel photo takes about a second.
 - **Mistakes are safe.** Painting never goes onto the page, a shape, text or a locked photo: it
   goes on a drawing above, so the eraser only rubs out your drawing. An opened photo starts
   locked. Undo goes back up to 100 steps, and a stroke that made a new drawing is one step.

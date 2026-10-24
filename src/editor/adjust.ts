@@ -1,11 +1,12 @@
 import { live, msg, t } from '../i18n/i18n.ts'
 import type { Rect } from './geometry.ts'
+import { denoiseLookAround, denoisePixels } from './denoise.ts'
 // Light, color and detail adjustments: the math, done on plain RGBA pixel arrays so it can be
 // tested without a browser. Most change each pixel on its own; blur, sharpen and the light of dark
 // and bright parts look at the pixels around it; dark corners and grain depend on where it is.
 
 // The sliders, in the order they're shown. Values are -1 to 1 (0 changes nothing), except blur,
-// sharpen and grain, which are 0 to 1.
+// sharpen, clean grain and film grain, which are 0 to 1.
 export const SLIDER_KEYS = [
   'brightness',
   'contrast',
@@ -27,6 +28,8 @@ export const SLIDER_KEYS = [
   // Detail and texture in the middle tones; negative softens them.
   'clarity',
   'blur',
+  // Takes away the speckles of a photo taken in low light (pro: Reduce Noise).
+  'denoise',
   // Positive darkens the corners, negative lightens them.
   'vignette',
   'grain',
@@ -80,15 +83,17 @@ export const ADJUSTMENT_NAMES: Record<AdjustmentKey, string> = live({
   sharpen: msg('Sharpen'),
   clarity: msg('Clear details'),
   blur: msg('Blur'),
+  denoise: msg('Clean grain'),
   vignette: msg('Dark corners'),
   grain: msg('Film grain'),
 })
 
-// Sliders that go both ways start in the middle; blur, sharpen and grain start at the left.
+// Sliders that go both ways start in the middle; blur, sharpen and both grains start at the left.
 export const TWO_WAY: Record<AdjustmentKey, boolean> = {
   ...(Object.fromEntries(SLIDER_KEYS.map((key) => [key, true])) as Record<AdjustmentKey, boolean>),
   blur: false,
   sharpen: false,
+  denoise: false,
   grain: false,
 }
 
@@ -268,6 +273,11 @@ export function describeAdjustment(key: AdjustmentKey, value: number): string {
       [t('Details a little softer.'), t('Softer, glowing details.'), t('Very soft and dreamy.')],
     ],
     blur: () => [t('Sharp, as it is.'), [t('Slightly soft.'), t('Blurry.'), t('Very blurry.')], []],
+    denoise: () => [
+      t('No cleaning.'),
+      [t('Fewer specks, all the detail kept.'), t('Smooth and clean, edges still sharp.'), t('Very smooth: the finest texture may soften.')],
+      [],
+    ],
     vignette: () => [
       none,
       [t('Corners a little darker.'), t('Dark corners.'), t('Very dark corners.')],
@@ -309,7 +319,7 @@ function changesLocalLight(a: Adjustments): boolean {
 
 // How far past the changed pixels an adjustment needs to look, beyond how far it reaches.
 export function adjustmentLookAround(a: Adjustments, size: number): number {
-  return changesLocalLight(a) ? Math.ceil(3 * localSigma(size)) : 0
+  return Math.max(changesLocalLight(a) ? Math.ceil(3 * localSigma(size)) : 0, denoiseLookAround(a.denoise, size))
 }
 
 // Whether adjustColors has anything to do.
@@ -875,11 +885,13 @@ export function sharpenWith(data: Uint8ClampedArray, soft: Uint8ClampedArray, am
   }
 }
 
-// Every adjustment, in place, in the order they're applied: blur, sharpen, then light and colors.
-// `size` is the design's longer side in these pixels' scale.
+// Every adjustment, in place, in the order they're applied: blur, clean grain, sharpen (so it never
+// sharpens the specks), then light and colors. `size` is the design's longer side in these pixels'
+// scale.
 export function adjustPixels(data: Uint8ClampedArray, width: number, height: number, a: Adjustments, size: number, place?: PixelPlace): void {
   const sigma = blurSigma(a.blur, size)
   if (sigma >= 0.3) blurPixels(data, width, height, sigma)
+  if (a.denoise > 0) denoisePixels(data, width, height, a.denoise, size)
   if (a.sharpen > 0) {
     const soft = data.slice()
     blurPixels(soft, width, height, sharpenSigma(size))
