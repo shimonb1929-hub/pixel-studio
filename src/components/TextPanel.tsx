@@ -584,6 +584,8 @@ export interface TextPanelProps {
   onContinue?: () => void
   // The design's text styles.
   styles?: TextStylesProps | null
+  // The words of a table: one color, no lists, and the table sets the boxes.
+  table?: boolean
 }
 
 // How text looks: font, size, boldness, lining up, which way it reads and spacing.
@@ -626,14 +628,16 @@ export function TextPanel(props: TextPanelProps) {
           </p>
         )}
 
-        <FillKindSwitch
-          label={t('Letter color')}
-          kind={style.gradient ? 'gradient' : 'color'}
-          colorHelp={t('All the letters in one color. Choose it in the Color panel below.')}
-          gradientHelp={t('Colors that fade smoothly across all the letters. Drag the round dots on the text to turn it.')}
-          onChange={props.onFillKind}
-        />
-        {style.gradient && (
+        {!props.table && (
+          <FillKindSwitch
+            label={t('Letter color')}
+            kind={style.gradient ? 'gradient' : 'color'}
+            colorHelp={t('All the letters in one color. Choose it in the Color panel below.')}
+            gradientHelp={t('Colors that fade smoothly across all the letters. Drag the round dots on the text to turn it.')}
+            onChange={props.onFillKind}
+          />
+        )}
+        {style.gradient && !props.table && (
           <GradientEditor gradient={style.gradient} stop={Math.min(props.gradientStop, style.gradient.stops.length - 1)} onStop={props.onGradientStop} onChange={props.onGradient} />
         )}
 
@@ -690,13 +694,15 @@ export function TextPanel(props: TextPanelProps) {
         </div>
 
         <ChoiceRow label={t("Line up")} value={alignShown} choices={ALIGNS} onChange={(align) => props.onStyle({ align }, t('Line up text'))} />
-        <ChoiceRow
-          keepTyping
-          label={t('List')}
-          value={style.list ?? 'none'}
-          choices={listChoices(props.hasRtl)}
-          onChange={(list) => props.onStyle({ list: list === 'none' ? null : list }, list === 'none' ? t('No list') : t('Make a list'))}
-        />
+        {!props.table && (
+          <ChoiceRow
+            keepTyping
+            label={t('List')}
+            value={style.list ?? 'none'}
+            choices={listChoices(props.hasRtl)}
+            onChange={(list) => props.onStyle({ list: list === 'none' ? null : list }, list === 'none' ? t('No list') : t('Make a list'))}
+          />
+        )}
         {props.hasRtl && <ChoiceRow label={t("Reading direction")} value={style.direction} choices={DIRECTIONS} onChange={(direction) => props.onStyle({ direction, align: style.align === 'left' || style.align === 'right' ? 'auto' : style.align }, t('Reading direction'))} />}
 
         {props.flow ? (
@@ -704,7 +710,7 @@ export function TextPanel(props: TextPanelProps) {
             {t('Box {box} of {boxes}. The text runs on from one box to the next: what doesn’t fit here continues in the next box.', { box: props.flow.box, boxes: props.flow.boxes })}
           </p>
         ) : null}
-        <div className="flex flex-wrap gap-1">
+        {!props.table && <div className="flex flex-wrap gap-1">
           {!props.flow && (
           <Tooltip
             title={t("Wrap in a box")}
@@ -742,7 +748,7 @@ export function TextPanel(props: TextPanelProps) {
               </button>
             </Tooltip>
           )}
-        </div>
+        </div>}
 
         <Tooltip title={t('More')} description={t('Shows the spacing between letters and lines, and the reading direction.')} className="flex self-start">
           <button

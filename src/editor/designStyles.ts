@@ -70,6 +70,18 @@ function recolorLayer(layer: Layer, from: string, to: string): Layer {
     const spans = layer.spans?.map((span) => (span.style.color ? { ...span, style: { ...span.style, color: swap(span.style.color, from, to) } } : span))
     return { ...layer, ...effects, style: swapTextStyle(layer.style, from, to), ...(spans ? { spans } : {}) }
   }
+  if (layer.kind === 'table') {
+    const maybe = (color: string | null) => color && swap(color, from, to)
+    return {
+      ...layer,
+      ...effects,
+      style: swapTextStyle(layer.style, from, to),
+      background: maybe(layer.background),
+      header: maybe(layer.header),
+      stripes: maybe(layer.stripes),
+      lines: { ...layer.lines, color: swap(layer.lines.color, from, to) },
+    }
+  }
   return { ...layer, ...effects }
 }
 
@@ -115,6 +127,12 @@ export function colorUses(doc: EditorDocument, hex: string): number {
         if (layer.style.gradient) checkGradient(layer.style.gradient)
         else check(layer.style.color)
         layer.spans?.forEach((span) => check(span.style.color))
+      } else if (layer.kind === 'table') {
+        check(layer.style.color)
+        check(layer.background)
+        check(layer.header)
+        check(layer.stripes)
+        if (layer.lines.kind !== 'none') check(layer.lines.color)
       }
     }
   }

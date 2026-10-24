@@ -1,0 +1,13 @@
+{
+  "name": "Miri",
+  "license": "OFL-1.1",
+  "version": "",
+  "faces": [
+    {
+      "file": "miri-500-normal.woff2",
+      "weight": "500",
+      "style": "normal",
+      "unicodeRange": "U+0021-003B,U+003D,U+003F-0040,U+005B-0060,U+007B-007D,U+05D0-05EA"
+    }
+  ]
+}

@@ -42,7 +42,7 @@ export const FONT_PURPOSES: FontPurposeInfo[] = live([
     description: msg('Calm, clear letters for longer text: articles, booklets, menus and letters.'),
     fonts: [
       'heebo', 'assistant', 'noto-sans-hebrew', 'open-sans', 'arimo', 'ibm-plex-sans-hebrew', 'frank-ruhl-libre',
-      'david-libre', 'noto-serif-hebrew', 'alef', 'tinos', 'simple-clm', 'nachlieli-clm',
+      'david-libre', 'noto-serif-hebrew', 'alef', 'tinos', 'simple-clm', 'nachlieli-clm', 'dyslexia-hebrew',
       'inter', 'atkinson-hyperlegible', 'lexend', 'source-sans-3', 'roboto', 'lato', 'nunito', 'source-serif-4',
       'literata', 'merriweather', 'lora', 'newsreader', 'pt-serif', 'noto-serif', 'crimson-pro', 'eb-garamond',
     ],
@@ -53,7 +53,7 @@ export const FONT_PURPOSES: FontPurposeInfo[] = live([
     description: msg('Traditional Hebrew letters like in seforim, a siddur or a Sefer Torah, and Rashi script. Taamey and Ezra fonts show every vowel and cantillation mark.'),
     fonts: [
       'stam-ashkenaz-clm', 'stam-sefarad-clm', 'keter-yg', 'keter-aram-tsova', 'taamey-frank-clm', 'taamey-david-clm',
-      'taamey-ashkenaz', 'ezra-sil', 'noto-rashi-hebrew', 'frank-ruehl-clm', 'frank-ruhl-libre', 'david-clm',
+      'taamey-ashkenaz', 'ezra-sil', 'ezra-sil-sr', 'romm-vilna', 'mekorot', 'mashkit', 'noto-rashi-hebrew', 'benor-rashi', 'frank-ruehl-clm', 'frank-ruhl-libre', 'david-clm',
       'david-libre', 'drugulin-clm', 'shofar', 'hadasim-clm', 'noto-serif-hebrew', 'cardo', 'libertinus-serif',
     ],
   },
@@ -74,7 +74,7 @@ export const FONT_PURPOSES: FontPurposeInfo[] = live([
     label: msg('Kids & fun'),
     description: msg('Round, friendly and playful letters for children, games, classrooms and parties.'),
     fonts: [
-      'fredoka', 'varela-round', 'amatic-sc', 'gveret-levin', 'playpen-sans-hebrew', 'shmulik-clm', 'm-plus-rounded-1c',
+      'fredoka', 'varela-round', 'amatic-sc', 'gveret-levin', 'playpen-sans-hebrew', 'shmulik-clm', 'yehoash-esther', 'm-plus-rounded-1c',
       'rubik-bubbles', 'rubik-puddles', 'rubik-doodle-shadow', 'rubik-moonrocks',
       'comic-neue', 'comic-relief', 'chewy', 'luckiest-guy', 'bubblegum-sans', 'sniglet', 'baloo-2', 'grandstander',
       'gluten', 'dynapuff', 'short-stack', 'schoolbell', 'patrick-hand', 'andika', 'edu-sa-beginner', 'playpen-sans',

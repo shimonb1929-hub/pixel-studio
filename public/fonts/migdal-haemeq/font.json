@@ -1,0 +1,13 @@
+{
+  "name": "Migdal Haemeq",
+  "license": "OFL-1.1",
+  "version": "",
+  "faces": [
+    {
+      "file": "migdal-haemeq-500-normal.woff2",
+      "weight": "500",
+      "style": "normal",
+      "unicodeRange": "U+0020-0022,U+0027-002F,U+003F,U+005C,U+0336,U+05BE,U+05D0-05EA"
+    }
+  ]
+}

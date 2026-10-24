@@ -267,7 +267,8 @@ test('drop a photo onto a shape to fill it, then zoom and slide it inside', asyn
 test('a picture dropped next to the shapes becomes a layer of its own, where it was dropped', async ({ page }) => {
   const size = await newDesign(page)
   await dropPhoto(page, size, 150, 100, await photo(page))
-  expect(await layerNames(page)).toEqual(['beach'])
+  // The dropped file is read in the background, so the layer can take a moment to appear.
+  await expect.poll(() => layerNames(page)).toEqual(['beach'])
   expectColor(await designPixel(page, size, 100, 120), RED)
   expectColor(await designPixel(page, size, 200, 120), GREEN)
 })

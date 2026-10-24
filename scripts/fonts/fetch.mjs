@@ -19,8 +19,10 @@
 // families are left out first, biggest first.
 //
 // Fonts marked "local" in list.json are not on Fontsource: their files are made by another script
-// (for "culmus", scripts/fonts/culmus.py) straight into public/fonts/<id>/ with a font.json, and
-// are read from there and left in place.
+// (scripts/fonts/culmus.py or scripts/fonts/extra.py) straight into public/fonts/<id>/ with a
+// font.json, and are read from there and left in place.
+// Fonts marked "addYiddish" get the Yiddish letters they lack added by scripts/fonts/yiddish.py,
+// which needs Python 3 with fontTools and brotli.
 
 import { execFileSync } from 'node:child_process'
 import {
@@ -64,6 +66,11 @@ const LICENSES = new Map([
   ['cc0-1.0', 'CC0-1.0'],
   ['unlicense', 'Unlicense'],
   ['gpl-2.0-with-font-exception', 'GPL-2.0-with-font-exception'],
+  ['gpl-3.0-with-font-exception', 'GPL-3.0-with-font-exception'],
+  ['ufl-1.0', 'UFL-1.0'],
+  ['lppl-1.3c', 'LPPL-1.3c'],
+  ['cc-by-sa-3.0', 'CC-BY-SA-3.0'],
+  ['bitstream-vera', 'Bitstream-Vera'],
 ])
 const WOFF2_MAGIC = 'wOF2'
 
@@ -239,6 +246,7 @@ function readFamily(font, pkgDir, version) {
     yiddish: hebrew && font.yiddish === true,
     niqqud: hebrew && font.niqqud === true,
     variable: Boolean(meta.variable),
+    addYiddish: font.addYiddish === true,
     license,
     licensePath,
     version,
@@ -340,6 +348,14 @@ function copyFiles(families) {
       const magic = readFileSync(target).subarray(0, 4).toString('latin1')
       if (magic !== WOFF2_MAGIC) warn(`${family.id}: ${face.file} is not a woff2 file`)
     }
+  }
+  // Families marked "addYiddish" get the Yiddish double letters and rafe they lack, made from
+  // their own letters (see yiddish.py).
+  const yiddish = families
+    .filter((family) => family.addYiddish)
+    .flatMap((family) => family.faces.filter((face) => face.subset === 'hebrew').map((face) => join(fontsDir, family.id, face.file)))
+  if (yiddish.length > 0) {
+    execFileSync('python3', [join(here, 'yiddish.py'), ...yiddish], { stdio: 'inherit' })
   }
 }
 

@@ -227,3 +227,81 @@ test('adjust settings fit on common laptop screens', async ({ page }) => {
     await expect(page.getByRole('region', { name: 'Adjust' }).getByRole('slider', { name: 'Sharpen' })).toBeAttached()
   }
 })
+
+// Opens a 300 × 200 photo with a yellowish cast: dark on the left, bright on the right.
+async function castPhoto(page: Page): Promise<Size> {
+  const base64 = await page.evaluate(async () => {
+    const canvas = new OffscreenCanvas(300, 200)
+    const g = canvas.getContext('2d')!
+    g.fillStyle = 'rgb(40, 38, 22)'
+    g.fillRect(0, 0, 150, 200)
+    g.fillStyle = 'rgb(200, 192, 150)'
+    g.fillRect(150, 0, 150, 200)
+    const bytes = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer())
+    let binary = ''
+    for (const byte of bytes) binary += String.fromCharCode(byte)
+    return btoa(binary)
+  })
+  await page.locator('input[type=file]').setInputFiles({ name: 'cast.png', mimeType: 'image/png', buffer: Buffer.from(base64, 'base64') })
+  await expect(page.getByText('300 × 200 px')).toBeVisible()
+  return { width: 300, height: 200 }
+}
+
+const panel = (page: Page) => page.getByRole('region', { name: 'Adjust' })
+
+test('Fix light and Fix colors set the sliders for you, to fine-tune after', async ({ page }) => {
+  const size = await castPhoto(page)
+  await page.getByRole('button', { name: 'Adjust tool' }).click()
+  const before = await designPixel(page, size, 225, 100)
+
+  await panel(page).getByRole('button', { name: 'Fix colors' }).click()
+  await expect(panel(page).getByRole('slider', { name: 'Warmth' })).toHaveAttribute('aria-valuetext', /^−/)
+  await expectPixel(page, size, 225, 100, (rgba) => Math.abs(rgba[0] - rgba[2]) < Math.abs(before[0] - before[2]) / 2, 'whites look whiter')
+
+  await panel(page).getByRole('button', { name: 'Fix light' }).click()
+  await expect(panel(page).getByRole('slider', { name: 'Dark parts' })).toHaveAttribute('aria-valuetext', /^\+/)
+  await expectPixel(page, size, 40, 100, (rgba) => rgba[1] > 50, 'the dark half opens up')
+  // Fixing the light keeps the fixed colors.
+  await expect(panel(page).getByRole('slider', { name: 'Warmth' })).toHaveAttribute('aria-valuetext', /^−/)
+  await page.keyboard.press('Enter')
+  await expect(await undoTip(page)).toContainText('Undo adjust colors')
+})
+
+test('light curve, one color and dark corners show live and stay changeable', async ({ page }) => {
+  const size = await blueDesign(page)
+  await page.getByRole('button', { name: 'Adjust tool' }).click()
+
+  // Change one color: taking the strength out of blue leaves gray.
+  await panel(page).getByRole('button', { name: 'Change one color' }).click()
+  await panel(page).getByRole('radiogroup', { name: 'Which color' }).getByRole('radio', { name: 'Blue' }).click()
+  const colorful = panel(page).getByRole('slider', { name: 'How colorful' })
+  await colorful.focus()
+  for (let i = 0; i < 10; i++) await colorful.press('Shift+ArrowLeft')
+  await expect(colorful).toHaveAttribute('aria-valuetext', '−100')
+  await expectPixel(page, size, 200, 150, (rgba) => Math.max(...rgba.slice(0, 3)) - Math.min(...rgba.slice(0, 3)) < 40, 'blue turns gray')
+
+  // The light curve: lifting the darkest point makes everything lighter.
+  await panel(page).getByRole('button', { name: 'Light curve' }).click()
+  const darkest = panel(page).getByRole('slider', { name: 'Point 1' })
+  const gray = await designPixel(page, size, 200, 150)
+  await darkest.focus()
+  for (let i = 0; i < 4; i++) await darkest.press('Shift+ArrowUp')
+  await expect(darkest).toHaveAttribute('aria-valuetext', 'Tone 0% becomes 40%')
+  await expectPixel(page, size, 200, 150, (rgba) => rgba[1] > gray[1] + 20, 'lighter')
+
+  // Dark corners leave the middle as it is.
+  const corners = panel(page).getByRole('slider', { name: 'Dark corners' })
+  const middle = await designPixel(page, size, 200, 150)
+  await corners.focus()
+  for (let i = 0; i < 8; i++) await corners.press('Shift+ArrowRight')
+  await expectPixel(page, size, 2, 2, (rgba) => rgba[1] < middle[1] - 40, 'darker corner')
+  expectColor(await designPixel(page, size, 200, 150), middle.slice(0, 3) as [number, number, number], 4)
+
+  await toolbar(page).getByRole('button', { name: 'Apply' }).click()
+  await expect(await undoTip(page)).toContainText('Undo adjust colors')
+  // Coming back shows the same settings, ready to change.
+  await page.getByRole('button', { name: 'Brush tool' }).click()
+  await page.getByRole('button', { name: 'Change adjustments of Drawing 1' }).click()
+  await expect(panel(page).getByRole('slider', { name: 'Dark corners' })).toHaveAttribute('aria-valuetext', '+80')
+  await expect(panel(page).getByRole('slider', { name: 'Point 1' })).toHaveAttribute('aria-valuetext', 'Tone 0% becomes 40%')
+})

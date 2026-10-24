@@ -16,6 +16,7 @@ export interface AppCommands {
   open: () => void
   addPhoto: () => void
   addText: (kind: TextKind) => void
+  addTable: () => void
   // Picks the page, so the Color panel colors it.
   colorPage: () => void
   download: () => void
@@ -167,6 +168,15 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       run: () => c.addText(kind),
     })),
+    {
+      id: 'add-table',
+      group: 'Design',
+      title: t('Add a table'),
+      description: t('Rows and columns of words, for menus, price lists and timetables. Tab goes to the next cell; Hebrew and Yiddish tables read from the right.'),
+      keywords: ['table', 'grid', 'rows', 'columns', 'cells', 'menu', 'price list', 'timetable', 'schedule', 'spreadsheet', 'chart'],
+      needsDocument: true,
+      run: c.addTable,
+    },
     {
       id: 'download',
       group: 'Design',
