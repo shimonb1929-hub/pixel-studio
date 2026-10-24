@@ -1,5 +1,5 @@
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, FlipVertical2, Italic, List, ListOrdered, Minus, Plus, Search, Spline, WrapText, X, type LucideIcon } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { Gradient } from '../editor/gradient.ts'
 import type { TextStyle } from '../editor/types.ts'
 import type { FontCategory, FontInfo } from '../text/fontCatalog.ts'
@@ -584,6 +584,8 @@ export interface TextPanelProps {
   onContinue?: () => void
   // The design's text styles.
   styles?: TextStylesProps | null
+  // A note when the words are hard to read where they are, with fixes.
+  note?: ReactNode
   // The words of a table: one color, no lists, and the table sets the boxes.
   table?: boolean
   // Set when the words run along the edge of a shape: where along it, and on which side.
@@ -627,6 +629,7 @@ export function TextPanel(props: TextPanelProps) {
               : t('Changes go to all the text. To change just some words, pick them with the mouse first.')}
           </p>
         )}
+        {props.note}
         {props.scope && (props.along || !!style.bend) && (
           <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">
             {t('Curved words show straight while you type, and bend again when you finish.')}

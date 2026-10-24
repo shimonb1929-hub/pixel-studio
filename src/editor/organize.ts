@@ -10,7 +10,7 @@ import type { EditorDocument, Layer } from './types.ts'
 export type LineUpEdge = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom'
 
 // Things that move as one: a whole group, or a single layer, with the upright box around it.
-interface Unit {
+export interface Unit {
   ids: string[]
   rect: Rect
   // Plain pictures move by whole pixels, so they stay crisp.
@@ -23,7 +23,7 @@ function boundsOf(layer: Layer): Rect | null {
 }
 
 // The chosen layers as things that move as one. Empty ones are left out.
-function unitsOf(doc: EditorDocument, ids: string[]): Unit[] {
+export function unitsOf(doc: EditorDocument, ids: string[]): Unit[] {
   const chosen = new Set(ids)
   const units = new Map<string, Layer[]>()
   for (const layer of doc.layers) {
@@ -45,7 +45,7 @@ function unitsOf(doc: EditorDocument, ids: string[]): Unit[] {
 }
 
 // Slides each unit by its own amount. Returns the same design when nothing moves.
-function slideUnits(doc: EditorDocument, moves: { unit: Unit; dx: number; dy: number }[]): EditorDocument {
+export function slideUnits(doc: EditorDocument, moves: { unit: Unit; dx: number; dy: number }[]): EditorDocument {
   const by = new Map<string, { dx: number; dy: number }>()
   for (const { unit, dx, dy } of moves) {
     const x = unit.whole ? Math.round(dx) : dx

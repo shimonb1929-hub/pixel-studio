@@ -36,6 +36,8 @@ import { DesignInfo, SelectionBar, StartHere, ToolHint, ZoomControls } from './c
 import { PagePanel } from './components/PagePanel.tsx'
 import { GradientHandles } from './components/GradientHandles.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
+import { PhotoColors, ReadableNote, SmartPreviewBar } from './components/SmartHelpers.tsx'
+import { useSmartDesign } from './hooks/useSmartDesign.ts'
 import { effectThumbnails, flattenDocument } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
 import { adjustmentLabel, autoColor, autoLight, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, tidyAdjustments, type Adjustments } from './editor/adjust.ts'
@@ -87,6 +89,8 @@ import { healRegion } from './editor/healRegion.ts'
 import { layerVersion, pixelVersion } from './editor/pixelVersion.ts'
 import { combineFound, maskToOps } from './ai/maskSelection.ts'
 import { AI_PICTURE_SIDE, findThing, onAiProgress, prepareThing } from './ai/segment.ts'
+import { useBlurBackground } from './ai/useBlurBackground.ts'
+import { PictureHelper, type PictureHelperKind } from './components/PictureHelpers.tsx'
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
@@ -102,6 +106,9 @@ import { screenToDocument } from './editor/viewport.ts'
 import { centeredViewport, fitViewport, nextZoomLevel, panBy, zoomAtPoint } from './editor/viewport.ts'
 import { useAutosave } from './hooks/useAutosave.ts'
 import { useEditor } from './hooks/useEditor.ts'
+import { useStraighten } from './hooks/useStraighten.ts'
+import { StraightenPanel } from './components/StraightenPanel.tsx'
+import { photoOnMainThing, smartCropFrame } from './editor/smartPhoto.ts'
 import { usePen } from './hooks/usePen.ts'
 import { useInstallApp } from './hooks/useInstallApp.ts'
 import { useElementSize } from './hooks/useElementSize.ts'
@@ -117,6 +124,7 @@ import { changeText, fitText, keepOnPage, newTextBox, textIndexAt, textLayout, t
 import { straighten, textAlongShape } from './text/textAlong.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
+import { useTurnIntoShapes } from './hooks/useTurnIntoShapes.tsx'
 import { isRtl, live, msg, t, useLanguage } from './i18n/i18n.ts'
 
 type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts'
@@ -389,6 +397,8 @@ export default function App() {
   // Which kind of ready layout the layouts dialog shows first.
   const [layoutsKind, setLayoutsKind] = useState<'all' | LayoutKind>('all')
   const [layoutsStart, setLayoutsStart] = useState<string | undefined>(undefined)
+  // Bigger and sharper, or Words from a picture, open for a photo.
+  const [pictureHelper, setPictureHelper] = useState<{ kind: PictureHelperKind; layerId: string } | null>(null)
   const [exportFormat, setExportFormat] = useState<ExportFormat>('png')
   // Margins and columns being chosen, shown on the design before they're kept.
   const [layoutPreview, setLayoutPreview] = useState<PageLayout | null>(null)
@@ -481,6 +491,9 @@ export default function App() {
 
   const problem = (message: string) => setNotice({ message, tone: 'problem' })
   const inform = (message: string) => setNotice({ message, tone: 'info' })
+  // Turn a picture into shapes (pro: Image Trace); the new shapes end up picked together.
+  const traceShapes = useTurnIntoShapes(editor, { problem, inform }, (ids) => (setTool('move'), pickMany(ids)))
+  const straightenPhoto = useStraighten(editor, problem)
   // Commands read the design through this, so they see changes made earlier in the same click.
   const current = () => editor.getDoc()
 
@@ -520,6 +533,8 @@ export default function App() {
   // With Arrange and a selection, handles are ready around the selected part of the layer.
   // A new layer or selection, including one brought back by undo, starts fresh handles.
   const activeNow = doc ? activeLayer(doc) : undefined
+  // Blur the background: its slider shows in the Arrange bar until Apply or Cancel.
+  const blurBackground = useBlurBackground({ editor, active: activeNow, showing: tool === 'move', setNotice })
   // The spot Copy paint copies from, while its picture is still there.
   const copySource = copyFrom && doc && copyFrom.docId === doc.id && doc.layers.some((l) => l.id === copyFrom.layerId && l.kind === 'raster') ? copyFrom : null
   // A selection edge being tried out counts only while its selection is still the one shown.
@@ -1069,6 +1084,8 @@ export default function App() {
   const tableTarget: TableLayer | null = textEdit?.cell?.table ?? pickedTable
   const [tablePart, setTablePart] = useState<TablePart>('words')
   const textPanelOn = !!doc && (textTarget !== null || tableTarget !== null || tool === 'text')
+  // Colors from the photos, words that are easy to read, and tidying the whole page.
+  const smart = useSmartDesign(editor, { pickedId: activeNow?.id, pickedText, notify: inform })
 
   function setTextPick(next: { start: number; end: number } | null) {
     textPickRef.current = next
@@ -1519,11 +1536,13 @@ export default function App() {
     if (transformChanged && !applyTransform()) return false
     if (cropChanged) applyCrop()
     if (adjustChanged) applyAdjust()
+    if (straightenPhoto.pending) straightenPhoto.apply()
     return true
   }
 
   function setTool(next: ToolId) {
     finishText()
+    if (straightenPhoto.pending) straightenPhoto.apply()
     if (next !== tool) {
       if (tool === 'move') {
         if (!applyTransform()) return
@@ -1640,7 +1659,11 @@ export default function App() {
     try {
       const canvas = await imageFileToCanvas(file)
       settle()
-      editor.change(t('Put photo in shape'), (d) => updateShape(d, layerId, { fill: { kind: 'photo', canvas, zoom: 1, x: 0, y: 0 } }), { bytes: canvasBytes(canvas) })
+      // The shape starts on the photo's main thing, not its plain middle.
+      const shape = current()?.layers.find((l) => l.id === layerId)
+      const fill = { kind: 'photo' as const, canvas, zoom: 1, x: 0, y: 0 }
+      const start = shape?.kind === 'shape' ? photoOnMainThing(fill, Math.abs(shape.box.width), Math.abs(shape.box.height)) : null
+      editor.change(t('Put photo in shape'), (d) => updateShape(d, layerId, { fill: { ...fill, ...start } }), { bytes: canvasBytes(canvas) })
       editor.select(layerId)
       setTool('move')
       inform(t('The photo fills the shape. Use Photo size and Move photo in the Shape panel to show the part you want.'))
@@ -2362,11 +2385,12 @@ export default function App() {
       if (transformChanged) return cancelTransform()
       if (cropChanged) return setCropEdit(null)
       if (adjustChanged) return cancelAdjust()
+      if (straightenPhoto.pending) return straightenPhoto.cancel()
       editor.undo()
     },
     redo: () => {
       if (pen.drawing) return
-      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged) return
+      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending) return
       finishText()
       editor.redo()
     },
@@ -2496,6 +2520,8 @@ export default function App() {
       if (pickedText && tool === 'move' && !doc?.selection && !picked) return editText(pickedText.id, 'all'), true
       if (tool === 'crop' && cropChanged) return applyCrop(), true
       if (adjustChanged) return applyAdjust(), true
+      if (blurBackground.apply()) return true
+      if (straightenPhoto.pending) return straightenPhoto.apply(), true
       if (edgeShown) return applyEdge(), true
       return false
     },
@@ -2507,6 +2533,8 @@ export default function App() {
       if (picked) return pickOne(''), true
       if (tool === 'crop' && cropChanged) return setCropEdit(null), true
       if (adjustChanged) return cancelAdjust(), true
+      if (blurBackground.cancel()) return true
+      if (straightenPhoto.pending) return straightenPhoto.cancel(), true
       if (edgeShown) return setEdgeEdit(null), true
       return false
     },
@@ -2622,12 +2650,35 @@ export default function App() {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') void removeBackground(layer.id)
     },
+    matchPhotoColors: smart.matchDesign,
+    tidyPage: smart.tidyPage,
+    makeReadable: smart.makeReadable,
+    blurBackground: () => {
+      const layer = current() && activeLayer(current()!)
+      if (layer?.kind !== 'raster') return
+      setTool('move')
+      void blurBackground.start(layer.id)
+    },
+    turnIntoShapes: () => traceShapes.open(current()?.activeLayerId ?? ''),
+    straighten: () => {
+      if (!settle()) return
+      const layer = current() && activeLayer(current()!)
+      if (layer) void straightenPhoto.start(layer.id)
+    },
     textWrap: () => {
       const d = current()
       const layer = d && activeLayer(d)
       if (!d || !canWrapText(layer)) return
       setTool('move')
       if (!layer?.textWrap) textWrapControls(d, layer!).onMode('shape')
+    },
+    upscale: () => {
+      const layer = current() && activeLayer(current()!)
+      if (layer?.kind === 'raster') setPictureHelper({ kind: 'upscale', layerId: layer.id })
+    },
+    findWords: () => {
+      const layer = current() && activeLayer(current()!)
+      if (layer?.kind === 'raster') setPictureHelper({ kind: 'words', layerId: layer.id })
     },
   }
 
@@ -2646,10 +2697,10 @@ export default function App() {
   // A layout effect updates them together with the screen, so a key pressed right after a drag
   // acts on what is shown, not on the step before.
   const commandsRef = useRef(commands)
-  const stateRef = useRef({ hasDoc: !!doc, dialogOpen: dialog !== null, tool })
+  const stateRef = useRef({ hasDoc: !!doc, dialogOpen: dialog !== null || pictureHelper !== null, tool })
   useLayoutEffect(() => {
     commandsRef.current = commands
-    stateRef.current = { hasDoc: !!doc, dialogOpen: dialog !== null, tool }
+    stateRef.current = { hasDoc: !!doc, dialogOpen: dialog !== null || pictureHelper !== null, tool }
   })
 
   useEffect(() => {
@@ -2797,13 +2848,8 @@ export default function App() {
   function changeCropShape(shape: CropShape) {
     if (!doc || !crop) return
     const ratio = cropRatio(shape, doc)
-    let box = crop.box
-    if (ratio) {
-      // The biggest frame of the new shape that fits inside the current one.
-      const width = Math.min(Math.abs(box.width), Math.abs(box.height) * ratio)
-      box = { ...box, width, height: width / ratio }
-    }
-    setCrop(box, shape)
+    // The biggest frame of the new shape that fits inside the current one, over the main thing.
+    setCrop(ratio ? smartCropFrame(doc, ratio, crop.box) : crop.box, shape)
   }
 
   // The selection bar's Add more and Take away: they switch to Select (with the same shape as
@@ -2858,7 +2904,8 @@ export default function App() {
         : null
 
   const override: LayerOverride | null =
-    textEdit?.cell
+    straightenPhoto.override ??
+    (textEdit?.cell
       ? { layerId: textEdit.cell.table.id, layer: { ...textEdit.cell.table, hiddenCell: { row: textEdit.cell.row, column: textEdit.cell.column } } }
       : textEdit && !textEdit.isNew
       ? { layerId: textEdit.layer.id, layer: { ...textEdit.layer, visible: false } }
@@ -2868,7 +2915,7 @@ export default function App() {
       ? { layerId: transform.session.layerId, parts: transformParts(transform.session, transform.box) }
       : adjustPreview && !comparing
         ? adjustPreview
-        : null
+        : blurBackground.override)
 
   // The Arrange bar: the selected part, or the selected object, or why nothing can be arranged.
   const arrangeBar = ((): ArrangeBarControls => {
@@ -2894,6 +2941,7 @@ export default function App() {
       fillGap,
       onFillGap: setFillGap,
       ppi: doc ? documentPpi(doc) : DEFAULT_PPI,
+      blurSession: blurBackground.controls,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
     // Its size and top-left corner before turning, as shown in the boxes.
@@ -2953,7 +3001,12 @@ export default function App() {
       flip: (axis) => placeLayer(activeNow.id, flipBox(objectBox, axis), axis === 'horizontal' ? t('Flip left to right') : t('Flip upside down')),
       rotate90: (direction) => placeLayer(activeNow.id, rotateBox90(objectBox, direction), direction > 0 ? t('Turn right') : t('Turn left')),
       removeBackground: activeNow.kind === 'raster' ? () => void removeBackground(activeNow.id) : undefined,
+      blurBackground: activeNow.kind === 'raster' ? () => void blurBackground.start(activeNow.id) : undefined,
+      turnIntoShapes: activeNow.kind === 'raster' ? () => traceShapes.open(activeNow.id) : undefined,
+      straighten: activeNow.kind === 'raster' ? commands.straighten : undefined,
       textWrap: canWrapText(activeNow) ? textWrapControls(doc, activeNow) : undefined,
+      upscale: activeNow.kind === 'raster' ? () => setPictureHelper({ kind: 'upscale', layerId: activeNow.id }) : undefined,
+      findWords: activeNow.kind === 'raster' ? () => setPictureHelper({ kind: 'words', layerId: activeNow.id }) : undefined,
     }
   })()
 
@@ -3237,7 +3290,7 @@ export default function App() {
           {doc ? (
             <>
               <CanvasView
-                doc={shownDoc ?? doc}
+                doc={smart.shown ?? shownDoc ?? doc}
                 revision={editor.revision}
                 viewport={viewport}
                 onViewportChange={setViewport}
@@ -3297,6 +3350,7 @@ export default function App() {
                 onEditTable={editTable}
               />
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
+              {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
               {doc.layers.length === 0 && tool === 'move' && !textEdit ? (
                 <StartHere
                   onAddWords={() => addText('heading')}
@@ -3305,22 +3359,29 @@ export default function App() {
                   onDraw={() => setTool('brush')}
                 />
               ) : (
-                <ToolHint
-                  tool={hintTool}
-                  extra={hintExtra}
-                  below={
-                    // While the edge is being tried out, its own Apply and Cancel are the way out.
-                    doc.selection && !edgeShown ? (
-                      <SelectionBar
-                        adding={tool === 'select' && selectionMode === 'add'}
-                        takingAway={tool === 'select' && selectionMode === 'subtract'}
-                        onAdd={() => changeSelectionBy('add')}
-                        onTakeAway={() => changeSelectionBy('subtract')}
-                        onLetGo={commands.deselect}
-                      />
-                    ) : undefined
-                  }
-                />
+                // The Straighten card takes the hint's place while it's open.
+                smart.preview ? (
+                  <SmartPreviewBar preview={smart.preview} onApply={smart.apply} onCancel={smart.cancel} />
+                ) : (
+                  !straightenPhoto.panel && (
+                    <ToolHint
+                      tool={hintTool}
+                      extra={hintExtra}
+                      below={
+                        // While the edge is being tried out, its own Apply and Cancel are the way out.
+                        doc.selection && !edgeShown ? (
+                          <SelectionBar
+                            adding={tool === 'select' && selectionMode === 'add'}
+                            takingAway={tool === 'select' && selectionMode === 'subtract'}
+                            onAdd={() => changeSelectionBy('add')}
+                            onTakeAway={() => changeSelectionBy('subtract')}
+                            onLetGo={commands.deselect}
+                          />
+                        ) : undefined
+                      }
+                    />
+                  )
+                )
               )}
               <ZoomControls
                 zoom={viewport.zoom}
@@ -3424,6 +3485,7 @@ export default function App() {
                 onStraighten={textTarget && pickedTexts <= 1 ? straightenText : undefined}
                 onAlongShape={alongPair(doc) ? wordsAlongShape : undefined}
                 styles={textStyleControls}
+                note={smart.readable && pickedTexts <= 1 && <ReadableNote {...smart.readable} onFix={smart.applyFix} onHover={smart.hoverFix} />}
               />
             )}
             {pageColorOn && !adjustOn && doc && (
@@ -3469,6 +3531,7 @@ export default function App() {
                         moving: photoMoving,
                         onZoom: (zoom) => setPhotoFill({ zoom }, t('Photo size')),
                         onToggleMove: () => setPhotoMoving(!photoMoving),
+                        onCenter: () => editingShape.fill.kind === 'photo' && setPhotoFill(photoOnMainThing(editingShape.fill, Math.abs(editingShape.box.width), Math.abs(editingShape.box.height)), t('Center on the main thing')),
                         onRemove: () => editor.change(t('Remove photo'), (d) => updateShape(d, editingShape.id, { fill: { kind: 'color', color: DEFAULT_SHAPES.fill! } })),
                       }
                     : null
@@ -3493,6 +3556,7 @@ export default function App() {
                 onChange={recolorOn ? recolorTo : onPanelColor}
                 onPickFromDesign={() => setTool('picker')}
                 design={designColorsShown}
+                photoColors={<PhotoColors colors={smart.palette} fromPicked={smart.paletteFromPicked} current={panelColor ?? color} onPick={onPanelColor} onMatch={smart.matchDesign} />}
               />
             )}
             {effectsLayer && (
@@ -3581,6 +3645,7 @@ export default function App() {
         />
       )}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
+      {traceShapes.dialog}
       {dialog === 'help' && <HelpGuide actions={actions} hasDocument={!!doc} onPickTool={setTool} onClose={() => setDialog(null)} />}
       {dialog === 'layout' && doc && (
         <PageLayoutDialog
@@ -3649,6 +3714,12 @@ export default function App() {
           }}
         />
       )}
+      {pictureHelper && doc && (() => {
+        const layer = doc.layers.find((l) => l.id === pictureHelper.layerId)
+        return layer?.kind === 'raster' ? (
+          <PictureHelper kind={pictureHelper.kind} doc={doc} layer={layer} change={editor.change} inform={inform} problem={problem} onClose={() => setPictureHelper(null)} />
+        ) : null
+      })()}
 
       {notice && <Toast notice={notice} onDismiss={() => setNotice(null)} />}
     </div>

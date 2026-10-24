@@ -1,10 +1,16 @@
 // Pixel Studio's offline helper. Every file of this version is kept in the browser, so the
-// installed app opens and works without internet. The build fills in VERSION and FILES.
+// installed app opens and works without internet. The build fills in VERSION, FILES and MODELS_VERSION.
 const VERSION = '__VERSION__'
 const FILES = __FILES__
 const CACHE = `pixel-studio-${VERSION}`
 // Fonts are kept the first time they're used, in a store of their own that stays across versions.
 const FONT_CACHE = 'ps-fonts-1'
+// The AI model (public/models, about 40 MB) too: kept the first time an AI tool is used, in a
+// store that stays until the model files themselves change.
+const MODEL_CACHE = 'ps-models-__MODELS_VERSION__'
+// So are the files of Words from a picture (big, and only for people who use it). Their folder has
+// the library's version in its name, so a new version never mixes with a kept old one.
+const OCR_CACHE = 'ps-ocr-1'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -20,7 +26,13 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key.startsWith('pixel-studio-') && key !== CACHE).map((key) => caches.delete(key))))
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => (key.startsWith('pixel-studio-') && key !== CACHE) || (key.startsWith('ps-models-') && key !== MODEL_CACHE))
+            .map((key) => caches.delete(key)),
+        ),
+      )
       .then(() => self.clients.claim()),
   )
 })
@@ -29,9 +41,11 @@ self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return
 
-  if (new URL(request.url).pathname.includes('/fonts/')) {
+  const path = new URL(request.url).pathname
+  const keptStore = path.includes('/fonts/') ? FONT_CACHE : path.includes('/models/') ? MODEL_CACHE : path.includes('/ocr/') ? OCR_CACHE : null
+  if (keptStore) {
     event.respondWith(
-      caches.open(FONT_CACHE).then((cache) =>
+      caches.open(keptStore).then((cache) =>
         cache.match(request).then(
           (kept) =>
             kept ??

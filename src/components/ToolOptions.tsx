@@ -1,4 +1,4 @@
-import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin } from 'lucide-react'
+import { Aperture, ImageUpscale, Ruler, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -28,6 +28,8 @@ import { ALT_LABEL } from '../keys.ts'
 import { TEXT_KINDS, type TextKind } from '../text/presets.ts'
 import { toolInfo } from '../tools.ts'
 import { StrokePreview } from './StrokePreview.tsx'
+import { BlurBackgroundBar } from './BlurBackgroundBar.tsx'
+import type { BlurBackgroundControls } from '../ai/useBlurBackground.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button, Slider } from './ui.tsx'
 import { live, msg, t } from '../i18n/i18n.ts'
@@ -622,8 +624,19 @@ export interface ArrangeBarControls {
   spreadOut: (axis: 'x' | 'y') => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
+  // Set when one photo or drawing is picked: AI keeps the main thing sharp and blurs what's behind
+  // it. While that's being tried out, `blurSession` holds its slider and the bar shows only that.
+  blurBackground?: () => void
+  blurSession?: BlurBackgroundControls | null
+  // Set when one photo or drawing is picked: makes sharp shapes out of it (pro: Image Trace).
+  turnIntoShapes?: () => void
+  // Set when one photo is picked: turns it so its lines are level.
+  straighten?: () => void
   // Set when one picture or shape is picked: whether text flows around it, and how.
   textWrap?: TextWrapControls
+  // Set with one photo or drawing picked: open Bigger and sharper, or Words from a picture.
+  upscale?: () => void
+  findWords?: () => void
   // Set when several things are picked: makes one shape out of them, or says why it can't.
   combine?: (mode: CombineMode) => void
   combineBlocked?: string | null
@@ -932,6 +945,87 @@ const COMBINES: { mode: CombineMode; label: string; description: string; icon: L
   { mode: 'apart', label: msg('Apart'), description: msg('Keep everything except where they overlap, which becomes a hole.'), icon: SquaresExclude },
 ])
 
+interface PhotoTool {
+  icon: LucideIcon
+  label: string
+  description: string
+  run: () => void
+}
+
+// The smart one-click helpers for a picked photo, in one small menu so the bar stays calm however
+// many there are. Each one says what it does, and none changes anything until it's kept.
+function PhotoToolsMenu({ name, items }: { name: string; items: (PhotoTool | false | undefined)[] }) {
+  const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="menuitem"]')
+  const tools = items.filter((item): item is PhotoTool => !!item)
+  return (
+    <>
+      <Tooltip
+        title={t('Photo tools')}
+        description={t('Smart one-click helpers for “{name}”: straighten it, remove or blur the background, turn it into shapes and more. You see each result before you keep it.', { name })}
+      >
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label={t('Photo tools')}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => {
+            setPosition(null)
+            setOpen(!open)
+          }}
+          className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors ${open ? 'bg-subtle text-ink' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
+        >
+          <WandSparkles size={15} />
+          <span className="hidden 2xl:inline">{t('Photo tools')}</span>
+          <ChevronDown size={13} />
+        </button>
+      </Tooltip>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={t('Photo tools')}
+            onKeyDown={(event) => {
+              const choices = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])
+              const index = choices.indexOf(document.activeElement as HTMLElement)
+              const step = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0
+              if (step === 0 || choices.length === 0) return
+              event.preventDefault()
+              event.stopPropagation()
+              choices[(index + step + choices.length) % choices.length]?.focus()
+            }}
+            className="fixed z-40 w-80 rounded-xl border border-line bg-surface p-1.5 shadow-float"
+            style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
+          >
+            {tools.map(({ icon: Icon, label, description, run }) => (
+              // Two lines of the description fit in the menu; the tip shows all of it.
+              <Tooltip key={label} title={label} description={description} className="flex">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setOpen(false)
+                    setPosition(null)
+                    run()
+                  }}
+                  className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-start outline-none hover:bg-subtle focus-visible:bg-subtle"
+                >
+                  <Icon size={16} className="mt-0.5 shrink-0 text-ink-2" />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-[13px] font-medium text-ink">{label}</span>
+                    <span className="line-clamp-2 text-[12px] leading-snug text-ink-3">{description}</span>
+                  </span>
+                </button>
+              </Tooltip>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
+
 // Making one shape out of several: a small menu of pictures, each saying what it does.
 function CombineMenu({ blocked, onCombine }: { blocked: string | null; onCombine: (mode: CombineMode) => void }) {
   const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="menuitem"]:not([disabled])')
@@ -1192,6 +1286,7 @@ const PAGE_PLACES: Record<LineUpEdge, string> = live({
 
 function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
   const { target } = controls
+  if (controls.blurSession) return <BlurBackgroundBar controls={controls.blurSession} />
   if (!target) {
     return (
       <>
@@ -1284,14 +1379,47 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
         />
         {!part && target.kind !== 'many' && <LineUpMenu several={false} onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
         {controls.textWrap && <TextWrapMenu controls={controls.textWrap} />}
-        {controls.removeBackground && (
-          <BarButton
-            icon={Eraser}
-            label={t("Remove background")}
-            title={t("Remove background")}
-            roomy
-            description={t('AI finds the main thing in “{name}” and makes everything around it see-through. The first time, the AI is downloaded, which takes a moment. You can undo it.', { name: target.name })}
-            onClick={controls.removeBackground}
+        {(controls.straighten || controls.removeBackground || controls.blurBackground || controls.turnIntoShapes || controls.upscale || controls.findWords) && (
+          <PhotoToolsMenu
+            name={target.name}
+            items={[
+              controls.straighten && {
+                icon: Ruler,
+                label: t('Straighten'),
+                description: t('Finds the horizon, walls or other long straight lines in “{name}” and turns it so they are level (pro: Auto Straighten). You see it first and can fine-tune it.', { name: target.name }),
+                run: controls.straighten,
+              },
+              controls.removeBackground && {
+                icon: Eraser,
+                label: t('Remove background'),
+                description: t('AI finds the main thing in “{name}” and makes everything around it see-through. The first time, the AI is downloaded, which takes a moment. You can undo it.', { name: target.name }),
+                run: controls.removeBackground,
+              },
+              controls.blurBackground && {
+                icon: Aperture,
+                label: t('Blur the background'),
+                description: t('AI finds the main thing in “{name}” and softly blurs everything behind it, like a portrait from an expensive camera (pro: Lens Blur, depth of field). You choose how much and see it before you keep it. The first time, the AI is downloaded, which takes a moment.', { name: target.name }),
+                run: controls.blurBackground,
+              },
+              controls.turnIntoShapes && {
+                icon: Shapes,
+                label: t('Turn into shapes'),
+                description: t('Makes sharp shapes out of “{name}” that stay crisp at any size and can be recolored. Best for logos, drawings, signatures and sketches. You see the shapes first. (pro: Image Trace)', { name: target.name }),
+                run: controls.turnIntoShapes,
+              },
+              controls.upscale && {
+                icon: ImageUpscale,
+                label: t('Bigger and sharper'),
+                description: t('Gives “{name}” more pixels so it prints sharp, especially a small photo printed big. It stays the same size on your design. No AI: nothing is made up. You see it before you keep it.', { name: target.name }),
+                run: controls.upscale,
+              },
+              controls.findWords && {
+                icon: ScanText,
+                label: t('Words from a picture'),
+                description: t('Finds the words in “{name}” (a scanned flyer, a sign) and turns them into real text you can change, in English, Hebrew or Yiddish.', { name: target.name }),
+                run: controls.findWords,
+              },
+            ]}
           />
         )}
         {!part && (
