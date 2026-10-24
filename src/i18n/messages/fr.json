@@ -1883,5 +1883,7 @@
  "Puts the words back in straight lines.": "Remet les mots en lignes droites.",
  "Curved words show straight while you type, and bend again when you finish.": "Les mots courbés s’affichent droits pendant que tu écris, et se courbent de nouveau quand tu as fini.",
  "Words along a shape": "Mots le long d’une forme",
- "Runs the picked text along the edge of the shape picked with it, like words around a round badge. To bend text into an arch, use Bend in the Text panel.": "Fait suivre au texte choisi le bord de la forme choisie avec lui, comme des mots autour d’un badge rond. Pour courber le texte en arc, utilise Courber dans le panneau Texte."
+ "Runs the picked text along the edge of the shape picked with it, like words around a round badge. To bend text into an arch, use Bend in the Text panel.": "Fait suivre au texte choisi le bord de la forme choisie avec lui, comme des mots autour d’un badge rond. Pour courber le texte en arc, utilise Courber dans le panneau Texte.",
+ "Bend words or put them around a circle": "Courber des mots ou les mettre autour d’un cercle",
+ "Click the text and move Bend in the Text panel. For words around a shape, pick the text and the shape together and press Along the shape.": "Clique sur le texte et déplace Courber dans le panneau Texte. Pour des mots autour d’une forme, choisis le texte et la forme ensemble et appuie sur Le long de la forme."
 }

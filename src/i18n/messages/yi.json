@@ -1883,5 +1883,7 @@
  "Puts the words back in straight lines.": "שטעלט צוריק די ווערטער אין גלייכע שורות.",
  "Curved words show straight while you type, and bend again when you finish.": "געבויגענע ווערטער ווייזן זיך גלייך בשעת'ן שרייבן, און ווערן ווידער געבויגן ווען איר ענדיגט.",
  "Words along a shape": "ווערטער לענגאויס א פארעם",
- "Runs the picked text along the edge of the shape picked with it, like words around a round badge. To bend text into an arch, use Bend in the Text panel.": "פירט דעם אויסגעקליבענעם טעקסט לענגאויס דעם ראנד פון דער פארעם וואס איז אויסגעקליבן מיט אים, ווי ווערטער ארום א רונדן צייכן. כדי צו בייגן טעקסט אין א בויגן, נוצט בייגן אינעם טעקסט פענעל."
+ "Runs the picked text along the edge of the shape picked with it, like words around a round badge. To bend text into an arch, use Bend in the Text panel.": "פירט דעם אויסגעקליבענעם טעקסט לענגאויס דעם ראנד פון דער פארעם וואס איז אויסגעקליבן מיט אים, ווי ווערטער ארום א רונדן צייכן. כדי צו בייגן טעקסט אין א בויגן, נוצט בייגן אינעם טעקסט פענעל.",
+ "Bend words or put them around a circle": "בייגן ווערטער אדער זיי ארומשטעלן ארום א קרייז",
+ "Click the text and move Bend in the Text panel. For words around a shape, pick the text and the shape together and press Along the shape.": "דריקט אויפן טעקסט און רוקט בייגן אינעם טעקסט פענעל. פאר ווערטער ארום א פארעם, קלייבט דעם טעקסט און די פארעם צוזאמען און דריקט לענגאויס דער פארעם."
 }
