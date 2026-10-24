@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isProjectFile, packProject, PROJECT_VERSION, ProjectError, unpackProject, validateManifest, type ProjectLayer, type ProjectManifest } from './project.ts'
+import { NO_ADJUSTMENTS } from './adjust.ts'
 
 const pixels = (patch: Partial<Extract<ProjectLayer, { kind: 'raster' }>> = {}): ProjectLayer => ({
   kind: 'raster',
@@ -27,7 +28,7 @@ const shape = (patch: Partial<Extract<ProjectLayer, { kind: 'shape' }>> = {}): P
   visible: true,
   opacity: 0.8,
   locked: false,
-  adjust: { brightness: 0.2, contrast: 0, saturation: -1, warmth: 0, blur: 0.1, sharpen: 0 },
+  adjust: { ...NO_ADJUSTMENTS, brightness: 0.2, saturation: -1, blur: 0.1 },
   ...patch,
 })
 
@@ -145,7 +146,7 @@ describe('project files', () => {
       manifest({ layers: [pixels({ bytes: 0 })], activeLayer: 0 }),
       manifest({ layers: [{ ...pixels(), kind: 'text' } as unknown as ProjectLayer], activeLayer: 0 }),
       manifest({ layers: [pixels({ box: { cx: 0, cy: 0, width: 0, height: 10, rotation: 0 } })], activeLayer: 0 }),
-      manifest({ layers: [pixels({ adjust: { brightness: 3, contrast: 0, saturation: 0, warmth: 0, blur: 0, sharpen: 0 } })], activeLayer: 0 }),
+      manifest({ layers: [pixels({ adjust: { ...NO_ADJUSTMENTS, brightness: 3 } })], activeLayer: 0 }),
       manifest({ layers: [shape({ geometry: { type: 'blob' as 'star', corners: 0, sides: 5, arrow: false } })], activeLayer: 0 }),
       manifest({ layers: [shape({ geometry: { type: 'polygon', corners: 0, sides: 2, arrow: false } })], activeLayer: 0 }),
       manifest({ layers: [shape({ fill: { kind: 'color', color: 'red' } })], activeLayer: 0 }),
@@ -169,6 +170,25 @@ describe('project files', () => {
   it('opens version 1 projects, which had no locks, boxes or adjustments', () => {
     const old = { ...manifest(), version: 1, layers: [{ kind: 'raster', name: 'Old', x: 0, y: 0, width: 4, height: 4, visible: true, opacity: 1, bytes: 9 }], activeLayer: 0 }
     expect(validateManifest(old).layers[0]).toEqual(pixels({ name: 'Old', width: 4, height: 4, bytes: 9 }))
+  })
+
+  it('opens adjustments saved before the newer sliders, and keeps curves and one-color changes', () => {
+    const old = { brightness: 0.2, contrast: 0, saturation: -1, warmth: 0, blur: 0.1, sharpen: 0 }
+    expect(validateManifest(manifest({ layers: [pixels({ adjust: old as never })], activeLayer: 0 })).layers[0].adjust).toEqual({
+      ...NO_ADJUSTMENTS,
+      ...old,
+    })
+    const full = {
+      ...NO_ADJUSTMENTS,
+      shadows: 0.4,
+      grain: 0.3,
+      colors: { blue: { hue: 0, strength: 0.5, light: -0.2 } },
+      curve: { all: [[0, 0], [0.5, 0.6], [1, 1]] as [number, number][] },
+    }
+    expect(validateManifest(manifest({ layers: [pixels({ adjust: full })], activeLayer: 0 })).layers[0].adjust).toEqual(full)
+    for (const bad of [{ ...full, grain: -0.5 }, { ...full, colors: { blue: { hue: 2, strength: 0, light: 0 } } }, { ...full, curve: { all: [[0, 2]] } }]) {
+      expect(() => validateManifest(manifest({ layers: [pixels({ adjust: bad as never })], activeLayer: 0 }))).toThrow(ProjectError)
+    }
   })
 
   it('keeps shapes, and finds the photo inside a shape among the pictures', async () => {
