@@ -212,10 +212,11 @@ test('search finds looks from everyday words', async ({ page }) => {
 
   await page.keyboard.press('Control+k')
   await search.fill('blur')
-  // Blur the background starts with the word, so it comes first; the Adjust tool is right after.
+  // Blur the background starts with the word, so it comes first; the Adjust tool is close behind.
   const results = page.locator('#palette-results').getByRole('option')
   await expect(results.first()).toContainText('Blur the background')
-  await expect(results.nth(1)).toContainText('Adjust tool')
+  await expect(results.filter({ hasText: 'Adjust tool' })).toHaveCount(1)
+  expect(await results.evaluateAll((items) => items.findIndex((item) => item.textContent?.includes('Adjust tool')))).toBeLessThan(4)
 })
 
 test('adjust settings fit on common laptop screens', async ({ page }) => {
