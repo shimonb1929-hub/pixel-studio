@@ -60,6 +60,7 @@ export interface AppCommands {
   layerToggle: () => void
   layerDelete: () => void
   keepTogether: () => void
+  wordsAlongShape: () => void
   takeApart: () => void
   tidyUp: () => void
   lineUp: (edge: LineUpEdge) => void
@@ -100,7 +101,7 @@ interface ActionState {
   app: { installed: boolean; canInstall: boolean }
   // Why what's picked can't be kept together or taken apart (null when it can), and the things
   // picked together, if several are.
-  organize: { keepTogether: string | null; takeApart: string | null; picked: string[] | null }
+  organize: { keepTogether: string | null; takeApart: string | null; alongShape: string | null; picked: string[] | null }
 }
 
 const LINE_UPS: { edge: LineUpEdge; title: string; description: string; keywords: string[] }[] = [
@@ -473,6 +474,16 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: organize.keepTogether ?? undefined,
       run: c.keepTogether,
+    },
+    {
+      id: 'words-along-shape',
+      group: 'Layers',
+      title: t('Words along a shape'),
+      description: t('Runs the picked text along the edge of the shape picked with it, like words around a round badge. To bend text into an arch, use Bend in the Text panel.'),
+      keywords: ['curve', 'curved', 'circle', 'arc', 'bend', 'path', 'around', 'round', 'badge', 'logo'],
+      needsDocument: true,
+      disabledReason: organize.alongShape ?? undefined,
+      run: c.wordsAlongShape,
     },
     {
       id: 'take-apart',

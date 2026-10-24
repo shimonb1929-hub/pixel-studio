@@ -117,6 +117,7 @@ import { useFontsVersion } from './hooks/useFontsVersion.ts'
 import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
 import { changeText, fitText, keepOnPage, newTextBox, textIndexAt, textLayout, textName } from './text/textLayer.ts'
+import { straighten, textAlongShape } from './text/textAlong.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
 import { useTurnIntoShapes } from './hooks/useTurnIntoShapes.tsx'
@@ -482,7 +483,7 @@ export default function App() {
   const inform = (message: string) => setNotice({ message, tone: 'info' })
   // Turn a picture into shapes (pro: Image Trace); the new shapes end up picked together.
   const traceShapes = useTurnIntoShapes(editor, { problem, inform }, (ids) => (setTool('move'), pickMany(ids)))
-  const straighten = useStraighten(editor, problem)
+  const straightenPhoto = useStraighten(editor, problem)
   // Commands read the design through this, so they see changes made earlier in the same click.
   const current = () => editor.getDoc()
 
@@ -1361,6 +1362,43 @@ export default function App() {
     if (pickedText) editor.change(label, (d) => replaceLayer(d, changeText(pickedText, { wrap })))
   }
 
+  // Where curved words sit along the shape's edge, and on which side.
+  function changeAlong(patch: { at?: number; flip?: boolean }, label: string, mergeKey?: string) {
+    const move = (layer: TextLayer): TextLayer => (layer.along ? fitText({ ...layer, along: { ...layer.along, ...patch } }) : layer)
+    if (textEditRef.current) {
+      updateTextEdit(move)
+      return
+    }
+    if (pickedText?.along) editor.change(label, (d) => replaceLayer(d, move(pickedText)), { mergeKey: mergeKey && `${mergeKey}:${pickedText.id}` })
+  }
+
+  function straightenText() {
+    if (textEditRef.current) {
+      updateTextEdit(straighten)
+      return
+    }
+    if (pickedText) editor.change(t('Straight again'), (d) => replaceLayer(d, straighten(pickedText)))
+  }
+
+  // The text and the shape picked together, when the words can run along the shape's edge.
+  function alongPair(d: EditorDocument | null): { text: TextLayer; shape: ShapeLayer } | null {
+    const ids = manyIn(d)
+    if (!d || !ids || ids.length !== 2) return null
+    const text = d.layers.find((l): l is TextLayer => ids.includes(l.id) && l.kind === 'text')
+    const shape = d.layers.find((l): l is ShapeLayer => ids.includes(l.id) && l.kind === 'shape')
+    if (!text || !shape || text.flow || text.group || shape.group) return null
+    return { text, shape }
+  }
+
+  function wordsAlongShape() {
+    settle()
+    const pair = alongPair(current())
+    if (!pair) return problem(t('Pick one text and one shape together first: click one, then hold Shift and click the other.'))
+    editor.change(t('Words along the shape'), (d) => replaceLayer(d, textAlongShape(pair.text, pair.shape)))
+    pickOne(pair.text.id)
+    inform(t('The words now follow the edge of the shape. Slide them along it in the Text panel.'))
+  }
+
   // An empty box after the picked text, for the words to run on into.
   function continueInAnotherBox() {
     const d = current()
@@ -1430,13 +1468,13 @@ export default function App() {
     if (transformChanged && !applyTransform()) return false
     if (cropChanged) applyCrop()
     if (adjustChanged) applyAdjust()
-    if (straighten.pending) straighten.apply()
+    if (straightenPhoto.pending) straightenPhoto.apply()
     return true
   }
 
   function setTool(next: ToolId) {
     finishText()
-    if (straighten.pending) straighten.apply()
+    if (straightenPhoto.pending) straightenPhoto.apply()
     if (next !== tool) {
       if (tool === 'move') {
         if (!applyTransform()) return
@@ -2257,12 +2295,12 @@ export default function App() {
       if (transformChanged) return cancelTransform()
       if (cropChanged) return setCropEdit(null)
       if (adjustChanged) return cancelAdjust()
-      if (straighten.pending) return straighten.cancel()
+      if (straightenPhoto.pending) return straightenPhoto.cancel()
       editor.undo()
     },
     redo: () => {
       if (pen.drawing) return
-      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straighten.pending) return
+      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending) return
       finishText()
       editor.redo()
     },
@@ -2393,7 +2431,7 @@ export default function App() {
       if (tool === 'crop' && cropChanged) return applyCrop(), true
       if (adjustChanged) return applyAdjust(), true
       if (blurBackground.apply()) return true
-      if (straighten.pending) return straighten.apply(), true
+      if (straightenPhoto.pending) return straightenPhoto.apply(), true
       if (edgeShown) return applyEdge(), true
       return false
     },
@@ -2406,7 +2444,7 @@ export default function App() {
       if (tool === 'crop' && cropChanged) return setCropEdit(null), true
       if (adjustChanged) return cancelAdjust(), true
       if (blurBackground.cancel()) return true
-      if (straighten.pending) return straighten.cancel(), true
+      if (straightenPhoto.pending) return straightenPhoto.cancel(), true
       if (edgeShown) return setEdgeEdit(null), true
       return false
     },
@@ -2493,6 +2531,7 @@ export default function App() {
     layerToggle: () => activeNow && layers.toggleVisibility(activeNow.id),
     layerDelete: layers.remove,
     keepTogether: organize.keepTogether,
+    wordsAlongShape,
     takeApart: organize.takeApart,
     tidyUp: organize.tidyUp,
     lineUp: organize.lineUp,
@@ -2534,7 +2573,7 @@ export default function App() {
     straighten: () => {
       if (!settle()) return
       const layer = current() && activeLayer(current()!)
-      if (layer) void straighten.start(layer.id)
+      if (layer) void straightenPhoto.start(layer.id)
     },
     textWrap: () => {
       const d = current()
@@ -2559,7 +2598,7 @@ export default function App() {
       undoLabel: editor.undoLabel,
       redoLabel: editor.redoLabel,
       app,
-      organize: { keepTogether: keepTogetherBlocker(doc), takeApart: pickedGroups(doc).length === 0 ? t('Pick something kept together first.') : null, picked },
+      organize: { keepTogether: keepTogetherBlocker(doc), alongShape: alongPair(doc) ? null : t('Pick one text and one shape together first: click one, then hold Shift and click the other.'), takeApart: pickedGroups(doc).length === 0 ? t('Pick something kept together first.') : null, picked },
     },
     commands,
   )
@@ -2627,7 +2666,7 @@ export default function App() {
       else if (plain && (code === 'Delete' || code === 'Backspace') && c.hasSelection()) action = c.deleteArea
       else if (plain && (code === 'Delete' || code === 'Backspace') && hasDoc && currentTool === 'move') action = c.deleteObject
       else if (code === 'Escape' && c.hasSelection()) action = c.deselect
-      // A slider that took the arrow keys already used them (defaultPrevented); they don't also move things.
+      // A slider or list that used the arrow keys itself doesn't also move what's picked.
       else if (!mod && !event.altKey && ARROWS[event.key] && hasDoc && currentTool === 'move' && !event.defaultPrevented) {
         const step = event.shiftKey ? 10 : 1
         const [dx, dy] = ARROWS[event.key]
@@ -2775,7 +2814,7 @@ export default function App() {
         : null
 
   const override: LayerOverride | null =
-    straighten.override ??
+    straightenPhoto.override ??
     (textEdit?.cell
       ? { layerId: textEdit.cell.table.id, layer: { ...textEdit.cell.table, hiddenCell: { row: textEdit.cell.row, column: textEdit.cell.column } } }
       : textEdit && !textEdit.isNew
@@ -2853,6 +2892,7 @@ export default function App() {
         rotate90: (direction) => placeAll(rotateBox90(frame, direction), direction > 0 ? t('Turn right') : t('Turn left')),
         combine: (mode) => combineShapes(picked, mode),
         combineBlocked: combineProblem(doc, picked),
+        alongShape: alongPair(doc) ? wordsAlongShape : undefined,
       }
     }
     if (!activeNow.visible) return { ...base, blocked: t('“{name}” is hidden. Click its eye in the Layers panel to show it.', { name: activeNow.name }) }
@@ -3192,7 +3232,7 @@ export default function App() {
                 onEditTable={editTable}
               />
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
-              {straighten.panel && <StraightenPanel state={straighten.panel} />}
+              {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
               {doc.layers.length === 0 && tool === 'move' && !textEdit ? (
                 <StartHere
                   onAddWords={() => addText('heading')}
@@ -3205,7 +3245,7 @@ export default function App() {
                 smart.preview ? (
                   <SmartPreviewBar preview={smart.preview} onApply={smart.apply} onCancel={smart.cancel} />
                 ) : (
-                  !straighten.panel && (
+                  !straightenPhoto.panel && (
                     <ToolHint
                       tool={hintTool}
                       extra={hintExtra}
@@ -3311,7 +3351,11 @@ export default function App() {
                 gradientStop={gradientStop}
                 onGradientStop={setGradientStop}
                 flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
-                onContinue={!tableTarget && pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 ? continueInAnotherBox : undefined}
+                onContinue={!tableTarget && pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 && !pickedText.along && !pickedText.style.bend ? continueInAnotherBox : undefined}
+                along={textTarget?.along ? { at: textTarget.along.at, flip: textTarget.along.flip } : null}
+                onAlong={changeAlong}
+                onStraighten={textTarget && pickedTexts <= 1 ? straightenText : undefined}
+                onAlongShape={alongPair(doc) ? wordsAlongShape : undefined}
                 note={smart.readable && pickedTexts <= 1 && <ReadableNote {...smart.readable} onFix={smart.applyFix} onHover={smart.hoverFix} />}
               />
             )}

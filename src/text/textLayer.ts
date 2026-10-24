@@ -1,10 +1,12 @@
 import { canvasGradient } from '../editor/gradient.ts'
+import { mapPath } from '../editor/path.ts'
 import { boxPoint, type TransformBox } from '../editor/transform.ts'
 import type { EditorDocument, Point, TextLayer, TextStyle } from '../editor/types.ts'
 import { cssFont, fontReady, fontStack, fontsVersion, loadFont } from './fonts.ts'
 import { indexAt, layoutText, listStartAt, mainDirection, plainWidth, resolveAlign, type RangeWidth, type TextLayout, type TextMeasure } from './layout.ts'
 import { styledPieces, tidySpans } from './spans.ts'
 import { avoidSlots } from './avoid.ts'
+import { curvedIndexAt, curvedText, isCurved, type CurvedText } from './textCurve.ts'
 import { t } from '../i18n/i18n.ts'
 
 // Text objects: measuring and laying them out with real fonts, drawing them, and keeping their
@@ -111,10 +113,74 @@ export function textLayout(layer: TextLayer): TextLayout {
   const listStart = layer.style.list && layer.flow ? listStartAt(layer.flow.full, layer.flow.start) : undefined
   const width = Math.abs(layer.box.width)
   // A paragraph box keeps out of the pictures and shapes it flows around.
-  const rows = layer.wrap && layer.avoid?.length ? avoidSlots(layer.avoid, width, layer.style.size * layer.style.lineHeight, layer.style.size) : undefined
-  const layout = layoutText(layer.text, layer.style, layer.wrap ? width : null, textMeasure(layer.style), textWidth(layer), listStart, rows)
+  const rows = layer.wrap && !isCurved(layer) && layer.avoid?.length ? avoidSlots(layer.avoid, width, layer.style.size * layer.style.lineHeight, layer.style.size) : undefined
+  const layout = layoutText(layer.text, layer.style, layer.wrap && !isCurved(layer) ? width : null, textMeasure(layer.style), textWidth(layer), listStart, rows)
   layouts.set(layer, { version, layout })
   return layout
+}
+
+// The text set on its curve, or null for straight text.
+export function textCurve(layer: TextLayer): CurvedText | null {
+  return curvedText(layer, textLayout(layer))
+}
+
+// From the curve's own space to the design: the box's middle, turn and flips.
+export function curveMatrix(layer: TextLayer, curved: CurvedText): DOMMatrix {
+  const { box } = layer
+  return new DOMMatrix()
+    .translate(box.cx, box.cy)
+    .rotate((box.rotation * 180) / Math.PI)
+    .scale(box.width < 0 ? -1 : 1, box.height < 0 ? -1 : 1)
+    .translate(-curved.center.x, -curved.center.y)
+}
+
+// The box curved text shows in straight while it's being typed: the same middle and turn, the
+// size of its straight lines.
+export function straightBox(layer: TextLayer): TransformBox {
+  if (!isCurved(layer)) return layer.box
+  const layout = textLayout(layer)
+  const { box } = layer
+  return { ...box, width: Math.sign(box.width || 1) * Math.max(1, layout.width), height: Math.sign(box.height || 1) * layout.height }
+}
+
+// Draws curved text letter by letter, each turned to follow the curve.
+function drawCurved(ctx: CanvasRenderingContext2D, layer: TextLayer, curved: CurvedText): void {
+  const { box, style } = layer
+  const w = Math.abs(box.width)
+  const h = Math.abs(box.height)
+  ctx.save()
+  ctx.translate(box.cx, box.cy)
+  ctx.rotate(box.rotation)
+  ctx.scale(box.width < 0 ? -1 : 1, box.height < 0 ? -1 : 1)
+  ctx.translate(-curved.center.x, -curved.center.y)
+  ctx.letterSpacing = '0px'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+  for (const glyph of curved.glyphs) {
+    if (!glyph.text.trim()) continue
+    const cos = Math.cos(glyph.angle)
+    const sin = Math.sin(glyph.angle)
+    ctx.save()
+    ctx.translate(glyph.x, glyph.y)
+    ctx.rotate(glyph.angle)
+    ctx.font = cssFont(glyph.style)
+    ctx.direction = glyph.rtl ? 'rtl' : 'ltr'
+    if (glyph.style.color !== style.color || !style.gradient) ctx.fillStyle = glyph.style.color
+    else {
+      // The gradient stays put across the whole text while each letter is turned on its own.
+      const toLetter = (p: Point) => {
+        const dx = p.x - glyph.x
+        const dy = p.y - glyph.y
+        return { x: dx * cos + dy * sin, y: -dx * sin + dy * cos }
+      }
+      ctx.fillStyle = canvasGradient(ctx, style.gradient, w, h, curved.center.x, curved.center.y, toLetter)
+    }
+    // Right to left, a letter starts from its right end.
+    ctx.textAlign = glyph.rtl ? 'right' : 'left'
+    ctx.fillText(glyph.text, glyph.rtl ? glyph.width : 0, 0)
+    ctx.restore()
+  }
+  ctx.restore()
 }
 
 // How far drawn letters can reach past the text's box: tails of script letters, accents, italics.
@@ -125,7 +191,7 @@ export function textReach(layer: TextLayer): number {
 // How far the lines sit from the box's left edge. Normally none; if a font arrived after the box
 // was fitted, the text keeps its place by its lined-up side.
 export function lineShift(layer: TextLayer, layout: TextLayout): number {
-  if (layer.wrap) return 0
+  if (layer.wrap || isCurved(layer)) return 0
   const w = Math.abs(layer.box.width)
   const align = resolveAlign(layer.style.align, layout.direction)
   return align === 'right' ? w - layout.width : align === 'center' ? (w - layout.width) / 2 : 0
@@ -136,6 +202,8 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
   const { box, style } = layer
   for (const font of eachFont(layer)) if (!fontReady(font.style, font.text)) void loadFont(font.style, font.text)
   const layout = textLayout(layer)
+  const curved = curvedText(layer, layout)
+  if (curved) return drawCurved(ctx, layer, curved)
   const w = Math.abs(box.width)
   const h = Math.abs(box.height)
   ctx.save()
@@ -281,6 +349,11 @@ export function textLocalPoint(layer: TextLayer, point: Point): Point {
 export function textIndexAt(layer: TextLayer, point: Point): number {
   const layout = textLayout(layer)
   const local = textLocalPoint(layer, point)
+  const curved = curvedText(layer, layout)
+  if (curved) {
+    const { box } = layer
+    return curvedIndexAt(curved, { x: local.x - Math.abs(box.width) / 2 + curved.center.x, y: local.y - Math.abs(box.height) / 2 + curved.center.y }, layer.text.length)
+  }
   return indexAt(layer.text, layout, local.x - lineShift(layer, layout), local.y, textMeasure(layer.style), textWidth(layer))
 }
 
@@ -301,6 +374,10 @@ function keepSide(box: TransformBox, width: number, height: number, side: -1 | 0
 // The text with its box fitted to it again after a change, keeping its lined-up side in place.
 export function fitText(layer: TextLayer): TextLayer {
   const layout = textLayout(layer)
+  const curved = curvedText(layer, layout)
+  // Curved text keeps its middle in place: the arc grows or shrinks around it, and an edge it runs
+  // along stays where it is.
+  if (curved) return { ...layer, box: { ...layer.box, width: Math.sign(layer.box.width || 1) * curved.width, height: Math.sign(layer.box.height || 1) * curved.height } }
   const width = layer.wrap ? Math.abs(layer.box.width) : layout.width
   const box = keepSide(layer.box, width, layout.height, anchorSide(layout, layer.style))
   return { ...layer, box }
@@ -334,7 +411,10 @@ export function changeText(layer: TextLayer, patch: Partial<Pick<TextLayer, 'tex
   }
   const next: TextLayer = { ...layer, ...patch, style, spans: tidySpans(spans, style, (patch.text ?? layer.text).length) }
   if (!next.spans) delete next.spans
-  return fitText(next)
+  const fitted = fitText(next)
+  // Bending or straightening keeps the text's middle where it was.
+  if (isCurved(layer) !== isCurved(next)) return { ...fitted, box: { ...fitted.box, cx: layer.box.cx, cy: layer.box.cy } }
+  return fitted
 }
 
 // The text placed in a box dragged with the handles: corners make the letters bigger or smaller,
@@ -351,7 +431,9 @@ export function textInBox(layer: TextLayer, box: TransformBox): TextLayer {
   if (!resized && !widthChanged) return { ...layer, box }
   if (resized) {
     const style = { ...layer.style, size: Math.max(1, layer.style.size * scale) }
-    const next: TextLayer = { ...layer, style, box: { ...box, width: layer.wrap ? box.width : Math.sign(box.width || 1) * oldWidth * scale } }
+    // An edge the words run along grows with them.
+    const along = layer.along && { ...layer.along, path: mapPath(layer.along.path, (p) => ({ x: p.x * scale, y: p.y * scale })) }
+    const next: TextLayer = { ...layer, ...(along ? { along } : {}), style, box: { ...box, width: layer.wrap ? box.width : Math.sign(box.width || 1) * oldWidth * scale } }
     const fitted = fitText(next)
     // Centered on the dragged box, so the corner that was pulled meets the pointer.
     return { ...fitted, box: { ...fitted.box, cx: box.cx, cy: box.cy } }

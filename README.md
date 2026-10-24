@@ -67,6 +67,10 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **No old-fashioned tricks to learn.** The same results as the professional tools, without their
   hard ideas: drop a photo onto a shape and the shape is filled with it (no clipping masks), and a
   layer's adjustments stay changeable any time (no adjustment layers).
+- **Words on a curve.** The Bend slider arches text up like a rainbow or down like a smile, all
+  the way round to a circle. Pick a text and a shape together and "Along the shape" runs the words
+  along its edge (a ring of words around a round badge); slide them along it or put them on its
+  other side. Hebrew and Yiddish read right to left on the curve too, and it stays changeable.
 - **English, Hebrew and Yiddish, all first-class.** Type right on the design. Hebrew and Yiddish
   read right to left by themselves; numbers, English words and punctuation inside them land where
   a reader expects, even where lines wrap. What you see while typing is exactly what you get. 382
@@ -227,6 +231,7 @@ src/
     layout.ts    Lines, wrapping, lining up and reading direction (with bidi-js for the Unicode rules)
     textLayer.ts Text objects: measured with the real fonts, drawn, and kept fitted to their box
     wrapAround.ts, avoid.ts  Text in a box flowing around pictures and shapes (text wrap)
+    textCurve.ts Bent text and text along a shape's edge: each letter set on the curve
     fonts.ts     The built-in fonts: loaded only when used, with Hebrew stand-ins for English-only fonts
     fontCatalog.ts  The font list, made by scripts/fonts/fetch.mjs
   components/    The screens: top bar, tool settings, canvas, color, layers, dialogs, search, tips
@@ -323,7 +328,7 @@ pulling in see-through pixels, so blurred photos keep solid edges.
    object.
 7. **Shapes and the pen** (Illustrator) — a pen for curves with editable points (done); gradient
    fills (done); outline dashes and ends; combine shapes (join, cut out, overlap); SVG export.
-8. **More text** — different fonts and colors inside one text, text along a path, text effects
+8. **More text** — different fonts and colors inside one text, text along a path (done), text effects
    (outline, shadow, fill with a photo), your own font files (done), lists (done) and columns.
 9. **Pages and print** (InDesign) — multi-page documents (done), margins and columns (done),
    text that flows from box to box (done), text that flows around pictures and shapes, close

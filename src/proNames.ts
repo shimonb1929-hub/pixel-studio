@@ -102,6 +102,11 @@ export const PRO_NAMES: Record<string, string> = {
   'Wrap in a box': 'Area type, Text frame',
   'Continue in another box': 'Threaded text frames',
   'Reading direction': 'Paragraph direction (RTL, LTR)',
+  Bend: 'Warp Text: Arc, Text on a curve',
+  'Along the shape': 'Type on a Path',
+  'Words along a shape': 'Type on a Path',
+  'Slide along': 'Path type start point',
+  'Other side': 'Flip (type on a path)',
   // Pages and printing
   'Color the page': 'Background color',
   'Page fill': 'Background color',
