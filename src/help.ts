@@ -26,6 +26,22 @@ export const GOALS: Goal[] = [
     keywords: ['bright', 'dark', 'light', 'exposure', 'levels', 'curves'],
   },
   {
+    id: 'auto-fix',
+    goal: msg('Fix a photo in one click'),
+    how: msg('Click the photo, choose Adjust, and press Fix light or Fix colors. Then fine-tune it with the sliders if you like.'),
+    tool: 'adjust',
+    pro: 'Auto Tone, Auto Color',
+    keywords: ['auto', 'automatic', 'one click', 'enhance', 'improve'],
+  },
+  {
+    id: 'detail',
+    goal: msg('Bring back detail in dark or bright parts'),
+    how: msg('Choose Adjust and move Dark parts to see into shadows, or Bright parts to bring back a washed-out sky.'),
+    tool: 'adjust',
+    pro: 'Shadows/Highlights, Levels, Curves',
+    keywords: ['shadows', 'highlights', 'levels', 'curves', 'sky', 'backlit'],
+  },
+  {
     id: 'colors',
     goal: msg('Make colors stronger or calmer'),
     how: msg('Choose Adjust and move Color strength. Right gives bolder colors, left gives softer ones, all the way left is black and white.'),
