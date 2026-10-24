@@ -1,4 +1,4 @@
-import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, type LucideIcon, Droplet, Blend, Footprints, MapPin } from 'lucide-react'
+import { Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -1492,6 +1492,7 @@ interface ToolOptionsProps {
   pen: PenBarControls
   onShapeTypeChange: (type: ShapeType) => void
   onAddText: (kind: TextKind) => void
+  onAddTable: () => void
   adjust: AdjustControls
   fillTolerance: number
   onFillToleranceChange: (tolerance: number) => void
@@ -1564,6 +1565,18 @@ export function ToolOptions(props: ToolOptionsProps) {
                 {TEXT_KINDS[kind].name}
               </Button>
             ))}
+            <Button
+              variant="secondary"
+              className="h-8 shrink-0 px-3 text-[13px]"
+              onClick={props.onAddTable}
+              tip={{
+                title: t('Add a table'),
+                description: t('Rows and columns of words, for menus, price lists and timetables. Click a cell to type in it; Tab goes to the next cell.'),
+              }}
+            >
+              <Table2 size={15} />
+              {t('Table')}
+            </Button>
           </div>
         </>
       ) : props.tool === 'crop' ? (

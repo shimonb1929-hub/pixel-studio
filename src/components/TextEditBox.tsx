@@ -18,6 +18,8 @@ export interface TextEditing {
   // can change only those words.
   onSelect: (start: number, end: number) => void
   onDone: () => void
+  // In a table's cell, Tab goes to the next cell and Shift+Tab to the one before.
+  onTab?: (back: boolean) => void
 }
 
 // The box text is typed into, laid exactly over where the text sits on the design: same font, size,
@@ -198,6 +200,9 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
           if (event.key === 'Escape' || (event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
             event.preventDefault()
             editing.onDone()
+          } else if (event.key === 'Tab' && editing.onTab && !event.nativeEvent.isComposing) {
+            event.preventDefault()
+            editing.onTab(event.shiftKey)
           }
         }}
         className="m-0 block select-text border-0 bg-transparent p-0 outline-none"

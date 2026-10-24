@@ -1,6 +1,7 @@
 import { fontsVersion } from '../text/fonts.ts'
 import { drawText, textLocalPoint, textReach } from '../text/textLayer.ts'
 import { avoidSlots } from '../text/avoid.ts'
+import { tableParts } from './table.ts'
 import { createCanvas, getContext2d, MAX_LAYER_SIDE } from './document.ts'
 import { polygonBounds, snapRect, type Rect } from './geometry.ts'
 import { canvasGradient } from './gradient.ts'
@@ -34,7 +35,7 @@ export function layerBounds(layer: Layer): Rect {
   if (layer.kind === 'raster' && !layer.box) return { x: layer.x, y: layer.y, width: layer.canvas.width, height: layer.canvas.height }
   const box = layer.box!
   const bounds = polygonBounds(boxCorners(box))!
-  const reach = layer.kind === 'shape' ? shapeReach(layer) : layer.kind === 'text' ? textReach(layer) : 0
+  const reach = layer.kind === 'shape' ? shapeReach(layer) : layer.kind === 'text' ? textReach(layer) : layer.kind === 'table' ? layer.lines.width + layer.style.size * 0.6 : 0
   return snapRect({ x: bounds.x - reach, y: bounds.y - reach, width: bounds.width + 2 * reach, height: bounds.height + 2 * reach })
 }
 
@@ -220,6 +221,10 @@ export function drawLayerContent(ctx: CanvasRenderingContext2D, layer: Layer): v
     drawText(ctx, layer)
     return
   }
+  if (layer.kind === 'table') {
+    for (const part of tableParts(layer)) drawLayerContent(ctx, part)
+    return
+  }
   if (!layer.box) {
     ctx.drawImage(layer.canvas, layer.x, layer.y)
     return
@@ -270,7 +275,7 @@ const pixelCopies = new WeakMap<Layer, { version: number; copy: PixelLayer }>()
 // Plain pixel layers come back as they are (not copied).
 export function layerPixels(layer: Layer): PixelLayer {
   if (layer.kind === 'raster' && !layer.box) return layer
-  const version = layer.kind === 'text' ? fontsVersion() : 0
+  const version = layer.kind === 'text' || layer.kind === 'table' ? fontsVersion() : 0
   const cached = pixelCopies.get(layer)
   if (cached && cached.version === version) return cached.copy
   const { canvas, x, y } = toPixels(layer)
@@ -304,6 +309,15 @@ export function hitsLayer(layer: Layer, point: Point, slack = 0): boolean {
     const local = textLocalPoint(layer, point)
     const slot = avoidSlots(layer.avoid, Math.abs(box.width), lineHeight, style.size)(Math.max(0, Math.floor(local.y / lineHeight)))
     return !!slot && local.x >= slot.x - slack && local.x <= slot.x + slot.width + slack
+  }
+  if (layer.kind === 'table') {
+    // Anywhere in the table, so every cell is easy to click.
+    const { box } = layer
+    const dx = point.x - box.cx
+    const dy = point.y - box.cy
+    const cos = Math.cos(-box.rotation)
+    const sin = Math.sin(-box.rotation)
+    return Math.abs(dx * cos - dy * sin) <= Math.abs(box.width) / 2 + slack && Math.abs(dx * sin + dy * cos) <= Math.abs(box.height) / 2 + slack
   }
   const ctx = probeContext()
   if (layer.kind === 'shape') {
