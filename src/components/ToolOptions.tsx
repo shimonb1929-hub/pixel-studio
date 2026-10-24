@@ -627,6 +627,8 @@ export interface ArrangeBarControls {
   // Set when several things are picked: makes one shape out of them, or says why it can't.
   combine?: (mode: CombineMode) => void
   combineBlocked?: string | null
+  // Set when one text and one shape are picked: runs the words along the shape's edge.
+  alongShape?: () => void
   // With a selected part: whether moving it fills the gap it leaves.
   fillGap: boolean
   onFillGap: (on: boolean) => void
@@ -1237,6 +1239,9 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
             {target.kind === 'many' && <BarButton icon={LayoutGrid} label={t("Tidy up")} title={t("Tidy up")} description={t("Put them in a neat row or column, with even gaps, lined up through their middles.")} onClick={controls.tidyUp} />}
             {target.kind === 'many' && <LineUpMenu several onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
             {controls.combine && <CombineMenu blocked={controls.combineBlocked ?? null} onCombine={controls.combine} />}
+            {controls.alongShape && (
+              <BarButton icon={Spline} label={t('Along the shape')} title={t('Along the shape')} description={t('The words follow the edge of the shape picked with them, like words around a round badge. The shape stays; delete it if you want only the words.')} onClick={controls.alongShape} />
+            )}
           </div>
           <Divider />
         </>

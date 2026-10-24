@@ -162,6 +162,14 @@ export const GOALS: Goal[] = [
     keywords: ['columns', 'thread', 'overflow', 'story', 'frames'],
   },
   {
+    id: 'curve-text',
+    goal: msg('Bend words or put them around a circle'),
+    how: msg('Click the text and move Bend in the Text panel. For words around a shape, pick the text and the shape together and press Along the shape.'),
+    tool: 'text',
+    pro: 'Warp Text (Arc), Type on a Path',
+    keywords: ['curve', 'curved', 'arc', 'circle', 'round', 'badge', 'logo', 'path', 'warp'],
+  },
+  {
     id: 'effects',
     goal: msg('Add a shadow, a glow or an outline'),
     how: msg('Pick the thing, then open Effects. Turn on Shadow, Glow or Outline and move the sliders.'),

@@ -5,6 +5,7 @@ import type { Gradient } from './gradient.ts'
 import type { ShapePath } from './path.ts'
 import type { Selection } from './selection.ts'
 import type { TransformBox } from './transform.ts'
+import type { TextPath } from '../text/textCurve.ts'
 
 export interface Point {
   x: number
@@ -146,6 +147,9 @@ export interface TextStyle {
   gradient?: Gradient | null
   // Each paragraph is a point of a list, with a dot, number or letter before it. Missing: no list.
   list?: ListKind | null
+  // Bends the text into an arc: up like a rainbow when above 0, down like a smile below 0, and a
+  // full circle at 1 or -1. Missing or 0 means straight.
+  bend?: number
 }
 
 // How some letters look different from the rest of their text: only what differs is kept.
@@ -177,6 +181,8 @@ export interface TextLayer extends LayerBase {
   styleId?: string
   // Pictures and shapes this paragraph box flows around. Missing when there are none.
   avoid?: AvoidArea[]
+  // Set when the words run along the edge of a shape instead of in straight lines.
+  along?: TextPath
 }
 
 export interface TextFlow {

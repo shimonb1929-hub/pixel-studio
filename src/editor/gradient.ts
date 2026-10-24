@@ -1,5 +1,6 @@
 import { hexToRgb, rgbToHex } from './color.ts'
 import { live, msg } from '../i18n/i18n.ts'
+import type { Point } from './types.ts'
 
 // Colors that fade smoothly into each other, across a shape (straight) or out from its middle (round).
 
@@ -115,13 +116,19 @@ export function gradientLine(angle: number, w: number, h: number): { x0: number;
 }
 
 // The gradient as a canvas fill for a w × h shape centered on cx, cy.
-export function canvasGradient(ctx: CanvasRenderingContext2D, gradient: Gradient, w: number, h: number, cx = 0, cy = 0): CanvasGradient {
+// `map` moves the gradient into other directions (only shifted and turned), for a letter of curved
+// text drawn turned on its own.
+export function canvasGradient(ctx: CanvasRenderingContext2D, gradient: Gradient, w: number, h: number, cx = 0, cy = 0, map?: (p: Point) => Point): CanvasGradient {
+  const at = map ?? ((p: Point) => p)
   let fill: CanvasGradient
   if (gradient.type === 'radial') {
-    fill = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(Math.hypot(w, h) / 2, 0.5))
+    const c = at({ x: cx, y: cy })
+    fill = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, Math.max(Math.hypot(w, h) / 2, 0.5))
   } else {
     const { x0, y0, x1, y1 } = gradientLine(gradient.angle, w, h)
-    fill = ctx.createLinearGradient(cx + x0, cy + y0, cx + x1, cy + y1)
+    const a = at({ x: cx + x0, y: cy + y0 })
+    const b = at({ x: cx + x1, y: cy + y1 })
+    fill = ctx.createLinearGradient(a.x, a.y, b.x, b.y)
   }
   for (const stop of sorted(gradient.stops)) fill.addColorStop(Math.max(0, Math.min(1, stop.at)), rgba(stop))
   return fill

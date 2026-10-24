@@ -150,14 +150,15 @@ export function findTextStyle(doc: EditorDocument, id: string | undefined): Save
 }
 
 // The parts of a text's look a style keeps. Which way it reads always comes from its own words.
+// How far it bends belongs to the text itself, like which way it reads.
 function lookOf(style: TextStyle): TextStyle {
-  const { gradient, ...rest } = style
+  const { gradient, bend: _, ...rest } = style
   return { ...rest, direction: 'auto', ...(gradient ? { gradient } : {}) }
 }
 
 // What applying a style changes on a text.
 export function lookPatch(look: TextStyle): Partial<TextStyle> {
-  const { direction: _, ...rest } = look
+  const { direction: _, bend: __, ...rest } = look
   return { ...rest, gradient: look.gradient ?? null }
 }
 

@@ -114,6 +114,7 @@ import { useFontsVersion } from './hooks/useFontsVersion.ts'
 import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
 import { changeText, fitText, keepOnPage, newTextBox, textIndexAt, textLayout, textName } from './text/textLayer.ts'
+import { straighten, textAlongShape } from './text/textAlong.ts'
 import { sharedStyle, styleRange } from './text/spans.ts'
 import { TOOLS } from './tools.ts'
 import { isRtl, live, msg, t, useLanguage } from './i18n/i18n.ts'
@@ -1412,6 +1413,43 @@ export default function App() {
     if (pickedText) editor.change(label, (d) => replaceLayer(d, changeText(pickedText, { wrap })))
   }
 
+  // Where curved words sit along the shape's edge, and on which side.
+  function changeAlong(patch: { at?: number; flip?: boolean }, label: string, mergeKey?: string) {
+    const move = (layer: TextLayer): TextLayer => (layer.along ? fitText({ ...layer, along: { ...layer.along, ...patch } }) : layer)
+    if (textEditRef.current) {
+      updateTextEdit(move)
+      return
+    }
+    if (pickedText?.along) editor.change(label, (d) => replaceLayer(d, move(pickedText)), { mergeKey: mergeKey && `${mergeKey}:${pickedText.id}` })
+  }
+
+  function straightenText() {
+    if (textEditRef.current) {
+      updateTextEdit(straighten)
+      return
+    }
+    if (pickedText) editor.change(t('Straight again'), (d) => replaceLayer(d, straighten(pickedText)))
+  }
+
+  // The text and the shape picked together, when the words can run along the shape's edge.
+  function alongPair(d: EditorDocument | null): { text: TextLayer; shape: ShapeLayer } | null {
+    const ids = manyIn(d)
+    if (!d || !ids || ids.length !== 2) return null
+    const text = d.layers.find((l): l is TextLayer => ids.includes(l.id) && l.kind === 'text')
+    const shape = d.layers.find((l): l is ShapeLayer => ids.includes(l.id) && l.kind === 'shape')
+    if (!text || !shape || text.flow || text.group || shape.group) return null
+    return { text, shape }
+  }
+
+  function wordsAlongShape() {
+    settle()
+    const pair = alongPair(current())
+    if (!pair) return problem(t('Pick one text and one shape together first: click one, then hold Shift and click the other.'))
+    editor.change(t('Words along the shape'), (d) => replaceLayer(d, textAlongShape(pair.text, pair.shape)))
+    pickOne(pair.text.id)
+    inform(t('The words now follow the edge of the shape. Slide them along it in the Text panel.'))
+  }
+
   // An empty box after the picked text, for the words to run on into.
   function continueInAnotherBox() {
     const d = current()
@@ -2555,6 +2593,7 @@ export default function App() {
     layerToggle: () => activeNow && layers.toggleVisibility(activeNow.id),
     layerDelete: layers.remove,
     keepTogether: organize.keepTogether,
+    wordsAlongShape,
     takeApart: organize.takeApart,
     tidyUp: organize.tidyUp,
     lineUp: organize.lineUp,
@@ -2598,7 +2637,7 @@ export default function App() {
       undoLabel: editor.undoLabel,
       redoLabel: editor.redoLabel,
       app,
-      organize: { keepTogether: keepTogetherBlocker(doc), takeApart: pickedGroups(doc).length === 0 ? t('Pick something kept together first.') : null, picked },
+      organize: { keepTogether: keepTogetherBlocker(doc), alongShape: alongPair(doc) ? null : t('Pick one text and one shape together first: click one, then hold Shift and click the other.'), takeApart: pickedGroups(doc).length === 0 ? t('Pick something kept together first.') : null, picked },
     },
     commands,
   )
@@ -2666,7 +2705,8 @@ export default function App() {
       else if (plain && (code === 'Delete' || code === 'Backspace') && c.hasSelection()) action = c.deleteArea
       else if (plain && (code === 'Delete' || code === 'Backspace') && hasDoc && currentTool === 'move') action = c.deleteObject
       else if (code === 'Escape' && c.hasSelection()) action = c.deselect
-      else if (!mod && !event.altKey && ARROWS[event.key] && hasDoc && currentTool === 'move') {
+      // A slider or list that used the arrow keys itself doesn't also move what's picked.
+      else if (!mod && !event.altKey && ARROWS[event.key] && hasDoc && currentTool === 'move' && !event.defaultPrevented) {
         const step = event.shiftKey ? 10 : 1
         const [dx, dy] = ARROWS[event.key]
         action = () => c.nudge(dx * step, dy * step)
@@ -2894,6 +2934,7 @@ export default function App() {
         rotate90: (direction) => placeAll(rotateBox90(frame, direction), direction > 0 ? t('Turn right') : t('Turn left')),
         combine: (mode) => combineShapes(picked, mode),
         combineBlocked: combineProblem(doc, picked),
+        alongShape: alongPair(doc) ? wordsAlongShape : undefined,
       }
     }
     if (!activeNow.visible) return { ...base, blocked: t('“{name}” is hidden. Click its eye in the Layers panel to show it.', { name: activeNow.name }) }
@@ -3377,7 +3418,11 @@ export default function App() {
                 gradientStop={gradientStop}
                 onGradientStop={setGradientStop}
                 flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
-                onContinue={!tableTarget && pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 ? continueInAnotherBox : undefined}
+                onContinue={!tableTarget && pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 && !pickedText.along && !pickedText.style.bend ? continueInAnotherBox : undefined}
+                along={textTarget?.along ? { at: textTarget.along.at, flip: textTarget.along.flip } : null}
+                onAlong={changeAlong}
+                onStraighten={textTarget && pickedTexts <= 1 ? straightenText : undefined}
+                onAlongShape={alongPair(doc) ? wordsAlongShape : undefined}
                 styles={textStyleControls}
               />
             )}

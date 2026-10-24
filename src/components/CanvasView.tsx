@@ -40,7 +40,8 @@ import type { EditorDocument, Layer, PixelLayer, Point, ShapeLayer, ToolId, View
 import { nextZoomLevel, panBy, screenToDocument, zoomAtPoint } from '../editor/viewport.ts'
 import { useFontsVersion } from '../hooks/useFontsVersion.ts'
 import { hasRtlLetters } from '../text/layout.ts'
-import { textIndexAt } from '../text/textLayer.ts'
+import { straightBox, textIndexAt } from '../text/textLayer.ts'
+import { isCurved } from '../text/textCurve.ts'
 import { TextEditBox, type TextEditing } from './TextEditBox.tsx'
 import { unitShort } from './unitWords.ts'
 import type { PenControls } from '../hooks/usePen.ts'
@@ -543,6 +544,8 @@ function drawBox(ctx: CanvasRenderingContext2D, box: Pick<BoxEditing, 'kind' | '
 // Text only has handles on its left and right sides: its height always fits its lines.
 function edgesOf(layer: Layer | undefined): EdgeHandles {
   // A box text runs on through is sized freely; other text fits its words, so only its width changes.
+  // Curved text only has corners: its lines bend instead of wrapping.
+  if (layer?.kind === 'text' && isCurved(layer)) return false
   // A table's rows fit their words too: its sides make columns wider, its corners make it all bigger.
   return (layer?.kind === 'text' && !layer.flow) || layer?.kind === 'table' ? 'sides' : true
 }
@@ -895,7 +898,7 @@ export function CanvasView(props: CanvasViewProps) {
       ctx.fillRect(a.x, a.y, rect.width * p.viewport.zoom, rect.height * p.viewport.zoom)
       drawDashedBox(ctx, { cx: rect.x + rect.width / 2, cy: rect.y + rect.height / 2, width: rect.width, height: rect.height, rotation: 0 }, p.viewport)
     }
-    if (p.textEditing) drawDashedBox(ctx, p.textEditing.layer.box, p.viewport)
+    if (p.textEditing) drawDashedBox(ctx, straightBox(p.textEditing.layer), p.viewport)
     const textDrag = textRef.current
     if (textDrag?.moved) {
       const rect = textDragRect(textDrag)

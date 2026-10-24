@@ -1,4 +1,4 @@
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, Italic, List, ListOrdered, Plus, Search, WrapText, X, type LucideIcon } from 'lucide-react'
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, FlipVertical2, Italic, List, ListOrdered, Minus, Plus, Search, Spline, WrapText, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { Gradient } from '../editor/gradient.ts'
 import type { TextStyle } from '../editor/types.ts'
@@ -586,6 +586,13 @@ export interface TextPanelProps {
   styles?: TextStylesProps | null
   // The words of a table: one color, no lists, and the table sets the boxes.
   table?: boolean
+  // Set when the words run along the edge of a shape: where along it, and on which side.
+  along?: { at: number; flip: boolean } | null
+  onAlong?: (patch: { at?: number; flip?: boolean }, label: string, mergeKey?: string) => void
+  // Makes curved text straight again.
+  onStraighten?: () => void
+  // Set when a text and a shape are picked together: runs the words along the shape's edge.
+  onAlongShape?: () => void
 }
 
 // How text looks: font, size, boldness, lining up, which way it reads and spacing.
@@ -618,6 +625,11 @@ export function TextPanel(props: TextPanelProps) {
             {props.scope === 'words'
               ? t('Font, boldness, slant and color now change only the words you picked.')
               : t('Changes go to all the text. To change just some words, pick them with the mouse first.')}
+          </p>
+        )}
+        {props.scope && (props.along || !!style.bend) && (
+          <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">
+            {t('Curved words show straight while you type, and bend again when you finish.')}
           </p>
         )}
         {props.styles && <TextStyles {...props.styles} />}
@@ -705,13 +717,92 @@ export function TextPanel(props: TextPanelProps) {
         )}
         {props.hasRtl && <ChoiceRow label={t("Reading direction")} value={style.direction} choices={DIRECTIONS} onChange={(direction) => props.onStyle({ direction, align: style.align === 'left' || style.align === 'right' ? 'auto' : style.align }, t('Reading direction'))} />}
 
+        {!props.flow && !props.table && (
+        <section aria-label={t('Curve')} className="flex flex-col gap-2">
+          {props.along ? (
+            <>
+              <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">
+                {t('The words run along the edge of a shape. Slide them along it, or put them on its other side.')}
+              </p>
+              <Slider
+                label={t('Slide along')}
+                help={t('Moves the words along the edge of the shape, for example from the top of a circle to its bottom.')}
+                value={props.along.at}
+                display={`${Math.round(props.along.at * 100)}%`}
+                onChange={(at) => props.onAlong?.({ at }, t('Slide words along'), 'text-along')}
+              />
+            </>
+          ) : (
+            <Slider
+              label={t('Bend')}
+              help={t('Bends the words into an arch. Slide right to bend them up like a rainbow, left to bend them down like a smile. All the way makes a circle.')}
+              note={props.onAlongShape ? undefined : t('To run words along any shape, pick the text and the shape together (hold Shift and click both).')}
+              value={((style.bend ?? 0) + 1) / 2}
+              origin={0.5}
+              display={`${(style.bend ?? 0) > 0 ? '+' : ''}${Math.round((style.bend ?? 0) * 100)}%`}
+              onChange={(position) => {
+                // Close to the middle clicks to straight, so straight text is easy to get back.
+                const bend = Math.round((position * 2 - 1) * 100) / 100
+                props.onStyle({ bend: Math.abs(bend) < 0.03 ? 0 : bend }, t('Bend text'), 'text-bend')
+              }}
+            />
+          )}
+          {(props.along || props.onAlongShape || (style.bend ?? 0) !== 0) && (
+            <div className="flex flex-wrap gap-1">
+              {props.onAlongShape && !props.along && (
+                <Tooltip title={t('Along the shape')} description={t('The words follow the edge of the shape picked with them, like words around a round badge. The shape stays; delete it if you want only the words.')} className="flex">
+                  <button
+                    type="button"
+                    aria-label={t('Along the shape')}
+                    onClick={props.onAlongShape}
+                    className="flex h-8 items-center gap-1.5 rounded-lg bg-accent-soft px-2.5 text-[12px] font-medium text-accent transition-colors hover:brightness-95"
+                  >
+                    <Spline size={15} />
+                    {t('Along the shape')}
+                  </button>
+                </Tooltip>
+              )}
+              {props.along && (
+                <Tooltip title={t('Other side')} description={t('Puts the words on the other side of the edge: inside a circle instead of outside, reading the other way round.')} className="flex">
+                  <button
+                    type="button"
+                    aria-label={t('Other side')}
+                    aria-pressed={props.along.flip}
+                    onClick={() => props.onAlong?.({ flip: !props.along!.flip }, t('Other side'))}
+                    className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
+                      props.along.flip ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
+                    }`}
+                  >
+                    <FlipVertical2 size={15} />
+                    {t('Other side')}
+                  </button>
+                </Tooltip>
+              )}
+              {(props.along || (style.bend ?? 0) !== 0) && props.onStraighten && (
+                <Tooltip title={t('Straight again')} description={t('Puts the words back in straight lines.')} className="flex">
+                  <button
+                    type="button"
+                    aria-label={t('Straight again')}
+                    onClick={props.onStraighten}
+                    className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+                  >
+                    <Minus size={15} />
+                    {t('Straight again')}
+                  </button>
+                </Tooltip>
+              )}
+            </div>
+          )}
+        </section>
+        )}
+
         {props.flow ? (
           <p role="note" className="rounded-lg bg-subtle px-2.5 py-2 text-[12px] leading-snug text-ink-2">
             {t('Box {box} of {boxes}. The text runs on from one box to the next: what doesn’t fit here continues in the next box.', { box: props.flow.box, boxes: props.flow.boxes })}
           </p>
         ) : null}
         {!props.table && <div className="flex flex-wrap gap-1">
-          {!props.flow && (
+          {!props.flow && !props.along && !style.bend && (
           <Tooltip
             title={t("Wrap in a box")}
             description={t("On: lines wrap at the box's width; drag the box's side handles to change it. Off: the box fits the text, and lines break only where you press Enter.")}

@@ -232,6 +232,19 @@ describe('project files', () => {
     }
   })
 
+  it('keeps bent text and text along the edge of a shape, and turns away damaged ones', async () => {
+    const style = (words() as Extract<ProjectLayer, { kind: 'text' }>).style
+    const node = (x: number, y: number) => ({ x, y, in: { x, y }, out: { x, y }, smooth: false })
+    const along = { path: { closed: true, nodes: [node(-50, -50), node(50, -50), node(50, 50)] }, at: 0.25, flip: true }
+    const original = manifest({ layers: [words({ style: { ...style, bend: -0.4 } }), words({ along })], activeLayer: 0 })
+    const { manifest: read } = await unpackProject(packProject(original, []))
+    expect(read).toEqual(original)
+    for (const wrong of [{ ...along, at: 2 }, { ...along, flip: 'yes' }, { ...along, path: null }]) {
+      expect(() => validateManifest(manifest({ layers: [words({ along: wrong as unknown as typeof along })], activeLayer: 0 })), JSON.stringify(wrong)).toThrow(ProjectError)
+    }
+    expect(() => validateManifest(manifest({ layers: [words({ style: { ...style, bend: 3 } })], activeLayer: 0 }))).toThrow(ProjectError)
+  })
+
   it('refuses text settings that cannot be right', () => {
     const style = (words() as Extract<ProjectLayer, { kind: 'text' }>).style
     const bad = [
