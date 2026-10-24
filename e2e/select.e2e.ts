@@ -63,7 +63,7 @@ test('Delete removes the selected area, and Escape clears the selection', async 
   expectColor(await designPixel(page, size, 100, 150), INK)
   expect(await undoLabel(page)).toContain('Undo delete selected area')
   await page.keyboard.press('Escape')
-  expect(await undoLabel(page)).toContain('Undo select nothing')
+  expect(await undoLabel(page)).toContain('Undo let go')
   // With nothing selected, Delete does nothing rather than surprising anyone.
   await page.keyboard.press('Delete')
   expectColor(await designPixel(page, size, 100, 150), INK)
