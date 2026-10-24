@@ -194,9 +194,12 @@ export interface TextFlow {
 // One object in the design. Bottom layer first.
 export type Layer = PixelLayer | ShapeLayer | TextLayer
 
-// One page of a design with several pages. All pages share the design's size.
+// One page of a design with several pages. Pages can each have their own size, like a post, a
+// story and a banner of the same design side by side.
 export interface DesignPage {
   id: string
+  width: number
+  height: number
   background: string | null
   pageGradient?: Gradient | null
   // Bottom layer first.
@@ -261,4 +264,4 @@ export interface Viewport {
   panY: number
 }
 
-export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'pen' | 'text' | 'brush' | 'eraser' | 'fill' | 'picker' | 'adjust' | 'heal' | 'hand' | 'zoom'
+export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'pen' | 'text' | 'brush' | 'eraser' | 'fill' | 'picker' | 'adjust' | 'heal' | 'clone' | 'hand' | 'zoom'

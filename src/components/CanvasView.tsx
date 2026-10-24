@@ -121,6 +121,13 @@ export interface CanvasViewProps {
   onSelect: (selection: Selection | null, label: string) => void
   // With the magic selection: a click on a thing, or a box dragged around it, for AI to find.
   onMagicSelect: (target: { point: Point } | { box: Rect }, mode: SelectionMode) => void
+  // Copy paint: where it copies from.
+  clone: CloneControls | null
+  // With "Same color": a click picks everything of a similar color.
+  onColorSelect: (point: Point, mode: SelectionMode) => void
+  // A selection being tried out (a softer or bigger edge), shown in place of the real one with the
+  // parts left out dimmed, so you see how soft the edge is before keeping it.
+  selectionPreview: Selection | null
   onBlocked: (message: string) => void
   // Shown in place of a layer while it's being resized or rotated.
   override: LayerOverride | null
@@ -141,6 +148,16 @@ export interface CanvasViewProps {
   onEditText: (layerId: string, caret: number) => void
   // Double-clicking a pen shape with Arrange shows its points, to reshape it.
   onEditShape: (layerId: string) => void
+}
+
+export interface CloneControls {
+  // The picture and the spot on it that's copied, or null until one is clicked.
+  source: { layerId: string; point: Point } | null
+  // How far the copied spot is from where you paint, kept from stroke to stroke while `aligned`.
+  offset: Point | null
+  aligned: boolean
+  onSource: (layerId: string, point: Point) => void
+  onOffset: (offset: Point) => void
 }
 
 interface PanDrag {
@@ -286,7 +303,7 @@ const LAYOUT_COLOR = 'rgba(124, 92, 230, 0.55)'
 const ANTS_DASH = 4
 const ANTS_INTERVAL_MS = 90
 
-const SHAPE_LABELS: Record<SelectionShape, string> = live({ rectangle: msg('Select rectangle'), ellipse: msg('Select oval'), freehand: msg('Select freehand area'), magic: msg('Select thing') })
+const SHAPE_LABELS: Record<SelectionShape, string> = live({ rectangle: msg('Select rectangle'), ellipse: msg('Select oval'), freehand: msg('Select freehand area'), magic: msg('Select thing'), color: msg('Select same color') })
 
 function pressureOf(event: globalThis.PointerEvent): number {
   // Only pens report real pressure; a mouse or finger always paints at full size.
@@ -316,6 +333,36 @@ function drawPickerRing(ctx: CanvasRenderingContext2D, x: number, y: number, sam
   for (const r of [PICKER_RING_RADIUS - PICKER_RING_WIDTH / 2, PICKER_RING_RADIUS + PICKER_RING_WIDTH / 2]) {
     ctx.beginPath()
     ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+}
+
+// A resized or turned picture as plain pixels, the way Copy paint will copy it. Kept per layer, since
+// the preview is drawn again with every move of the pointer.
+const settledPictures = new WeakMap<PixelLayer, PixelLayer>()
+function settledForPreview(layer: PixelLayer): PixelLayer {
+  if (!layer.box) return layer
+  let settled = settledPictures.get(layer)
+  if (!settled) settledPictures.set(layer, (settled = settleLayer(layer)))
+  return settled
+}
+
+// The spot Copy paint copies from: a small cross in a ring, light and dark so it shows on any photo.
+function drawCopyCross(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  const arm = 9
+  for (const [width, color] of [
+    [3.5, 'rgba(255, 255, 255, 0.9)'],
+    [1.5, 'rgba(16, 24, 40, 0.9)'],
+  ] as const) {
+    ctx.lineWidth = width
+    ctx.strokeStyle = color
+    ctx.beginPath()
+    ctx.moveTo(x - arm, y)
+    ctx.lineTo(x + arm, y)
+    ctx.moveTo(x, y - arm)
+    ctx.lineTo(x, y + arm)
+    ctx.moveTo(x + 5, y)
+    ctx.arc(x, y, 5, 0, Math.PI * 2)
     ctx.stroke()
   }
 }
@@ -587,6 +634,30 @@ function drawDashedBox(ctx: CanvasRenderingContext2D, box: TransformBox, viewpor
   ctx.setLineDash([])
 }
 
+// The design dimmed everywhere a selection leaves out, fading along a soft edge. Kept per selection,
+// since the dashed outline is drawn again many times a second.
+const dimmed = new WeakMap<Selection, HTMLCanvasElement>()
+function dimmedOutside(selection: Selection, width: number, height: number): HTMLCanvasElement {
+  const known = dimmed.get(selection)
+  if (known && known.width === width && known.height === height) return known
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = 'rgba(24, 28, 38, 0.5)'
+  ctx.fillRect(0, 0, width, height)
+  ctx.globalCompositeOperation = 'destination-out'
+  ctx.drawImage(selectionInfo(selection, width, height).mask, 0, 0)
+  dimmed.set(selection, canvas)
+  return canvas
+}
+
+// Rectangles, ovals and freehand areas are drawn by dragging, so dragging inside the selection
+// moves it; the magic and same-color selections are made by clicking things instead.
+function drawsShape(shape: SelectionShape): boolean {
+  return shape !== 'magic' && shape !== 'color'
+}
+
 // The shape being drawn with the Select tool, as a polygon in design coordinates.
 function dragPolygon(drag: Extract<SelectDrag, { kind: 'shape' }>): Point[] {
   if (drag.shape === 'freehand') return drag.points
@@ -601,7 +672,7 @@ export function CanvasView(props: CanvasViewProps) {
   const sceneRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const propsRef = useRef(props)
-  const strokeRef = useRef<{ session: StrokeSession; pointerId: number; label: string; grown?: PixelLayer; heal?: string } | null>(null)
+  const strokeRef = useRef<{ session: StrokeSession; pointerId: number; label: string; grown?: PixelLayer; heal?: string; copyOffset?: Point } | null>(null)
   const panRef = useRef<PanDrag | null>(null)
   const pickRef = useRef<number | null>(null)
   const moveRef = useRef<MoveDrag | null>(null)
@@ -700,8 +771,15 @@ export function CanvasView(props: CanvasViewProps) {
   }
 
   function drawSelection(ctx: CanvasRenderingContext2D, p: CanvasViewProps) {
-    const selection = p.doc.selection
+    const selection = p.selectionPreview ?? p.doc.selection
     const drag = selectRef.current
+    if (p.selectionPreview) {
+      const dpr = window.devicePixelRatio || 1
+      ctx.save()
+      ctx.setTransform(dpr * p.viewport.zoom, 0, 0, dpr * p.viewport.zoom, dpr * p.viewport.panX, dpr * p.viewport.panY)
+      ctx.drawImage(dimmedOutside(p.selectionPreview, p.doc.width, p.doc.height), 0, 0)
+      ctx.restore()
+    }
     // While its handles are dragged, the box shows the selected part; the outline catches up after.
     if (selection && !(p.box?.kind === 'transform' && boxRef.current?.moved)) {
       let dx = 0
@@ -810,7 +888,36 @@ export function CanvasView(props: CanvasViewProps) {
     } else if (p.tool === 'brush' || p.tool === 'eraser' || p.tool === 'heal') {
       const radius = (p.brush.size / 2) * p.viewport.zoom
       if (radius >= MIN_OUTLINE_RADIUS) drawBrushOutline(ctx, hover.x, hover.y, radius)
+    } else if (p.tool === 'clone' && p.clone) {
+      drawCopyGuide(ctx, p, p.clone, hover)
     }
+  }
+
+  // Copy paint shows the copy inside the brush before you paint, and a cross on the spot it copies from.
+  function drawCopyGuide(ctx: CanvasRenderingContext2D, p: CanvasViewProps, clone: CloneControls, hover: Point) {
+    const source = clone.source
+    const layer = source && p.doc.layers.find((l) => l.id === source.layerId)
+    // With nothing to copy from yet (or {alt} held), a click picks the spot: the cursor is a cross.
+    if (!source || layer?.kind !== 'raster' || p.altHeld) return
+    const at = screenToDocument(p.viewport, hover.x, hover.y)
+    const stroke = strokeRef.current
+    const offset = stroke?.copyOffset ?? (clone.aligned ? clone.offset : null) ?? { x: source.point.x - at.x, y: source.point.y - at.y }
+    const radius = Math.max(MIN_OUTLINE_RADIUS, (p.brush.size / 2) * p.viewport.zoom)
+    if (!stroke && layer.visible) {
+      const picture = settledForPreview(layer)
+      const dpr = window.devicePixelRatio || 1
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(hover.x, hover.y, radius, 0, Math.PI * 2)
+      ctx.clip()
+      ctx.globalAlpha = 0.7
+      ctx.setTransform(dpr * p.viewport.zoom, 0, 0, dpr * p.viewport.zoom, dpr * p.viewport.panX, dpr * p.viewport.panY)
+      ctx.drawImage(picture.canvas, picture.x - Math.round(offset.x), picture.y - Math.round(offset.y))
+      ctx.restore()
+    }
+    drawBrushOutline(ctx, hover.x, hover.y, radius)
+    const from = { x: hover.x + offset.x * p.viewport.zoom, y: hover.y + offset.y * p.viewport.zoom }
+    drawCopyCross(ctx, from.x, from.y)
   }
 
   function requestScene() {
@@ -834,7 +941,7 @@ export function CanvasView(props: CanvasViewProps) {
 
   useLayoutEffect(() => {
     drawOverlay()
-  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box, props.textEditing, props.pen?.version])
+  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box, props.textEditing, props.pen?.version, props.selectionPreview, props.clone?.source, props.clone?.offset])
 
   // A gap being filled while a part is dragged shows as soon as it's ready.
   useEffect(() => onGapFilled(() => moveRef.current && requestScene()), [])
@@ -1131,6 +1238,39 @@ export function CanvasView(props: CanvasViewProps) {
     requestScene()
   }
 
+  // Copy paint: a click (or {alt} + click) picks the spot to copy on the topmost picture there; then
+  // painting copies from that picture onto itself.
+  function startCopyStroke(event: PointerEvent<HTMLCanvasElement>, clone: CloneControls) {
+    const point = documentPoint(event.clientX, event.clientY)
+    const source = clone.source
+    if (event.altKey || !source) {
+      const picture = [...doc.layers].reverse().find((l): l is PixelLayer => l.kind === 'raster' && l.visible && l.opacity > 0 && hitsLayer(l, point))
+      if (picture) clone.onSource(picture.id, { x: Math.round(point.x), y: Math.round(point.y) })
+      else props.onBlocked(t('Copy paint works on photos and drawings. Click the part of a picture you want to copy.'))
+      requestOverlay()
+      return
+    }
+    const layer = doc.layers.find((l) => l.id === source.layerId)
+    if (layer?.kind !== 'raster') return
+    if (!layer.visible) {
+      props.onBlocked(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then paint again.', { name: layer.name }))
+      return
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const offset = clone.aligned && clone.offset ? clone.offset : { x: source.point.x - Math.round(point.x), y: source.point.y - Math.round(point.y) }
+    if (clone.aligned && !clone.offset) clone.onOffset(offset)
+    const target = settleLayer(layer)
+    const mask = doc.selection ? { canvas: selectionInfo(doc.selection, doc.width, doc.height).mask, x: 0, y: 0 } : null
+    const copy = { canvas: target.canvas, dx: Math.round(offset.x), dy: Math.round(offset.y) }
+    const session = new StrokeSession(target, brush, '#000000', 'paint', mask, copy)
+    session.begin({ ...point, pressure: pressureOf(event.nativeEvent) })
+    strokeRef.current = { session, pointerId: event.pointerId, label: t('Copy paint'), grown: target === layer ? undefined : target, copyOffset: offset }
+    props.onStrokeActiveChange(true)
+    session.flush()
+    requestScene()
+    requestOverlay()
+  }
+
   function startStroke(event: PointerEvent<HTMLCanvasElement>) {
     const erasing = tool === 'eraser'
     const picked = activeLayer(doc)
@@ -1234,7 +1374,7 @@ export function CanvasView(props: CanvasViewProps) {
     const mode: SelectionMode = event.shiftKey ? 'add' : event.altKey ? 'subtract' : selectionMode
     event.currentTarget.setPointerCapture(event.pointerId)
     // Dragging from inside the current selection moves its outline instead of starting a new one.
-    if (mode === 'replace' && props.selectionShape !== 'magic' && doc.selection && isPointSelected(doc.selection, doc.width, doc.height, point)) {
+    if (mode === 'replace' && drawsShape(props.selectionShape) && doc.selection && isPointSelected(doc.selection, doc.width, doc.height, point)) {
       selectRef.current = { kind: 'outline', pointerId: event.pointerId, start: point, dx: 0, dy: 0 }
       return
     }
@@ -1260,6 +1400,11 @@ export function CanvasView(props: CanvasViewProps) {
     const current = p.doc.selection
     if (drag.kind === 'outline') {
       if (current && (drag.dx !== 0 || drag.dy !== 0)) p.onSelect(translateSelection(current, drag.dx, drag.dy), t('Move selection outline'))
+      requestOverlay()
+      return
+    }
+    if (drag.shape === 'color') {
+      p.onColorSelect(drag.start, drag.mode)
       requestOverlay()
       return
     }
@@ -1332,6 +1477,8 @@ export function CanvasView(props: CanvasViewProps) {
       startStroke(event)
     } else if (tool === 'heal') {
       startHealStroke(event)
+    } else if (tool === 'clone' && props.clone) {
+      startCopyStroke(event, props.clone)
     } else if (tool === 'move' && props.arrange && !doc.selection) {
       startArrange(event, props.arrange)
     } else if (tool === 'move') {
@@ -1559,7 +1706,7 @@ export function CanvasView(props: CanvasViewProps) {
 
     // Over the selection, the Select tool shows that dragging will move it.
     if (tool === 'select') {
-      const inside = doc.selection !== null && !event.shiftKey && !event.altKey && selectionMode === 'replace' && isPointSelected(doc.selection, doc.width, doc.height, point)
+      const inside = doc.selection !== null && drawsShape(props.selectionShape) && !event.shiftKey && !event.altKey && selectionMode === 'replace' && isPointSelected(doc.selection, doc.width, doc.height, point)
       if (inside !== overSelection) setOverSelection(inside)
     }
     requestOverlay()
@@ -1621,7 +1768,9 @@ export function CanvasView(props: CanvasViewProps) {
   }
 
   const pickMode = picking || tool === 'picker' || (tool === 'brush' && altHeld)
-  const painting = tool === 'brush' || tool === 'eraser' || tool === 'heal'
+  // Copy paint picks the spot to copy with a cross; after that it paints.
+  const copyPicking = tool === 'clone' && (!props.clone?.source || altHeld)
+  const painting = tool === 'brush' || tool === 'eraser' || tool === 'heal' || (tool === 'clone' && !copyPicking)
   const outlineVisible = painting && (brush.size / 2) * viewport.zoom >= MIN_OUTLINE_RADIUS
   // The pointer's shape tells you what will happen when you press.
   function pickCursor(): string {
@@ -1639,7 +1788,7 @@ export function CanvasView(props: CanvasViewProps) {
     if (tool === 'move' || (tool === 'select' && overSelection)) return 'move'
     if (tool === 'text') return 'text'
     if (tool === 'pen') return penCursor
-    if (pickMode || tool === 'select' || tool === 'fill' || tool === 'shape') return 'crosshair'
+    if (pickMode || copyPicking || tool === 'select' || tool === 'fill' || tool === 'shape') return 'crosshair'
     if (outlineVisible) return 'none'
     return painting ? 'crosshair' : 'default'
   }
