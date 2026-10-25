@@ -266,6 +266,7 @@ test.describe('looking around', () => {
   })
 
   test('Zoom tool zooms in on click and out with Alt + click', async ({ page }) => {
+    await page.getByRole('button', { name: 'More tools' }).click()
     await page.getByRole('button', { name: 'Zoom tool' }).click()
     await expect(page.getByRole('status')).toContainText('Click to zoom in')
     const canvas = page.locator('main canvas[aria-label]')
@@ -289,6 +290,9 @@ test.describe('looking around', () => {
   })
 
   test('tools explain themselves on hover', async ({ page }) => {
+    await page.getByRole('button', { name: 'More tools' }).hover()
+    await expect(page.getByRole('tooltip')).toContainText('Hand, Zoom')
+    await page.getByRole('button', { name: 'More tools' }).click()
     await page.getByRole('button', { name: 'Hand tool' }).hover()
     await expect(page.getByRole('tooltip')).toContainText('Slide your design around')
     await page.getByRole('button', { name: 'Zoom tool' }).hover()
@@ -357,6 +361,47 @@ test.describe('search and menu', () => {
     await expect(menu.getByRole('menuitem').first()).toBeFocused()
     await page.keyboard.press('Enter')
     await expect(page.getByRole('dialog', { name: 'New design' })).toBeVisible()
+  })
+
+  test('the menu starts with everyday choices and shows every choice when asked', async ({ page }) => {
+    await openPicture(page)
+    await page.getByRole('button', { name: 'Menu' }).click()
+    const menu = page.getByRole('menu')
+    await expect(menu.getByRole('menuitem', { name: 'Download…' })).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: 'Flip design upside down' })).toHaveCount(0)
+    await menu.getByRole('menuitem', { name: /^Show every choice \(\d+ more\)$/ }).click()
+    await expect(menu.getByRole('menuitem', { name: 'Flip design upside down' })).toBeVisible()
+
+    // The choice is kept for next time.
+    await page.reload()
+    await openPicture(page)
+    await page.getByRole('button', { name: 'Menu' }).click()
+    await expect(menu.getByRole('menuitem', { name: 'Flip design upside down' })).toBeVisible()
+    await menu.getByRole('menuitem', { name: 'Show fewer choices' }).click()
+    await expect(menu.getByRole('menuitem', { name: 'Flip design upside down' })).toHaveCount(0)
+
+    // Search always finds it.
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Control+k')
+    await page.getByRole('combobox', { name: 'What do you want to do?' }).fill('flip upside')
+    await expect(page.locator('#palette-results').getByRole('option').first()).toContainText('Flip design upside down')
+  })
+
+  test('rarely needed tools wait under More tools but show while in use', async ({ page }) => {
+    await openPicture(page)
+    const dock = page.getByRole('navigation', { name: 'Tools' })
+    await expect(dock.getByRole('button', { name: 'Brush tool' })).toBeVisible()
+    await expect(dock.getByRole('button', { name: 'Hand tool' })).toHaveCount(0)
+    // Its key still picks it, and the dock shows it while it's on.
+    await page.keyboard.press('h')
+    await expect(dock.getByRole('button', { name: 'Hand tool' })).toHaveAttribute('aria-pressed', 'true')
+    await page.keyboard.press('b')
+    await expect(dock.getByRole('button', { name: 'Hand tool' })).toHaveCount(0)
+    await dock.getByRole('button', { name: 'More tools' }).click()
+    await expect(dock.getByRole('button', { name: 'Hand tool' })).toBeVisible()
+    await expect(dock.getByRole('button', { name: 'Zoom tool' })).toBeVisible()
+    await dock.getByRole('button', { name: 'Fewer tools' }).click()
+    await expect(dock.getByRole('button', { name: 'Zoom tool' })).toHaveCount(0)
   })
 })
 

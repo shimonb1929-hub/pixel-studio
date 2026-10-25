@@ -208,6 +208,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'download-pdf',
       group: 'Design',
+      extra: true,
       title: t('Download as PDF…'),
       description: t('Save your design as a PDF page, ready to print at home or at a print shop, or to send. Text stays sharp.'),
       keywords: ['pdf', 'print', 'printer', 'print shop', 'paper', 'bleed', 'crop marks', 'cut', 'send', 'email', 'document'],
@@ -217,6 +218,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'download-svg',
       group: 'Design',
+      extra: true,
       title: t('Download as SVG…'),
       description: t('Save your design as an SVG file: shapes and words stay sharp at any size and can be changed in other design programs.'),
       keywords: ['svg', 'vector', 'logo', 'icon', 'sharp', 'scalable', 'illustrator', 'website', 'web'],
@@ -254,6 +256,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'install',
       group: 'Design',
+      extra: true,
       title: t('Install as an app'),
       description:
         t('Add Pixel Studio to this computer, so it opens in its own window from your desktop or Start menu, like any other program, and works without internet.'),
@@ -350,6 +353,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'invert',
       group: 'Select',
+      extra: true,
       title: t('Select everything else'),
       description: t('Swap what is selected and what is not.'),
       keywords: ['invert', 'reverse', 'opposite', 'swap', 'everything else'],
@@ -369,6 +373,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'delete-area',
       group: 'Select',
+      extra: true,
       title: t('Delete selected area'),
       description: t('Erase everything inside the selection on the selected layer.'),
       keywords: ['delete', 'erase area', 'clear', 'remove', 'cut out'],
@@ -380,6 +385,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'to-new-layer',
       group: 'Select',
+      extra: true,
       title: t('Copy to new layer'),
       description: t('Copy the selected part of the layer onto a new layer of its own, so you can move or change it separately.'),
       keywords: ['new layer from selection', 'separate', 'cut out', 'sticker', 'extract'],
@@ -439,6 +445,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'layer-front',
       group: 'Layers',
+      extra: true,
       title: t('Bring to front'),
       description: t('Put the selected thing in front of everything else.'),
       keywords: ['front', 'top', 'on top', 'over everything', 'arrange', 'order', 'raise'],
@@ -450,6 +457,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'layer-back',
       group: 'Layers',
+      extra: true,
       title: t('Send to back'),
       description: t('Put the selected thing behind everything else (the page always stays at the very back).'),
       keywords: ['back', 'bottom', 'behind everything', 'arrange', 'order', 'lower'],
@@ -461,6 +469,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'layer-visibility',
       group: 'Layers',
+      extra: true,
       title: active && !active.visible ? t('Show layer') : t('Hide layer'),
       description: t('Hide or show the selected layer. Hidden layers are left out when you download.'),
       keywords: ['hide', 'show', 'visible', 'invisible', 'eye'],
@@ -491,6 +500,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'words-along-shape',
       group: 'Layers',
+      extra: true,
       title: t('Words along a shape'),
       description: t('Runs the picked text along the edge of the shape picked with it, like words around a round badge. To bend text into an arch, use Bend in the Text panel.'),
       keywords: ['curve', 'curved', 'circle', 'arc', 'bend', 'path', 'around', 'round', 'badge', 'logo'],
@@ -561,6 +571,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'crop-to-selection',
       group: 'Whole design',
+      extra: true,
       title: t('Crop to selection'),
       description: t('Cut the design down to the selected area. Nothing is thrown away, so you can undo it.'),
       keywords: ['crop', 'trim', 'cut down', 'selection'],
@@ -647,6 +658,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'page-earlier',
       group: 'Pages',
+      extra: true,
       title: t('Move page earlier'),
       description: t('Move this page one place toward the start.'),
       keywords: ['page', 'move page', 'order', 'earlier', 'before', 'reorder'],
@@ -657,6 +669,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'page-later',
       group: 'Pages',
+      extra: true,
       title: t('Move page later'),
       description: t('Move this page one place toward the end.'),
       keywords: ['page', 'move page', 'order', 'later', 'after', 'reorder'],
@@ -667,6 +680,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'next-page',
       group: 'Pages',
+      extra: true,
       title: t('Next page'),
       description: t('Go to the page after this one.'),
       keywords: ['page', 'next', 'forward', 'go to page'],
@@ -678,6 +692,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'previous-page',
       group: 'Pages',
+      extra: true,
       title: t('Previous page'),
       description: t('Go to the page before this one.'),
       keywords: ['page', 'previous', 'back', 'go to page'],
@@ -699,6 +714,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'flip-design-horizontal',
       group: 'Whole design',
+      extra: true,
       title: t('Flip design left to right'),
       description: t('Mirror the whole design, so the left side becomes the right side.'),
       keywords: ['flip', 'mirror', 'reverse', 'horizontal'],
@@ -708,6 +724,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'flip-design-vertical',
       group: 'Whole design',
+      extra: true,
       title: t('Flip design upside down'),
       description: t('Mirror the whole design top to bottom.'),
       keywords: ['flip', 'mirror', 'upside down', 'vertical'],
@@ -747,6 +764,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'actual-size',
       group: 'View',
+      extra: true,
       title: t('Actual size (100%)'),
       description: t('Show your design at its real size: each pixel of your design takes one pixel of your screen.'),
       keywords: ['100', 'real', 'actual', 'original', 'pixels', 'true size'],
@@ -864,6 +882,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'text-wrap',
       group: 'Layers',
+      extra: true,
       title: t('Text around it (text wrap)'),
       description: t('Make text in a box flow around this, instead of running over or under it. It works on text in a box: drag a box with the Text tool.'),
       keywords: ['text wrap', 'wrap text', 'wrap', 'flow around', 'runaround', 'around picture', 'around shape', 'magazine', 'float'],
