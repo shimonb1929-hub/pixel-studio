@@ -387,7 +387,6 @@
  "Drag left for paler, right for more vivid. Drag up for lighter, down for darker.": "Faites glisser vers la gauche pour plus pâle, vers la droite pour plus vif. Vers le haut pour plus clair, vers le bas pour plus foncé.",
  "Drag on the shape to slide its photo.": "Faites glisser sur la forme pour déplacer sa photo.",
  "Drag on the text to slide its photo.": "Faites glisser sur le texte pour déplacer sa photo.",
- "Drag on your design to draw, or click to drop one. Its colors come from the Color panel. For a shape of your own, use the Curve tool (P).": "Faites glisser sur votre création pour dessiner, ou cliquez pour en déposer une. Ses couleurs viennent du panneau Couleur. Pour une forme bien à vous, utilisez l’outil Courbe (P).",
  "Drag over the part you want; it turns light blue. Hold Shift to add more, {alt} to take away. Click outside it or press Esc to let go.": "Faites glisser sur la partie voulue ; elle devient bleu clair. Maintenez Shift pour en ajouter, {alt} pour en retirer. Cliquez à l’extérieur ou appuyez sur Échap pour la lâcher.",
  "Drag the edges or corners to choose what to keep. Press Enter to crop, Esc to start over.": "Faites glisser les bords ou les coins pour choisir ce que vous gardez. Appuyez sur Enter pour recadrer, Esc pour recommencer.",
  "Drag the frame first.": "Faites d’abord glisser le cadre.",
@@ -2233,5 +2232,15 @@
  "No cleaning.": "Pas de nettoyage.",
  "Fewer specks, all the detail kept.": "Moins de points, tout le détail gardé.",
  "Smooth and clean, edges still sharp.": "Lisse et propre, les bords toujours nets.",
- "Very smooth: the finest texture may soften.": "Très lisse : la texture la plus fine peut s’adoucir."
+ "Very smooth: the finest texture may soften.": "Très lisse : la texture la plus fine peut s’adoucir.",
+ "Also show the choices that are rarely needed or are one click away somewhere else.": "Affiche aussi les choix rarement utiles ou déjà à un clic ailleurs.",
+ "Fewer": "Moins",
+ "Fewer tools": "Moins d’outils",
+ "Go back to the everyday choices. The others can still be found by typing in the search box.": "Revenir aux choix de tous les jours. Les autres se trouvent toujours en tapant dans le champ de recherche.",
+ "More tools": "Plus d’outils",
+ "Show every choice": "Afficher tous les choix",
+ "Show every choice ({count} more)": "Afficher tous les choix ({count} de plus)",
+ "Show fewer choices": "Afficher moins de choix",
+ "Show the tools that are rarely needed: {tools}.": "Affiche les outils rarement utiles : {tools}.",
+ "Tuck away the tools that are rarely needed. Their keys and the search box still reach them.": "Range les outils rarement utiles. Leurs touches et le champ de recherche y mènent toujours."
 }

@@ -21,6 +21,11 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   People coming back see their own designs first, with a preview of each. A new, empty page shows
   what can go on it first (Add words, Add a photo, Add a shape, Draw), and starts on Arrange, so a
   first click never paints by surprise. Photo has its own button in the tool column.
+- **Everyday choices first.** The Menu starts with what people reach for every day; "Show every
+  choice" at its bottom adds the rest (flipping the whole design, moving pages, other download
+  kinds…) and is remembered. The tool column does the same: Picker, Copy paint, Hand and Zoom wait
+  under "More", so the column fits a laptop screen. Nothing is taken away: search, keys and the
+  panels reach everything, and a tucked-away tool still shows while it's in use.
 - **Ask in your own words.** The "What do you want to do?" search (Ctrl+K) finds any action from
   everyday words: "save" finds Download, "bigger" finds Zoom in, "photo" finds Open. Whole
   sentences work too: little words like "make", "it" or "the" don't have to match, so "make it

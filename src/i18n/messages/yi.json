@@ -387,7 +387,6 @@
  "Drag left for paler, right for more vivid. Drag up for lighter, down for darker.": "שלעפט לינקס פאר בלאסער, רעכטס פאר לעבעדיגער. שלעפט ארויף פאר העלער, אראפ פאר טונקעלער.",
  "Drag on the shape to slide its photo.": "שלעפט אויף דער פארעם צו רוקן איר פאטא.",
  "Drag on the text to slide its photo.": "שלעפט אויפן טעקסט צו רוקן זיין פאטא.",
- "Drag on your design to draw, or click to drop one. Its colors come from the Color panel. For a shape of your own, use the Curve tool (P).": "שלעפט אויף אייער דיזיין צו צייכענען, אדער קליקט אריינצולייגן איינס. אירע קאלירן קומען פונעם קאליר פאנעל. פאר אן אייגענע פארעם, ניצט דעם קורווע געצייג (P).",
  "Drag over the part you want; it turns light blue. Hold Shift to add more, {alt} to take away. Click outside it or press Esc to let go.": "שלעפט איבער דעם טייל וואס איר ווילט; ער ווערט העל-בלוי. האלט Shift צוצולייגן, {alt} אראפצונעמען. קליקט דרויסן אדער דריקט Esc עס אפצולאזן.",
  "Drag the edges or corners to choose what to keep. Press Enter to crop, Esc to start over.": "שלעפט די ראנדן אדער ווינקלען אויסצוקלייבן וואס צו האלטן. דריקט Enter אפצושניידן, Esc אנצוהייבן פון ניי.",
  "Drag the frame first.": "שלעפט קודם דעם ראם.",
@@ -2233,5 +2232,15 @@
  "No cleaning.": "קיין רייניקונג.",
  "Fewer specks, all the detail kept.": "ווייניקער פינטלעך, אלע פרטים בלייבן.",
  "Smooth and clean, edges still sharp.": "גלאט און ריין, די ראנדן נאך אלץ שארף.",
- "Very smooth: the finest texture may soften.": "זייער גלאט: די פיינסטע טעקסטור קען ווערן ווייכער."
+ "Very smooth: the finest texture may soften.": "זייער גלאט: די פיינסטע טעקסטור קען ווערן ווייכער.",
+ "Also show the choices that are rarely needed or are one click away somewhere else.": "ווייזט אויך די ברירות וואס מען דארף זעלטן, אדער וואס זענען איין קליק אוועק אן אן אנדער ארט.",
+ "Fewer": "ווייניגער",
+ "Fewer tools": "ווייניגער געצייג",
+ "Go back to the everyday choices. The others can still be found by typing in the search box.": "גייט צוריק צו די טעגלעכע ברירות. די אנדערע קען מען נאך אלץ געפינען דורך שרייבן אינעם זוך קעסטל.",
+ "More tools": "מער געצייג",
+ "Show every choice": "ווייזט אלע ברירות",
+ "Show every choice ({count} more)": "ווייזט אלע ברירות (נאך {count})",
+ "Show fewer choices": "ווייזט ווייניגער ברירות",
+ "Show the tools that are rarely needed: {tools}.": "ווייזט די געצייג וואס מען דארף זעלטן: {tools}.",
+ "Tuck away the tools that are rarely needed. Their keys and the search box still reach them.": "באהאלט די געצייג וואס מען דארף זעלטן. זייערע קנעפלעך אויפן קלאוויאטור און דאס זוך קעסטל דערגרייכן זיי נאך אלץ."
 }

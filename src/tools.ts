@@ -24,6 +24,9 @@ export interface ToolInfo {
   // The dock shows tools in small groups, each with a caption on tall screens: picking and moving
   // things, adding things, painting, fixing photos, and looking around.
   group: 'arrange' | 'add' | 'paint' | 'adjust' | 'view'
+  // Not needed to make something: picking a color is in the Color panel, looking around is in the
+  // zoom bar. The dock tucks these under "More tools"; their keys and search always reach them.
+  extra?: boolean
 }
 
 export const TOOLS: ToolInfo[] = [
@@ -279,6 +282,7 @@ export const TOOLS: ToolInfo[] = [
     pro: 'Eyedropper tool',
     keywords: ['eyedropper', 'pick color', 'sample', 'dropper', 'copy color', 'match color'],
     group: 'paint',
+    extra: true,
   },
   {
     id: 'adjust',
@@ -392,6 +396,7 @@ export const TOOLS: ToolInfo[] = [
     pro: 'Clone Stamp tool',
     keywords: ['clone', 'clone stamp', 'stamp', 'copy', 'copy paint', 'duplicate', 'repeat', 'cover', 'retouch', 'remove object', 'patch', 'repair', 'paint over'],
     group: 'adjust',
+    extra: true,
   },
   {
     id: 'hand',
@@ -415,6 +420,7 @@ export const TOOLS: ToolInfo[] = [
     pro: 'Hand tool',
     keywords: ['move around', 'pan', 'scroll', 'slide', 'drag', 'navigate', 'look around'],
     group: 'view',
+    extra: true,
   },
   {
     id: 'zoom',
@@ -438,6 +444,7 @@ export const TOOLS: ToolInfo[] = [
     pro: 'Zoom tool',
     keywords: ['magnify', 'magnifying glass', 'closer', 'bigger', 'smaller', 'look closer'],
     group: 'view',
+    extra: true,
   },
 ]
 

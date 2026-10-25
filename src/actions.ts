@@ -35,6 +35,9 @@ export interface Action {
   needsDocument?: boolean
   // Set when the action can't be used right now, explaining why in plain words.
   disabledReason?: string
+  // Rarely needed, or one click away somewhere else (the Download window, the Layers panel, the
+  // row of pages). The menu shows it only after "Show every choice"; search always finds it.
+  extra?: boolean
   run: () => void
 }
 

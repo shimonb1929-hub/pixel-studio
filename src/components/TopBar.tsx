@@ -1,15 +1,17 @@
-import { Check, CircleAlert, CircleHelp, Download, Menu as MenuIcon, Redo2, Search, Undo2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, CircleAlert, CircleHelp, Download, Menu as MenuIcon, Redo2, Search, Undo2 } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { actionBlocker, groupName, NEEDS_DOCUMENT_HINT, type Action, type ActionGroup } from '../actions.ts'
 import { inSentence, msg, t } from '../i18n/i18n.ts'
 import type { SaveStatus } from '../hooks/useAutosave.ts'
+import { useRememberedChoice } from '../hooks/useRememberedChoice.ts'
 import { shortcut } from '../keys.ts'
 import { LanguagePicker } from './LanguagePicker.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { Button } from './ui.tsx'
 
 // The menu shows everything at once, in columns on a wide screen (one long list on a narrow one),
-// so nothing has to be scrolled to or remembered.
+// so nothing has to be scrolled to or remembered. It starts with the everyday choices; "Show every
+// choice" adds the rarely needed ones (and stays that way next time). Search finds them all either way.
 // Wide screens get a fifth column so even a short laptop screen shows every group without scrolling.
 const MENU_COLUMNS: ActionGroup[][] = [['Design'], ['Edit', 'Select', 'View'], ['Layers', 'Photo'], ['Whole design', 'Pages']]
 const WIDE_MENU_COLUMNS: ActionGroup[][] = [['Design'], ['Edit', 'Select', 'View'], ['Layers'], ['Photo', 'Whole design'], ['Pages']]
@@ -17,6 +19,8 @@ const WIDE_MENU = '(min-width: 1280px)'
 
 function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: boolean }) {
   const [open, setOpen] = useState(false)
+  const [showAll, setShowAll] = useRememberedChoice('pixel-studio-menu-every-choice')
+  const extraCount = actions.filter((action) => action.extra && MENU_COLUMNS.flat().includes(action.group)).length
   const rootRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -77,54 +81,77 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
           role="menu"
           aria-label={t("Menu")}
           onKeyDown={handleMenuKeyDown}
-          className="absolute start-0 top-full z-40 mt-2 flex max-h-[calc(100vh-5rem)] w-72 flex-col overflow-y-auto rounded-2xl border border-line bg-surface p-2 shadow-float lg:fixed lg:start-4 lg:top-14 lg:mt-0 lg:w-max lg:flex-row lg:gap-2 lg:p-3"
+          className="absolute start-0 top-full z-40 mt-2 flex max-h-[calc(100vh-5rem)] w-72 flex-col overflow-y-auto rounded-2xl border border-line bg-surface p-2 shadow-float lg:fixed lg:start-4 lg:top-14 lg:mt-0 lg:w-max lg:p-3"
         >
-          {(window.matchMedia(WIDE_MENU).matches ? WIDE_MENU_COLUMNS : MENU_COLUMNS).map((column, columnIndex) => (
-            <div key={columnIndex} className="flex flex-col lg:w-56 lg:border-s lg:border-line lg:ps-2 lg:first:border-s-0 lg:first:ps-0">
-              {column.map((group, groupIndex) => (
-                <div key={group} role="group" aria-label={groupName(group)}>
-                  {(groupIndex > 0 || columnIndex > 0) && <div role="separator" className={`mx-1 my-1.5 border-t border-line ${groupIndex === 0 ? 'lg:hidden' : ''}`} />}
-                  <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{groupName(group)}</div>
-                  {actions
-                    .filter((action) => action.group === group)
-                    .map((action) => {
-                      const blocker = actionBlocker(action, hasDocument)
-                      const enabled = blocker === null
-                      return (
-                        <Tooltip
-                          key={action.id}
-                          side="right"
-                          title={action.title.replace('…', '')}
-                          description={action.description}
-                          note={blocker ?? undefined}
-                          className="flex"
-                        >
-                          <button
-                            type="button"
-                            role="menuitem"
-                            tabIndex={-1}
-                            aria-disabled={!enabled || undefined}
-                            onClick={() => {
-                              if (!enabled) return
-                              close(false)
-                              action.run()
-                            }}
-                            className="flex w-full items-center justify-between gap-6 whitespace-nowrap rounded-lg px-2.5 py-2 text-start text-[13px] text-ink outline-none hover:bg-subtle focus-visible:bg-subtle aria-disabled:cursor-not-allowed aria-disabled:text-ink-3 aria-disabled:hover:bg-transparent"
+          <div className="flex flex-col lg:flex-row lg:gap-2">
+            {(window.matchMedia(WIDE_MENU).matches ? WIDE_MENU_COLUMNS : MENU_COLUMNS).map((column, columnIndex) => (
+              <div key={columnIndex} className="flex flex-col lg:w-56 lg:border-s lg:border-line lg:ps-2 lg:first:border-s-0 lg:first:ps-0">
+                {column.map((group, groupIndex) => (
+                  <div key={group} role="group" aria-label={groupName(group)}>
+                    {(groupIndex > 0 || columnIndex > 0) && <div role="separator" className={`mx-1 my-1.5 border-t border-line ${groupIndex === 0 ? 'lg:hidden' : ''}`} />}
+                    <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{groupName(group)}</div>
+                    {actions
+                      .filter((action) => action.group === group && (showAll || !action.extra))
+                      .map((action) => {
+                        const blocker = actionBlocker(action, hasDocument)
+                        const enabled = blocker === null
+                        return (
+                          <Tooltip
+                            key={action.id}
+                            side="right"
+                            title={action.title.replace('…', '')}
+                            description={action.description}
+                            note={blocker ?? undefined}
+                            className="flex"
                           >
-                            <span>{action.title}</span>
-                            {action.shortcut && (
-                              <span dir="ltr" className="text-xs text-ink-3">
-                                {action.shortcut}
-                              </span>
-                            )}
-                          </button>
-                        </Tooltip>
-                      )
-                    })}
-                </div>
-              ))}
+                            <button
+                              type="button"
+                              role="menuitem"
+                              tabIndex={-1}
+                              aria-disabled={!enabled || undefined}
+                              onClick={() => {
+                                if (!enabled) return
+                                close(false)
+                                action.run()
+                              }}
+                              className="flex w-full items-center justify-between gap-6 whitespace-nowrap rounded-lg px-2.5 py-2 text-start text-[13px] text-ink outline-none hover:bg-subtle focus-visible:bg-subtle aria-disabled:cursor-not-allowed aria-disabled:text-ink-3 aria-disabled:hover:bg-transparent"
+                            >
+                              <span>{action.title}</span>
+                              {action.shortcut && (
+                                <span dir="ltr" className="text-xs text-ink-3">
+                                  {action.shortcut}
+                                </span>
+                              )}
+                            </button>
+                          </Tooltip>
+                        )
+                      })}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          {extraCount > 0 && (
+            <div className="mt-1.5 border-t border-line pt-1.5">
+              <Tooltip
+                title={showAll ? t('Show fewer choices') : t('Show every choice')}
+                description={showAll ? t('Go back to the everyday choices. The others can still be found by typing in the search box.') : t('Also show the choices that are rarely needed or are one click away somewhere else.')}
+                className="flex"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  tabIndex={-1}
+                  aria-expanded={showAll}
+                  onClick={() => setShowAll(!showAll)}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-start text-[13px] font-medium text-accent outline-none hover:bg-subtle focus-visible:bg-subtle"
+                >
+                  {showAll ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  {showAll ? t('Show fewer choices') : t('Show every choice ({count} more)', { count: extraCount })}
+                </button>
+              </Tooltip>
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>
