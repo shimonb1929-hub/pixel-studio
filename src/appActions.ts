@@ -90,6 +90,8 @@ export interface AppCommands {
   turnIntoShapes: () => void
   // Shows the picked photo turned so its lines are level, ready to fine-tune and apply.
   straighten: () => void
+  // Shows four dots on the picked photo's corners: fit it to a place, or make a slanted page face front.
+  moveCorners: () => void
   // Makes text in boxes flow around the picked picture or shape.
   textWrap: () => void
   // Open Bigger and sharper, or Words from a picture, for the picked photo.
@@ -848,6 +850,16 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo first: click it on your design.') : undefined,
       run: c.straighten,
+    },
+    {
+      id: 'move-corners',
+      group: 'Photo',
+      title: t('Move the corners'),
+      description: t('Drag the four corners of the picked photo to put it onto a sign, a screen or a box, or to make a page or sign photographed at a slant face front, flat and square. You see it first and press Apply to keep it.'),
+      keywords: ['distort', 'perspective', 'perspective crop', 'free distort', 'corner pin', 'mockup', 'mock-up', 'skew', 'slant', 'slanted', 'angle', 'keystone', 'scan', 'document', 'flatten', 'face front', 'fit', 'screen', 'sign', 'billboard', 'corners', 'upright'],
+      needsDocument: true,
+      disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo first: click it on your design.') : undefined,
+      run: c.moveCorners,
     },
     {
       id: 'text-wrap',

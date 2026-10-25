@@ -53,6 +53,9 @@ export const PRO_NAMES: Record<string, string> = {
   Shade: 'Saturation and Brightness',
   'Resize design': 'Image Size',
   'Pixels per inch': 'Resolution (PPI)',
+  'Move the corners': 'Distort, Perspective, Free Distort',
+  'Fit to a place': 'Distort, Perspective Warp, Corner Pin',
+  'Face front': 'Perspective Crop, Upright',
   // Layers
   Effects: 'Layer Styles (fx)',
   "Mix with what's below": 'Blend Mode',

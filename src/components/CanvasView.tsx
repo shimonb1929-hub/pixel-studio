@@ -984,9 +984,11 @@ export function CanvasView(props: CanvasViewProps) {
     drawScene()
   }, [doc, revision, viewport, width, height, props.override, fontsVersion])
 
+  // Handles disappear at once while something else (like moving a photo's corners) takes over.
+  const arrangeOff = !props.arrange
   useLayoutEffect(() => {
     drawOverlay()
-  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box, props.textEditing, props.pen?.version, props.selectionPreview, props.clone?.source, props.clone?.offset])
+  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box, arrangeOff, props.textEditing, props.pen?.version, props.selectionPreview, props.clone?.source, props.clone?.offset])
 
   // A gap being filled while a part is dragged shows as soon as it's ready.
   useEffect(() => onGapFilled(() => moveRef.current && requestScene()), [])
