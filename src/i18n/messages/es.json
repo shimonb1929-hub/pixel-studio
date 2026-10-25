@@ -387,7 +387,6 @@
  "Drag left for paler, right for more vivid. Drag up for lighter, down for darker.": "Arrastra a la izquierda para más pálido, a la derecha para más vivo. Arrastra hacia arriba para más claro, hacia abajo para más oscuro.",
  "Drag on the shape to slide its photo.": "Arrastra sobre la forma para deslizar su foto.",
  "Drag on the text to slide its photo.": "Arrastra sobre el texto para deslizar su foto.",
- "Drag on your design to draw, or click to drop one. Its colors come from the Color panel. For a shape of your own, use the Curve tool (P).": "Arrastra sobre tu diseño para dibujar, o haz clic para soltar una. Sus colores vienen del panel Color. Para una forma propia, usa la herramienta Curva (P).",
  "Drag over the part you want; it turns light blue. Hold Shift to add more, {alt} to take away. Click outside it or press Esc to let go.": "Arrastra sobre la parte que quieres; se vuelve azul claro. Mantén Shift para añadir más, {alt} para quitar. Haz clic fuera o pulsa Esc para soltarla.",
  "Drag the edges or corners to choose what to keep. Press Enter to crop, Esc to start over.": "Arrastra los bordes o las esquinas para elegir qué conservar. Pulsa Enter para recortar, Esc para empezar de nuevo.",
  "Drag the frame first.": "Primero arrastra el marco.",
@@ -2233,5 +2232,15 @@
  "No cleaning.": "Sin limpiar.",
  "Fewer specks, all the detail kept.": "Menos puntitos, con todo el detalle.",
  "Smooth and clean, edges still sharp.": "Liso y limpio, con los bordes aún nítidos.",
- "Very smooth: the finest texture may soften.": "Muy liso: la textura más fina puede suavizarse."
+ "Very smooth: the finest texture may soften.": "Muy liso: la textura más fina puede suavizarse.",
+ "Also show the choices that are rarely needed or are one click away somewhere else.": "Muestra también las opciones que casi nunca se necesitan o que están a un clic en otro lugar.",
+ "Fewer": "Menos",
+ "Fewer tools": "Menos herramientas",
+ "Go back to the everyday choices. The others can still be found by typing in the search box.": "Vuelve a las opciones de cada día. Las demás se siguen encontrando escribiendo en el cuadro de búsqueda.",
+ "More tools": "Más herramientas",
+ "Show every choice": "Mostrar todas las opciones",
+ "Show every choice ({count} more)": "Mostrar todas las opciones ({count} más)",
+ "Show fewer choices": "Mostrar menos opciones",
+ "Show the tools that are rarely needed: {tools}.": "Muestra las herramientas que casi nunca se necesitan: {tools}.",
+ "Tuck away the tools that are rarely needed. Their keys and the search box still reach them.": "Guarda las herramientas que casi nunca se necesitan. Sus teclas y el cuadro de búsqueda siguen llegando a ellas."
 }

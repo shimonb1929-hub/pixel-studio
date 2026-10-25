@@ -1694,10 +1694,7 @@ export function ToolOptions(props: ToolOptionsProps) {
       ) : props.tool === 'move' ? (
         <ArrangeOptions controls={props.arrange} />
       ) : props.tool === 'shape' ? (
-        <>
-          <Segmented label={t("Shape to draw")} value={props.shapeType} choices={SHAPE_TYPES} onChange={props.onShapeTypeChange} />
-          <Hint>{t('Drag on your design to draw, or click to drop one. Its colors come from the Color panel. For a shape of your own, use the Curve tool (P).')}</Hint>
-        </>
+        <Segmented label={t("Shape to draw")} value={props.shapeType} choices={SHAPE_TYPES} onChange={props.onShapeTypeChange} />
       ) : props.tool === 'pen' ? (
         <PenOptions controls={props.pen} />
       ) : props.tool === 'text' ? (

@@ -387,7 +387,6 @@
  "Drag left for paler, right for more vivid. Drag up for lighter, down for darker.": "גרור שמאלה לצבע חיוור יותר, ימינה לצבע עז יותר. גרור למעלה לבהיר יותר, למטה לכהה יותר.",
  "Drag on the shape to slide its photo.": "גרור על הצורה כדי להזיז את התמונה שבתוכה.",
  "Drag on the text to slide its photo.": "גרור על הטקסט כדי להזיז את התמונה שבתוכו.",
- "Drag on your design to draw, or click to drop one. Its colors come from the Color panel. For a shape of your own, use the Curve tool (P).": "גרור על העיצוב כדי לצייר, או לחץ כדי להניח אחת. הצבעים שלה באים מחלונית הצבע. לצורה משלך, השתמש בכלי העקומה (P).",
  "Drag over the part you want; it turns light blue. Hold Shift to add more, {alt} to take away. Click outside it or press Esc to let go.": "גררו על החלק שאתם רוצים; הוא נצבע בתכלת. החזיקו Shift כדי להוסיף, {alt} כדי להוריד. לחצו מחוץ לו או על Esc כדי לשחרר.",
  "Drag the edges or corners to choose what to keep. Press Enter to crop, Esc to start over.": "גרור את הקצוות או הפינות כדי לבחור מה לשמור. לחץ Enter כדי לחתוך, Esc כדי להתחיל מחדש.",
  "Drag the frame first.": "קודם גרור את המסגרת.",
@@ -2233,5 +2232,15 @@
  "No cleaning.": "בלי ניקוי.",
  "Fewer specks, all the detail kept.": "פחות נקודות, וכל הפרטים נשמרים.",
  "Smooth and clean, edges still sharp.": "חלק ונקי, והקצוות עדיין חדים.",
- "Very smooth: the finest texture may soften.": "חלק מאוד: המרקם העדין ביותר עלול להתרכך."
+ "Very smooth: the finest texture may soften.": "חלק מאוד: המרקם העדין ביותר עלול להתרכך.",
+ "Also show the choices that are rarely needed or are one click away somewhere else.": "הצג גם את האפשרויות שנחוצות לעתים רחוקות או שנמצאות במרחק לחיצה במקום אחר.",
+ "Fewer": "פחות",
+ "Fewer tools": "פחות כלים",
+ "Go back to the everyday choices. The others can still be found by typing in the search box.": "חזור לאפשרויות היומיומיות. את האחרות עדיין אפשר למצוא בהקלדה בתיבת החיפוש.",
+ "More tools": "עוד כלים",
+ "Show every choice": "הצג את כל האפשרויות",
+ "Show every choice ({count} more)": "הצג את כל האפשרויות (עוד {count})",
+ "Show fewer choices": "הצג פחות אפשרויות",
+ "Show the tools that are rarely needed: {tools}.": "הצג את הכלים שנחוצים לעתים רחוקות: {tools}.",
+ "Tuck away the tools that are rarely needed. Their keys and the search box still reach them.": "הסתר את הכלים שנחוצים לעתים רחוקות. המקשים שלהם ותיבת החיפוש עדיין מגיעים אליהם."
 }

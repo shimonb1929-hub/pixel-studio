@@ -197,6 +197,7 @@ test('crop shapes and crop to selection', async ({ page }) => {
     [150, 100],
   ])
   await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: /^Show every choice/ }).click()
   await page.getByRole('menuitem', { name: 'Crop to selection' }).click()
   await expectDesignSize(page, 100, 50)
 })
@@ -233,6 +234,8 @@ test('resize the whole design', async ({ page }) => {
 test('turn and flip the whole design', async ({ page }) => {
   await block(page, await newDesign(page), 330, 130, 370, 170, 'Red')
   await page.getByRole('button', { name: 'Menu' }).click()
+  // Flipping is tucked under "Show every choice", which stays open for the next time.
+  await page.getByRole('menuitem', { name: /^Show every choice/ }).click()
   await page.getByRole('menuitem', { name: 'Turn design right' }).click()
   await expectDesignSize(page, 300, 400)
   await page.keyboard.press('Control+Alt+0')
