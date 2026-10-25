@@ -39,6 +39,7 @@ export interface CornersPanelState {
   onMode: (mode: CornerMode) => void
   // The Face front result, small, to see before applying.
   result: HTMLCanvasElement | null
+  // The dots were moved from where they started.
   changed: boolean
   reset: () => void
   apply: () => void
@@ -76,10 +77,13 @@ export function useCorners(editor: Editor, onProblem: (message: string) => void)
     })
   }
 
-  const changed = !!live && !same(live.dots[live.mode], live.mode === 'fit' ? photoCorners(live.boxed) : frontStart(live.boxed))
+  // The dots were moved from where they started (so Start over has something to do).
+  const moved = !!live && !same(live.dots[live.mode], live.mode === 'fit' ? photoCorners(live.boxed) : frontStart(live.boxed))
+  // Face front changes the photo even from where its dots start: they sit inside it.
+  const changes = !!live && (live.mode === 'front' || moved)
 
   function apply(): void {
-    if (live && changed) {
+    if (live && changes) {
       const { boxed, mode, dots } = live
       const next = mode === 'fit' ? fitToCorners(boxed, dots.fit) : faceFront(boxed, dots.front)
       editor.change(mode === 'fit' ? t('Fit to a place') : t('Face front'), (d) => replaceLayer(d, next), { bytes: next.canvas.width * next.canvas.height * 4 })
@@ -119,7 +123,7 @@ export function useCorners(editor: Editor, onProblem: (message: string) => void)
         mode: live.mode,
         onMode: (mode) => setSession({ ...live, mode }),
         result,
-        changed,
+        changed: moved,
         reset: () => setSession({ ...live, dots: { ...live.dots, [live.mode]: live.mode === 'fit' ? photoCorners(live.boxed) : frontStart(live.boxed) } }),
         apply,
         cancel: () => setSession(null),

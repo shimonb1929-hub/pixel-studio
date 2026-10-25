@@ -146,3 +146,16 @@ test('search finds Move the corners by its pro word, and Esc leaves the photo as
   await expect(panel(page)).toBeHidden()
   await expect.poll(async () => (await designPixel(page, size, 60, 50))[0]).toBeLessThan(230)
 })
+
+test('Face front keeps the part inside the dots even when they were not moved', async ({ page }) => {
+  const size = await newDesign(page)
+  await addPhoto(page, false)
+  await photoTool(page, 'Move the corners')
+  await panel(page).getByRole('radio', { name: 'Face front' }).click()
+  await expect(panel(page).getByRole('button', { name: 'Start over' })).toBeDisabled()
+  await panel(page).getByRole('button', { name: 'Apply' }).click()
+  await expect(panel(page)).toBeHidden()
+  // The dots start a little inside the photo, so its edge is trimmed away.
+  await expect.poll(async () => (await designPixel(page, size, 45, 35))[0]).toBeGreaterThan(240)
+  expectColor(await designPixel(page, size, 200, 150), GRAY)
+})

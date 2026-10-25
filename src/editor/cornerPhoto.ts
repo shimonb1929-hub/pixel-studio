@@ -2,6 +2,7 @@ import { combinePerspective, facing, frontSize, invertPerspective, scaleMove, sq
 import { createCanvas, getContext2d } from './document.ts'
 import { polygonBounds } from './geometry.ts'
 import { layerFrame } from './objects.ts'
+import { pixelVersion } from './pixelVersion.ts'
 import { applyAffine, invertAffine, type TransformBox } from './transform.ts'
 import type { LayerHide, PixelLayer, Point } from './types.ts'
 
@@ -43,15 +44,18 @@ function fitSize(width: number, height: number): { width: number; height: number
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)), scale }
 }
 
-const pixelCache = new WeakMap<HTMLCanvasElement, ImageData>()
+// Read once per change of the pixels, so dragging a dot doesn't read the photo again each time,
+// while painting on it (which changes the canvas in place) is always seen.
+const pixelCache = new WeakMap<HTMLCanvasElement, { version: number; pixels: ImageData }>()
 
 function readPixels(canvas: HTMLCanvasElement): ImageData {
-  let pixels = pixelCache.get(canvas)
-  if (!pixels) {
-    pixels = getContext2d(canvas).getImageData(0, 0, canvas.width, canvas.height)
-    pixelCache.set(canvas, pixels)
+  const version = pixelVersion(canvas)
+  let kept = pixelCache.get(canvas)
+  if (!kept || kept.version !== version) {
+    kept = { version, pixels: getContext2d(canvas).getImageData(0, 0, canvas.width, canvas.height) }
+    pixelCache.set(canvas, kept)
   }
-  return pixels
+  return kept.pixels
 }
 
 // New pixels (width × height) from `source`, where `toOldUnit` takes a point of the new picture
