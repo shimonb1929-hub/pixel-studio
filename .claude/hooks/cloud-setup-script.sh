@@ -1,44 +1,49 @@
 #!/bin/bash
 # Shabbat guard for every Claude Code session on this machine (made by make-setup-script.mjs in
-# pixel-studio). It blocks all work from Friday afternoon until Saturday night in New York.
-# To change the margins, edit SETTINGS below (hoursBeforeFridaySunset, hoursAfterSaturdaySunset).
+# pixel-studio). It blocks all work on Shabbat and Yom Tov, New York time.
+# To change the margins, edit SETTINGS below (hoursBeforeSunset, hoursAfterSunset).
 mkdir -p "$HOME/.claude/hooks"
 cat > "$HOME/.claude/hooks/shabbat-guard.mjs" <<'SHABBAT_GUARD_EOF'
 #!/usr/bin/env node
-// Shabbat guard: stops Claude from working from Friday afternoon until Saturday night in New York.
+// Shabbat guard: stops Claude from working on Shabbat and Yom Tov, New York time.
 //
 // Claude Code runs this before every tool use (PreToolUse), when a session starts (SessionStart)
 // and when a message comes in (UserPromptSubmit). Inside the quiet time it blocks every tool, so a
 // session that resumes by itself (for example after a usage limit resets) cannot do any work. It
-// only lets Claude post one short note saying what is unfinished. After Shabbat nothing restarts
-// by itself: a session that was working before Shabbat stays blocked until the person writes to it
+// only lets Claude post one short note saying what is unfinished. Afterward nothing restarts
+// by itself: a session that was working before it stays blocked until the person writes to it
 // again (found from the session's own record of messages, so it holds even on a fresh machine).
 //
 // The times come from the sunset in New York, worked out here (no internet needed), with the
-// change between summer and winter time handled by the America/New_York time zone.
+// change between summer and winter time handled by the America/New_York time zone. Yom Tov comes
+// from the fixed Hebrew calendar, with the two days kept outside Israel; when Yom Tov is next to
+// Shabbat, the days join into one quiet time.
 
 import { readFileSync, realpathSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 // ---- Settings you can change -------------------------------------------------------------------
-// These margins are generous safety buffers chosen for this tool, not a halachic ruling. Candle
-// lighting is usually listed 18 minutes before sunset, and Shabbat usually ends 42 to 72 minutes
-// after sunset; the margins below start well before the first and end well after the second.
+// These margins are safety buffers chosen for this tool, not a halachic ruling. Candle lighting is
+// usually listed 18 minutes before sunset, and Shabbat usually ends 42 to 72 minutes after sunset;
+// the margins below start before the first and end well after the second.
 export const SETTINGS = {
-  // How many hours before Friday's sunset the quiet time starts. 3 = about 2 hours 40 minutes
-  // before candle lighting.
-  hoursBeforeFridaySunset: 3,
-  // How many hours after Saturday's sunset the quiet time ends. 2 = about 50 minutes after the
-  // latest common time for the end of Shabbat (72 minutes).
-  hoursAfterSaturdaySunset: 2,
+  // How many hours before sunset on the day before Shabbat or Yom Tov the quiet time starts.
+  // 1 = 42 minutes before candle lighting.
+  hoursBeforeSunset: 1,
+  // How many hours after sunset on the last day of Shabbat or Yom Tov the quiet time ends.
+  // 2 = about 50 minutes after the latest common time for the end of Shabbat (72 minutes).
+  hoursAfterSunset: 2,
+  // Also keep Yom Tov (Rosh Hashanah, Yom Kippur, Sukkot, Shemini Atzeret and Simchat Torah,
+  // Pesach, Shavuot), with the two days kept outside Israel.
+  yomTov: true,
   // Where the sunset is worked out for (New York City) and its time zone.
   latitude: 40.7128,
   longitude: -74.006,
   timeZone: 'America/New_York',
-  // If the sunset can't be worked out for any reason, this plain window is used instead:
-  // Friday from this hour until Sunday at this hour (24-hour clock, New York time).
-  fallbackFridayHour: 12,
-  fallbackSundayHour: 1,
+  // If the sunset can't be worked out for any reason, this plain window is used instead: from
+  // this hour on the day before until this hour on the day after (24-hour clock, New York time).
+  fallbackStartHour: 12,
+  fallbackEndHour: 1,
 }
 // ------------------------------------------------------------------------------------------------
 
@@ -123,37 +128,85 @@ function localHour(year, month, day, hour, timeZone) {
   return new Date(guess)
 }
 
-/** The quiet time (start and end) around the Shabbat whose Friday is the given local day. */
-export function quietTime(friday, settings = SETTINGS) {
-  const sat = new Date(Date.UTC(friday.year, friday.month - 1, friday.day) + DAY)
-  const satDay = { year: sat.getUTCFullYear(), month: sat.getUTCMonth() + 1, day: sat.getUTCDate() }
+// ---- Hebrew calendar ----
+// The fixed Hebrew calendar (the molad of Tishrei and the rules that move Rosh Hashanah), as set out
+// in Rambam, Hilchot Kiddush HaChodesh chapters 6 to 8. Days are counted from 1970-01-01.
+const HEBREW_EPOCH = -1373427 - 719163 // 1 Tishrei of year 1, counted from 1970-01-01
+
+function elapsedDays(year) {
+  const months = Math.floor((235 * year - 234) / 19)
+  const parts = 12084 + 13753 * months
+  const days = 29 * months + Math.floor(parts / 25920)
+  return (3 * (days + 1)) % 7 < 3 ? days + 1 : days
+}
+
+/** The day (counted from 1970-01-01) of Rosh Hashanah, 1 Tishrei, of a Hebrew year. */
+export function roshHashanah(year) {
+  const [before, at, after] = [elapsedDays(year - 1), elapsedDays(year), elapsedDays(year + 1)]
+  const correction = after - at === 356 ? 2 : at - before === 382 ? 1 : 0
+  return HEBREW_EPOCH + at + correction
+}
+
+/** The days of Yom Tov (outside Israel) in a Hebrew year, counted from 1970-01-01. */
+export function yomTovDays(year) {
+  const tishrei = roshHashanah(year)
+  // 15 Nisan is always 163 days before the next Rosh Hashanah.
+  const pesach = roshHashanah(year + 1) - 163
+  return [
+    tishrei, tishrei + 1, // Rosh Hashanah
+    tishrei + 9, // Yom Kippur
+    tishrei + 14, tishrei + 15, // Sukkot
+    tishrei + 21, tishrei + 22, // Shemini Atzeret, Simchat Torah
+    pesach, pesach + 1, // Pesach, first days
+    pesach + 6, pesach + 7, // Pesach, last days
+    pesach + 50, pesach + 51, // Shavuot (6 and 7 Sivan)
+  ]
+}
+
+const dayParts = (n) => {
+  const d = new Date(n * DAY)
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() }
+}
+
+/** The quiet time for a run of days of rest (counted from 1970-01-01), first to last. */
+function quietTimeFor(first, last, settings) {
+  const eve = dayParts(first - 1)
+  const end = dayParts(last)
   try {
-    const fri = sunset(friday.year, friday.month, friday.day, settings.latitude, settings.longitude)
-    const satSunset = sunset(satDay.year, satDay.month, satDay.day, settings.latitude, settings.longitude)
+    const startSunset = sunset(eve.year, eve.month, eve.day, settings.latitude, settings.longitude)
+    const endSunset = sunset(end.year, end.month, end.day, settings.latitude, settings.longitude)
     return {
-      start: new Date(fri.getTime() - settings.hoursBeforeFridaySunset * 3600000),
-      end: new Date(satSunset.getTime() + settings.hoursAfterSaturdaySunset * 3600000),
-      fridaySunset: fri,
-      saturdaySunset: satSunset,
+      start: new Date(startSunset.getTime() - settings.hoursBeforeSunset * 3600000),
+      end: new Date(endSunset.getTime() + settings.hoursAfterSunset * 3600000),
     }
   } catch {
-    const sun = new Date(sat.getTime() + DAY)
+    const after = dayParts(last + 1)
     return {
-      start: localHour(friday.year, friday.month, friday.day, settings.fallbackFridayHour, settings.timeZone),
-      end: localHour(sun.getUTCFullYear(), sun.getUTCMonth() + 1, sun.getUTCDate(), settings.fallbackSundayHour, settings.timeZone),
+      start: localHour(eve.year, eve.month, eve.day, settings.fallbackStartHour, settings.timeZone),
+      end: localHour(after.year, after.month, after.day, settings.fallbackEndHour, settings.timeZone),
     }
   }
 }
 
-/** The quiet times around the Fridays near `now`, earliest first. */
+/** The quiet times near `now` (Shabbat and Yom Tov, joined when they are next to each other). */
 function nearbyQuietTimes(now, settings) {
   const today = localDay(now, settings.timeZone)
-  // This week's Friday and the ones next to it, so wide margins still work.
-  const thisFriday = Date.UTC(today.year, today.month - 1, today.day) + ((5 - today.weekday + 7) % 7) * DAY
-  return [-7, 0, 7].map((offset) => {
-    const f = new Date(thisFriday + offset * DAY)
-    return quietTime({ year: f.getUTCFullYear(), month: f.getUTCMonth() + 1, day: f.getUTCDate() }, settings)
-  })
+  const todayN = Date.UTC(today.year, today.month - 1, today.day) / DAY
+  const rest = new Set()
+  if (settings.yomTov) {
+    const hebrewYear = today.year + 3760
+    for (const year of [hebrewYear - 1, hebrewYear, hebrewYear + 1]) for (const d of yomTovDays(year)) rest.add(d)
+  }
+  // Look 10 days either way, so wide margins and three-day Yom Tov still work.
+  const windows = []
+  for (let n = todayN - 10; n <= todayN + 10; n++) {
+    const isRest = (d) => rest.has(d) || new Date(d * DAY).getUTCDay() === 6
+    if (!isRest(n) || isRest(n - 1)) continue
+    let last = n
+    while (isRest(last + 1)) last++
+    windows.push(quietTimeFor(n, last, settings))
+  }
+  return windows
 }
 
 /** The quiet time `now` falls in, or null when it is fine to work. */
@@ -242,10 +295,10 @@ export function decide(input, now, settings = SETTINGS) {
     const until = newYorkTime(window.end, settings.timeZone)
     return stop(
       input,
-      `It is Shabbat (or very close to it) in New York: no work until ${until} (New York time). ` +
+      `It is Shabbat or Yom Tov (or very close to it) in New York: no work until ${until} (New York time). ` +
         'Stop now. Do not start, continue or finish any work, even if a usage limit has reset. ' +
         'If you are in a project thread, post one short note saying what is unfinished, then end your turn. ' +
-        'After Shabbat, do not resume on your own: wait for the person to restart the work.',
+        'Afterward, do not resume on your own: wait for the person to restart the work.',
     )
   }
   // A message from the person is the restart; from then on the transcript shows it.
@@ -253,7 +306,7 @@ export function decide(input, now, settings = SETTINGS) {
   if (!waitsForRestart(input, now, settings)) return ALLOW
   return stop(
     input,
-    'Shabbat is over, but this session was working before it and the person has not written since. ' +
+    'Shabbat or Yom Tov is over, but this session was working before it and the person has not written since. ' +
       'Do not continue on your own: end your turn and wait for the person to write and restart the work.',
   )
 }

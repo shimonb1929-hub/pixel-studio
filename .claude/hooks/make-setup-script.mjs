@@ -11,8 +11,8 @@ export function setupScript() {
   const guard = readFileSync(new URL('shabbat-guard.mjs', here), 'utf8')
   return `#!/bin/bash
 # Shabbat guard for every Claude Code session on this machine (made by make-setup-script.mjs in
-# pixel-studio). It blocks all work from Friday afternoon until Saturday night in New York.
-# To change the margins, edit SETTINGS below (hoursBeforeFridaySunset, hoursAfterSaturdaySunset).
+# pixel-studio). It blocks all work on Shabbat and Yom Tov, New York time.
+# To change the margins, edit SETTINGS below (hoursBeforeSunset, hoursAfterSunset).
 mkdir -p "$HOME/.claude/hooks"
 cat > "$HOME/.claude/hooks/shabbat-guard.mjs" <<'SHABBAT_GUARD_EOF'
 ${guard}SHABBAT_GUARD_EOF
