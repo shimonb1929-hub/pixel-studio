@@ -3,7 +3,12 @@
 Stops Claude from doing any work from Friday afternoon until Saturday night, New York time. Inside
 that time every tool is blocked (files, commands, GitHub, everything), so a session that wakes up by
 itself, for example when a usage limit resets, cannot carry on. Claude may only post one short note
-saying what is unfinished. After Shabbat nothing restarts by itself: the work waits for you.
+saying what is unfinished.
+
+After Shabbat nothing restarts by itself. A session that was working before Shabbat stays blocked
+until you write to it again; finished background work and GitHub events don't count as you. The
+guard finds your last message in the session's own record, so this holds even if the session comes
+back on a fresh machine.
 
 ## When it is on
 

@@ -5,18 +5,19 @@
 // and when a message comes in (UserPromptSubmit). Inside the quiet time it blocks every tool, so a
 // session that resumes by itself (for example after a usage limit resets) cannot do any work. It
 // only lets Claude post one short note saying what is unfinished. After Shabbat nothing restarts
-// by itself: the work waits until someone writes again.
+// by itself: a session that was working before Shabbat stays blocked until the person writes to it
+// again (found from the session's own record of messages, so it holds even on a fresh machine).
 //
 // The times come from the sunset in New York, worked out here (no internet needed), with the
 // change between summer and winter time handled by the America/New_York time zone.
-//
+
+import { readFileSync, realpathSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
+
 // ---- Settings you can change -------------------------------------------------------------------
 // These margins are generous safety buffers chosen for this tool, not a halachic ruling. Candle
 // lighting is usually listed 18 minutes before sunset, and Shabbat usually ends 42 to 72 minutes
 // after sunset; the margins below start well before the first and end well after the second.
-import { realpathSync } from 'node:fs'
-import { pathToFileURL } from 'node:url'
-
 export const SETTINGS = {
   // How many hours before Friday's sunset the quiet time starts. 3 = about 2 hours 40 minutes
   // before candle lighting.
@@ -138,17 +139,67 @@ export function quietTime(friday, settings = SETTINGS) {
   }
 }
 
+/** The quiet times around the Fridays near `now`, earliest first. */
+function nearbyQuietTimes(now, settings) {
+  const today = localDay(now, settings.timeZone)
+  // This week's Friday and the ones next to it, so wide margins still work.
+  const thisFriday = Date.UTC(today.year, today.month - 1, today.day) + ((5 - today.weekday + 7) % 7) * DAY
+  return [-7, 0, 7].map((offset) => {
+    const f = new Date(thisFriday + offset * DAY)
+    return quietTime({ year: f.getUTCFullYear(), month: f.getUTCMonth() + 1, day: f.getUTCDate() }, settings)
+  })
+}
+
 /** The quiet time `now` falls in, or null when it is fine to work. */
 export function currentQuietTime(now, settings = SETTINGS) {
-  const today = localDay(now, settings.timeZone)
-  // Look at this week's Friday and the ones next to it, so wide margins still work.
-  const thisFriday = Date.UTC(today.year, today.month - 1, today.day) + ((5 - today.weekday + 7) % 7) * DAY
-  for (const offset of [-7, 0, 7]) {
-    const f = new Date(thisFriday + offset * DAY)
-    const window = quietTime({ year: f.getUTCFullYear(), month: f.getUTCMonth() + 1, day: f.getUTCDate() }, settings)
-    if (now >= window.start && now < window.end) return window
+  return nearbyQuietTimes(now, settings).find((w) => now >= w.start && now < w.end) ?? null
+}
+
+/** The last quiet time that has already ended. */
+export function lastQuietTime(now, settings = SETTINGS) {
+  return nearbyQuietTimes(now, settings).filter((w) => w.end <= now).at(-1)
+}
+
+/** Whether a message that starts a turn came from a person rather than something automatic. */
+export function fromPerson(prompt = '') {
+  return !/^\s*<task-notification>|\[SYSTEM NOTIFICATION/.test(prompt)
+}
+
+/**
+ * When the person last wrote in this session, from its transcript (one record per line), or null.
+ * Tool results and automatic messages (finished background work, GitHub events) don't count.
+ */
+export function lastPersonMessage(transcript) {
+  let last = null
+  for (const line of transcript.split('\n')) {
+    if (!line.includes('"user"')) continue
+    let entry
+    try {
+      entry = JSON.parse(line)
+    } catch {
+      continue
+    }
+    if (entry.type !== 'user' || entry.isMeta || !entry.timestamp) continue
+    const content = entry.message?.content
+    const text = typeof content === 'string' ? content : Array.isArray(content) ? content.filter((c) => c.type === 'text').map((c) => c.text).join('') : ''
+    if (Array.isArray(content) && content.some((c) => c.type === 'tool_result')) continue
+    if (entry.origin ? entry.origin.kind !== 'human' : !fromPerson(text)) continue
+    const at = new Date(entry.timestamp)
+    if (!last || at > last) last = at
   }
-  return null
+  return last
+}
+
+/** Whether this session was working before the last quiet time and nobody has written since. */
+function waitsForRestart(input, now, settings) {
+  const last = lastQuietTime(now, settings)
+  if (!last || !input.transcript_path) return false
+  try {
+    const person = lastPersonMessage(readFileSync(input.transcript_path, 'utf8'))
+    return person !== null && person < last.end
+  } catch {
+    return false
+  }
 }
 
 export function newYorkTime(date, timeZone = SETTINGS.timeZone) {
@@ -162,26 +213,43 @@ export function newYorkTime(date, timeZone = SETTINGS.timeZone) {
   }).format(date)
 }
 
-/** What the hook says and does for one event. Returns { exitCode, stdout, stderr }. */
-export function decide(input, now, settings = SETTINGS) {
-  const window = currentQuietTime(now, settings)
-  if (!window) return { exitCode: 0, stdout: '', stderr: '' }
-  const until = newYorkTime(window.end, settings.timeZone)
-  const message =
-    `It is Shabbat (or very close to it) in New York: no work until ${until} (New York time). ` +
-    'Stop now. Do not start, continue or finish any work, even if a usage limit has reset. ' +
-    'If you are in a project thread, post one short note saying what is unfinished, then end your turn. ' +
-    'After Shabbat, do not resume on your own: wait for the person to restart the work.'
+const ALLOW = { exitCode: 0, stdout: '', stderr: '' }
+
+/** Blocks tools and tells new turns to stop, with the given message. */
+function stop(input, message) {
   const event = input.hook_event_name
   if (event === 'PreToolUse') {
-    if (NOTE_TOOLS.has(input.tool_name)) return { exitCode: 0, stdout: '', stderr: '' }
+    if (NOTE_TOOLS.has(input.tool_name)) return ALLOW
     return { exitCode: 2, stdout: '', stderr: `Blocked by the Shabbat guard. ${message}` }
   }
   if (event === 'SessionStart' || event === 'UserPromptSubmit') {
     const stdout = JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: message } })
     return { exitCode: 0, stdout, stderr: '' }
   }
-  return { exitCode: 0, stdout: '', stderr: '' }
+  return ALLOW
+}
+
+/** What the hook says and does for one event. Returns { exitCode, stdout, stderr }. */
+export function decide(input, now, settings = SETTINGS) {
+  const window = currentQuietTime(now, settings)
+  if (window) {
+    const until = newYorkTime(window.end, settings.timeZone)
+    return stop(
+      input,
+      `It is Shabbat (or very close to it) in New York: no work until ${until} (New York time). ` +
+        'Stop now. Do not start, continue or finish any work, even if a usage limit has reset. ' +
+        'If you are in a project thread, post one short note saying what is unfinished, then end your turn. ' +
+        'After Shabbat, do not resume on your own: wait for the person to restart the work.',
+    )
+  }
+  // A message from the person is the restart; from then on the transcript shows it.
+  if (input.hook_event_name === 'UserPromptSubmit' && fromPerson(input.prompt)) return ALLOW
+  if (!waitsForRestart(input, now, settings)) return ALLOW
+  return stop(
+    input,
+    'Shabbat is over, but this session was working before it and the person has not written since. ' +
+      'Do not continue on your own: end your turn and wait for the person to write and restart the work.',
+  )
 }
 
 async function main() {

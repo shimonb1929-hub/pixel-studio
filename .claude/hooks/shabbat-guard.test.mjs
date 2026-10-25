@@ -1,7 +1,9 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { SETTINGS, currentQuietTime, decide, newYorkTime, sunset } from './shabbat-guard.mjs'
+import { SETTINGS, currentQuietTime, decide, lastPersonMessage, newYorkTime, sunset } from './shabbat-guard.mjs'
 import { setupScript } from './make-setup-script.mjs'
 
 const NY = [40.7128, -74.006]
@@ -81,5 +83,50 @@ describe('Shabbat guard', () => {
     expect(saved, 'run: node .claude/hooks/make-setup-script.mjs').toBe(setupScript())
     expect(() => execFileSync('bash', ['-n', new URL('cloud-setup-script.sh', import.meta.url).pathname])).not.toThrow()
   })
-})
 
+  describe('after Shabbat, waits for the person to restart', () => {
+    const person = (iso) => ({ type: 'user', timestamp: iso, origin: { kind: 'human' }, message: { role: 'user', content: 'Keep going' } })
+    const automatic = (iso) => ({
+      type: 'user',
+      timestamp: iso,
+      origin: { kind: 'task-notification' },
+      message: { role: 'user', content: '<task-notification>done</task-notification>' },
+    })
+    const toolResult = (iso) => ({ type: 'user', timestamp: iso, message: { role: 'user', content: [{ type: 'tool_result', content: 'ok' }] } })
+    const transcript = (...entries) => {
+      const file = join(mkdtempSync(join(tmpdir(), 'shabbat-')), 'session.jsonl')
+      writeFileSync(file, entries.map((e) => JSON.stringify(e)).join('\n') + '\n')
+      return file
+    }
+    const sunday = at('2026-10-25T02:00:00-04:00')
+
+    it('blocks a session that was working Friday and resumes by itself after Shabbat', () => {
+      const file = transcript(person('2026-10-23T13:00:00-04:00'), toolResult('2026-10-23T14:00:00-04:00'), automatic('2026-10-25T01:55:00-04:00'))
+      const result = decide({ ...tool(), transcript_path: file }, sunday)
+      expect(result.exitCode).toBe(2)
+      expect(result.stderr).toMatch(/wait for the person/)
+      // An automatic message (finished background work, a GitHub event) is not a restart.
+      const prompt = JSON.parse(decide({ hook_event_name: 'UserPromptSubmit', prompt: '<task-notification>x', transcript_path: file }, sunday).stdout)
+      expect(prompt.hookSpecificOutput.additionalContext).toMatch(/Shabbat is over/)
+    })
+
+    it('lets it go on once the person writes again', () => {
+      const before = transcript(person('2026-10-23T13:00:00-04:00'))
+      expect(decide({ hook_event_name: 'UserPromptSubmit', prompt: 'Start again please', transcript_path: before }, sunday)).toEqual({ exitCode: 0, stdout: '', stderr: '' })
+      const after = transcript(person('2026-10-23T13:00:00-04:00'), person('2026-10-25T01:59:00-04:00'))
+      expect(decide({ ...tool(), transcript_path: after }, sunday).exitCode).toBe(0)
+    })
+
+    it('does not get in the way of sessions started after Shabbat, or without a record', () => {
+      expect(decide({ ...tool(), transcript_path: transcript(person('2026-10-25T01:00:00-04:00')) }, sunday).exitCode).toBe(0)
+      expect(decide(tool(), sunday).exitCode).toBe(0)
+      expect(decide({ ...tool(), transcript_path: '/no/such/file.jsonl' }, sunday).exitCode).toBe(0)
+    })
+
+    it('reads the person\'s last message from a transcript', () => {
+      const lines = [person('2026-10-20T10:00:00Z'), person('2026-10-22T10:00:00Z'), automatic('2026-10-24T10:00:00Z'), toolResult('2026-10-24T11:00:00Z')]
+      expect(lastPersonMessage(lines.map((e) => JSON.stringify(e)).join('\n') + '\nnot json')).toEqual(at('2026-10-22T10:00:00Z'))
+      expect(lastPersonMessage('')).toBeNull()
+    })
+  })
+})
