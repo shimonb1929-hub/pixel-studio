@@ -1,5 +1,7 @@
 # Working on Pixel Studio
 
+Read [VISION.md](VISION.md) first: it holds the vision and core values every decision must serve.
+
 ## The goal (keep every decision tied to it)
 
 Pixel Studio is Photoshop, Illustrator and InDesign in one program, in the browser.
