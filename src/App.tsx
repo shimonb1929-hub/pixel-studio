@@ -112,6 +112,8 @@ import { useAutosave } from './hooks/useAutosave.ts'
 import { useEditor } from './hooks/useEditor.ts'
 import { useStraighten } from './hooks/useStraighten.ts'
 import { StraightenPanel } from './components/StraightenPanel.tsx'
+import { useCorners } from './hooks/useCorners.ts'
+import { CornerHandles, CornersPanel } from './components/CornersPanel.tsx'
 import { photoOnMainThing, smartCropFrame } from './editor/smartPhoto.ts'
 import { usePen } from './hooks/usePen.ts'
 import { useInstallApp } from './hooks/useInstallApp.ts'
@@ -505,6 +507,8 @@ export default function App() {
   // Turn a picture into shapes (pro: Image Trace); the new shapes end up picked together.
   const traceShapes = useTurnIntoShapes(editor, { problem, inform }, (ids) => (setTool('move'), pickMany(ids)))
   const straightenPhoto = useStraighten(editor, problem)
+  // Move the corners of a photo: fit it to a place, or make a slanted page face front.
+  const corners = useCorners(editor, problem)
   // Commands read the design through this, so they see changes made earlier in the same click.
   const current = () => editor.getDoc()
 
@@ -1556,12 +1560,14 @@ export default function App() {
     if (cropChanged) applyCrop()
     if (adjustChanged) applyAdjust()
     if (straightenPhoto.pending) straightenPhoto.apply()
+    if (corners.pending) corners.apply()
     return true
   }
 
   function setTool(next: ToolId) {
     finishText()
     if (straightenPhoto.pending) straightenPhoto.apply()
+    if (corners.pending) corners.apply()
     if (next !== tool) {
       if (tool === 'move') {
         if (!applyTransform()) return
@@ -2492,11 +2498,12 @@ export default function App() {
       if (cropChanged) return setCropEdit(null)
       if (adjustChanged) return cancelAdjust()
       if (straightenPhoto.pending) return straightenPhoto.cancel()
+      if (corners.pending) return corners.cancel()
       editor.undo()
     },
     redo: () => {
       if (pen.drawing) return
-      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending) return
+      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending || corners.pending) return
       finishText()
       editor.redo()
     },
@@ -2628,6 +2635,7 @@ export default function App() {
       if (adjustChanged) return applyAdjust(), true
       if (blurBackground.apply()) return true
       if (straightenPhoto.pending) return straightenPhoto.apply(), true
+      if (corners.pending) return corners.apply(), true
       if (edgeShown) return applyEdge(), true
       return false
     },
@@ -2641,6 +2649,7 @@ export default function App() {
       if (adjustChanged) return cancelAdjust(), true
       if (blurBackground.cancel()) return true
       if (straightenPhoto.pending) return straightenPhoto.cancel(), true
+      if (corners.pending) return corners.cancel(), true
       if (edgeShown) return setEdgeEdit(null), true
       return false
     },
@@ -2775,6 +2784,11 @@ export default function App() {
       if (!settle()) return
       const layer = current() && activeLayer(current()!)
       if (layer) void straightenPhoto.start(layer.id)
+    },
+    moveCorners: () => {
+      if (!settle()) return
+      const layer = current() && activeLayer(current()!)
+      if (layer) corners.start(layer.id)
     },
     textWrap: () => {
       const d = current()
@@ -3020,6 +3034,7 @@ export default function App() {
 
   const override: LayerOverride | null =
     straightenPhoto.override ??
+    corners.override ??
     (textEdit?.cell
       ? { layerId: textEdit.cell.table.id, layer: { ...textEdit.cell.table, hiddenCell: { row: textEdit.cell.row, column: textEdit.cell.column } } }
       : textEdit && !textEdit.isNew
@@ -3122,6 +3137,7 @@ export default function App() {
       blurBackground: activeNow.kind === 'raster' ? () => void blurBackground.start(activeNow.id) : undefined,
       turnIntoShapes: activeNow.kind === 'raster' ? () => traceShapes.open(activeNow.id) : undefined,
       straighten: activeNow.kind === 'raster' ? commands.straighten : undefined,
+      moveCorners: activeNow.kind === 'raster' ? commands.moveCorners : undefined,
       textWrap: canWrapText(activeNow) ? textWrapControls(doc, activeNow) : undefined,
       upscale: activeNow.kind === 'raster' ? () => setPictureHelper({ kind: 'upscale', layerId: activeNow.id }) : undefined,
       findWords: activeNow.kind === 'raster' ? () => setPictureHelper({ kind: 'words', layerId: activeNow.id }) : undefined,
@@ -3460,10 +3476,10 @@ export default function App() {
                 }
                 onBlocked={problem}
                 override={override}
-                box={box}
+                box={corners.pending ? null : box}
                 onFill={handleFill}
                 onCompareChange={(on) => setComparing(on && adjustChanged)}
-                arrange={arrangeControls}
+                arrange={corners.pending ? null : arrangeControls}
                 shapes={shapeDrawing}
                 pen={tool === 'pen' ? pen : null}
                 onEditShape={editPoints}
@@ -3479,6 +3495,8 @@ export default function App() {
               />
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
               {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
+              {corners.dots && <CornerHandles state={corners.dots} viewport={viewport} />}
+              {corners.panel && <CornersPanel state={corners.panel} />}
               {doc.layers.length === 0 && tool === 'move' && !textEdit ? (
                 <StartHere
                   onAddWords={() => addText('heading')}
@@ -3491,7 +3509,7 @@ export default function App() {
                 smart.preview ? (
                   <SmartPreviewBar preview={smart.preview} onApply={smart.apply} onCancel={smart.cancel} />
                 ) : (
-                  !straightenPhoto.panel && (
+                  !straightenPhoto.panel && !corners.panel && (
                     <ToolHint
                       tool={hintTool}
                       extra={hintExtra}

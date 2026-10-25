@@ -98,6 +98,14 @@ export const GOALS: Goal[] = [
     keywords: ['cut out', 'transparent', 'isolate', 'background eraser'],
   },
   {
+    id: 'corners',
+    goal: msg('Put a photo onto a sign or screen, or flatten a slanted page'),
+    how: msg('Click the photo and choose Move the corners. In Fit to a place, drag its corners where they should go; in Face front, put the dots on the corners of the slanted page and press Apply.'),
+    action: 'move-corners',
+    pro: 'Distort, Perspective, Perspective Crop, Free Distort',
+    keywords: ['mockup', 'perspective', 'distort', 'skew', 'scan', 'document', 'keystone', 'billboard', 'screen'],
+  },
+  {
     id: 'cut-out',
     goal: msg('Cut a part out of a picture'),
     how: msg('Choose Select, draw around the part, then press To new layer. The part becomes its own piece you can move.'),

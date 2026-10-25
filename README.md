@@ -107,6 +107,13 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   long straight lines in a photo and shows it turned level, grown just enough that no empty corners
   show. A slider turns it a little more or less; Apply keeps it as one undo step. Plain code on the
   photo's own pixels, nothing downloaded; a photo filling the page keeps every original pixel.
+- **Move the corners.** With a photo picked, Move the corners puts a dot on each of its corners.
+  "Fit to a place" (pro: Distort, Perspective) bends the photo to wherever the dots go, so a design
+  sits on a sign, a phone screen or the side of a box as if it were really there. "Face front" (pro:
+  Perspective Crop) goes the other way: put the dots on the corners of a page, sign or painting
+  photographed at a slant, and it comes out flat and square. You see it while you drag (Face front
+  shows the result small in the card), and Apply keeps it as one undo step, made once from the
+  photo's own pixels at full detail; faded parts move with it.
 - **Crops start on the main thing.** Picking a crop shape (Square, 4:5, 16:9) places the frame over
   the most important part of the design instead of the plain middle (pro: Content-Aware Crop), and a
   photo dropped into a shape starts on its main thing; "Center on the main thing" does it again.
@@ -253,6 +260,7 @@ src/
     brushes.ts   The ready-made brushes and erasers
     color.ts     Color codes and the color picker math
     straighten.ts  Finding how far a photo leans (Sobel edges and a Hough transform; straightenBox.ts turns it)
+    corners.ts   Perspective maps between a square and any four corners, and new pixels made through them (cornerPhoto.ts applies them)
     saliency.ts  Finding the important part of a picture, for crops and photos in shapes (smartPhoto.ts uses both)
     ...          The document, zoom math, drawing to screen, opening and downloading files
   text/
@@ -367,5 +375,6 @@ pulling in see-through pixels, so blurred photos keep solid edges.
    selectable text are done).
 10. **Pro layers and photo tools** (Photoshop) — blend modes, effects (shadow, glow,
    outline), curves and levels, clone and heal, select by color and select subject, and an easy
-   way to fade or hide parts of a layer (with a brush, never a mask to learn: done).
+   way to fade or hide parts of a layer (with a brush, never a mask to learn: done), moving a
+   photo's corners to fit it to a place or make a slanted page face front (done).
 11. **Ready to sell** — accounts, saving to the cloud, payments and a free trial.

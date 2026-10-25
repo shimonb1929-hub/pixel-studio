@@ -1,4 +1,4 @@
-import { Aperture, ImageUpscale, Ruler, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin } from 'lucide-react'
+import { Aperture, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -636,6 +636,7 @@ export interface ArrangeBarControls {
   turnIntoShapes?: () => void
   // Set when one photo is picked: turns it so its lines are level.
   straighten?: () => void
+  moveCorners?: () => void
   // Set when one picture or shape is picked: whether text flows around it, and how.
   textWrap?: TextWrapControls
   // Set with one photo or drawing picked: open Bigger and sharper, or Words from a picture.
@@ -1383,7 +1384,7 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
         />
         {!part && target.kind !== 'many' && <LineUpMenu several={false} onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
         {controls.textWrap && <TextWrapMenu controls={controls.textWrap} />}
-        {(controls.straighten || controls.removeBackground || controls.blurBackground || controls.turnIntoShapes || controls.upscale || controls.findWords) && (
+        {(controls.straighten || controls.moveCorners || controls.removeBackground || controls.blurBackground || controls.turnIntoShapes || controls.upscale || controls.findWords) && (
           <PhotoToolsMenu
             name={target.name}
             items={[
@@ -1392,6 +1393,12 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
                 label: t('Straighten'),
                 description: t('Finds the horizon, walls or other long straight lines in “{name}” and turns it so they are level (pro: Auto Straighten). You see it first and can fine-tune it.', { name: target.name }),
                 run: controls.straighten,
+              },
+              controls.moveCorners && {
+                icon: VectorSquare,
+                label: t('Move the corners'),
+                description: t('Drag the four corners of “{name}” to put it onto a sign, a screen or a box, or to make a slanted page or sign face front. You see it before you keep it.', { name: target.name }),
+                run: controls.moveCorners,
               },
               controls.removeBackground && {
                 icon: Eraser,
