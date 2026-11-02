@@ -39,7 +39,7 @@ import { GradientHandles } from './components/GradientHandles.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
 import { PhotoColors, ReadableNote, SmartPreviewBar } from './components/SmartHelpers.tsx'
 import { useSmartDesign } from './hooks/useSmartDesign.ts'
-import { effectThumbnails, flattenDocument } from './editor/compose.ts'
+import { effectThumbnails, flattenDocument, mergeLayers } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
 import { adjustmentLabel, autoColor, autoLight, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, tidyAdjustments, type Adjustments } from './editor/adjust.ts'
 import { adjustArea, lookThumbnails, paintAdjusted, pixelsToMeasure, previewParts } from './editor/adjustSession.ts'
@@ -68,7 +68,9 @@ import {
   duplicateLayers,
   insertLayerAboveActive,
   keepTogether,
+  layersToJoin,
   moveLayersBy,
+  moveLayersNextTo,
   moveLayersTo,
   nextLayerName,
   pickedWith,
@@ -2354,6 +2356,26 @@ export default function App() {
       const ids = targets()
       editor.change(direction > 0 ? t('Bring forward') : t('Send backward'), (d) => moveLayersBy(d, ids, direction))
     },
+    // Dragged in the Layers list and dropped above or below other layers.
+    dragTo: (ids: string[], targetIds: string[], side: 'above' | 'below') => {
+      settle()
+      editor.change(t('Change the layer order'), (d) => moveLayersNextTo(d, ids, targetIds, side))
+    },
+    // Joins the picked layers, or the selected one and the layer below it, into one picture layer.
+    join: () => {
+      settle()
+      const d = current()
+      if (!d) return
+      const ids = layersToJoin(d, targets())
+      if (!Array.isArray(ids)) {
+        inform(ids.reason)
+        return
+      }
+      const top = d.layers.filter((l) => ids.includes(l.id)).at(-1)
+      const bytes = d.layers.reduce((sum, l) => (ids.includes(l.id) ? sum + layerBytes(l) : sum), 0)
+      editor.change(t('Join into one layer'), (doc) => mergeLayers(doc, ids, top?.name ?? nextLayerName(doc.layers)) ?? doc, { bytes })
+      setPicked(null)
+    },
     toEnd: (end: 'front' | 'back') => {
       settle()
       const ids = targets()
@@ -2733,6 +2755,7 @@ export default function App() {
     layerDown: () => layers.move(-1),
     layerToFront: () => layers.toEnd('front'),
     layerToBack: () => layers.toEnd('back'),
+    layerJoin: layers.join,
     layerToggle: () => activeNow && layers.toggleVisibility(activeNow.id),
     layerDelete: layers.remove,
     keepTogether: organize.keepTogether,
@@ -2875,6 +2898,7 @@ export default function App() {
       else if (mod && !event.shiftKey && code === 'KeyC' && hasDoc) action = c.copy
       else if (mod && code === 'KeyX' && hasDoc) action = c.cut
       else if (mod && code === 'KeyJ' && hasDoc) action = c.toNewLayer
+      else if (mod && !event.shiftKey && code === 'KeyE' && hasDoc) action = c.layerJoin
       else if (mod && code === 'KeyG' && hasDoc) action = event.shiftKey ? c.takeApart : c.keepTogether
       else if (event.altKey && !mod && code === 'Backspace' && hasDoc) action = c.fill
       else if (plain && (code === 'Delete' || code === 'Backspace') && hasDoc && currentTool === 'pen') action = c.penDelete
@@ -3750,6 +3774,8 @@ export default function App() {
             onAdd={layers.add}
             onDuplicate={layers.duplicate}
             onMove={layers.move}
+            onDragTo={layers.dragTo}
+            onJoin={layers.join}
             onDelete={layers.remove}
             onPickPage={layers.pickPage}
             onSeeThrough={layers.seeThrough}

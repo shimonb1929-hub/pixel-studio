@@ -1,4 +1,5 @@
 import type { EditorDocument, Layer, LayerGroup, PixelLayer, ShapeLayer } from './types.ts'
+import { t } from '../i18n/i18n.ts'
 
 // Small, pure steps for changing the layer stack. Each returns a new document and leaves the
 // old one untouched, which is what makes undo simple.
@@ -208,4 +209,83 @@ export function replaceLayer(doc: EditorDocument, layer: Layer): EditorDocument 
 export function selectLayer(doc: EditorDocument, layerId: string): EditorDocument {
   if (layerId === '') return doc.activeLayerId === '' ? doc : { ...doc, activeLayerId: '' }
   return doc.layers.some((l) => l.id === layerId) ? { ...doc, activeLayerId: layerId } : doc
+}
+
+// Moves the chosen layers (dragged in the Layers list) to just above or just below the target layers,
+// gathered together in their order. Whole groups move as one and are never split; when only part of
+// a group is chosen, it moves inside its group, step by step.
+export function moveLayersNextTo(doc: EditorDocument, ids: string[], targetIds: string[], side: 'above' | 'below'): EditorDocument {
+  const chosen = new Set(ids)
+  const target = new Set(targetIds.filter((id) => !chosen.has(id)))
+  if (chosen.size === 0 || target.size === 0) return doc
+  const partly = doc.layers.some((l) => l.group && chosen.has(l.id) && groupMembers(doc, l.group.id).some((m) => !chosen.has(m.id)))
+  if (partly) return stepNextTo(doc, ids, target, side)
+  // Runs of layers that move as one: a whole group, or a single layer.
+  const units: Layer[][] = []
+  for (const layer of doc.layers) {
+    const last = units[units.length - 1]
+    if (last && layer.group && last[0].group?.id === layer.group.id) last.push(layer)
+    else units.push([layer])
+  }
+  const moving = units.filter((u) => u.some((l) => chosen.has(l.id)))
+  const rest = units.filter((u) => !moving.includes(u))
+  const at = rest.findIndex((u) => u.some((l) => target.has(l.id)))
+  if (at === -1) return doc
+  // The highest target unit for above, the lowest for below.
+  let index = at
+  if (side === 'above') while (rest[index + 1]?.some((l) => target.has(l.id))) index++
+  const placed = side === 'above' ? [...rest.slice(0, index + 1), ...moving, ...rest.slice(index + 1)] : [...rest.slice(0, index), ...moving, ...rest.slice(index)]
+  const layers = placed.flat()
+  return layers.every((l, i) => l === doc.layers[i]) ? doc : { ...doc, layers }
+}
+
+// Where the chosen layers sit in the stack: the lowest and highest index.
+function span(doc: EditorDocument, ids: Set<string>): [number, number] {
+  let low = -1
+  let high = -1
+  doc.layers.forEach((l, i) => {
+    if (!ids.has(l.id)) return
+    if (low === -1) low = i
+    high = i
+  })
+  return [low, high]
+}
+
+// Part of a group: steps it like Bring forward and Send backward until it is next to the target, or
+// as close as it can come while staying in its group.
+function stepNextTo(doc: EditorDocument, ids: string[], target: Set<string>, side: 'above' | 'below'): EditorDocument {
+  const chosen = new Set(ids)
+  const placed = (d: EditorDocument) => {
+    const [low, high] = span(d, chosen)
+    const [targetLow, targetHigh] = span(d, target)
+    return side === 'above' ? low > targetHigh : high < targetLow
+  }
+  const [low] = span(doc, chosen)
+  const [targetLow, targetHigh] = span(doc, target)
+  // Toward the target until in place, or back as close as it can come while staying in place.
+  const toward: 1 | -1 = placed(doc) ? (low > targetHigh ? -1 : 1) : low < targetLow ? 1 : -1
+  let current = doc
+  for (let step = 0; step < doc.layers.length; step++) {
+    if (placed(current) && toward === (side === 'above' ? 1 : -1)) break
+    const next = moveLayersBy(current, ids, toward)
+    if (next === current) break
+    if (placed(current) && !placed(next)) break
+    current = next
+  }
+  return current
+}
+
+// What "Join into one layer" joins: the picked layers, or one layer and the one right below it.
+// Returns the layer ids, or why they can't be joined.
+export function layersToJoin(doc: EditorDocument, ids: string[]): string[] | { reason: string } {
+  const chosen = doc.layers.filter((l) => ids.includes(l.id))
+  if (chosen.length === 0) return { reason: t('Pick a layer first. The page itself always stays at the back.') }
+  if (chosen.length === 1) {
+    const index = doc.layers.indexOf(chosen[0])
+    const below = doc.layers[index - 1]
+    if (!below) return { reason: t('There is nothing below it to join with. Pick two or more layers, or one that has a layer below it.') }
+    chosen.unshift(below)
+  }
+  if (chosen.filter((l) => l.visible).length < 2) return { reason: t('Hidden layers are not joined. Show them first.') }
+  return chosen.map((l) => l.id)
 }

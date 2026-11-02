@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { boxInFrame } from './arrange.ts'
-import { insertLayerAboveActive, keepTogether, moveLayersBy, moveLayersTo, pickedWith, removeLayers, takeApart, tidyGroups } from './layers.ts'
+import { insertLayerAboveActive, keepTogether, moveLayersBy, moveLayersNextTo, moveLayersTo, pickedWith, removeLayers, takeApart, tidyGroups } from './layers.ts'
 import type { EditorDocument, Layer } from './types.ts'
 
 const layer = (id: string, group?: string): Layer => ({
@@ -92,5 +92,37 @@ describe('boxInFrame', () => {
     expect(flipped.cx).toBeCloseTo(75)
     expect(flipped.width).toBe(-20)
     expect(flipped.rotation).toBeCloseTo(-0.3)
+  })
+})
+
+describe('dragging layers in the list', () => {
+  it('puts a dragged layer right above or below the one it is dropped on', () => {
+    const d = doc([layer('a'), layer('b'), layer('c'), layer('d')])
+    expect(order(moveLayersNextTo(d, ['a'], ['c'], 'above'))).toEqual(['b', 'c', 'a', 'd'])
+    expect(order(moveLayersNextTo(d, ['d'], ['b'], 'below'))).toEqual(['a', 'd', 'b', 'c'])
+    expect(order(moveLayersNextTo(d, ['d'], ['a'], 'below'))).toEqual(['d', 'a', 'b', 'c'])
+    expect(moveLayersNextTo(d, ['b'], ['a'], 'above')).toBe(d)
+    expect(moveLayersNextTo(d, ['b'], ['b'], 'above')).toBe(d)
+  })
+
+  it('gathers several dragged layers together, in their order', () => {
+    const d = doc([layer('a'), layer('b'), layer('c'), layer('d'), layer('e')])
+    expect(order(moveLayersNextTo(d, ['a', 'c'], ['e'], 'above'))).toEqual(['b', 'd', 'e', 'a', 'c'])
+    expect(order(moveLayersNextTo(d, ['b', 'e'], ['a'], 'below'))).toEqual(['b', 'e', 'a', 'c', 'd'])
+  })
+
+  it('moves a whole group as one, and never drops a layer into the middle of a group', () => {
+    const d = doc([layer('x'), layer('a', 'g'), layer('b', 'g'), layer('y')])
+    expect(order(moveLayersNextTo(d, ['a', 'b'], ['y'], 'above'))).toEqual(['x', 'y', 'a:g', 'b:g'])
+    expect(order(moveLayersNextTo(d, ['y'], ['a'], 'above'))).toEqual(['x', 'a:g', 'b:g', 'y'])
+    expect(order(moveLayersNextTo(d, ['y'], ['b'], 'below'))).toEqual(['x', 'y', 'a:g', 'b:g'])
+  })
+
+  it('a part of a group moves inside its group', () => {
+    const d = doc([layer('a', 'g'), layer('b', 'g'), layer('c', 'g'), layer('y')])
+    expect(order(moveLayersNextTo(d, ['a'], ['c'], 'above'))).toEqual(['b:g', 'c:g', 'a:g', 'y'])
+    expect(order(moveLayersNextTo(d, ['c'], ['a'], 'below'))).toEqual(['c:g', 'a:g', 'b:g', 'y'])
+    expect(order(moveLayersNextTo(d, ['c'], ['a'], 'above'))).toEqual(['a:g', 'c:g', 'b:g', 'y'])
+    expect(order(moveLayersNextTo(d, ['a'], ['y'], 'above'))).toEqual(['b:g', 'c:g', 'a:g', 'y'])
   })
 })

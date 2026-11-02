@@ -63,6 +63,7 @@ export const PRO_NAMES: Record<string, string> = {
   'Keep together': 'Group',
   'Take apart': 'Ungroup',
   'Lock layer': 'Lock',
+  'Join into one layer': 'Merge Layers, Merge Down',
   // Shapes and drawing
   'Make one shape': 'Pathfinder, Shape Builder',
   Join: 'Unite',

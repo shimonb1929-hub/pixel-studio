@@ -1,6 +1,8 @@
 import { isNeutral } from './adjust.ts'
 import { adjustArea, renderAdjusted } from './adjustSession.ts'
-import { createCanvas, getContext2d } from './document.ts'
+import { createCanvas, getContext2d, layerFromCanvas, MAX_LAYER_SIDE } from './document.ts'
+import { unionRect, type Rect } from './geometry.ts'
+import { tidyGroups } from './layers.ts'
 import { drawWithEffects, effectsReach, type DrawOptions, type LayerEffects } from './effects.ts'
 import { drawLayerContent, layerBounds, layerPixels } from './objects.ts'
 import { layerVersion } from './pixelVersion.ts'
@@ -86,4 +88,41 @@ export function effectThumbnails(doc: EditorDocument, layer: Layer, looks: Layer
     drawLayer(ctx, doc, { ...base, effects }, { blend: false })
     return canvas
   })
+}
+
+// Joins layers into one picture layer, as they look on the design (adjustments, effects, softly
+// hidden parts, how solid and how they mix included), where the highest of them was. Hidden layers
+// are left as they are. Returns null when fewer than two of them show.
+export function mergeLayers(doc: EditorDocument, ids: string[], name: string): EditorDocument | null {
+  const chosen = new Set(ids)
+  const joined = doc.layers.filter((l) => chosen.has(l.id) && l.visible)
+  if (joined.length < 2) return null
+  let area: Rect | null = null
+  for (const l of joined) {
+    const bounds = layerBounds(l)
+    const reach = effectsReach(l.effects)
+    area = unionRect(area, { x: bounds.x - reach, y: bounds.y - reach, width: bounds.width + 2 * reach, height: bounds.height + 2 * reach })
+  }
+  if (!area) return null
+  const x = Math.floor(area.x)
+  const y = Math.floor(area.y)
+  const width = Math.max(1, Math.min(MAX_LAYER_SIDE, Math.ceil(area.x + area.width) - x))
+  const height = Math.max(1, Math.min(MAX_LAYER_SIDE, Math.ceil(area.y + area.height) - y))
+  const canvas = createCanvas(width, height)
+  const ctx = getContext2d(canvas)
+  ctx.imageSmoothingQuality = 'high'
+  ctx.translate(-x, -y)
+  for (const layer of joined) {
+    ctx.globalAlpha = layer.opacity
+    drawLayer(ctx, doc, layer)
+  }
+  const top = joined[joined.length - 1]
+  const merged = layerFromCanvas(name, canvas, x, y)
+  const gone = new Set(joined.map((l) => l.id))
+  const layers: Layer[] = []
+  for (const layer of doc.layers) {
+    if (layer === top) layers.push(merged)
+    else if (!gone.has(layer.id)) layers.push(layer)
+  }
+  return tidyGroups({ ...doc, layers, activeLayerId: merged.id })
 }

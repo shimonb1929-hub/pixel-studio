@@ -58,6 +58,7 @@ export interface AppCommands {
   layerDown: () => void
   layerToFront: () => void
   layerToBack: () => void
+  layerJoin: () => void
   layerToggle: () => void
   layerDelete: () => void
   keepTogether: () => void
@@ -441,6 +442,17 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: noLayerPicked ?? (activeIndex === 0 ? t('This layer is already at the back.') : undefined),
       run: c.layerDown,
+    },
+    {
+      id: 'layer-join',
+      group: 'Layers',
+      title: t('Join into one layer'),
+      description: t('Join the picked layers, or the selected layer and the one below it, into one picture layer that looks just the same. You can undo this.'),
+      keywords: ['merge', 'merge layers', 'merge down', 'flatten', 'combine layers', 'join layers', 'one layer', 'stamp'],
+      shortcut: shortcut('mod', 'E'),
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: c.layerJoin,
     },
     {
       id: 'layer-front',
