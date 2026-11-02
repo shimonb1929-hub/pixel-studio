@@ -1548,8 +1548,13 @@ export default function App() {
     if (!crop || !d || isIdentity(crop.box, fullFrame(d))) return
     const rect = cropRect(crop.box)
     editor.change(t('Crop'), (doc) => changeEveryPage(doc, (page) => cropDocument(page, rect)))
-    // Keep the part you kept exactly where it was on screen.
-    setViewport((v) => ({ ...v, panX: v.panX + rect.x * v.zoom, panY: v.panY + rect.y * v.zoom }))
+    // Keep the part you kept exactly where it was on screen, if it all shows; else fit it in view.
+    setViewport((v) => {
+      const kept = { ...v, panX: v.panX + rect.x * v.zoom, panY: v.panY + rect.y * v.zoom }
+      const area = lastWorkspaceRef.current
+      const inView = kept.panX >= 0 && kept.panY >= 0 && kept.panX + rect.width * v.zoom <= area.width && kept.panY + rect.height * v.zoom <= area.height
+      return inView ? kept : fitted(rect, false)
+    })
     setCropEdit(null)
   }
 
@@ -2371,9 +2376,13 @@ export default function App() {
         inform(ids.reason)
         return
       }
-      const top = d.layers.filter((l) => ids.includes(l.id)).at(-1)
-      const bytes = d.layers.reduce((sum, l) => (ids.includes(l.id) ? sum + layerBytes(l) : sum), 0)
-      editor.change(t('Join into one layer'), (doc) => mergeLayers(doc, ids, top?.name ?? nextLayerName(doc.layers)) ?? doc, { bytes })
+      const joined = d.layers.filter((l) => ids.includes(l.id))
+      // A whole group joined is named after the group; otherwise after the top layer.
+      const group = joined[0].group
+      const wholeGroup = group && joined.every((l) => l.group?.id === group.id) && d.layers.filter((l) => l.group?.id === group.id).length === joined.length
+      const name = wholeGroup ? group.name : joined[joined.length - 1].name
+      const bytes = joined.reduce((sum, l) => sum + layerBytes(l), 0)
+      editor.change(t('Join into one layer'), (doc) => mergeLayers(doc, ids, name) ?? doc, { bytes })
       setPicked(null)
     },
     toEnd: (end: 'front' | 'back') => {
@@ -2561,7 +2570,16 @@ export default function App() {
     openFile: (file) => void openFile(file),
     selectAll: () => {
       settle()
-      if (current()) setSelection(t('Select all'), (d) => selectAll(d.width, d.height))
+      const d = current()
+      if (!d) return
+      // With Arrange, everything on the design is picked, like the box you drag around things.
+      const things = d.layers.filter((l) => l.visible && !l.locked).map((l) => l.id)
+      if (tool === 'move' && things.length > 0) {
+        if (d.selection) setSelection(t('Let go'), () => null)
+        pickMany(things)
+        return
+      }
+      setSelection(t('Select all'), (doc) => selectAll(doc.width, doc.height))
     },
     deselect: () => {
       settle()

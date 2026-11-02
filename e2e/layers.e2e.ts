@@ -84,3 +84,15 @@ test('join a layer with the one below it, or several picked layers, into one', a
   await layerList(page).getByRole('button', { name: 'Layer: Rectangle 2' }).click()
   await expect(join).toHaveAttribute('aria-disabled', 'true')
 })
+
+test('Ctrl+A with Arrange picks everything on the design', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawRectangle(page, size, [40, 40], [80, 80])
+  await drawRectangle(page, size, [120, 60], [160, 100])
+  await page.keyboard.press('v')
+  await page.keyboard.press('Control+a')
+  await expect(page.getByRole('toolbar')).toContainText('2 things')
+  // Then they can be kept together at once.
+  await page.keyboard.press('Control+g')
+  await expect(layerList(page).getByRole('button', { name: /^Kept together: / })).toHaveCount(1)
+})

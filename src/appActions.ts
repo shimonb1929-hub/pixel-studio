@@ -1,6 +1,6 @@
 import type { Action } from './actions.ts'
 import { LOOKS } from './editor/adjust.ts'
-import { activeLayer } from './editor/layers.ts'
+import { activeLayer, layersToJoin } from './editor/layers.ts'
 import { pageCount, pageIndex } from './editor/pages.ts'
 import { photoSources } from './editor/palette.ts'
 import { hasPageNumbers } from './editor/everyPage.ts'
@@ -129,6 +129,8 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
   const noLayerPicked = doc && !active ? t('Pick something on your design first.') : undefined
   const noSelection = doc && !doc.selection ? t(NOTHING_SELECTED) : undefined
   const onlyPage = doc && pageCount(doc) < 2 ? t('This design has only one page.') : undefined
+  const join = doc && active ? layersToJoin(doc, organize.picked ?? [active.id]) : null
+  const joinBlocker = join && !Array.isArray(join) ? join.reason : undefined
   const pickSeveral = t('Pick two or more things first: drag a box around them on your design, or hold Shift and click each one.')
 
   return [
@@ -334,8 +336,8 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       id: 'select-all',
       group: 'Select',
       title: t('Select all'),
-      description: t('Select the whole design.'),
-      keywords: ['select all', 'everything', 'whole'],
+      description: t('With Arrange, pick everything on your design. With the other tools, select the whole design.'),
+      keywords: ['select all', 'everything', 'whole', 'pick all', 'all things'],
       shortcut: shortcut('mod', 'A'),
       needsDocument: true,
       run: c.selectAll,
@@ -451,7 +453,7 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       keywords: ['merge', 'merge layers', 'merge down', 'flatten', 'combine layers', 'join layers', 'one layer', 'stamp'],
       shortcut: shortcut('mod', 'E'),
       needsDocument: true,
-      disabledReason: noLayerPicked,
+      disabledReason: noLayerPicked ?? joinBlocker,
       run: c.layerJoin,
     },
     {

@@ -2050,5 +2050,7 @@
  "Join the picked layers, or the selected layer and the one below it, into one picture layer that looks just the same. You can undo this.": "מאחד את השכבות שנבחרו, או את השכבה הנבחרת עם זו שמתחתיה, לשכבת תמונה אחת שנראית בדיוק אותו דבר. אפשר לבטל את זה.",
  "Join the selected layer with the layer below it into one picture layer, looking just the same. Text and shapes become part of the picture. You can undo this.": "מאחד את השכבה הנבחרת עם השכבה שמתחתיה לשכבת תמונה אחת, שנראית בדיוק אותו דבר. טקסט וצורות הופכים לחלק מהתמונה. אפשר לבטל את זה.",
  "Pick the layer and press Join into one layer under the Layers panel: it joins with the layer below it. Hold Shift and click to join several.": "בחר את השכבה ולחץ “איחוד לשכבה אחת” מתחת לחלונית השכבות: היא מתאחדת עם השכבה שמתחתיה. החזק Shift ולחץ כדי לאחד כמה.",
- "There is nothing below it to join with. Pick two or more layers, or one that has a layer below it.": "אין מתחתיה שום דבר להתאחד איתו. בחר שתי שכבות או יותר, או שכבה שיש שכבה מתחתיה."
+ "There is nothing below it to join with. Pick two or more layers, or one that has a layer below it.": "אין מתחתיה שום דבר להתאחד איתו. בחר שתי שכבות או יותר, או שכבה שיש שכבה מתחתיה.",
+ "With Arrange, pick everything on your design. With the other tools, select the whole design.": "עם “סידור”, בוחר את כל מה שיש בעיצוב. עם שאר הכלים, מסמן את כל העיצוב.",
+ "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "“{name}” נמצא בכל העמודים, ולכן אי אפשר לאחד אותו. קודם לחץ על הסימן “בכל העמודים” שלו בחלונית השכבות, כדי להשאיר אותו רק בעמוד הזה."
 }

@@ -287,5 +287,8 @@ export function layersToJoin(doc: EditorDocument, ids: string[]): string[] | { r
     chosen.unshift(below)
   }
   if (chosen.filter((l) => l.visible).length < 2) return { reason: t('Hidden layers are not joined. Show them first.') }
+  // Joining would take it off the other pages too.
+  const shared = chosen.find((l) => l.everyPage)
+  if (shared) return { reason: t("“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.", { name: shared.name }) }
   return chosen.map((l) => l.id)
 }

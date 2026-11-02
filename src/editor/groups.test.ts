@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { boxInFrame } from './arrange.ts'
-import { insertLayerAboveActive, keepTogether, moveLayersBy, moveLayersNextTo, moveLayersTo, pickedWith, removeLayers, takeApart, tidyGroups } from './layers.ts'
+import { insertLayerAboveActive, keepTogether, layersToJoin, moveLayersBy, moveLayersNextTo, moveLayersTo, pickedWith, removeLayers, takeApart, tidyGroups } from './layers.ts'
 import type { EditorDocument, Layer } from './types.ts'
 
 const layer = (id: string, group?: string): Layer => ({
@@ -124,5 +124,21 @@ describe('dragging layers in the list', () => {
     expect(order(moveLayersNextTo(d, ['c'], ['a'], 'below'))).toEqual(['c:g', 'a:g', 'b:g', 'y'])
     expect(order(moveLayersNextTo(d, ['c'], ['a'], 'above'))).toEqual(['a:g', 'c:g', 'b:g', 'y'])
     expect(order(moveLayersNextTo(d, ['a'], ['y'], 'above'))).toEqual(['b:g', 'c:g', 'a:g', 'y'])
+  })
+})
+
+describe('what Join into one layer joins', () => {
+  it('one layer joins with the layer below it; several picked join together', () => {
+    const d = doc([layer('a'), layer('b'), layer('c')])
+    expect(layersToJoin(d, ['b'])).toEqual(['a', 'b'])
+    expect(layersToJoin(d, ['c', 'a'])).toEqual(['a', 'c'])
+  })
+
+  it('explains why when there is nothing to join', () => {
+    const d = doc([layer('a'), { ...layer('b'), visible: false }, { ...layer('c'), everyPage: 'e1' }, layer('d')])
+    expect(layersToJoin(d, [])).toHaveProperty('reason')
+    expect(layersToJoin(d, ['a'])).toHaveProperty('reason')
+    expect(layersToJoin(d, ['b'])).toHaveProperty('reason')
+    expect(layersToJoin(d, ['d'])).toHaveProperty('reason')
   })
 })
