@@ -295,7 +295,6 @@
  "Copy paint": "Peindre en copiant",
  "Copy paint (Clone)": "Peindre en copiant (Tampon de duplication)",
  "Copy paint works on photos and drawings. Click the part of a picture you want to copy.": "Peindre en copiant fonctionne sur les photos et les dessins. Cliquez sur la partie d’une image que vous voulez copier.",
- "Copy the selected part and remove it from the layer, so you can paste it somewhere else.": "Copie la partie sélectionnée et la retire du calque, pour la coller ailleurs.",
  "Copy the selected part of the layer onto a new layer of its own, so you can move or change it separately.": "Copie la partie sélectionnée du calque sur un nouveau calque à part, pour la déplacer ou la modifier séparément.",
  "Copy the selected part of the selected layer (or the whole layer if nothing is selected), so you can paste it.": "Copie la partie sélectionnée du calque sélectionné (ou tout le calque si rien n’est sélectionné), pour pouvoir la coller.",
  "Copy this page": "Copier cette page",
@@ -2052,5 +2051,7 @@
  "Pick the layer and press Join into one layer under the Layers panel: it joins with the layer below it. Hold Shift and click to join several.": "Choisissez le calque et appuyez sur Fusionner en un calque sous le panneau Calques : il fusionne avec le calque du dessous. Maintenez Shift et cliquez pour en fusionner plusieurs.",
  "There is nothing below it to join with. Pick two or more layers, or one that has a layer below it.": "Il n’y a rien en dessous avec quoi fusionner. Choisissez deux calques ou plus, ou un calque qui en a un en dessous.",
  "With Arrange, pick everything on your design. With the other tools, select the whole design.": "Avec Disposer, choisit tout ce qui se trouve sur votre création. Avec les autres outils, sélectionne toute la création.",
- "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "« {name} » est sur chaque page, il ne peut donc pas être fusionné. Cliquez d’abord sur sa marque Sur chaque page dans le panneau Calques, pour le garder sur cette page seulement."
+ "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "« {name} » est sur chaque page, il ne peut donc pas être fusionné. Cliquez d’abord sur sa marque Sur chaque page dans le panneau Calques, pour le garder sur cette page seulement.",
+ "Things you can do": "Ce que vous pouvez faire",
+ "Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.": "Copie la partie sélectionnée, ou l’élément choisi, et le retire, pour que vous puissiez le coller ailleurs."
 }

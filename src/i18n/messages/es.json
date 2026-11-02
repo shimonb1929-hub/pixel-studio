@@ -295,7 +295,6 @@
  "Copy paint": "Pintar copiando",
  "Copy paint (Clone)": "Pintar copiando (Tampón de clonar)",
  "Copy paint works on photos and drawings. Click the part of a picture you want to copy.": "Pintar copiando funciona en fotos y dibujos. Haz clic en la parte de una imagen que quieres copiar.",
- "Copy the selected part and remove it from the layer, so you can paste it somewhere else.": "Copia la parte seleccionada y la quita de la capa, para que puedas pegarla en otro sitio.",
  "Copy the selected part of the layer onto a new layer of its own, so you can move or change it separately.": "Copia la parte seleccionada de la capa en una capa nueva propia, para que puedas moverla o cambiarla por separado.",
  "Copy the selected part of the selected layer (or the whole layer if nothing is selected), so you can paste it.": "Copia la parte seleccionada de la capa seleccionada (o toda la capa si no hay nada seleccionado), para que puedas pegarla.",
  "Copy this page": "Copiar esta página",
@@ -2052,5 +2051,7 @@
  "Pick the layer and press Join into one layer under the Layers panel: it joins with the layer below it. Hold Shift and click to join several.": "Elige la capa y pulsa Unir en una capa debajo del panel Capas: se une con la capa de debajo. Mantén Shift y haz clic para unir varias.",
  "There is nothing below it to join with. Pick two or more layers, or one that has a layer below it.": "No hay nada debajo con lo que unirla. Elige dos o más capas, o una que tenga una capa debajo.",
  "With Arrange, pick everything on your design. With the other tools, select the whole design.": "Con Organizar, elige todo lo que hay en tu diseño. Con las demás herramientas, selecciona todo el diseño.",
- "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "“{name}” está en todas las páginas, así que no se puede unir. Primero haz clic en su marca En todas las páginas del panel Capas, para dejarlo solo en esta página."
+ "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "“{name}” está en todas las páginas, así que no se puede unir. Primero haz clic en su marca En todas las páginas del panel Capas, para dejarlo solo en esta página.",
+ "Things you can do": "Cosas que puedes hacer",
+ "Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.": "Copia la parte seleccionada, o la cosa elegida, y la quita, para que puedas pegarla en otro sitio."
 }

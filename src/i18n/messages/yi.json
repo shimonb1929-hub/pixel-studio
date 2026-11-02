@@ -295,7 +295,6 @@
  "Copy paint": "קאפיר־מאלן",
  "Copy paint (Clone)": "קאפיר־מאלן (Clone)",
  "Copy paint works on photos and drawings. Click the part of a picture you want to copy.": "קאפיר־מאלן ארבעט אויף בילדער און צייכענונגען. קוועטשט אויפן טייל פון א בילד וואס איר ווילט קאפירן.",
- "Copy the selected part and remove it from the layer, so you can paste it somewhere else.": "קאפירט דעם אויסגעקליבענעם טייל און נעמט עס אוועק פונעם לעיער, כדי איר זאלט עס קענען אריינלייגן ערגעץ אנדערש.",
  "Copy the selected part of the layer onto a new layer of its own, so you can move or change it separately.": "קאפירט דעם אויסגעקליבענעם טייל פונעם לעיער אויף אן אייגענעם נייעם לעיער, כדי איר זאלט עס קענען באזונדער רירן אדער טוישן.",
  "Copy the selected part of the selected layer (or the whole layer if nothing is selected), so you can paste it.": "קאפירט דעם אויסגעקליבענעם טייל פונעם אויסגעקליבענעם לעיער (אדער דעם גאנצן לעיער אויב גארנישט איז אויסגעקליבן), כדי איר זאלט עס קענען אריינלייגן.",
  "Copy this page": "קאפירט דעם בלאט",
@@ -2052,5 +2051,7 @@
  "Pick the layer and press Join into one layer under the Layers panel: it joins with the layer below it. Hold Shift and click to join several.": "קלויבט אויס דעם לעיער און דריקט פאראייניקן אין איין לעיער אונטערן לעיערס פאנעל: ער ווערט פאראייניקט מיט דעם לעיער אונטער אים. האלט Shift און קליקט צו פאראייניקן עטליכע.",
  "There is nothing below it to join with. Pick two or more layers, or one that has a layer below it.": "עס איז נישטא קיין זאך אונטער אים צו פאראייניקן מיט. קלויבט אויס צוויי אדער מער לעיערס, אדער איינער וואס האט א לעיער אונטער זיך.",
  "With Arrange, pick everything on your design. With the other tools, select the whole design.": "מיט ארדענען, קלויבט אויס אלעס אויף אייער דיזיין. מיט די אנדערע געצייג, קלויבט אויס דעם גאנצן דיזיין.",
- "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "“{name}” איז אויף יעדן בלאט, דערפאר קען מען עס נישט פאראייניקן. קליקט קודם אויף זיין אויף יעדן בלאט צייכן אינעם לעיערס פאנעל, צו לאזן עס נאר אויף דעם בלאט."
+ "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "“{name}” איז אויף יעדן בלאט, דערפאר קען מען עס נישט פאראייניקן. קליקט קודם אויף זיין אויף יעדן בלאט צייכן אינעם לעיערס פאנעל, צו לאזן עס נאר אויף דעם בלאט.",
+ "Things you can do": "זאכן וואס מען קען טון",
+ "Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.": "קאפירט דעם אויסגעקליבענעם טייל, אדער די אויסגעקליבענע זאך, און נעמט עס אוועק, כדי איר זאלט עס קענען אריינלייגן אנדערשווו."
 }

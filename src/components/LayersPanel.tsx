@@ -153,6 +153,8 @@ interface LayersPanelProps {
   onMove: (direction: 1 | -1) => void
   // A row was dragged in the list and dropped above or below other rows.
   onDragTo: (ids: string[], targetIds: string[], side: 'above' | 'below') => void
+  // Right-click on a row: picks it and opens its menu at x, y.
+  onRowMenu: (row: { kind: 'layer' | 'group'; id: string } | { kind: 'page' }, x: number, y: number) => void
   // Joins the picked layers (or one and the layer below it) into one picture layer.
   onJoin: () => void
   onDelete: () => void
@@ -342,6 +344,10 @@ export function LayersPanel(props: LayersPanelProps) {
                 <li
                   key={`group:${group.id}`}
                   {...dragProps(`group:${group.id}`, members.map((l) => l.id))}
+                  onContextMenu={(event) => {
+                    event.preventDefault()
+                    props.onRowMenu({ kind: 'group', id: group.id }, event.clientX, event.clientY)
+                  }}
                   className={`group relative flex items-center gap-0.5 rounded-[10px] pe-1 transition-colors ${selected ? 'bg-accent-soft' : 'hover:bg-subtle'} ${dragging?.includes(members[0].id) ? 'opacity-50' : ''}`}
                 >
                   {dropLine(`group:${group.id}`)}
@@ -401,6 +407,11 @@ export function LayersPanel(props: LayersPanelProps) {
               <li
                 key={layer.id}
                 {...dragProps(layer.id, [layer.id])}
+                onContextMenu={(event) => {
+                  if (renamingId === layer.id) return
+                  event.preventDefault()
+                  props.onRowMenu({ kind: 'layer', id: layer.id }, event.clientX, event.clientY)
+                }}
                 className={`group relative flex items-center gap-1 rounded-[10px] pe-1 transition-colors ${inGroup ? 'ms-5' : ''} ${selected ? 'bg-accent-soft' : 'hover:bg-subtle'} ${dragging?.includes(layer.id) ? 'opacity-50' : ''}`}
               >
                 {dropLine(layer.id)}
@@ -519,7 +530,13 @@ export function LayersPanel(props: LayersPanelProps) {
               </li>
             )
           })}
-          <li {...dragProps('page', [], false)} className={`relative flex items-center gap-1 rounded-[10px] pe-1 transition-colors ${pagePicked ? 'bg-accent-soft' : 'hover:bg-subtle'}`}>
+          <li
+            {...dragProps('page', [], false)}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              props.onRowMenu({ kind: 'page' }, event.clientX, event.clientY)
+            }}
+            className={`relative flex items-center gap-1 rounded-[10px] pe-1 transition-colors ${pagePicked ? 'bg-accent-soft' : 'hover:bg-subtle'}`}>
             {dropLine('page')}
             <Tooltip
               title={t("Page")}

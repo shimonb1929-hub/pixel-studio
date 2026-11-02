@@ -1,4 +1,6 @@
-import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react'
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react'
+import type { Action } from './actions.ts'
+import { ContextMenu } from './components/ContextMenu.tsx'
 import { buildActions, type AppCommands } from './appActions.ts'
 import { AdjustPanel } from './components/AdjustPanel.tsx'
 import { useMatchColors } from './components/useMatchColors.tsx'
@@ -447,6 +449,9 @@ export default function App() {
   const [, setGapsFilled] = useState(0)
   useEffect(() => onGapFilled(() => setGapsFilled((n) => n + 1)), [])
   const [cropEdit, setCropEdit] = useState<CropState | null>(null)
+  // The right-click menu: where it opens, and whether it's for things picked or for the page.
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; thing: boolean } | null>(null)
+  const closeContextMenu = useCallback(() => setContextMenu(null), [])
   const [fillTolerance, setFillTolerance] = useState(0.15)
   const [healSize, setHealSize] = useState(40)
   // Fade: the brush that softly hides parts, whether it hides or brings back, and the ready-made
@@ -2548,6 +2553,15 @@ export default function App() {
     cut: () => {
       settle()
       const d = current()
+      // No area selected: the picked thing itself is cut, copied and then taken off the design.
+      if (d && !d.selection && activeLayer(d) && targets().length === 1) {
+        const piece = selectedPiece()
+        if (!piece) return
+        setClipboard(piece)
+        editor.change(t('Cut'), (doc) => removeLayers(doc, [d.activeLayerId]), { bytes: layerBytes(activeLayer(d)!) })
+        inform(t('Cut. {hint}', { hint: pasteHint }))
+        return
+      }
       if (!d?.selection) {
         problem(t('Select an area first, with the Select tool.'))
         return
@@ -2858,6 +2872,49 @@ export default function App() {
     },
     commands,
   )
+
+  // The right-click menu: the everyday things to do with what was clicked, in short sections.
+  const actionsById = (ids: string[]) => ids.map((id) => actions.find((a) => a.id === id)).filter((a): a is Action => !!a)
+  // Choices that only fit some things (a photo, several things) are left out when they don't fit.
+  const fitting = (ids: string[]) => actionsById(ids).filter((a) => !a.disabledReason)
+  const contextSections: Action[][] = contextMenu?.thing
+    ? [
+        actionsById(['cut', 'copy', 'paste', 'layer-duplicate', 'layer-delete']),
+        actionsById(['layer-front', 'layer-up', 'layer-down', 'layer-back']),
+        [...fitting(['keep-together', 'take-apart']), ...actionsById(['layer-join'])],
+        [...actionsById(['effects']), ...fitting(['remove-background'])],
+      ]
+    : [actionsById(['paste', 'select-all']), actionsById(['color-page', 'add-photo', 'add-table']), actionsById(['fit'])]
+
+  // Right-click on the design: picks what's under the pointer (with Arrange), or opens the page's menu.
+  function openDesignMenu(event: ReactMouseEvent<HTMLElement>) {
+    const d = current()
+    const main = workspaceRef.current
+    // Typing keeps the browser's own menu (spelling, paste); a crop or resize in progress keeps its own handles.
+    if (!d || !main || (event.target as HTMLElement).closest('input, textarea, [contenteditable]') || crop || transform) return
+    event.preventDefault()
+    const rect = main.getBoundingClientRect()
+    const point = { x: (event.clientX - rect.left - main.clientLeft - viewport.panX) / viewport.zoom, y: (event.clientY - rect.top - main.clientTop - viewport.panY) / viewport.zoom }
+    const hit = layerAt(d, point, 3 / viewport.zoom)
+    if (hit) {
+      if (tool !== 'move') setTool('move')
+      if (!targets().includes(hit.id)) {
+        settle()
+        pickMany(pickedWith(d, hit.id))
+      }
+    }
+    setContextMenu({ x: event.clientX, y: event.clientY, thing: !!hit })
+  }
+
+  // Right-click on a row of the Layers list: picks it, like a click, and opens its menu.
+  function openRowMenu(row: { kind: 'layer' | 'group'; id: string } | { kind: 'page' }, x: number, y: number) {
+    if (row.kind === 'page') layers.pickPage()
+    else if (row.kind === 'group') {
+      const members = current()?.layers.filter((l) => l.group?.id === row.id).map((l) => l.id) ?? []
+      if (!members.every((id) => targets().includes(id))) layers.pickGroup(row.id)
+    } else if (!targets().includes(row.id)) layers.select(row.id)
+    setContextMenu({ x, y, thing: row.kind !== 'page' })
+  }
 
   // Keyboard and paste handlers live in effects, so they read the latest commands through refs.
   // A layout effect updates them together with the screen, so a key pressed right after a drag
@@ -3460,6 +3517,7 @@ export default function App() {
 
         <main
           ref={workspaceRef}
+          onContextMenu={openDesignMenu}
           // The start screen sits on the bright room itself; the table with its dots appears with a design.
           className={`relative min-w-0 flex-1 overflow-hidden ${doc ? 'rounded-card border border-line bg-workspace shadow-card' : ''}`}
           style={doc ? DOT_BACKGROUND : undefined}
@@ -3793,6 +3851,7 @@ export default function App() {
             onDuplicate={layers.duplicate}
             onMove={layers.move}
             onDragTo={layers.dragTo}
+            onRowMenu={openRowMenu}
             onJoin={layers.join}
             onDelete={layers.remove}
             onPickPage={layers.pickPage}
@@ -3915,6 +3974,7 @@ export default function App() {
       })()}
 
       {notice && <Toast notice={notice} onDismiss={() => setNotice(null)} />}
+      {contextMenu && doc && <ContextMenu x={contextMenu.x} y={contextMenu.y} sections={contextSections} hasDocument onClose={closeContextMenu} />}
     </div>
   )
 }

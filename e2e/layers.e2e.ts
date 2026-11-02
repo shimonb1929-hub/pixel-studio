@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { designPixel, drag, expectColor, newDesign, type Size } from './helpers.ts'
+import { designPixel, drag, expectColor, newDesign, screenPoint, type Size } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 const BLUE: [number, number, number] = [59, 91, 253]
@@ -95,4 +95,38 @@ test('Ctrl+A with Arrange picks everything on the design', async ({ page }) => {
   // Then they can be kept together at once.
   await page.keyboard.press('Control+g')
   await expect(layerList(page).getByRole('button', { name: /^Kept together: / })).toHaveCount(1)
+})
+
+test('right-click a thing or a layer for a short menu of what you can do with it', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawRectangle(page, size, [40, 40], [80, 80])
+  await drawRectangle(page, size, [120, 60], [160, 100])
+  const menu = page.getByRole('menu', { name: 'Things you can do' })
+
+  // On the design: it picks what's under the pointer, with Arrange.
+  await page.keyboard.press('b')
+  const point = await screenPoint(page, size, 60, 60)
+  await page.mouse.click(point.x, point.y, { button: 'right' })
+  await expect(menu).toBeVisible()
+  await expect(layerButton(page, 'Rectangle 1')).toHaveAttribute('aria-pressed', 'true')
+  await menu.getByRole('menuitem', { name: 'Duplicate layer' }).click()
+  await expect(menu).toBeHidden()
+  expect(await layerNames(page)).toEqual(['Rectangle 2', 'Rectangle 1 copy', 'Rectangle 1'])
+
+  // On a layer row.
+  await layerButton(page, 'Rectangle 2').click({ button: 'right' })
+  await menu.getByRole('menuitem', { name: 'Send to back' }).click()
+  expect(await layerNames(page)).toEqual(['Rectangle 1 copy', 'Rectangle 1', 'Rectangle 2'])
+
+  // Cut works on a picked thing too, not only on a selected area.
+  await layerButton(page, 'Rectangle 1 copy').click({ button: 'right' })
+  await menu.getByRole('menuitem', { name: 'Cut' }).click()
+  expect(await layerNames(page)).toEqual(['Rectangle 1', 'Rectangle 2'])
+
+  // On empty paper: the page's menu. Esc closes it.
+  const empty = await screenPoint(page, size, 300, 250)
+  await page.mouse.click(empty.x, empty.y, { button: 'right' })
+  await expect(menu.getByRole('menuitem', { name: 'Color the page' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(menu).toBeHidden()
 })

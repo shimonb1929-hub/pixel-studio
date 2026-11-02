@@ -295,7 +295,6 @@
  "Copy paint": "צביעה מועתקת",
  "Copy paint (Clone)": "צביעה מועתקת (Clone)",
  "Copy paint works on photos and drawings. Click the part of a picture you want to copy.": "צביעה מועתקת עובדת על תמונות וציורים. לחץ על החלק בתמונה שברצונך להעתיק.",
- "Copy the selected part and remove it from the layer, so you can paste it somewhere else.": "העתק את החלק המסומן והסר אותו מהשכבה, כדי להדביק אותו במקום אחר.",
  "Copy the selected part of the layer onto a new layer of its own, so you can move or change it separately.": "העתק את החלק המסומן של השכבה לשכבה חדשה משלו, כדי להזיז או לשנות אותו בנפרד.",
  "Copy the selected part of the selected layer (or the whole layer if nothing is selected), so you can paste it.": "העתק את החלק המסומן של השכבה שנבחרה (או את כל השכבה אם שום דבר לא מסומן), כדי להדביק אותו.",
  "Copy this page": "העתק את העמוד הזה",
@@ -2052,5 +2051,7 @@
  "Pick the layer and press Join into one layer under the Layers panel: it joins with the layer below it. Hold Shift and click to join several.": "בחר את השכבה ולחץ “איחוד לשכבה אחת” מתחת לחלונית השכבות: היא מתאחדת עם השכבה שמתחתיה. החזק Shift ולחץ כדי לאחד כמה.",
  "There is nothing below it to join with. Pick two or more layers, or one that has a layer below it.": "אין מתחתיה שום דבר להתאחד איתו. בחר שתי שכבות או יותר, או שכבה שיש שכבה מתחתיה.",
  "With Arrange, pick everything on your design. With the other tools, select the whole design.": "עם “סידור”, בוחר את כל מה שיש בעיצוב. עם שאר הכלים, מסמן את כל העיצוב.",
- "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "“{name}” נמצא בכל העמודים, ולכן אי אפשר לאחד אותו. קודם לחץ על הסימן “בכל העמודים” שלו בחלונית השכבות, כדי להשאיר אותו רק בעמוד הזה."
+ "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "“{name}” נמצא בכל העמודים, ולכן אי אפשר לאחד אותו. קודם לחץ על הסימן “בכל העמודים” שלו בחלונית השכבות, כדי להשאיר אותו רק בעמוד הזה.",
+ "Things you can do": "דברים שאפשר לעשות",
+ "Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.": "מעתיק את החלק המסומן, או את הדבר שנבחר, ומוריד אותו, כדי שתוכל להדביק אותו במקום אחר."
 }

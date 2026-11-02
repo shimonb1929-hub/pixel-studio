@@ -316,11 +316,11 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       id: 'cut',
       group: 'Edit',
       title: t('Cut'),
-      description: t('Copy the selected part and remove it from the layer, so you can paste it somewhere else.'),
+      description: t('Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.'),
       keywords: ['cut', 'scissors', 'take out', 'remove and paste'],
       shortcut: shortcut('mod', 'X'),
       needsDocument: true,
-      disabledReason: noSelection,
+      disabledReason: doc && !doc.selection && (!active || (organize.picked?.length ?? 0) > 1) ? t(NOTHING_SELECTED) : undefined,
       run: c.cut,
     },
     {
