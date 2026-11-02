@@ -2053,5 +2053,7 @@
  "With Arrange, pick everything on your design. With the other tools, select the whole design.": "Con Organizar, elige todo lo que hay en tu diseño. Con las demás herramientas, selecciona todo el diseño.",
  "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "“{name}” está en todas las páginas, así que no se puede unir. Primero haz clic en su marca En todas las páginas del panel Capas, para dejarlo solo en esta página.",
  "Things you can do": "Cosas que puedes hacer",
- "Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.": "Copia la parte seleccionada, o la cosa elegida, y la quita, para que puedas pegarla en otro sitio."
+ "Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.": "Copia la parte seleccionada, o la cosa elegida, y la quita, para que puedas pegarla en otro sitio.",
+ "“{name}” mixes with what's below it, which joining would lose. Set its Mix with what's below back to Normal first.": "“{name}” se mezcla con lo que tiene debajo, y al unirla se perdería. Primero vuelve a poner su Mezclar con lo de debajo en Normal.",
+ "“{name}” sits between them. Drag the layers next to each other in the Layers list first, or pick it too.": "“{name}” está entre ellas. Primero arrastra las capas una junto a otra en la lista de Capas, o elígela también."
 }

@@ -2053,5 +2053,7 @@
  "With Arrange, pick everything on your design. With the other tools, select the whole design.": "עם “סידור”, בוחר את כל מה שיש בעיצוב. עם שאר הכלים, מסמן את כל העיצוב.",
  "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "“{name}” נמצא בכל העמודים, ולכן אי אפשר לאחד אותו. קודם לחץ על הסימן “בכל העמודים” שלו בחלונית השכבות, כדי להשאיר אותו רק בעמוד הזה.",
  "Things you can do": "דברים שאפשר לעשות",
- "Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.": "מעתיק את החלק המסומן, או את הדבר שנבחר, ומוריד אותו, כדי שתוכל להדביק אותו במקום אחר."
+ "Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.": "מעתיק את החלק המסומן, או את הדבר שנבחר, ומוריד אותו, כדי שתוכל להדביק אותו במקום אחר.",
+ "“{name}” mixes with what's below it, which joining would lose. Set its Mix with what's below back to Normal first.": "“{name}” מתמזג עם מה שמתחתיו, ואיחוד היה מאבד את זה. קודם החזר את “מיזוג עם מה שמתחת” שלו ל“רגיל”.",
+ "“{name}” sits between them. Drag the layers next to each other in the Layers list first, or pick it too.": "“{name}” נמצא ביניהן. קודם גרור את השכבות זו ליד זו ברשימת השכבות, או בחר גם אותו."
 }

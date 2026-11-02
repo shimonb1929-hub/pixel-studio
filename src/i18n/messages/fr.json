@@ -2053,5 +2053,7 @@
  "With Arrange, pick everything on your design. With the other tools, select the whole design.": "Avec Disposer, choisit tout ce qui se trouve sur votre création. Avec les autres outils, sélectionne toute la création.",
  "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "« {name} » est sur chaque page, il ne peut donc pas être fusionné. Cliquez d’abord sur sa marque Sur chaque page dans le panneau Calques, pour le garder sur cette page seulement.",
  "Things you can do": "Ce que vous pouvez faire",
- "Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.": "Copie la partie sélectionnée, ou l’élément choisi, et le retire, pour que vous puissiez le coller ailleurs."
+ "Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.": "Copie la partie sélectionnée, ou l’élément choisi, et le retire, pour que vous puissiez le coller ailleurs.",
+ "“{name}” mixes with what's below it, which joining would lose. Set its Mix with what's below back to Normal first.": "« {name} » se mélange avec ce qui est en dessous, ce que la fusion perdrait. Remettez d’abord son Mélange avec ce qui est en dessous sur Normal.",
+ "“{name}” sits between them. Drag the layers next to each other in the Layers list first, or pick it too.": "« {name} » se trouve entre eux. Faites d’abord glisser les calques l’un à côté de l’autre dans la liste des calques, ou choisissez-le aussi."
 }

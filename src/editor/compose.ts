@@ -99,7 +99,9 @@ export function mergeLayers(doc: EditorDocument, ids: string[], name: string): E
   if (joined.length < 2) return null
   let area: Rect | null = null
   for (const l of joined) {
-    const bounds = layerBounds(l)
+    // Adjustments like Blur can reach a little past the layer itself.
+    const adjusted = adjustedLayer(doc, l)
+    const bounds = adjusted ? unionRect(layerBounds(l), { x: adjusted.x, y: adjusted.y, width: adjusted.canvas.width, height: adjusted.canvas.height }) : layerBounds(l)
     const reach = effectsReach(l.effects)
     area = unionRect(area, { x: bounds.x - reach, y: bounds.y - reach, width: bounds.width + 2 * reach, height: bounds.height + 2 * reach })
   }

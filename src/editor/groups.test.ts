@@ -131,7 +131,16 @@ describe('what Join into one layer joins', () => {
   it('one layer joins with the layer below it; several picked join together', () => {
     const d = doc([layer('a'), layer('b'), layer('c')])
     expect(layersToJoin(d, ['b'])).toEqual(['a', 'b'])
-    expect(layersToJoin(d, ['c', 'a'])).toEqual(['a', 'c'])
+    expect(layersToJoin(d, ['c', 'b'])).toEqual(['b', 'c'])
+  })
+
+  it('only joins layers with nothing showing between them, and never one that mixes with what is below', () => {
+    const d = doc([layer('a'), layer('b'), layer('c')])
+    expect(layersToJoin(d, ['c', 'a'])).toHaveProperty('reason')
+    const hiddenBetween = doc([layer('a'), { ...layer('b'), visible: false }, layer('c')])
+    expect(layersToJoin(hiddenBetween, ['c', 'a'])).toEqual(['a', 'c'])
+    const mixing = doc([layer('a'), { ...layer('b'), blend: 'multiply' }])
+    expect(layersToJoin(mixing, ['b'])).toHaveProperty('reason')
   })
 
   it('explains why when there is nothing to join', () => {

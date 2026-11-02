@@ -75,13 +75,17 @@ test('join a layer with the one below it, or several picked layers, into one', a
   // Several picked (Shift+click) join together; Ctrl+E does the same as the button.
   await layerList(page).getByRole('button', { name: 'Layer: Rectangle 3' }).click()
   await layerList(page).getByRole('button', { name: 'Layer: Rectangle 1' }).click({ modifiers: ['Shift'] })
+  // Rectangle 2 sits between them, so they can't be joined until it is picked too.
+  await expect(join).toHaveAttribute('aria-disabled', 'true')
+  await layerList(page).getByRole('button', { name: 'Layer: Rectangle 2' }).click({ modifiers: ['Shift'] })
   await page.keyboard.press('Control+e')
-  expect(await layerNames(page)).toEqual(['Rectangle 3', 'Rectangle 2'])
+  expect(await layerNames(page)).toEqual(['Rectangle 3'])
   expectColor(await designPixel(page, size, 60, 60), BLUE)
+  expectColor(await designPixel(page, size, 140, 80), BLUE)
   expectColor(await designPixel(page, size, 270, 220), BLUE)
 
   // The bottom layer has nothing below it to join with.
-  await layerList(page).getByRole('button', { name: 'Layer: Rectangle 2' }).click()
+  await layerList(page).getByRole('button', { name: 'Layer: Rectangle 3' }).click()
   await expect(join).toHaveAttribute('aria-disabled', 'true')
 })
 

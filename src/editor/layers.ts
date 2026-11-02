@@ -287,6 +287,15 @@ export function layersToJoin(doc: EditorDocument, ids: string[]): string[] | { r
     chosen.unshift(below)
   }
   if (chosen.filter((l) => l.visible).length < 2) return { reason: t('Hidden layers are not joined. Show them first.') }
+  // The joined picture covers what's between them, so nothing else may sit between them.
+  const shown = chosen.filter((l) => l.visible)
+  const low = doc.layers.indexOf(shown[0])
+  const high = doc.layers.indexOf(shown[shown.length - 1])
+  const between = doc.layers.slice(low + 1, high).find((l) => l.visible && !chosen.includes(l))
+  if (between) return { reason: t("“{name}” sits between them. Drag the layers next to each other in the Layers list first, or pick it too.", { name: between.name }) }
+  // A layer that mixes with what's below it would lose that once it's part of a plain picture.
+  const mixing = shown.find((l) => l.blend && l.blend !== 'normal')
+  if (mixing) return { reason: t("“{name}” mixes with what's below it, which joining would lose. Set its Mix with what's below back to Normal first.", { name: mixing.name }) }
   // Joining would take it off the other pages too.
   const shared = chosen.find((l) => l.everyPage)
   if (shared) return { reason: t("“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.", { name: shared.name }) }

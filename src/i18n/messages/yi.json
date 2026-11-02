@@ -2053,5 +2053,7 @@
  "With Arrange, pick everything on your design. With the other tools, select the whole design.": "מיט ארדענען, קלויבט אויס אלעס אויף אייער דיזיין. מיט די אנדערע געצייג, קלויבט אויס דעם גאנצן דיזיין.",
  "“{name}” is on every page, so it can't be joined. First click its On every page mark in the Layers panel, to keep it on this page only.": "“{name}” איז אויף יעדן בלאט, דערפאר קען מען עס נישט פאראייניקן. קליקט קודם אויף זיין אויף יעדן בלאט צייכן אינעם לעיערס פאנעל, צו לאזן עס נאר אויף דעם בלאט.",
  "Things you can do": "זאכן וואס מען קען טון",
- "Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.": "קאפירט דעם אויסגעקליבענעם טייל, אדער די אויסגעקליבענע זאך, און נעמט עס אוועק, כדי איר זאלט עס קענען אריינלייגן אנדערשווו."
+ "Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.": "קאפירט דעם אויסגעקליבענעם טייל, אדער די אויסגעקליבענע זאך, און נעמט עס אוועק, כדי איר זאלט עס קענען אריינלייגן אנדערשווו.",
+ "“{name}” mixes with what's below it, which joining would lose. Set its Mix with what's below back to Normal first.": "“{name}” מישט זיך מיט דעם וואס אונטן, און פאראייניקן וואלט דאס פארלוירן. שטעלט קודם זיין מישן מיט דעם וואס אונטן צוריק אויף נארמאל.",
+ "“{name}” sits between them. Drag the layers next to each other in the Layers list first, or pick it too.": "“{name}” איז צווישן זיי. שלעפט קודם די לעיערס איינס לעבן צווייטן אין דער לעיערס ליסטע, אדער קלויבט עס אויך אויס."
 }
