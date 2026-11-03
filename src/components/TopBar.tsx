@@ -65,6 +65,7 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
           ref={buttonRef}
           type="button"
           aria-haspopup="menu"
+          aria-label={t('Menu')}
           aria-expanded={open}
           onClick={() => setOpen(!open)}
           className={`flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors ${
@@ -72,7 +73,7 @@ function MainMenu({ actions, hasDocument }: { actions: Action[]; hasDocument: bo
           }`}
         >
           <MenuIcon size={16} />
-          {t('Menu')}
+          <span className="hidden sm:inline">{t('Menu')}</span>
         </button>
       </Tooltip>
       {open && (
@@ -220,11 +221,13 @@ export function TopBar({
   // On narrower screens the sides take the room they need and the search box gets what is left,
   // so it never covers Menu, Undo or Redo.
   return (
-    <header className="grid h-14 shrink-0 grid-cols-[auto_minmax(2.25rem,1fr)_auto] items-center gap-3 px-3 xl:grid-cols-[1fr_minmax(0,28rem)_1fr]">
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="whitespace-nowrap px-2 text-[15px] font-semibold tracking-tight text-ink">Pixel Studio</span>
+    // On a phone the bar keeps only what fits: the name of the app and the word on each button step
+    // aside, and every button keeps its picture.
+    <header className="grid h-14 shrink-0 grid-cols-[auto_minmax(2.25rem,1fr)_auto] items-center gap-1.5 px-2 sm:gap-3 sm:px-3 xl:grid-cols-[1fr_minmax(0,28rem)_1fr]">
+      <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+        <span className="hidden whitespace-nowrap px-2 text-[15px] font-semibold tracking-tight text-ink sm:inline">Pixel Studio</span>
         <MainMenu actions={actions} hasDocument={hasDocument} />
-        <div className="ms-1 flex items-center">
+        <div className="flex items-center sm:ms-1">
           <Button
             variant="ghost"
             aria-label={t("Undo")}
@@ -267,17 +270,18 @@ export function TopBar({
         <button
           type="button"
           onClick={onSearch}
-          className="flex h-9 w-full items-center gap-2.5 rounded-xl border border-transparent bg-surface px-3 text-sm text-ink-3 shadow-card transition-colors hover:border-line hover:text-ink-2"
+          aria-label={t('What do you want to do?')}
+          className="flex h-9 w-full items-center justify-center gap-2.5 rounded-xl border border-transparent bg-surface px-2.5 text-sm sm:justify-start sm:px-3 text-ink-3 shadow-card transition-colors hover:border-line hover:text-ink-2"
         >
           <Search size={16} className="shrink-0" />
-          <span className="flex-1 truncate text-start">{t('What do you want to do?')}</span>
+          <span className="hidden flex-1 truncate text-start sm:block">{t('What do you want to do?')}</span>
           <kbd dir="ltr" className="hidden rounded-md border border-line bg-subtle px-1.5 py-0.5 font-sans text-[11px] text-ink-3 sm:block">
             {shortcut('mod', 'K')}
           </kbd>
         </button>
       </Tooltip>
 
-      <div className="flex min-w-0 items-center justify-end gap-3">
+      <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-3">
         <Button
           variant="ghost"
           className="h-9 px-2.5"
@@ -313,7 +317,8 @@ export function TopBar({
         )}
         <Button
           variant="primary"
-          className="h-9 px-4"
+          aria-label={t('Download')}
+          className="h-9 px-3 sm:px-4"
           disabled={!hasDocument}
           onClick={onDownload}
           tip={{
@@ -324,7 +329,7 @@ export function TopBar({
           }}
         >
           <Download size={16} />
-          {t('Download')}
+          <span className="hidden sm:inline">{t('Download')}</span>
         </Button>
       </div>
     </header>

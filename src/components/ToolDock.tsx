@@ -6,6 +6,7 @@ import { Tooltip } from './Tooltip.tsx'
 import { t } from '../i18n/i18n.ts'
 import { shortcut } from '../keys.ts'
 import { useRememberedChoice } from '../hooks/useRememberedChoice.ts'
+import { PHONE_SCREEN, useMediaQuery } from '../hooks/useMediaQuery.ts'
 
 interface ToolDockProps {
   tool: ToolId
@@ -40,22 +41,25 @@ export function ToolDock({ tool, onToolChange, onAddPhoto }: ToolDockProps) {
   const [showAll, setShowAll] = useRememberedChoice('pixel-studio-dock-every-tool')
   const shown = TOOLS.filter((info) => showAll || !info.extra || info.id === tool)
   const tucked = TOOLS.filter((info) => info.extra).map((info) => info.name)
+  // In the row along the bottom of a phone, tips open above the buttons.
+  const side = useMediaQuery(PHONE_SCREEN) ? 'top' : 'right'
   return (
     <nav
       aria-label={t("Tools")}
-      // On a short screen (a small laptop) the column would not fit, so the tools stand in two columns
-      // instead, still all in view.
-      className="flex w-[72px] shrink-0 flex-col items-center gap-0.5 overflow-y-auto rounded-card border border-line bg-surface p-1.5 shadow-card [@media(max-height:820px)]:grid [@media(max-height:820px)]:w-[136px] [@media(max-height:820px)]:grid-cols-2 [@media(max-height:820px)]:content-start"
+      // On a phone the tools sit in a row along the bottom, under your thumb; slide it to see them all.
+      // Wider screens have a column at the side. On a short screen (a small laptop) the column would
+      // not fit, so the tools stand in two columns instead, still all in view.
+      className="flex w-full shrink-0 items-center gap-0.5 overflow-x-auto overflow-y-hidden rounded-card border border-line bg-surface p-1.5 shadow-card md:w-[72px] md:flex-col md:overflow-x-hidden md:overflow-y-auto md:[@media(max-height:820px)]:grid md:[@media(max-height:820px)]:w-[136px] md:[@media(max-height:820px)]:grid-cols-2 md:[@media(max-height:820px)]:content-start"
     >
       {shown.map(({ id, name, label, key, icon: Icon, description, pro, group }, index) => (
         <Fragment key={id}>
-          {index > 0 && shown[index - 1].group !== group && <div role="separator" className="my-1 h-px w-8 shrink-0 bg-line [@media(min-height:1000px)]:hidden [@media(max-height:820px)]:hidden" />}
+          {index > 0 && shown[index - 1].group !== group && <div role="separator" className="mx-1 h-8 w-px shrink-0 bg-line md:mx-0 md:my-1 md:h-px md:w-8 md:[@media(min-height:1000px)]:hidden md:[@media(max-height:820px)]:hidden" />}
           {(index === 0 || shown[index - 1].group !== group) && (
-            <span aria-hidden className="hidden whitespace-nowrap pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wide text-ink-3 [@media(min-height:1000px)]:block">
+            <span aria-hidden className="hidden whitespace-nowrap pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wide text-ink-3 md:[@media(min-height:1000px)]:block">
               {groupCaption(group)}
             </span>
           )}
-          <Tooltip side="right" title={t('{tool} tool', { tool: name })} shortcut={key} description={description} pro={pro}>
+          <Tooltip side={side} title={t('{tool} tool', { tool: name })} shortcut={key} description={description} pro={pro}>
             <button
               type="button"
               aria-label={t('{tool} tool', { tool: name })}
@@ -89,7 +93,7 @@ export function ToolDock({ tool, onToolChange, onAddPhoto }: ToolDockProps) {
         </Fragment>
       ))}
       <Tooltip
-        side="right"
+        side={side}
         title={showAll ? t('Fewer tools') : t('More tools')}
         description={
           showAll
@@ -102,7 +106,7 @@ export function ToolDock({ tool, onToolChange, onAddPhoto }: ToolDockProps) {
           aria-label={showAll ? t('Fewer tools') : t('More tools')}
           aria-expanded={showAll}
           onClick={() => setShowAll(!showAll)}
-          className={`${BUTTON} mt-1 text-ink-3 hover:bg-subtle hover:text-ink`}
+          className={`${BUTTON} text-ink-3 md:mt-1 hover:bg-subtle hover:text-ink`}
         >
           {showAll ? <X size={20} strokeWidth={1.75} /> : <Ellipsis size={20} strokeWidth={1.75} />}
           {showAll ? t('Fewer') : t('More')}
