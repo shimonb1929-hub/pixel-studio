@@ -170,6 +170,14 @@ export const GOALS: Goal[] = [
     keywords: ['hebrew', 'yiddish', 'rtl', 'right to left', 'ivrit'],
   },
   {
+    id: 'fonts',
+    goal: msg('Find the right font'),
+    how: msg('Click the text, open the font list in the Text panel and press See all fonts big. Every font writes your words side by side; click the one you like.'),
+    tool: 'text',
+    pro: 'Font browser, Typeface',
+    keywords: ['font', 'fonts', 'typeface', 'letters', 'style', 'גופן'],
+  },
+  {
     id: 'spacing',
     goal: msg('Change the space between letters or lines'),
     how: msg('Click the text, then press More in the Text panel. Letter spacing and Line spacing are there.'),
