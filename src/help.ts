@@ -252,10 +252,18 @@ export const GOALS: Goal[] = [
   {
     id: 'order',
     goal: msg('Put something in front of or behind something else'),
-    how: msg('Pick it, then press Forward or Backward in the bar at the top, or use the arrows under the Layers panel.'),
+    how: msg('Drag it up or down in the Layers list. Or pick it, then press Forward or Backward in the bar at the top.'),
     tool: 'move',
     pro: 'Arrange, Layer order, Bring to Front',
     keywords: ['front', 'back', 'behind', 'on top', 'order', 'stack'],
+  },
+  {
+    id: 'join-layers',
+    goal: msg('Join layers into one'),
+    how: msg('Pick the layer and press Join into one layer under the Layers panel: it joins with the layer below it. Hold Shift and click to join several.'),
+    action: 'layer-join',
+    pro: 'Merge Layers, Merge Down, Flatten',
+    keywords: ['merge', 'merge down', 'flatten', 'combine layers', 'one layer'],
   },
   {
     id: 'transform',

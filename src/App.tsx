@@ -1,4 +1,6 @@
-import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react'
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react'
+import type { Action } from './actions.ts'
+import { ContextMenu } from './components/ContextMenu.tsx'
 import { buildActions, type AppCommands } from './appActions.ts'
 import { AdjustPanel } from './components/AdjustPanel.tsx'
 import { useMatchColors } from './components/useMatchColors.tsx'
@@ -39,7 +41,7 @@ import { GradientHandles } from './components/GradientHandles.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
 import { PhotoColors, ReadableNote, SmartPreviewBar } from './components/SmartHelpers.tsx'
 import { useSmartDesign } from './hooks/useSmartDesign.ts'
-import { effectThumbnails, flattenDocument } from './editor/compose.ts'
+import { effectThumbnails, flattenDocument, mergeLayers } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
 import { adjustmentLabel, autoColor, autoLight, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, tidyAdjustments, type Adjustments } from './editor/adjust.ts'
 import { adjustArea, lookThumbnails, paintAdjusted, pixelsToMeasure, previewParts } from './editor/adjustSession.ts'
@@ -68,7 +70,9 @@ import {
   duplicateLayers,
   insertLayerAboveActive,
   keepTogether,
+  layersToJoin,
   moveLayersBy,
+  moveLayersNextTo,
   moveLayersTo,
   nextLayerName,
   pickedWith,
@@ -445,6 +449,9 @@ export default function App() {
   const [, setGapsFilled] = useState(0)
   useEffect(() => onGapFilled(() => setGapsFilled((n) => n + 1)), [])
   const [cropEdit, setCropEdit] = useState<CropState | null>(null)
+  // The right-click menu: where it opens, and whether it's for things picked or for the page.
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; thing: boolean } | null>(null)
+  const closeContextMenu = useCallback(() => setContextMenu(null), [])
   const [fillTolerance, setFillTolerance] = useState(0.15)
   const [healSize, setHealSize] = useState(40)
   // Fade: the brush that softly hides parts, whether it hides or brings back, and the ready-made
@@ -1546,8 +1553,13 @@ export default function App() {
     if (!crop || !d || isIdentity(crop.box, fullFrame(d))) return
     const rect = cropRect(crop.box)
     editor.change(t('Crop'), (doc) => changeEveryPage(doc, (page) => cropDocument(page, rect)))
-    // Keep the part you kept exactly where it was on screen.
-    setViewport((v) => ({ ...v, panX: v.panX + rect.x * v.zoom, panY: v.panY + rect.y * v.zoom }))
+    // Keep the part you kept exactly where it was on screen, if it all shows; else fit it in view.
+    setViewport((v) => {
+      const kept = { ...v, panX: v.panX + rect.x * v.zoom, panY: v.panY + rect.y * v.zoom }
+      const area = lastWorkspaceRef.current
+      const inView = kept.panX >= 0 && kept.panY >= 0 && kept.panX + rect.width * v.zoom <= area.width && kept.panY + rect.height * v.zoom <= area.height
+      return inView ? kept : fitted(rect, false)
+    })
     setCropEdit(null)
   }
 
@@ -2354,6 +2366,30 @@ export default function App() {
       const ids = targets()
       editor.change(direction > 0 ? t('Bring forward') : t('Send backward'), (d) => moveLayersBy(d, ids, direction))
     },
+    // Dragged in the Layers list and dropped above or below other layers.
+    dragTo: (ids: string[], targetIds: string[], side: 'above' | 'below') => {
+      settle()
+      editor.change(t('Change the layer order'), (d) => moveLayersNextTo(d, ids, targetIds, side))
+    },
+    // Joins the picked layers, or the selected one and the layer below it, into one picture layer.
+    join: () => {
+      settle()
+      const d = current()
+      if (!d) return
+      const ids = layersToJoin(d, targets())
+      if (!Array.isArray(ids)) {
+        inform(ids.reason)
+        return
+      }
+      const joined = d.layers.filter((l) => ids.includes(l.id))
+      // A whole group joined is named after the group; otherwise after the top layer.
+      const group = joined[0].group
+      const wholeGroup = group && joined.every((l) => l.group?.id === group.id) && d.layers.filter((l) => l.group?.id === group.id).length === joined.length
+      const name = wholeGroup ? group.name : joined[joined.length - 1].name
+      const bytes = joined.reduce((sum, l) => sum + layerBytes(l), 0)
+      editor.change(t('Join into one layer'), (doc) => mergeLayers(doc, ids, name) ?? doc, { bytes })
+      setPicked(null)
+    },
     toEnd: (end: 'front' | 'back') => {
       settle()
       const ids = targets()
@@ -2517,6 +2553,15 @@ export default function App() {
     cut: () => {
       settle()
       const d = current()
+      // No area selected: the picked thing itself is cut, copied and then taken off the design.
+      if (d && !d.selection && activeLayer(d) && targets().length === 1) {
+        const piece = selectedPiece()
+        if (!piece) return
+        setClipboard(piece)
+        editor.change(t('Cut'), (doc) => removeLayers(doc, [d.activeLayerId]), { bytes: layerBytes(activeLayer(d)!) })
+        inform(t('Cut. {hint}', { hint: pasteHint }))
+        return
+      }
       if (!d?.selection) {
         problem(t('Select an area first, with the Select tool.'))
         return
@@ -2539,7 +2584,16 @@ export default function App() {
     openFile: (file) => void openFile(file),
     selectAll: () => {
       settle()
-      if (current()) setSelection(t('Select all'), (d) => selectAll(d.width, d.height))
+      const d = current()
+      if (!d) return
+      // With Arrange, everything on the design is picked, like the box you drag around things.
+      const things = d.layers.filter((l) => l.visible && !l.locked).map((l) => l.id)
+      if (tool === 'move' && things.length > 0) {
+        if (d.selection) setSelection(t('Let go'), () => null)
+        pickMany(things)
+        return
+      }
+      setSelection(t('Select all'), (doc) => selectAll(doc.width, doc.height))
     },
     deselect: () => {
       settle()
@@ -2733,6 +2787,7 @@ export default function App() {
     layerDown: () => layers.move(-1),
     layerToFront: () => layers.toEnd('front'),
     layerToBack: () => layers.toEnd('back'),
+    layerJoin: layers.join,
     layerToggle: () => activeNow && layers.toggleVisibility(activeNow.id),
     layerDelete: layers.remove,
     keepTogether: organize.keepTogether,
@@ -2818,6 +2873,49 @@ export default function App() {
     commands,
   )
 
+  // The right-click menu: the everyday things to do with what was clicked, in short sections.
+  const actionsById = (ids: string[]) => ids.map((id) => actions.find((a) => a.id === id)).filter((a): a is Action => !!a)
+  // Choices that only fit some things (a photo, several things) are left out when they don't fit.
+  const fitting = (ids: string[]) => actionsById(ids).filter((a) => !a.disabledReason)
+  const contextSections: Action[][] = contextMenu?.thing
+    ? [
+        actionsById(['cut', 'copy', 'paste', 'layer-duplicate', 'layer-delete']),
+        actionsById(['layer-front', 'layer-up', 'layer-down', 'layer-back']),
+        [...fitting(['keep-together', 'take-apart']), ...actionsById(['layer-join'])],
+        [...actionsById(['effects']), ...fitting(['remove-background'])],
+      ]
+    : [actionsById(['paste', 'select-all']), actionsById(['color-page', 'add-photo', 'add-table']), actionsById(['fit'])]
+
+  // Right-click on the design: picks what's under the pointer (with Arrange), or opens the page's menu.
+  function openDesignMenu(event: ReactMouseEvent<HTMLElement>) {
+    const d = current()
+    const main = workspaceRef.current
+    // Typing keeps the browser's own menu (spelling, paste); a crop or resize in progress keeps its own handles.
+    if (!d || !main || (event.target as HTMLElement).closest('input, textarea, [contenteditable]') || crop || transform) return
+    event.preventDefault()
+    const rect = main.getBoundingClientRect()
+    const point = { x: (event.clientX - rect.left - main.clientLeft - viewport.panX) / viewport.zoom, y: (event.clientY - rect.top - main.clientTop - viewport.panY) / viewport.zoom }
+    const hit = layerAt(d, point, 3 / viewport.zoom)
+    if (hit) {
+      if (tool !== 'move') setTool('move')
+      if (!targets().includes(hit.id)) {
+        settle()
+        pickMany(pickedWith(d, hit.id))
+      }
+    }
+    setContextMenu({ x: event.clientX, y: event.clientY, thing: !!hit })
+  }
+
+  // Right-click on a row of the Layers list: picks it, like a click, and opens its menu.
+  function openRowMenu(row: { kind: 'layer' | 'group'; id: string } | { kind: 'page' }, x: number, y: number) {
+    if (row.kind === 'page') layers.pickPage()
+    else if (row.kind === 'group') {
+      const members = current()?.layers.filter((l) => l.group?.id === row.id).map((l) => l.id) ?? []
+      if (!members.every((id) => targets().includes(id))) layers.pickGroup(row.id)
+    } else if (!targets().includes(row.id)) layers.select(row.id)
+    setContextMenu({ x, y, thing: row.kind !== 'page' })
+  }
+
   // Keyboard and paste handlers live in effects, so they read the latest commands through refs.
   // A layout effect updates them together with the screen, so a key pressed right after a drag
   // acts on what is shown, not on the step before.
@@ -2875,6 +2973,7 @@ export default function App() {
       else if (mod && !event.shiftKey && code === 'KeyC' && hasDoc) action = c.copy
       else if (mod && code === 'KeyX' && hasDoc) action = c.cut
       else if (mod && code === 'KeyJ' && hasDoc) action = c.toNewLayer
+      else if (mod && !event.shiftKey && code === 'KeyE' && hasDoc) action = c.layerJoin
       else if (mod && code === 'KeyG' && hasDoc) action = event.shiftKey ? c.takeApart : c.keepTogether
       else if (event.altKey && !mod && code === 'Backspace' && hasDoc) action = c.fill
       else if (plain && (code === 'Delete' || code === 'Backspace') && hasDoc && currentTool === 'pen') action = c.penDelete
@@ -3418,6 +3517,7 @@ export default function App() {
 
         <main
           ref={workspaceRef}
+          onContextMenu={openDesignMenu}
           // The start screen sits on the bright room itself; the table with its dots appears with a design.
           className={`relative min-w-0 flex-1 overflow-hidden ${doc ? 'rounded-card border border-line bg-workspace shadow-card' : ''}`}
           style={doc ? DOT_BACKGROUND : undefined}
@@ -3750,6 +3850,9 @@ export default function App() {
             onAdd={layers.add}
             onDuplicate={layers.duplicate}
             onMove={layers.move}
+            onDragTo={layers.dragTo}
+            onRowMenu={openRowMenu}
+            onJoin={layers.join}
             onDelete={layers.remove}
             onPickPage={layers.pickPage}
             onSeeThrough={layers.seeThrough}
@@ -3871,6 +3974,7 @@ export default function App() {
       })()}
 
       {notice && <Toast notice={notice} onDismiss={() => setNotice(null)} />}
+      {contextMenu && doc && <ContextMenu x={contextMenu.x} y={contextMenu.y} sections={contextSections} hasDocument onClose={closeContextMenu} />}
     </div>
   )
 }

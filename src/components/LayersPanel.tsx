@@ -1,9 +1,9 @@
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleHelp, Copy, Eclipse, Eye, EyeOff, Files, Grid2x2, Lock, LockOpen, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleHelp, Copy, Eclipse, Eye, EyeOff, Files, Grid2x2, Lock, LockOpen, Merge, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { adjustmentName, isNeutral } from '../editor/adjust.ts'
 import { drawLayer } from '../editor/compose.ts'
 import { cssPage } from '../editor/gradient.ts'
-import { activeLayer } from '../editor/layers.ts'
+import { activeLayer, layersToJoin } from '../editor/layers.ts'
 import type { EditorDocument, Layer, LayerGroup } from '../editor/types.ts'
 import { Tooltip, type TipContent } from './Tooltip.tsx'
 import { Slider } from './ui.tsx'
@@ -151,6 +151,12 @@ interface LayersPanelProps {
   onAdd: () => void
   onDuplicate: () => void
   onMove: (direction: 1 | -1) => void
+  // A row was dragged in the list and dropped above or below other rows.
+  onDragTo: (ids: string[], targetIds: string[], side: 'above' | 'below') => void
+  // Right-click on a row: picks it and opens its menu at x, y.
+  onRowMenu: (row: { kind: 'layer' | 'group'; id: string } | { kind: 'page' }, x: number, y: number) => void
+  // Joins the picked layers (or one and the layer below it) into one picture layer.
+  onJoin: () => void
   onDelete: () => void
   // The page under everything: picking it, and making it see-through or giving it a color again.
   onPickPage: () => void
@@ -162,11 +168,25 @@ const SEE_THROUGH = 'repeating-conic-gradient(#e8eaee 0% 25%, #ffffff 0% 50%) 50
 
 type Row = { kind: 'layer'; layer: Layer; inGroup: boolean } | { kind: 'group'; group: LayerGroup; members: Layer[] }
 
+// Where a dragged row would land: above or below the row with this key ('page' for the page).
+type DropSpot = { key: string; side: 'above' | 'below' }
+
+// A thin line showing where a dragged row will land.
+function DropLine({ side }: { side: 'above' | 'below' }) {
+  return <span aria-hidden className={`pointer-events-none absolute inset-x-1 z-10 h-0.5 rounded-full bg-accent ${side === 'above' ? '-top-px' : '-bottom-px'}`} />
+}
+
 export function LayersPanel(props: LayersPanelProps) {
   const { doc, revision, picked } = props
   const [renamingId, setRenamingId] = useState<string | null>(null)
   // Things kept together show as one row; these are opened to show their parts.
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
+  // Dragging rows up and down the list to change what's in front.
+  const [dragging, setDragging] = useState<string[] | null>(null)
+  const [dropSpot, setDropSpot] = useState<DropSpot | null>(null)
+  // Set right after a drag, so letting go isn't also taken as a click.
+  const draggedRef = useRef(false)
+  const listRef = useRef<HTMLUListElement>(null)
   const active = doc ? activeLayer(doc) : undefined
   const noDesign = doc ? undefined : t('Start a new design or open a picture first.')
   const noLayer = noDesign ?? (active ? undefined : t('Pick a layer first. The page itself always stays at the back.'))
@@ -176,6 +196,92 @@ export function LayersPanel(props: LayersPanelProps) {
   const atFront = !!doc && targets.length > 0 && doc.layers.slice(-targets.length).every((l) => targets.includes(l.id))
   const atBack = !!doc && targets.length > 0 && doc.layers.slice(0, targets.length).every((l) => targets.includes(l.id))
   const several = targets.length > 1
+  const join = doc ? layersToJoin(doc, targets) : null
+  const joinReason = noDesign ?? (join && !Array.isArray(join) ? join.reason : undefined)
+
+  // What a row drags: everything picked, if it's picked; else just it.
+  const dragIds = (ids: string[]) => (picked && ids.every((id) => picked.includes(id)) ? picked : ids)
+  // What each row shows, by its key, for finding what a drag is over.
+  const rowIds = new Map<string, string[]>()
+  // Where a drop at this point would land, or null when it would do nothing. The page is always at
+  // the back, so things dropped on it go right above it.
+  const spotAt = (x: number, y: number, moving: string[]): DropSpot | null => {
+    const element = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-drop-key]')
+    const key = element?.dataset.dropKey
+    const ids = key !== undefined ? rowIds.get(key) : undefined
+    if (!element || key === undefined || !ids || (key !== 'page' && ids.every((id) => moving.includes(id)))) return null
+    const rect = element.getBoundingClientRect()
+    return { key, side: key === 'page' || y < rect.top + rect.height / 2 ? 'above' : 'below' }
+  }
+  // Rows are dragged with the mouse, a finger or a pen: press, move a little, and let go where it goes.
+  const startDrag = (event: ReactPointerEvent<HTMLLIElement>, ids: string[]) => {
+    if (event.button !== 0 || renamingId !== null || (event.target as HTMLElement).closest('[data-no-drag]')) return
+    const start = { x: event.clientX, y: event.clientY }
+    const moving = dragIds(ids)
+    let started = false
+    let spot: DropSpot | null = null
+    let last = start
+    let frame = 0
+    const update = () => {
+      spot = spotAt(last.x, last.y, moving)
+      setDropSpot(spot)
+    }
+    // Held near the top or bottom of a list too long to see whole, it scrolls.
+    const scroll = () => {
+      frame = 0
+      const list = listRef.current
+      if (!list) return
+      const rect = list.getBoundingClientRect()
+      const edge = 28
+      const step = last.y < rect.top + edge ? -8 : last.y > rect.bottom - edge ? 8 : 0
+      if (!step) return
+      const before = list.scrollTop
+      list.scrollTop += step
+      if (list.scrollTop === before) return
+      update()
+      frame = requestAnimationFrame(scroll)
+    }
+    const move = (e: PointerEvent) => {
+      if (!started && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 5) return
+      started = true
+      setDragging(moving)
+      last = { x: e.clientX, y: e.clientY }
+      update()
+      if (!frame) frame = requestAnimationFrame(scroll)
+    }
+    const end = (e: PointerEvent) => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+      cancelAnimationFrame(frame)
+      if (!started) return
+      setDragging(null)
+      setDropSpot(null)
+      // A drag isn't also a click on the row.
+      draggedRef.current = true
+      window.setTimeout(() => (draggedRef.current = false), 0)
+      if (e.type === 'pointercancel' || !spot || !doc) return
+      // Right above the page is below the lowest layer.
+      if (spot.key === 'page') {
+        const lowest = doc.layers.find((l) => !moving.includes(l.id))
+        if (lowest) props.onDragTo(moving, [lowest.id], 'below')
+        return
+      }
+      props.onDragTo(moving, rowIds.get(spot.key) ?? [], spot.side)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+  }
+  // Drag handlers for a row; `ids` are what it shows, `key` names it for the drop line.
+  const dragProps = (key: string, ids: string[], canDrag = true) => {
+    rowIds.set(key, ids)
+    return {
+      'data-drop-key': key,
+      onPointerDown: canDrag ? (event: ReactPointerEvent<HTMLLIElement>) => startDrag(event, ids) : undefined,
+    }
+  }
+  const dropLine = (key: string) => (dragging && dropSpot?.key === key ? <DropLine side={dropSpot.side} /> : null)
 
   const isPicked = (layer: Layer) => (picked ? picked.includes(layer.id) : layer.id === doc?.activeLayerId)
   // A group is open when opened, or when one of its parts is picked on its own.
@@ -202,7 +308,7 @@ export function LayersPanel(props: LayersPanelProps) {
       <div className="flex h-12 shrink-0 items-center justify-between ps-4 pe-2">
         <Tooltip
           title={t("Layers")}
-          description={t("Everything on your design, from front (top of the list) to back. Each photo, shape, text and drawing is its own layer. The page is always at the bottom. Hold Shift and click to pick several.")}
+          description={t("Everything on your design, from front (top of the list) to back. Each photo, shape, text and drawing is its own layer. The page is always at the bottom. Drag a layer up or down to put it in front of or behind others. Hold Shift and click to pick several.")}
         >
           <h2 className="flex cursor-help items-center gap-1.5 text-[14px] font-semibold text-ink">
             {t('Layers')}
@@ -221,7 +327,13 @@ export function LayersPanel(props: LayersPanelProps) {
       {!doc ? (
         <p className="px-4 text-[13px] leading-relaxed text-ink-3">{t("Your design's layers will show up here.")}</p>
       ) : (
-        <ul aria-label={t("Layer list")} className="min-h-[104px] flex-1 overflow-y-auto px-2 [@media(max-height:820px)]:min-h-14">
+        <ul
+          ref={listRef}
+          aria-label={t("Layer list")}
+          onClickCapture={(event) => {
+            if (draggedRef.current) event.stopPropagation()
+          }}
+          className="min-h-[104px] flex-1 overflow-y-auto px-2 [@media(max-height:820px)]:min-h-14">
           {rows.map((row) => {
             if (row.kind === 'group') {
               const { group, members } = row
@@ -229,7 +341,16 @@ export function LayersPanel(props: LayersPanelProps) {
               const open = isOpen(group.id)
               const visible = members.some((l) => l.visible)
               return (
-                <li key={`group:${group.id}`} className={`group flex items-center gap-0.5 rounded-[10px] pe-1 transition-colors ${selected ? 'bg-accent-soft' : 'hover:bg-subtle'}`}>
+                <li
+                  key={`group:${group.id}`}
+                  {...dragProps(`group:${group.id}`, members.map((l) => l.id))}
+                  onContextMenu={(event) => {
+                    event.preventDefault()
+                    props.onRowMenu({ kind: 'group', id: group.id }, event.clientX, event.clientY)
+                  }}
+                  className={`group relative flex items-center gap-0.5 rounded-[10px] pe-1 transition-colors ${selected ? 'bg-accent-soft' : 'hover:bg-subtle'} ${dragging?.includes(members[0].id) ? 'opacity-50' : ''}`}
+                >
+                  {dropLine(`group:${group.id}`)}
                   <button
                     type="button"
                     aria-label={open ? t('Hide the parts of {name}', { name: group.name }) : t('Show the parts of {name}', { name: group.name })}
@@ -285,8 +406,15 @@ export function LayersPanel(props: LayersPanelProps) {
             return (
               <li
                 key={layer.id}
-                className={`group flex items-center gap-1 rounded-[10px] pe-1 transition-colors ${inGroup ? 'ms-5' : ''} ${selected ? 'bg-accent-soft' : 'hover:bg-subtle'}`}
+                {...dragProps(layer.id, [layer.id])}
+                onContextMenu={(event) => {
+                  if (renamingId === layer.id) return
+                  event.preventDefault()
+                  props.onRowMenu({ kind: 'layer', id: layer.id }, event.clientX, event.clientY)
+                }}
+                className={`group relative flex items-center gap-1 rounded-[10px] pe-1 transition-colors ${inGroup ? 'ms-5' : ''} ${selected ? 'bg-accent-soft' : 'hover:bg-subtle'} ${dragging?.includes(layer.id) ? 'opacity-50' : ''}`}
               >
+                {dropLine(layer.id)}
                 {renamingId === layer.id ? (
                   <div className="flex min-w-0 flex-1 items-center gap-2.5 py-1.5 ps-2">
                     <LayerThumbnail layers={[layer]} revision={revision} doc={doc} />
@@ -402,7 +530,14 @@ export function LayersPanel(props: LayersPanelProps) {
               </li>
             )
           })}
-          <li className={`flex items-center gap-1 rounded-[10px] pe-1 transition-colors ${pagePicked ? 'bg-accent-soft' : 'hover:bg-subtle'}`}>
+          <li
+            {...dragProps('page', [], false)}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              props.onRowMenu({ kind: 'page' }, event.clientX, event.clientY)
+            }}
+            className={`relative flex items-center gap-1 rounded-[10px] pe-1 transition-colors ${pagePicked ? 'bg-accent-soft' : 'hover:bg-subtle'}`}>
+            {dropLine('page')}
             <Tooltip
               title={t("Page")}
               description={t("The paper under everything. Click it, then choose its color in the Color panel. Clicking an empty spot of your design picks it too.")}
@@ -478,6 +613,18 @@ export function LayersPanel(props: LayersPanelProps) {
             onClick={() => props.onMove(-1)}
           >
             <ArrowDown size={16} />
+          </IconButton>
+          <IconButton
+            tip={{
+              title: t('Join into one layer'),
+              description: several
+                ? t('Join the picked layers into one picture layer, looking just the same. Text and shapes become part of the picture. You can undo this.')
+                : t('Join the selected layer with the layer below it into one picture layer, looking just the same. Text and shapes become part of the picture. You can undo this.'),
+            }}
+            disabledReason={joinReason}
+            onClick={props.onJoin}
+          >
+            <Merge size={16} />
           </IconButton>
           <IconButton
             tip={{ title: several ? t('Delete') : t('Delete layer'), description: several ? t('Remove the picked things. You can undo this.') : t('Remove the selected layer and everything on it. You can undo this.') }}
