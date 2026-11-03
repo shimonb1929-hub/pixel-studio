@@ -1,6 +1,6 @@
 import type { Action } from './actions.ts'
 import { LOOKS } from './editor/adjust.ts'
-import { activeLayer } from './editor/layers.ts'
+import { activeLayer, layersToJoin } from './editor/layers.ts'
 import { pageCount, pageIndex } from './editor/pages.ts'
 import { photoSources } from './editor/palette.ts'
 import { hasPageNumbers } from './editor/everyPage.ts'
@@ -58,6 +58,7 @@ export interface AppCommands {
   layerDown: () => void
   layerToFront: () => void
   layerToBack: () => void
+  layerJoin: () => void
   layerToggle: () => void
   layerDelete: () => void
   keepTogether: () => void
@@ -128,6 +129,8 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
   const noLayerPicked = doc && !active ? t('Pick something on your design first.') : undefined
   const noSelection = doc && !doc.selection ? t(NOTHING_SELECTED) : undefined
   const onlyPage = doc && pageCount(doc) < 2 ? t('This design has only one page.') : undefined
+  const join = doc && active ? layersToJoin(doc, organize.picked ?? [active.id]) : null
+  const joinBlocker = join && !Array.isArray(join) ? join.reason : undefined
   const pickSeveral = t('Pick two or more things first: drag a box around them on your design, or hold Shift and click each one.')
 
   return [
@@ -313,11 +316,11 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       id: 'cut',
       group: 'Edit',
       title: t('Cut'),
-      description: t('Copy the selected part and remove it from the layer, so you can paste it somewhere else.'),
+      description: t('Copy the selected part, or the picked thing, and take it away, so you can paste it somewhere else.'),
       keywords: ['cut', 'scissors', 'take out', 'remove and paste'],
       shortcut: shortcut('mod', 'X'),
       needsDocument: true,
-      disabledReason: noSelection,
+      disabledReason: doc && !doc.selection && (!active || (organize.picked?.length ?? 0) > 1) ? t(NOTHING_SELECTED) : undefined,
       run: c.cut,
     },
     {
@@ -333,8 +336,8 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       id: 'select-all',
       group: 'Select',
       title: t('Select all'),
-      description: t('Select the whole design.'),
-      keywords: ['select all', 'everything', 'whole'],
+      description: t('With Arrange, pick everything on your design. With the other tools, select the whole design.'),
+      keywords: ['select all', 'everything', 'whole', 'pick all', 'all things'],
       shortcut: shortcut('mod', 'A'),
       needsDocument: true,
       run: c.selectAll,
@@ -441,6 +444,17 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
       needsDocument: true,
       disabledReason: noLayerPicked ?? (activeIndex === 0 ? t('This layer is already at the back.') : undefined),
       run: c.layerDown,
+    },
+    {
+      id: 'layer-join',
+      group: 'Layers',
+      title: t('Join into one layer'),
+      description: t('Join the picked layers, or the selected layer and the one below it, into one picture layer that looks just the same. You can undo this.'),
+      keywords: ['merge', 'merge layers', 'merge down', 'flatten', 'combine layers', 'join layers', 'one layer', 'stamp'],
+      shortcut: shortcut('mod', 'E'),
+      needsDocument: true,
+      disabledReason: noLayerPicked ?? joinBlocker,
+      run: c.layerJoin,
     },
     {
       id: 'layer-front',
