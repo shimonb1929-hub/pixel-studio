@@ -2263,5 +2263,19 @@
  "Drag this dot to move this corner. Arrow keys move it a little.": "שלעפט דאס פינטל כדי צו רירן דעם עק. די פייל־קנעפלעך רירן עס א ביסל.",
  "Drag the four corners of “{name}” to put it onto a sign, a screen or a box, or to make a slanted page or sign face front. You see it before you keep it.": "שלעפט די פיר עקן פון “{name}” כדי עס ארויפצולייגן אויף א שילד, א סקרין אדער א קעסטל, אדער כדי א שיפעדיקער בלאט אדער שילד זאל שטיין קעגן אייך. איר זעט עס איידער איר האלט עס.",
  "Put a photo onto a sign or screen, or flatten a slanted page": "ארויפלייגן א פאטא אויף א שילד אדער סקרין, אדער גלייך מאכן א שיפעדיקן בלאט",
- "Click the photo and choose Move the corners. In Fit to a place, drag its corners where they should go; in Face front, put the dots on the corners of the slanted page and press Apply.": "קליקט אויפן פאטא און קלויבט רירט די עקן. ביי צופאסן צו אן ארט, שלעפט זיינע עקן וואו זיי דארפן זיין; ביי קעגן אייך, לייגט די פינטלעך אויף די עקן פונעם שיפעדיקן בלאט און דריקט באשטעטיגן."
+ "Click the photo and choose Move the corners. In Fit to a place, drag its corners where they should go; in Face front, put the dots on the corners of the slanted page and press Apply.": "קליקט אויפן פאטא און קלויבט רירט די עקן. ביי צופאסן צו אן ארט, שלעפט זיינע עקן וואו זיי דארפן זיין; ביי קעגן אייך, לייגט די פינטלעך אויף די עקן פונעם שיפעדיקן בלאט און דריקט באשטעטיגן.",
+ "All fonts": "אלע שריפטן",
+ "Anything": "עפעס",
+ "Every font writes your words, so you can compare them. Click one to use it.": "יעדער שריפט שרייבט אייערע ווערטער, כדי איר זאלט זיי קענען פארגלייכן. קליקט אויף איינעם צו ניצן עס.",
+ "Every kind": "יעדער סארט",
+ "How big the letters are in this window. It does not change your design.": "ווי גרויס די אותיות זענען אין דעם פענצטער. עס טוישט נישט אייער פלאן.",
+ "Letter size": "גרייס פון די אותיות",
+ "Opens a big window where every font writes your words side by side, so you can compare them and pick one.": "עפנט א גרויס פענצטער וואו יעדער שריפט שרייבט אייערע ווערטער איינס לעבן צווייטן, כדי איר זאלט קענען פארגלייכן און אויסקלייבן.",
+ "See all fonts big": "זעט אלע שריפטן גרויס",
+ "Vowel points": "נקודות",
+ "Your words": "אייערע ווערטער",
+ "{count} fonts": "{count} שריפטן",
+ "{count} thicknesses": "{count} דיקקייטן",
+ "Click the text, open the font list in the Text panel and press See all fonts big. Every font writes your words side by side; click the one you like.": "קליקט אויפן טעקסט, עפנט די ליסטע פון שריפטן אינעם טעקסט־פאנעל און דריקט זעט אלע שריפטן גרויס. יעדער שריפט שרייבט אייערע ווערטער איינס לעבן צווייטן; קליקט אויף דעם וואס געפעלט אייך.",
+ "Find the right font": "געפינען דעם ריכטיקן שריפט"
 }

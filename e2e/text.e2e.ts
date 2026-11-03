@@ -662,3 +662,32 @@ test('your own font file is added, used, kept for next time and goes inside down
   await mine.getByRole('button', { name: 'Remove My Hebrew Letters from your fonts' }).click()
   await expect(mine).toHaveCount(0)
 })
+
+test('See all fonts big: every font writes your words side by side, and a click uses it', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.keyboard.press('t')
+  await clickAt(page, size, 300, 100)
+  await page.keyboard.type('שלום')
+  await page.keyboard.press('Escape')
+  await textPanel(page).getByRole('button', { name: /^Font: / }).click()
+  await textPanel(page).getByRole('button', { name: 'See all fonts big' }).click()
+  const gallery = page.getByRole('dialog', { name: 'All fonts' })
+  await expect(gallery).toBeVisible()
+  // Your own words are shown, and Hebrew text starts with only the fonts that have the letters.
+  await expect(gallery.getByRole('textbox', { name: 'Your words' })).toHaveValue('שלום')
+  await expect(gallery.getByRole('radio', { name: 'Hebrew' })).toHaveAttribute('aria-checked', 'true')
+  await expect(gallery.getByRole('option', { name: 'Pacifico' })).toHaveCount(0)
+  await expect(gallery.getByRole('option', { name: 'Heblock' })).toContainText('שלום')
+
+  // Narrow it down by kind and by name.
+  await gallery.getByRole('radio', { name: 'Typewriter' }).click()
+  await expect(gallery.getByRole('option', { name: 'Heblock' })).toHaveCount(0)
+  await gallery.getByRole('radio', { name: 'Every kind' }).click()
+  await gallery.getByPlaceholder('Find a font, or try “wedding”').fill('heblock')
+  await expect(gallery.getByRole('option')).toHaveCount(1)
+
+  await gallery.getByRole('option', { name: 'Heblock' }).click()
+  await expect(gallery).toBeHidden()
+  await expect(textPanel(page).getByRole('button', { name: 'Font: Heblock' })).toBeVisible()
+  expect(await undoLabel(page)).toContain('Undo change font')
+})

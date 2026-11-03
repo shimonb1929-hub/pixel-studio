@@ -30,7 +30,7 @@ export const FONT_PURPOSES: FontPurposeInfo[] = live([
     label: msg('Headlines'),
     description: msg('Big, strong letters for titles, posters and signs that are seen from far away.'),
     fonts: [
-      'secular-one', 'suez-one', 'karantina', 'makabi-yg', 'yehuda-clm', 'rubik', 'heebo', 'drugulin-clm', 'keter-yg',
+      'secular-one', 'suez-one', 'karantina', 'makabi-yg', 'yehuda-clm', 'rubik', 'heebo', 'drugulin-clm', 'keter-yg', 'atak', 'hatkafa', 'heblock', 'rubik-mono-one',
       'bebas-neue', 'anton', 'oswald', 'league-gothic', 'archivo-black', 'alfa-slab-one', 'abril-fatface', 'bungee',
       'staatliches', 'big-shoulders-display', 'climate-crisis', 'unbounded', 'russo-one', 'titan-one', 'bowlby-one-sc',
       'antonio', 'teko', 'passion-one', 'ultra', 'dm-serif-display', 'fjalla-one', 'league-spartan', 'paytone-one',
@@ -42,7 +42,7 @@ export const FONT_PURPOSES: FontPurposeInfo[] = live([
     description: msg('Calm, clear letters for longer text: articles, booklets, menus and letters.'),
     fonts: [
       'heebo', 'assistant', 'noto-sans-hebrew', 'open-sans', 'arimo', 'ibm-plex-sans-hebrew', 'frank-ruhl-libre',
-      'david-libre', 'noto-serif-hebrew', 'alef', 'tinos', 'simple-clm', 'nachlieli-clm', 'dyslexia-hebrew',
+      'david-libre', 'noto-serif-hebrew', 'alef', 'tinos', 'simple-clm', 'nachlieli-clm', 'dyslexia-hebrew', 'heblock', 'maorik',
       'inter', 'atkinson-hyperlegible', 'lexend', 'source-sans-3', 'roboto', 'lato', 'nunito', 'source-serif-4',
       'literata', 'merriweather', 'lora', 'newsreader', 'pt-serif', 'noto-serif', 'crimson-pro', 'eb-garamond',
     ],
@@ -75,7 +75,7 @@ export const FONT_PURPOSES: FontPurposeInfo[] = live([
     description: msg('Round, friendly and playful letters for children, games, classrooms and parties.'),
     fonts: [
       'fredoka', 'varela-round', 'amatic-sc', 'gveret-levin', 'playpen-sans-hebrew', 'shmulik-clm', 'yehoash-esther', 'm-plus-rounded-1c',
-      'rubik-bubbles', 'rubik-puddles', 'rubik-doodle-shadow', 'rubik-moonrocks',
+      'rubik-bubbles', 'rubik-puddles', 'rubik-doodle-shadow', 'rubik-moonrocks', 'shishimvearba-rounded', 'bloxwap-sans-hebrew',
       'comic-neue', 'comic-relief', 'chewy', 'luckiest-guy', 'bubblegum-sans', 'sniglet', 'baloo-2', 'grandstander',
       'gluten', 'dynapuff', 'short-stack', 'schoolbell', 'patrick-hand', 'andika', 'edu-sa-beginner', 'playpen-sans',
       'fuzzy-bubbles', 'coiny', 'cherry-bomb-one', 'emilys-candy', 'bangers', 'lilita-one', 'mali', 'sriracha',

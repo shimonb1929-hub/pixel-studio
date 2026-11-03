@@ -2,9 +2,10 @@
 # Project's collection of open-licensed Hebrew fonts (Romm Vilna, Pfennig, Nesher, the Dead Sea
 # Scroll hands, Yoram Gnat's ancient scripts, Raphael Finkel's Yiddish faces and more), Mekorot
 # (Rashi script), Libertinus Sans, FiraGO, GNU FreeFont, DejaVu Sans, Unifont and a Hebrew
-# JetBrains Mono.
+# JetBrains Mono, and more free Hebrew fonts from GitHub (Mazon, Alephbeis Sans, Maorik, Heblock,
+# Atak, Hatkafa, Shishimvearba, LCD 14, Droid Sans Hebrew, Bloxwap and Google's Rubik Mono One).
 #
-#   python3 scripts/fonts/extra.py      then   node scripts/fonts/fetch.mjs
+#   python3 scripts/fonts/extra.py [font ids]      then   node scripts/fonts/fetch.mjs
 #
 # Files from GitHub are taken at a fixed commit; the other downloads are checked by their sha256.
 # Each family is saved as woff2 in public/fonts/<id>/ with its license and a font.json, which
@@ -24,6 +25,7 @@
 import hashlib
 import io
 import json
+import sys
 import tarfile
 import tempfile
 import urllib.parse
@@ -38,6 +40,19 @@ from yiddish import add_yiddish
 SIDDUR = ('aharonium/fonts', '2b5e366ffaa89d42159092fcccd6d027b50a9ef9')
 MEKOROT = ('googlefonts/mekorot', '4e51edad1a265838154e2cae46c28c6a11145c95')
 JB_HEBREW = ('arielagor/jetbrains-mono-hebrew', '7a4a86dfe205d94cb8787b0a8b1526ec637d18d3')
+# More free Hebrew fonts found on GitHub (each checked: SIL Open Font License, and no pictures,
+# faces or people anywhere among their letters).
+MAZON = ('hmc678/Mazon', 'aaaff86c5207d25c3f8b455e86d434796296fd12')
+ALEPHBEIS = ('alephbeis/alephbeis-sans', '3f66f70d1c7d1656bc0ea7ef0eba0137c2ae5c32')
+MAORIK = ('sallemaor-a11y/Maorikfont', '86ed5596782700928664a63f38d66ed625eb4081')
+HEBLOCK = ('tamirpomerantz/heblock-font', '1f8e5daad6d722c48d9a3675dc75d7b3b70ed310')
+ATAK = ('profesyonal/atak-font', 'e7f00b6ad233d82da0dead833f670869caea3ccf')
+SHISHIM = ('adiron/Shishimvearba', '2677527e40e1dea16e210b4c6891a010d9e2ed5b')
+HATKAFA = ('profesyonal/hatkafa-font', '0844b9338d746e5d2da58d8e530808aed096beac')
+LCD = ('ctrlcctrlv/lcd-font', '686587fa2876c64878bf625d0a3de04331d9e58d')
+DROID = ('kodi-il/xbmc-hebrew-fonts', '3a21983d5c0496a0f5d37088fefb411e2af9db54')
+# Google Fonts' own Rubik Mono One has Hebrew letters; the Fontsource copy has only Latin.
+GOOGLE = ('google/fonts', '2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc')
 
 # name -> (url, sha256)
 ARCHIVES = {
@@ -45,6 +60,7 @@ ARCHIVES = {
     'dejavu': ('https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.tar.bz2', 'fa9ca4d13871dd122f61258a80d01751d603b4d3ee14095d65453b4e846e17d7'),
     'freefont': ('https://ftp.gnu.org/gnu/freefont/freefont-otf-20120503.tar.gz', '3a6c51868c71b006c33c4bcde63d90927e6fcca8f51c965b8ad62d021614a860'),
     'unifont': ('https://unifoundry.com/pub/unifont/unifont-16.0.04/font-builds/unifont-16.0.04.otf', '0e3981ab552231b5a2a870f2b61741903a4bf25c23ef5aeb05fdced1b3c7af4d'),
+    'bloxwap': ('https://registry.npmjs.org/@bloxwap/font/-/font-0.1.4.tgz', '87a6c84e4da4b718bb1ec3893eded7530a5cc1f56e485194e136a37f700cb549'),
     'lppl': ('https://www.latex-project.org/lppl/lppl-1-3c.txt', None),
 }
 
@@ -74,7 +90,8 @@ license it thinks best, and it shares them under the GNU GPL with the font excep
 # Where a file comes from: ('siddur' | 'mekorot' | 'jb' , path in that repository) or
 # (archive name, path inside it).
 # id -> name, license, license text (list of sources joined, or a literal string), whole, faces.
-# Each face: (source, style) or (source, style, weight) when the file's own weight is wrong.
+# Each face: (source, style) or (source, style, weight) when the file's own weight is wrong. For a
+# variable font, the weight given is the weight a fixed face is made at.
 def s(path):
     return ('siddur', path)
 
@@ -196,6 +213,41 @@ FAMILIES = {
     'dejavu-sans': ('DejaVu Sans', 'Bitstream-Vera', [('dejavu', 'dejavu-fonts-ttf-2.37/LICENSE')], False,
                     [(('dejavu', 'dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf'), 'normal'), (('dejavu', 'dejavu-fonts-ttf-2.37/ttf/DejaVuSans-Bold.ttf'), 'normal'),
                      (('dejavu', 'dejavu-fonts-ttf-2.37/ttf/DejaVuSans-Oblique.ttf'), 'italic')]),
+    # Found on GitHub. Left out after checking: Shlomo (no commercial use), Dragon, Nehama and Paskol
+    # (their files also say no commercial use), Looks Like S'pht (one of its letters is a ghost with
+    # a face), Source Hebrew Sans (unfinished: letters and vowels are spaced wrong), Jimbory (its
+    # license is unclear), Otzaria Ashurit (personal use only), JuliaMono (has smiling faces and
+    # hands, and its reserved name means they can't be taken out) and TT2020 (has religious
+    # symbols that can't be taken out, and nobody says where its Hebrew letters come from), New
+    # Computer Modern (has a cross) and Kurinto Sans (5 MB a file and looks like Noto).
+    'mazon': ('Mazon Hebrew', 'OFL-1.1', [('mazon', 'LICENSE')], True,
+              [(('mazon', 'MazonHebrew-Regular.otf'), 'normal')]),
+    'alephbeis-sans': ('Alephbeis Sans', 'OFL-1.1', [('alephbeis', 'OFL.txt')], False,
+                       [(('alephbeis', f'ttf/AlephbeisSans-{w}.ttf'), 'normal') for w in ('Light', 'Regular', 'Bold', 'Black')]),
+    'maorik': ('Maorik', 'OFL-1.1', [('maorik', 'OFL.txt')], False,
+               [(('maorik', 'fonts/variable/Maorik[wght].ttf'), 'normal', w) for w in (300, 400, 700)]),
+    'heblock': ('Heblock', 'OFL-1.1', [('heblock', 'OFL.txt')], False,
+                [(('heblock', f'fonts/ttf/Heblock-{w}.ttf'), 'normal') for w in ('Light', 'Regular', 'Medium', 'Bold', 'Black')]),
+    'atak': ('Atak', 'OFL-1.1', [('atak', 'OFL.txt')], True,
+             [(('atak', 'Atak-Regular.otf'), 'normal')]),
+    'atak-mono': ('Atak Mono', 'OFL-1.1', [('atak', 'OFL.txt')], True,
+                  [(('atak', 'AtakMono-Regular.otf'), 'normal')]),
+    'shishimvearba': ('Shishimvearba', 'OFL-1.1', [('shishim', 'OFL.txt')], True,
+                      [(('shishim', 'Build/Shishimvearba-Regular.otf'), 'normal')]),
+    'shishimvearba-rounded': ('Shishimvearba Rounded', 'OFL-1.1', [('shishim', 'OFL.txt')], True,
+                              [(('shishim', 'Build/Shishimvearba-Rounded.otf'), 'normal')]),
+    'hatkafa': ('Hatkafa', 'OFL-1.1', [('hatkafa', 'HATKAFA FONT - XELO/HATKAFA FONT/OFL.txt')], True,
+                [(('hatkafa', 'HATKAFA FONT - XELO/HATKAFA FONT/OTF/Hatkafa-Regular.otf'), 'normal')]),
+    'lcd-14': ('LCD 14', 'OFL-1.1', [('lcd', 'LICENSE.ttx')], False,
+               [(('lcd', 'otf/LCD14.otf'), 'normal'), (('lcd', 'otf/LCD14Italic.otf'), 'italic')]),
+    'droid-sans-hebrew': ('Droid Sans Hebrew', 'Apache-2.0', [('droid', 'LICENSE.txt')], False,
+                          [(('droid', 'sources_he/DroidSansHebrew-Regular.ttf'), 'normal'), (('droid', 'sources_he/DroidSansHebrew-Bold.ttf'), 'normal', 700)]),
+    'rubik-mono-one': ('Rubik Mono One', 'OFL-1.1', [('google', 'ofl/rubikmonoone/OFL.txt')], False,
+                       [(('google', 'ofl/rubikmonoone/RubikMonoOne-Regular.ttf'), 'normal')]),
+    'bloxwap-sans-hebrew': ('Bloxwap Sans Hebrew', 'OFL-1.1', [('bloxwap', 'package/LICENSE')], True,
+                            [(('bloxwap', f'package/native/BloxwapSansHebrew/BloxwapSansHebrew-{w}.ttf'), 'normal') for w in ('Light', 'Regular', 'Bold')]),
+    'bloxwap-mono-hebrew': ('Bloxwap Mono Hebrew', 'OFL-1.1', [('bloxwap', 'package/LICENSE')], True,
+                            [(('bloxwap', f'package/native/BloxwapMonoHebrew/BloxwapMonoHebrew-{w}.ttf'), 'normal') for w in ('Regular', 'Bold')]),
     'unifont': ('Unifont', 'GPL-2.0-with-font-exception', ['GNU Unifont by Roman Czyborra, Paul Hardy and others (https://unifoundry.com/unifont/). Dual-licensed under the GNU GPL version 2 or later with the font embedding exception, and the SIL Open Font License 1.1.\n\n', GPL_EXCEPTION, s(ANCIENT + 'GNU-GPL.TXT')], False,
                 [(('unifont', ''), 'normal')]),
 }
@@ -261,7 +313,7 @@ def archive_files(name):
             reader = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(data))
             tar = tarfile.open(fileobj=reader, mode='r|')
             archives[name] = {m.name: tar.extractfile(m).read() for m in tar if m.isfile()}
-        elif '.tar' in url:
+        elif '.tar' in url or url.endswith('.tgz'):
             tar = tarfile.open(fileobj=io.BytesIO(data))
             archives[name] = {m.name: tar.extractfile(m).read() for m in tar.getmembers() if m.isfile()}
         else:
@@ -271,7 +323,9 @@ def archive_files(name):
 
 def read(source):
     where, path = source
-    repos = {'siddur': SIDDUR, 'mekorot': MEKOROT, 'jb': JB_HEBREW}
+    repos = {'siddur': SIDDUR, 'mekorot': MEKOROT, 'jb': JB_HEBREW, 'mazon': MAZON, 'alephbeis': ALEPHBEIS,
+             'maorik': MAORIK, 'heblock': HEBLOCK, 'atak': ATAK, 'shishim': SHISHIM, 'hatkafa': HATKAFA,
+             'lcd': LCD, 'droid': DROID, 'google': GOOGLE}
     if where in repos:
         repo, commit = repos[where]
         return download(f'https://raw.githubusercontent.com/{repo}/{commit}/{urllib.parse.quote(path)}')
@@ -311,6 +365,10 @@ def save_family(font_id, name, license_name, license_parts, whole, faces):
     for source, style, *given in faces:
         font = TTFont(io.BytesIO(read(source)))
         weight = given[0] if given else font['OS/2'].usWeightClass
+        if 'fvar' in font:
+            from fontTools.varLib import instancer
+            font = instancer.instantiateVariableFont(font, {'wght': weight})
+            font['OS/2'].usWeightClass = weight
         codepoints = [cp for cp in font.getBestCmap() if whole or kept(cp)]
         if not whole:
             options = subset.Options()
@@ -337,7 +395,14 @@ def save_family(font_id, name, license_name, license_parts, whole, faces):
 
 
 def main():
+    # Font ids after the script's name make only those families: python3 scripts/fonts/extra.py heblock
+    only = set(sys.argv[1:])
+    unknown = only - set(FAMILIES)
+    if unknown:
+        raise SystemExit(f'Unknown font ids: {", ".join(sorted(unknown))}')
     for font_id, (name, license_name, license_parts, whole, faces) in FAMILIES.items():
+        if only and font_id not in only:
+            continue
         save_family(font_id, name, license_name, license_parts, whole, faces)
 
 

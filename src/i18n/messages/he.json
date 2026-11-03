@@ -2263,5 +2263,19 @@
  "Drag this dot to move this corner. Arrow keys move it a little.": "גרור את הנקודה כדי להזיז את הפינה. מקשי החצים מזיזים אותה מעט.",
  "Drag the four corners of “{name}” to put it onto a sign, a screen or a box, or to make a slanted page or sign face front. You see it before you keep it.": "גרור את ארבע הפינות של “{name}” כדי להניח אותה על שלט, מסך או קופסה, או כדי שדף או שלט מוטים יעמדו מולך. רואים לפני ששומרים.",
  "Put a photo onto a sign or screen, or flatten a slanted page": "להניח תמונה על שלט או מסך, או ליישר דף שצולם באלכסון",
- "Click the photo and choose Move the corners. In Fit to a place, drag its corners where they should go; in Face front, put the dots on the corners of the slanted page and press Apply.": "לחץ על התמונה ובחר הזזת הפינות. בהתאמה למקום, גרור את הפינות שלה למקום הנכון; במול הפנים, שים את הנקודות על פינות הדף המוטה ולחץ החלה."
+ "Click the photo and choose Move the corners. In Fit to a place, drag its corners where they should go; in Face front, put the dots on the corners of the slanted page and press Apply.": "לחץ על התמונה ובחר הזזת הפינות. בהתאמה למקום, גרור את הפינות שלה למקום הנכון; במול הפנים, שים את הנקודות על פינות הדף המוטה ולחץ החלה.",
+ "All fonts": "כל הגופנים",
+ "Anything": "הכול",
+ "Every font writes your words, so you can compare them. Click one to use it.": "כל גופן כותב את המילים שלך, כדי שתוכל להשוות ביניהם. לחץ על אחד כדי להשתמש בו.",
+ "Every kind": "כל הסוגים",
+ "How big the letters are in this window. It does not change your design.": "כמה גדולות האותיות בחלון הזה. זה לא משנה את העיצוב שלך.",
+ "Letter size": "גודל האותיות",
+ "Opens a big window where every font writes your words side by side, so you can compare them and pick one.": "פותח חלון גדול שבו כל גופן כותב את המילים שלך זה לצד זה, כדי שתוכל להשוות ולבחור.",
+ "See all fonts big": "הצג את כל הגופנים בגדול",
+ "Vowel points": "ניקוד",
+ "Your words": "המילים שלך",
+ "{count} fonts": "{count} גופנים",
+ "{count} thicknesses": "{count} עוביים",
+ "Click the text, open the font list in the Text panel and press See all fonts big. Every font writes your words side by side; click the one you like.": "לחץ על הטקסט, פתח את רשימת הגופנים בחלונית הטקסט ולחץ על הצג את כל הגופנים בגדול. כל גופן כותב את המילים שלך זה לצד זה; לחץ על זה שמוצא חן בעיניך.",
+ "Find the right font": "למצוא את הגופן המתאים"
 }

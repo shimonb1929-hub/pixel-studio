@@ -2263,5 +2263,19 @@
  "Drag this dot to move this corner. Arrow keys move it a little.": "Faites glisser ce point pour déplacer ce coin. Les flèches le déplacent un peu.",
  "Drag the four corners of “{name}” to put it onto a sign, a screen or a box, or to make a slanted page or sign face front. You see it before you keep it.": "Faites glisser les quatre coins de “{name}” pour la poser sur une enseigne, un écran ou une boîte, ou pour qu’une page ou une enseigne inclinée soit vue de face. Vous voyez le résultat avant de le garder.",
  "Put a photo onto a sign or screen, or flatten a slanted page": "Poser une photo sur une enseigne ou un écran, ou redresser une page en biais",
- "Click the photo and choose Move the corners. In Fit to a place, drag its corners where they should go; in Face front, put the dots on the corners of the slanted page and press Apply.": "Cliquez sur la photo et choisissez Déplacer les coins. Avec Ajuster à un endroit, faites glisser ses coins où ils doivent aller ; avec Vue de face, placez les points sur les coins de la page inclinée et appuyez sur Appliquer."
+ "Click the photo and choose Move the corners. In Fit to a place, drag its corners where they should go; in Face front, put the dots on the corners of the slanted page and press Apply.": "Cliquez sur la photo et choisissez Déplacer les coins. Avec Ajuster à un endroit, faites glisser ses coins où ils doivent aller ; avec Vue de face, placez les points sur les coins de la page inclinée et appuyez sur Appliquer.",
+ "All fonts": "Toutes les polices",
+ "Anything": "N’importe quoi",
+ "Every font writes your words, so you can compare them. Click one to use it.": "Chaque police écrit vos mots, pour que vous puissiez les comparer. Cliquez sur une pour l’utiliser.",
+ "Every kind": "Tous les genres",
+ "How big the letters are in this window. It does not change your design.": "La taille des lettres dans cette fenêtre. Cela ne change pas votre création.",
+ "Letter size": "Taille des lettres",
+ "Opens a big window where every font writes your words side by side, so you can compare them and pick one.": "Ouvre une grande fenêtre où chaque police écrit vos mots côte à côte, pour que vous puissiez les comparer et en choisir une.",
+ "See all fonts big": "Voir toutes les polices en grand",
+ "Vowel points": "Points-voyelles",
+ "Your words": "Vos mots",
+ "{count} fonts": "{count} polices",
+ "{count} thicknesses": "{count} épaisseurs",
+ "Click the text, open the font list in the Text panel and press See all fonts big. Every font writes your words side by side; click the one you like.": "Cliquez sur le texte, ouvrez la liste des polices dans le panneau Texte et appuyez sur Voir toutes les polices en grand. Chaque police écrit vos mots côte à côte ; cliquez sur celle qui vous plaît.",
+ "Find the right font": "Trouver la bonne police"
 }
