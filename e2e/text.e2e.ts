@@ -679,8 +679,11 @@ test('See all fonts big: every font writes your words side by side, and a click 
   await expect(gallery.getByRole('option', { name: 'Pacifico' })).toHaveCount(0)
   await expect(gallery.getByRole('option', { name: 'Heblock' })).toContainText('שלום')
 
-  // Narrow it down by kind and by name.
+  // Narrow it down by kind and by name. Keys pressed here leave the design alone.
   await gallery.getByRole('radio', { name: 'Typewriter' }).click()
+  await page.keyboard.press('Control+z')
+  await page.keyboard.press('Delete')
+  expect(await layerNames(page)).toEqual(['שלום'])
   await expect(gallery.getByRole('option', { name: 'Heblock' })).toHaveCount(0)
   await gallery.getByRole('radio', { name: 'Every kind' }).click()
   await gallery.getByPlaceholder('Find a font, or try “wedding”').fill('heblock')

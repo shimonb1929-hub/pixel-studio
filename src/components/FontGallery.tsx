@@ -107,6 +107,8 @@ export function FontGallery({
       onClose={onClose}
       onPointerDown={(event) => (pressedBackdropRef.current = event.target === event.currentTarget)}
       onClick={handleBackdropClick}
+      // Keys pressed in this window stay here, so Undo or Delete can't change the design behind it.
+      onKeyDown={(event) => event.stopPropagation()}
       className="m-auto h-[min(54rem,calc(100vh-2rem))] w-[min(72rem,calc(100vw-2rem))] max-w-none rounded-2xl border border-line bg-surface p-0 text-ink shadow-float backdrop:bg-[rgb(16_24_40/0.32)] backdrop:backdrop-blur-[2px]"
     >
       <div className="flex h-full flex-col">
