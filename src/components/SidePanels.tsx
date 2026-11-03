@@ -24,6 +24,8 @@ interface SidePanelsProps {
 const SPLIT_KEY = 'pixel-studio-panel-split'
 const MIN_SPLIT = 0.15
 const MAX_SPLIT = 0.85
+// The least height the Layers panel needs below the bar: its title, two rows and its buttons.
+const LAYERS_ROOM = 272
 
 function rememberedSplit(): number | null {
   try {
@@ -96,10 +98,11 @@ function PanelColumn({ settings, layers }: { settings: ReactNode; layers: ReactN
     <div ref={columnRef} className="flex w-[288px] shrink-0 flex-col">
       {/* Until the bar is moved, the panels take the room they need, up to about two thirds of the
           column (then they scroll); the Layers panel always keeps the rest, so it never slips off a
-          short screen. */}
+          short screen. However far the bar is moved, Layers keeps room for its title, a few rows and
+          its buttons. */}
       <ScrollRegion
         className={`shrink-0 gap-3 ${split === null ? 'max-h-[64%] [@media(max-height:820px)]:max-h-[56%]' : ''}`}
-        style={split === null ? undefined : { maxHeight: `${split * 100}%` }}
+        style={split === null ? undefined : { maxHeight: `min(${split * 100}%, calc(100% - ${LAYERS_ROOM}px))` }}
       >
         {settings}
       </ScrollRegion>

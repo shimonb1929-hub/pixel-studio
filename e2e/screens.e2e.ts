@@ -83,6 +83,15 @@ test.describe('on a laptop', () => {
     await page.mouse.move(bar.x + bar.width / 2, bar.y - 200, { steps: 6 })
     await page.mouse.up()
     expect((await list.boundingBox())!.height).toBeGreaterThan(before + 100)
+    // Moved all the way down, Layers still keeps its buttons on the screen.
+    const bar2 = (await page.getByRole('separator', { name: 'Make room' }).boundingBox())!
+    await page.mouse.move(bar2.x + bar2.width / 2, bar2.y + bar2.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(bar2.x + bar2.width / 2, 760, { steps: 6 })
+    await page.mouse.up()
+    const trash = (await page.getByRole('button', { name: 'Delete layer' }).boundingBox())!
+    expect(trash.y + trash.height).toBeLessThanOrEqual(768)
+    await expect(list.getByRole('button', { name: 'Layer: Your heading' })).toBeVisible()
     // Kept for next time; a double-click puts it back.
     const kept = () => page.evaluate(() => localStorage.getItem('pixel-studio-panel-split'))
     expect(Number(await kept())).toBeGreaterThan(0.15)
