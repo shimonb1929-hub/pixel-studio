@@ -104,7 +104,6 @@ interface ActionState {
   doc: EditorDocument | null
   undoLabel: string | null
   redoLabel: string | null
-  app: { installed: boolean; canInstall: boolean }
   // Why what's picked can't be kept together or taken apart (null when it can), and the things
   // picked together, if several are.
   organize: { keepTogether: string | null; takeApart: string | null; alongShape: string | null; picked: string[] | null }
@@ -123,7 +122,7 @@ const NOTHING_SELECTED = msg('Select an area first, with the Select tool.')
 
 // Everything a person can do, in plain words. The menu, the search box and the hover tips all
 // come from this one list.
-export function buildActions({ doc, undoLabel, redoLabel, app, organize }: ActionState, c: AppCommands): Action[] {
+export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionState, c: AppCommands): Action[] {
   const active = doc ? activeLayer(doc) : undefined
   const activeIndex = doc && active ? doc.layers.indexOf(active) : -1
   const noLayerPicked = doc && !active ? t('Pick something on your design first.') : undefined
@@ -259,16 +258,10 @@ export function buildActions({ doc, undoLabel, redoLabel, app, organize }: Actio
     {
       id: 'install',
       group: 'Design',
-      extra: true,
       title: t('Install as an app'),
       description:
-        t('Add Pixel Studio to this computer, so it opens in its own window from your desktop or Start menu, like any other program, and works without internet.'),
-      keywords: ['install', 'app', 'desktop', 'program', 'offline', 'start menu', 'dock', 'shortcut', 'application'],
-      disabledReason: app.installed
-        ? t('Pixel Studio is already installed. Open it from your desktop, Start menu or dock.')
-        : app.canInstall
-          ? undefined
-          : t("This browser can't install it from here. In Chrome or Edge, click the install button at the right end of the address bar."),
+        t('Put Pixel Studio on your computer, phone or tablet with its own icon on the desktop or home screen. It opens in its own window, like any other program, and works without internet.'),
+      keywords: ['install', 'app', 'desktop', 'program', 'offline', 'start menu', 'dock', 'shortcut', 'application', 'download', 'home screen', 'icon', 'phone', 'tablet', 'iphone', 'ipad', 'android'],
       run: c.installApp,
     },
     {

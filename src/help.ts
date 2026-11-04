@@ -338,6 +338,14 @@ export const GOALS: Goal[] = [
     keywords: ['eyedropper', 'match', 'sample', 'copy color'],
   },
   {
+    id: 'install',
+    goal: msg('Put Pixel Studio on my desktop as an app'),
+    how: msg('On the start screen, press Get the app for your desktop, or choose Install as an app in Menu. It gets its own icon and works without internet.'),
+    action: 'install',
+    pro: 'Install app, desktop shortcut, PWA',
+    keywords: ['install', 'download', 'desktop', 'shortcut', 'icon', 'home screen', 'offline', 'app'],
+  },
+  {
     id: 'undo',
     goal: msg('Take back a mistake'),
     how: msg('Press Undo at the top, or {undo}. Press it again to keep going back.'),

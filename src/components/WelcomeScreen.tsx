@@ -1,4 +1,4 @@
-import { FolderOpen, Plus } from 'lucide-react'
+import { FolderOpen, MonitorDown, Plus } from 'lucide-react'
 import { useEffect, useMemo, type ReactNode } from 'react'
 import type { SavedDesign } from '../editor/library.ts'
 import { useSavedDesigns } from '../hooks/useSavedDesigns.ts'
@@ -103,9 +103,11 @@ interface WelcomeScreenProps {
   onOpenDesign: (design: SavedDesign) => Promise<void>
   // Opens the ready layouts, showing a kind (and a layout) first.
   onLayouts: (kind: 'all' | LayoutKind, layoutId?: string) => void
+  // Puts Pixel Studio on this device as an app. Left out when it's already the installed app.
+  onInstall?: () => void
 }
 
-export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign, onLayouts }: WelcomeScreenProps) {
+export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign, onLayouts, onInstall }: WelcomeScreenProps) {
   const { designs, loadedAt, refresh } = useSavedDesigns()
   // People coming back see their designs first, then the ways to start something new.
   const returning = designs.length > 0
@@ -117,6 +119,22 @@ export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign, onLayo
         <p className="mt-2 text-center text-[15px] text-ink-2">
           {returning ? t('Pick up where you left off, or start something new.') : t('Pick a size to start, or open a picture from your computer.')}
         </p>
+        {onInstall && (
+          <div className="mt-3 flex justify-center">
+            <Button
+              variant="ghost"
+              className="h-8 px-3 text-[13px] text-ink-2"
+              onClick={onInstall}
+              tip={{
+                title: t('Install as an app'),
+                description: t('Put Pixel Studio on your computer, phone or tablet with its own icon on the desktop or home screen. It opens in its own window, like any other program, and works without internet.'),
+              }}
+            >
+              <MonitorDown size={15} />
+              {t('Get the app for your desktop')}
+            </Button>
+          </div>
+        )}
 
         {returning && (
           <>
@@ -179,6 +197,7 @@ export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign, onLayo
           </Button>
           <p className="text-xs text-ink-3">{t('or drop a picture or project file anywhere on this window')}</p>
         </div>
+
       </div>
     </div>
   )

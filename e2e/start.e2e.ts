@@ -52,3 +52,19 @@ test('search understands a whole sentence', async ({ page }) => {
   await search.fill('photo in a circle')
   await expect(page.locator('#palette-results').getByRole('option').first()).toContainText('Shapes tool')
 })
+
+test('the start screen offers the app for the desktop, with the steps for this browser', async ({ page }) => {
+  await page.getByRole('button', { name: 'Get the app for your desktop' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Get the Pixel Studio app' })
+  await expect(dialog).toBeVisible()
+  // The test browser can't install with one click, so it shows the steps for a computer.
+  await expect(dialog.getByRole('listitem')).toHaveCount(3)
+  await expect(dialog.getByText('Click Install.')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Got it' }).click()
+  await expect(dialog).toBeHidden()
+
+  // Menu has it too, without having to show every choice first.
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: /Install as an app/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Get the Pixel Studio app' })).toBeVisible()
+})
