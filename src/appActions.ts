@@ -1,4 +1,5 @@
 import { canLink } from './editor/linked.ts'
+import { stepPair } from './editor/blend.ts'
 import { canBeShapes } from './editor/wordShapes.ts'
 import type { Action } from './actions.ts'
 import { LOOKS } from './editor/adjust.ts'
@@ -116,6 +117,10 @@ export interface AppCommands {
   unlinkCopies: () => void
   // The letters of the picked text become shapes.
   wordsIntoShapes: () => void
+  // Shapes in between the two picked shapes, shown first.
+  stepsBetween: () => void
+  // What is picked becomes a brush tip.
+  makeBrush: () => void
 }
 
 interface ActionState {
@@ -564,6 +569,26 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       needsDocument: true,
       disabledReason: noLayerPicked,
       run: c.makeCopies,
+    },
+    {
+      id: 'make-brush',
+      group: 'Brush',
+      title: t('Make a brush'),
+      description: t('Turns what is picked on your design (a star, a leaf you drew, a word) into a brush that paints a trail of it.'),
+      keywords: ['define brush', 'brush preset', 'custom brush', 'brush shape', 'stamp', 'own brush', 'my brush', 'brush tip', 'pattern brush', 'scatter brush'],
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: c.makeBrush,
+    },
+    {
+      id: 'steps-between',
+      group: 'Layers',
+      title: t('Steps between…'),
+      description: t('Shapes in between the two picked ones, slowly turning one into the other: place, size, color and even shape. Good for color ramps, rainbows and 3D letters. You see them before you keep them.'),
+      keywords: ['blend', 'blend tool', 'make blend', 'morph', 'tween', 'in between', 'steps', 'transition', 'ramp', 'rainbow', '3d', 'extrude', 'shape blend'],
+      needsDocument: true,
+      disabledReason: doc && !stepPair(doc, organize.picked ?? (active ? [active.id] : [])) ? t('Pick two shapes first: hold Shift and click both.') : undefined,
+      run: c.stepsBetween,
     },
     {
       id: 'linked-copy',

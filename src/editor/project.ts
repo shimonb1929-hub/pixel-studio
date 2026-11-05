@@ -1,3 +1,4 @@
+import { WARP_KINDS, type WarpKind } from './warp.ts'
 import { COLOR_RANGES, CURVE_CHANNELS, NO_ADJUSTMENTS, SLIDER_KEYS, tidyAdjustments, type Adjustments, type CurvePoint } from './adjust.ts'
 import { drawLayer } from './compose.ts'
 import { BLEND_MODES, hasEffects, type BlendMode, type LayerEffects } from './effects.ts'
@@ -46,7 +47,7 @@ import { MAX_DESIGN_COLORS, MAX_TEXT_STYLES } from './designStyles.ts'
 // Version 18 added photos inside text (photo) and softly hidden parts (hide), each with its own
 // picture after the layer's other pictures.
 // Version 19 added pattern fills for shapes (a fill of kind 'pattern'). Version 20 added linked
-// copies (linked).
+// copies (linked) and bent shapes (geometry.warp).
 // Older files still open.
 
 export const PROJECT_VERSION = 20
@@ -388,6 +389,11 @@ function readGeometry(value: unknown): ShapeGeometry {
   if (geometry.type === 'path' && value.parts !== undefined) {
     if (!Array.isArray(value.parts) || value.parts.length > MAX_PATH_NODES) damaged()
     geometry.parts = value.parts.map(readPath)
+  }
+  if (value.warp !== undefined && value.warp !== null) {
+    const warp = value.warp
+    if (!isRecord(warp) || !WARP_KINDS.includes(warp.kind as WarpKind) || !isBetween(warp.amount, -1, 1)) damaged()
+    geometry.warp = { kind: warp.kind as WarpKind, amount: warp.amount }
   }
   return geometry
 }

@@ -1,3 +1,4 @@
+import type { Warp } from './warp.ts'
 import type { ListKind, TextAlign, TextDirection } from '../text/layout.ts'
 import type { Adjustments } from './adjust.ts'
 import type { BlendMode, LayerEffects } from './effects.ts'
@@ -111,6 +112,8 @@ export interface ShapeGeometry {
   // More closed outlines of the same shape, from joining or cutting shapes: holes cut into it, and
   // pieces apart from it. With them, a spot is inside when an odd number of outlines go around it.
   parts?: ShapePath[]
+  // Bent into an arch, a bulge, a wave, a flag or a twist. Missing means straight.
+  warp?: Warp
 }
 
 export type ShapeFill =
@@ -336,4 +339,4 @@ export interface Viewport {
   panY: number
 }
 
-export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'pen' | 'text' | 'brush' | 'eraser' | 'fade' | 'fill' | 'picker' | 'adjust' | 'heal' | 'clone' | 'hand' | 'zoom'
+export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'pen' | 'text' | 'brush' | 'eraser' | 'fade' | 'fill' | 'picker' | 'adjust' | 'heal' | 'clone' | 'push' | 'hand' | 'zoom'

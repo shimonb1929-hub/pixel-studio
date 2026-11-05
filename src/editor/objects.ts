@@ -1,3 +1,4 @@
+import { isWarped, warpedPaths } from './warp.ts'
 import { drawText, textCurve, textLocalPoint, textReach } from '../text/textLayer.ts'
 import { avoidSlots } from '../text/avoid.ts'
 import { tableParts } from './table.ts'
@@ -111,6 +112,11 @@ export type PathSink = Pick<Path2D, 'moveTo' | 'lineTo' | 'bezierCurveTo' | 'clo
 export function shapePath(geometry: ShapeGeometry, w: number, h: number, outlineWidth?: number): Path2D
 export function shapePath<T extends PathSink>(geometry: ShapeGeometry, w: number, h: number, outlineWidth: number, path: T): T
 export function shapePath(geometry: ShapeGeometry, w: number, h: number, outlineWidth = 0, path: PathSink = new Path2D()): PathSink {
+  if (isWarped(geometry)) {
+    // A bent shape is drawn from its outlines, bent; open lines leave out their arrow heads.
+    for (const part of warpedPaths(geometry, w, h, polygonPoints(geometry, w, h))) tracePath(path, mapPath(part, (p) => ({ x: p.x * w, y: p.y * h })))
+    return path
+  }
   if (geometry.type === 'rectangle') {
     path.roundRect(-w / 2, -h / 2, w, h, (geometry.corners * Math.min(w, h)) / 2)
   } else if (geometry.type === 'ellipse') {

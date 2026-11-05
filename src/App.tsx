@@ -121,10 +121,13 @@ import { useEditor } from './hooks/useEditor.ts'
 import { useStraighten } from './hooks/useStraighten.ts'
 import { StraightenPanel } from './components/StraightenPanel.tsx'
 import { RepeatPanel } from './components/RepeatPanel.tsx'
+import { StepsPanel } from './components/StepsPanel.tsx'
 import { FindDialog } from './components/FindDialog.tsx'
 import { softTint, startingPattern, type Pattern } from './editor/pattern.ts'
 import { replaceEverywhere } from './editor/findReplace.ts'
 import { useRepeat } from './hooks/useRepeat.ts'
+import { useSteps } from './hooks/useSteps.ts'
+import { stepPair } from './editor/blend.ts'
 import { useCorners } from './hooks/useCorners.ts'
 import { CornerHandles, CornersPanel } from './components/CornersPanel.tsx'
 import { photoOnMainThing, smartCropFrame } from './editor/smartPhoto.ts'
@@ -139,6 +142,10 @@ import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './te
 import { useFontsVersion } from './hooks/useFontsVersion.ts'
 import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
 import { canLink, linkCopies, unlink } from './editor/linked.ts'
+import { isWarped, warpedPaths, type Warp } from './editor/warp.ts'
+import { DEFAULT_PUSH, type PushSettings } from './editor/push.ts'
+import { brushShapeFrom } from './editor/brushPicture.ts'
+import { shapePreset } from './editor/brushShapes.ts'
 import { canBeShapes, placeWordShapes, traceWords, wordPictures, wordShapes } from './editor/wordShapes.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
 import { changeText, fitText, keepOnPage, newTextBox, textIndexAt, textLayout, textName } from './text/textLayer.ts'
@@ -469,6 +476,7 @@ export default function App() {
   const closeContextMenu = useCallback(() => setContextMenu(null), [])
   const [fillTolerance, setFillTolerance] = useState(0.15)
   const [healSize, setHealSize] = useState(40)
+  const [pushSettings, setPushSettings] = useState<PushSettings>(DEFAULT_PUSH)
   // Fade: the brush that softly hides parts, whether it hides or brings back, and the ready-made
   // fade being pointed at (shown on the design before it's chosen).
   const [fadeBrush, setFadeBrush] = useState<HideBrush>(DEFAULT_HIDE_BRUSH)
@@ -533,6 +541,7 @@ export default function App() {
   const corners = useCorners(editor, problem)
   // Make copies: copies of what is picked in a row, a grid or around a circle, shown before they're kept.
   const repeat = useRepeat(editor, problem)
+  const steps = useSteps(editor, problem)
   // Commands read the design through this, so they see changes made earlier in the same click.
   const current = () => editor.getDoc()
 
@@ -795,7 +804,14 @@ export default function App() {
     const d = current()
     const layer = d?.layers.find((l) => l.id === layerId)
     if (layer?.kind !== 'shape') return
-    if (layer.geometry.type !== 'path') {
+    if (isWarped(layer.geometry)) {
+      // A bent shape keeps its bend as real points, so they can be moved one by one.
+      const w = Math.max(Math.abs(layer.box.width), 1e-6)
+      const h = Math.max(Math.abs(layer.box.height), 1e-6)
+      const [path, ...parts] = warpedPaths(layer.geometry, w, h, polygonPoints(layer.geometry, w, h))
+      const { warp: _, ...straight } = layer.geometry
+      editor.change(t('Edit points'), (doc) => updateShape(doc, layer.id, { geometry: { ...straight, type: 'path', path, ...(parts.length ? { parts } : {}) } }))
+    } else if (layer.geometry.type !== 'path') {
       const w = Math.abs(layer.box.width)
       const h = Math.abs(layer.box.height)
       const path = geometryToPath(layer.geometry, Math.max(w, 1e-6), Math.max(h, 1e-6), polygonPoints(layer.geometry, w, h))
@@ -935,6 +951,19 @@ export default function App() {
   function changeGeometry(patch: Partial<ShapeGeometry>) {
     const label = 'corners' in patch ? t('Round corners') : 'sides' in patch ? t('Change sides') : 'arrow' in patch ? t('Arrow head') : t('Change shape')
     changeShape(label, (s) => ({ geometry: { ...s.geometry, ...patch } }), (d) => ({ ...d, geometry: { ...d.geometry, ...patch } }), `shape-${Object.keys(patch)[0]}`)
+  }
+
+  // Bends the picked shapes, or makes them straight again. New shapes always start straight.
+  function changeWarp(warp: Warp | null, mergeKey?: string) {
+    changeShape(
+      warp ? t('Bend shape') : t('Straight again'),
+      (s) => {
+        const { warp: _, ...geometry } = s.geometry
+        return { geometry: warp ? { ...geometry, warp } : geometry }
+      },
+      (d) => d,
+      mergeKey,
+    )
   }
 
   function changeOutlineWidth(width: number) {
@@ -1554,6 +1583,21 @@ export default function App() {
     inform(t('The letters are shapes now: pick one with the Curve tool to drag its points. The words are hidden below them, in case you want to change them.'))
   }
 
+  // Your own brush shapes (pro: Define Brush Preset): what is picked becomes a brush tip.
+  function makeBrush() {
+    settle()
+    const d = current()
+    const layer = d && activeLayer(d)
+    if (!d || !layer) return problem(t('Pick something on your design first.'))
+    const ids = new Set(manyIn(d) ?? pickedWith(d, layer.id))
+    const shape = brushShapeFrom(d, d.layers.filter((l) => ids.has(l.id) && l.visible))
+    if (!shape) return problem(t('There is nothing to see in what is picked, so it can’t become a brush.'))
+    const preset = shapePreset(shape)
+    setBrush({ settings: preset.settings, presetId: preset.id })
+    setTool('brush')
+    inform(t('“{name}” is ready: paint to leave a trail of it. Find it again under Your brush shapes.', { name: shape.name }))
+  }
+
   function continueInAnotherBox() {
     const d = current()
     if (!d || !pickedText) return
@@ -1628,6 +1672,13 @@ export default function App() {
     if (d) pickMany(pickedWith(d, d.activeLayerId))
   }
 
+  // Keeps the steps between two shapes, and picks them all, kept together with the two.
+  function applySteps() {
+    if (!steps.apply()) return
+    const d = current()
+    if (d) pickMany(pickedWith(d, d.activeLayerId))
+  }
+
   function settle(): boolean {
     finishText()
     pen.finish()
@@ -1637,6 +1688,7 @@ export default function App() {
     if (straightenPhoto.pending) straightenPhoto.apply()
     if (corners.pending) corners.apply()
     if (repeat.pending) applyRepeat()
+    if (steps.pending) applySteps()
     return true
   }
 
@@ -1645,6 +1697,7 @@ export default function App() {
     if (straightenPhoto.pending) straightenPhoto.apply()
     if (corners.pending) corners.apply()
     if (repeat.pending) applyRepeat()
+    if (steps.pending) applySteps()
     if (next !== tool) {
       if (tool === 'move') {
         if (!applyTransform()) return
@@ -2202,6 +2255,7 @@ export default function App() {
     })
     if (tool === 'eraser') setEraser(update)
     else if (tool === 'heal') setHealSize((size) => stepBrushSize(size, direction))
+    else if (tool === 'push') setPushSettings((p) => ({ ...p, size: stepBrushSize(p.size, direction) }))
     else if (tool === 'fade') setFadeBrush((b) => ({ ...b, size: stepBrushSize(b.size, direction) }))
     else if (tool === 'clone') setCopyBrush((b) => ({ ...b, size: stepBrushSize(b.size, direction) }))
     else setBrush(update)
@@ -2721,11 +2775,12 @@ export default function App() {
       if (straightenPhoto.pending) return straightenPhoto.cancel()
       if (corners.pending) return corners.cancel()
       if (repeat.pending) return repeat.cancel()
+      if (steps.pending) return steps.cancel()
       editor.undo()
     },
     redo: () => {
       if (pen.drawing) return
-      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending || corners.pending || repeat.pending) return
+      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending || corners.pending || repeat.pending || steps.pending) return
       finishText()
       editor.redo()
     },
@@ -2885,6 +2940,7 @@ export default function App() {
       if (straightenPhoto.pending) return straightenPhoto.apply(), true
       if (corners.pending) return corners.apply(), true
       if (repeat.pending) return applyRepeat(), true
+      if (steps.pending) return applySteps(), true
       if (edgeShown) return applyEdge(), true
       return false
     },
@@ -2893,6 +2949,7 @@ export default function App() {
       if (tool === 'pen' && pen.finish()) return true
       if (transformChanged) return cancelTransform(), true
       if (photoMoving) return setPhotoMoving(false), true
+      if (steps.pending) return steps.cancel(), true
       if (picked) return pickOne(''), true
       if (tool === 'crop' && cropChanged) return setCropEdit(null), true
       if (adjustChanged) return cancelAdjust(), true
@@ -3057,6 +3114,13 @@ export default function App() {
       if (layer?.kind === 'raster') setPictureHelper({ kind: 'upscale', layerId: layer.id })
     },
     wordsIntoShapes: () => void wordsIntoShapes(),
+    makeBrush: () => makeBrush(),
+    stepsBetween: () => {
+      const ids = targets()
+      settle()
+      if (tool !== 'move') setTool('move')
+      steps.start(ids)
+    },
     makeCopies: () => {
       const ids = targets()
       settle()
@@ -3303,6 +3367,8 @@ export default function App() {
       ? eraser.settings
       : tool === 'heal'
         ? { ...brush.settings, size: healSize }
+        : tool === 'push'
+        ? { ...brush.settings, size: pushSettings.size }
         : tool === 'clone'
           ? { ...COPY_BRUSH, ...copyBrush }
           : tool === 'fade'
@@ -3385,6 +3451,7 @@ export default function App() {
       ppi: doc ? documentPpi(doc) : DEFAULT_PPI,
       blurSession: blurBackground.controls,
       makeCopies: commands.makeCopies,
+      stepsBetween: doc && picked && stepPair(doc, picked) ? commands.stepsBetween : undefined,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
     // Its size and top-left corner before turning, as shown in the boxes.
@@ -3710,6 +3777,9 @@ export default function App() {
         onFillToleranceChange={setFillTolerance}
         healSize={healSize}
         onHealSizeChange={setHealSize}
+        push={pushSettings}
+        onPushChange={setPushSettings}
+        onMakeBrush={doc && activeLayer(doc) ? makeBrush : undefined}
         fade={{ brush: fadeBrush, mode: fadeMode, onBrush: setFadeBrush, onMode: setFadeMode }}
         copy={{
           brush: copyBrush,
@@ -3751,7 +3821,7 @@ export default function App() {
           {doc ? (
             <>
               <CanvasView
-                doc={smart.shown ?? repeat.shown ?? shownDoc ?? doc}
+                doc={smart.shown ?? repeat.shown ?? steps.shown ?? shownDoc ?? doc}
                 revision={editor.revision}
                 viewport={viewport}
                 onViewportChange={setViewport}
@@ -3787,6 +3857,7 @@ export default function App() {
                 onColorSelect={colorSelect}
                 onPaintSelect={paintSelect}
                 selectionPreview={edgePreview}
+                push={pushSettings}
                 clone={
                   tool === 'clone'
                     ? {
@@ -3823,6 +3894,7 @@ export default function App() {
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
               {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
               {repeat.panel && <RepeatPanel state={{ ...repeat.panel, apply: applyRepeat }} />}
+              {steps.panel && <StepsPanel state={{ ...steps.panel, apply: applySteps }} />}
               {corners.dots && <CornerHandles state={corners.dots} viewport={viewport} />}
               {corners.panel && <CornersPanel state={corners.panel} />}
               {doc.layers.length === 0 && tool === 'move' && !textEdit ? (
@@ -4001,6 +4073,7 @@ export default function App() {
                       setColorTarget(target)
                     }}
                     onGeometry={changeGeometry}
+                    onWarp={changeWarp}
                     onNoFill={() => changeShape(t('No fill'), () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
                     onNoOutline={() => changeShape(t('No outline'), () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
                     onOutlineWidth={changeOutlineWidth}
@@ -4015,7 +4088,7 @@ export default function App() {
                       setColorTarget('fill')
                       setGradientStop(index)
                     }}
-                    onEditPoints={editingShape && pickedShapes < 2 && !editingShape.geometry.parts && !(tool === 'pen' && editingShape.geometry.type === 'path') ? () => editPoints(editingShape.id) : undefined}
+                    onEditPoints={editingShape && pickedShapes < 2 && !editingShape.geometry.parts && !(tool === 'pen' && editingShape.geometry.type === 'path' && !isWarped(editingShape.geometry)) ? () => editPoints(editingShape.id) : undefined}
                     onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ into: editingShape.id }) : undefined}
                     photo={photoControls(editingShape)}
                   />

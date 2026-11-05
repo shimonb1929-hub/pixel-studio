@@ -3,7 +3,7 @@ export type BrushBlend = 'normal' | 'multiply'
 
 // The shape of the brush's tip. A round tip paints a plain line; the others paint with texture:
 // streaks of bristles, flicked drops, or paint that runs down.
-export type BrushTip = 'round' | 'oil' | 'splatter' | 'drips'
+export type BrushTip = 'round' | 'oil' | 'splatter' | 'drips' | 'stamp'
 
 export interface BrushSettings {
   // Diameter in design pixels.
@@ -24,6 +24,8 @@ export interface BrushSettings {
   // paints white or black on a drawing of its own that softly mixes with what's below, so the
   // photo itself never changes and the eraser takes it back.
   light?: 'lighten' | 'darken'
+  // With the 'stamp' tip: which of your own brush shapes it paints (see brushShapes.ts).
+  stamp?: string
 }
 
 export interface BrushPreset {
@@ -31,7 +33,7 @@ export interface BrushPreset {
   name: string
   description: string
   // Brushes are shown in groups: plain ones for drawing, and ones that paint with texture.
-  kind?: 'draw' | 'paint' | 'light'
+  kind?: 'draw' | 'paint' | 'light' | 'own'
   settings: BrushSettings
 }
 

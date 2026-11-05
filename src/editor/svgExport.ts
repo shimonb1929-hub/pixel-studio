@@ -28,7 +28,7 @@ function escape(text: string): string {
 }
 
 // The words of an SVG path, written the way a canvas path is drawn.
-class SvgPath implements PathSink {
+export class SvgPath implements PathSink {
   d = ''
   moveTo(x: number, y: number) {
     this.d += `M${n(x)} ${n(y)}`
