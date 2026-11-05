@@ -100,6 +100,14 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   shows it on the page before you pick it. "Add your own font" takes a .ttf, .otf, .woff or .woff2
   file from your computer: it stays under "Your fonts" for next time, and goes inside your designs
   and SVG downloads, so they look right on any computer.
+- **Lines and small letters.** Line under and Line through (pro: Underline, Strikethrough) go on the
+  whole text or on picked words; Raise and Lower (pro: Superscript, Subscript) make picked letters
+  small and lift them above the line or drop them below it, for m², 1st or H₂O. They look the same
+  while typing, on the design, and in downloads.
+- **Copy the look.** Copy the look (Ctrl+Alt+C) remembers how the picked thing looks: its colors,
+  outline, shadow and other effects, how solid it is and how it mixes; a photo's adjustments too.
+  Paste the look (Ctrl+Alt+V) gives it to the picked things, which keep their place, size, words
+  and pictures. A shape's color colors words, and words' color fills a shape.
 - **Lists.** The Text panel's List row puts dots, numbers or letters before each paragraph: א ב ג
   on the right for Hebrew and Yiddish, a b c on the left for English. They count by themselves, an
   empty line gets none, wrapped lines stay lined up beside them, and text that runs on into another
@@ -156,6 +164,8 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   however big it prints, and Hebrew and Yiddish come out exactly as on screen. Print shops get an
   extra edge for cutting (bleed) and cut lines, tucked under "For print shops". Text in the PDF can
   be searched and copied: the letters lie invisibly over the picture, right-to-left words included.
+- **Print at home.** Print… (Ctrl+P) hands every page to the browser's print window, one page on
+  each sheet, as big as fits the paper chosen there. Pages are drawn again at print detail first.
 - **Pages.** A design can have many pages (a menu, a booklet). A small row of pages sits at the
   bottom: + adds one, ⋯ copies, moves or deletes, Page Up and Page Down go between them. All pages
   share one size, undo works across them, and a PDF download holds every page.

@@ -694,3 +694,57 @@ test('See all fonts big: every font writes your words side by side, and a click 
   await expect(textPanel(page).getByRole('button', { name: 'Font: Heblock' })).toBeVisible()
   expect(await undoLabel(page)).toContain('Undo change font')
 })
+
+test('raised and lowered letters (m², H₂O) look exactly as shown while typing; whole text gets a line under', async ({ page }) => {
+  const size = await newDesign(page, 500, 300)
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.keyboard.press('t')
+  await clickAt(page, size, 30, 100)
+  const box = typingBox(page)
+  await page.keyboard.insertText('m2 and H2O')
+  // Raise and Lower wait until some letters are picked.
+  await expect(textPanel(page).getByRole('button', { name: 'Raise' })).toHaveAttribute('aria-disabled', 'true')
+  await page.keyboard.press('Home')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('Shift+ArrowRight')
+  await textPanel(page).getByRole('button', { name: 'Raise' }).click()
+  await box.focus()
+  await page.keyboard.press('End')
+  await page.keyboard.press('ArrowLeft')
+  await page.keyboard.press('Shift+ArrowLeft')
+  await textPanel(page).getByRole('button', { name: 'Lower' }).click()
+  await expect(box.locator('[data-look]')).toHaveText(['2', '2'])
+  await expect(box).toHaveText('m2 and H2O')
+
+  const typed = (await box.boundingBox())!
+  const inside = { x: typed.x + 3, y: typed.y + 3, width: typed.width - 6, height: typed.height - 6 }
+  const whileTyping = (await page.screenshot({ clip: inside })).toString('base64')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('b')
+  await page.mouse.move(5, 5)
+  const afterwards = (await page.screenshot({ clip: inside })).toString('base64')
+  const { ink, different } = await compareShots(page, whileTyping, afterwards)
+  expect(ink).toBeGreaterThan(300)
+  expect(different / ink, `${different} of ${ink} ink pixels moved`).toBeLessThan(0.02)
+
+  // The raised 2 reaches higher than the m, and the lowered 2 lower than the H.
+  const all = (await inkBounds(page, size, 0, 40, 500, 140))!
+  const m = (await inkBounds(page, size, all.left, 40, 12, 140))!
+  const end = (await inkBounds(page, size, all.right - 8, 40, 8, 140))!
+  expect(all.top).toBeLessThan(m.top - 4)
+  expect(all.bottom).toBeGreaterThan(end.bottom + 2)
+
+  // A line under the whole text, from its first letter to its last.
+  await page.keyboard.press('v')
+  await clickAt(page, size, (all.left + all.right) / 2, (all.top + all.bottom) / 2)
+  await textPanel(page).getByRole('button', { name: 'Line under' }).click()
+  expect(await undoLabel(page)).toContain('Undo line under')
+  await page.keyboard.press('Escape')
+  const lined = (await inkBounds(page, size, 0, 40, 500, 140))!
+  let widest = 0
+  for (let y = Math.floor(lined.bottom) - 12; y < lined.bottom; y++) {
+    const row = await inkBounds(page, size, 0, y, 500, 1)
+    widest = Math.max(widest, row ? row.right - row.left : 0)
+  }
+  expect(widest).toBeGreaterThan((all.right - all.left) * 0.9)
+})

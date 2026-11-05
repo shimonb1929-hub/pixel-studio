@@ -8,8 +8,8 @@ import { endDirection } from './path.ts'
 import { tableParts, tableTexts } from './table.ts'
 import type { EditorDocument, Layer, PixelLayer, ShapeLayer, TextLayer } from './types.ts'
 import { cssFont, familyName, fontFormat, fontInfo, fontStack, fontStackIds } from '../text/fonts.ts'
-import { styledPieces } from '../text/spans.ts'
-import { lineShift, textCurve, textLayout } from '../text/textLayer.ts'
+import { raiseShift, styledPieces } from '../text/spans.ts'
+import { decorationLines, lineShift, textCurve, textLayout } from '../text/textLayer.ts'
 import type { CurvedText } from '../text/textCurve.ts'
 
 // The design as an SVG file: shapes and text stay sharp at any size and can be changed in other
@@ -233,9 +233,10 @@ function textSvg(layer: TextLayer, ids: Ids, defs: string[]): string {
           const color = look.style.color !== style.color ? look.style.color : fill
           // Right to left, the start of the piece is its right edge.
           const at = run.rtl ? x + width : x
+          const baseline = line.baseline + raiseShift(look.style, style.size)
           const attributes = [
             `x="${n(at)}"`,
-            `y="${n(line.baseline)}"`,
+            `y="${n(baseline)}"`,
             `fill="${color}"`,
             `font-family="${escape(fontStack(look.style.font))}"`,
             `font-size="${n(look.style.size)}"`,
@@ -246,6 +247,14 @@ function textSvg(layer: TextLayer, ids: Ids, defs: string[]): string {
             line.wordSpacing ? `word-spacing="${n(line.wordSpacing)}"` : '',
           ]
           pieces.push(`<text ${attributes.filter(Boolean).join(' ')} xml:space="preserve">${escape(piece)}</text>`)
+          // Lines under or through the letters, as wide as the words (not the spaces after them).
+          const trailing = piece.length - piece.trimEnd().length
+          const spaces = trailing > 0 ? measure.measureText(piece.slice(-trailing)).width : 0
+          const left = run.rtl ? x + spaces : x
+          const right = run.rtl ? x + width : x + width - spaces
+          for (const [y, thickness] of decorationLines(look.style, baseline)) {
+            pieces.push(`<rect x="${n(left)}" y="${n(y - thickness / 2)}" width="${n(right - left)}" height="${n(thickness)}" fill="${color}"/>`)
+          }
         }
         x += width
       }

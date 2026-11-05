@@ -5,7 +5,7 @@ import { boxPoint, type TransformBox } from '../editor/transform.ts'
 import type { EditorDocument, Point, TextLayer, TextStyle } from '../editor/types.ts'
 import { cssFont, fontReady, fontStack, fontsVersion, loadFont } from './fonts.ts'
 import { indexAt, layoutText, listStartAt, mainDirection, plainWidth, resolveAlign, type RangeWidth, type TextLayout, type TextMeasure } from './layout.ts'
-import { styledPieces, tidySpans } from './spans.ts'
+import { raiseShift, styledPieces, tidySpans } from './spans.ts'
 import { avoidSlots } from './avoid.ts'
 import { curvedIndexAt, curvedText, isCurved, type CurvedText } from './textCurve.ts'
 import { t } from '../i18n/i18n.ts'
@@ -249,9 +249,18 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
         }
         // A line with even edges is drawn word by word, each space widened by the same amount
         // (the browser's own word spacing is not to be trusted inside mixed-direction text).
+        const baseline = line.baseline + raiseShift(look.style, style.size)
+        const from = x
         for (const word of justifiedWords(piece, run.rtl, line.wordSpacing)) {
-          if (word.text) ctx.fillText(word.text, x, line.baseline)
+          if (word.text) ctx.fillText(word.text, x, baseline)
           x += (word.text ? ctx.measureText(word.text).width : 0) + word.extra
+        }
+        // Lines under or through the letters, as wide as the piece (spaces at a line's end left out).
+        const trailing = piece.length - piece.trimEnd().length
+        if ((look.style.underline || look.style.strike) && piece.trim()) {
+          const end = trailing > 0 && !run.rtl ? x - ctx.measureText(piece.slice(-trailing)).width : x
+          const start = trailing > 0 && run.rtl ? from + ctx.measureText(piece.slice(-trailing)).width : from
+          for (const [y, thickness] of decorationLines(look.style, baseline)) ctx.fillRect(start, y - thickness / 2, end - start, thickness)
         }
         if (look.style !== style) {
           ctx.font = cssFont(style)
@@ -261,6 +270,15 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
     }
   }
   ctx.restore()
+}
+
+// Where the lines under and through letters go (their middles) and how thick they are.
+export function decorationLines(style: TextStyle, baseline: number): [number, number][] {
+  const thickness = Math.max(1, style.size * 0.06)
+  const lines: [number, number][] = []
+  if (style.underline) lines.push([baseline + style.size * 0.12, thickness])
+  if (style.strike) lines.push([baseline - style.size * 0.3, thickness])
+  return lines
 }
 
 const SPACES = /([ \u00a0]+)/

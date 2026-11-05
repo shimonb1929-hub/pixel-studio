@@ -67,6 +67,8 @@ import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
 import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
 import { isHeic } from './editor/heic.ts'
+import { lookOf, withLook, type Look } from './editor/copyLook.ts'
+import { printDesign } from './editor/print.ts'
 import {
   activeLayer,
   duplicateLayers,
@@ -497,6 +499,8 @@ export default function App() {
   // Text being typed: new text (not in the design until it has words) or text already there.
   const [textEdit, setTextEditState] = useState<TextEditState | null>(null)
   const textEditRef = useRef<TextEditState | null>(null)
+  // The look kept by Copy the look, for Paste the look.
+  const lookRef = useRef<Look | null>(null)
   // The letters picked while typing: the Text and Color panels change just those words.
   const [textPick, setTextPickState] = useState<{ start: number; end: number } | null>(null)
   const textPickRef = useRef<{ start: number; end: number } | null>(null)
@@ -1334,7 +1338,7 @@ export default function App() {
       const pick = textPickRef.current
       // With some words picked, their font, boldness, slant and color change; everything else
       // (size, spacing, lining up) is for the whole text.
-      const own = Object.keys(patch).every((key) => key === 'font' || key === 'weight' || key === 'italic' || key === 'color')
+      const own = Object.keys(patch).every((key) => ['font', 'weight', 'italic', 'color', 'underline', 'strike', 'raise'].includes(key))
       if (pick && pick.end > pick.start && own) {
         updateTextEdit((layer) => changeText(layer, { spans: styleRange(layer.spans, layer.style, layer.text.length, pick.start, pick.end, patch) }))
       } else {
@@ -2511,6 +2515,12 @@ export default function App() {
     colorPage: () => {
       if (current()) layers.pickPage()
     },
+    print: () => {
+      settle()
+      const d = current()
+      if (!d) return
+      printDesign(d).catch((e) => problem(errorMessage(e)))
+    },
     download: () => {
       settle()
       if (!current()) return
@@ -2646,6 +2656,23 @@ export default function App() {
       const area = editArea(d)
       if (layer && area) editor.paint(t('Delete selected area'), layer.id, area, (ctx, l) => clearSelected(ctx, l, d))
     },
+    copyLook: () => {
+      settle()
+      const d = current()
+      const layer = d && activeLayer(d)
+      if (!layer) return
+      lookRef.current = lookOf(layer)
+      inform(t('Look copied. Pick other things, then press {keys} (or Menu › Paste the look).', { keys: shortcut('mod', 'alt', 'V') }))
+    },
+    pasteLook: () => {
+      settle()
+      const d = current()
+      const look = lookRef.current
+      const ids = targets()
+      if (!d || !look || ids.length === 0) return
+      editor.change(t('Paste the look'), (doc) => ({ ...doc, layers: doc.layers.map((l) => (ids.includes(l.id) ? withLook(l, look) : l)) }))
+    },
+    pasteLookBlocked: () => (lookRef.current ? null : t('Copy a look first: pick something and press Copy the look.')),
     toNewLayer: () => {
       settle()
       const d = current()
@@ -2992,6 +3019,9 @@ export default function App() {
       else if (mod && code === 'KeyY') action = c.redo
       else if (mod && code === 'KeyA' && hasDoc) action = c.selectAll
       else if (mod && code === 'KeyD' && hasDoc) action = c.deselect
+      else if (mod && event.altKey && !event.shiftKey && code === 'KeyC' && hasDoc) action = c.copyLook
+      else if (mod && event.altKey && !event.shiftKey && code === 'KeyV' && hasDoc) action = c.pasteLook
+      else if (mod && !event.shiftKey && !event.altKey && code === 'KeyP' && hasDoc) action = c.print
       else if (mod && !event.shiftKey && code === 'KeyC' && hasDoc) action = c.copy
       else if (mod && code === 'KeyX' && hasDoc) action = c.cut
       else if (mod && code === 'KeyJ' && hasDoc) action = c.toNewLayer

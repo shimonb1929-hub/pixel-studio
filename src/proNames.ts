@@ -92,6 +92,8 @@ export const PRO_NAMES: Record<string, string> = {
   Shadow: 'Drop Shadow',
   Glow: 'Outer Glow',
   // Arranging
+  'Copy the look': 'Copy Style, Eyedropper, Copy Layer Style',
+  'Paste the look': 'Paste Style, Paste Layer Style',
   'Line up': 'Align',
   'Tidy up': 'Distribute',
   'Space evenly across': 'Distribute horizontally',
@@ -107,6 +109,10 @@ export const PRO_NAMES: Record<string, string> = {
   Angle: 'Rotation',
   // Text
   Boldness: 'Font weight',
+  'Line under': 'Underline',
+  'Line through': 'Strikethrough',
+  Raise: 'Superscript',
+  Lower: 'Subscript',
   'Letter spacing': 'Tracking',
   'Line spacing': 'Leading',
   'Even edges': 'Justify',

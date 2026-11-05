@@ -38,6 +38,11 @@ export interface AppCommands {
   fill: () => void
   deleteArea: () => void
   toNewLayer: () => void
+  copyLook: () => void
+  pasteLook: () => void
+  // Why the look can't be pasted yet, or null.
+  pasteLookBlocked: () => string | null
+  print: () => void
   center: () => void
   resizeDesign: () => void
   cropToSelection: () => void
@@ -202,10 +207,20 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       group: 'Design',
       title: t('Download…'),
       description: t('Save your design to your computer as a picture to share, a page to print (PDF), or a project to keep editing.'),
-      keywords: ['save', 'export', 'download', 'share', 'png', 'jpg', 'jpeg', 'print', 'pdf', 'printer', 'file', 'keep'],
+      keywords: ['save', 'export', 'download', 'share', 'png', 'jpg', 'jpeg', 'pdf', 'file', 'keep'],
       shortcut: shortcut('mod', 'S'),
       needsDocument: true,
       run: c.download,
+    },
+    {
+      id: 'print',
+      group: 'Design',
+      title: t('Print…'),
+      description: t('Print your design on your own printer. Each page fills the paper you choose in the print window, sharp at any size.'),
+      keywords: ['print', 'printer', 'paper', 'print out', 'hard copy'],
+      shortcut: shortcut('mod', 'P'),
+      needsDocument: true,
+      run: c.print,
     },
     {
       id: 'download-pdf',
@@ -324,6 +339,30 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       keywords: ['paste', 'insert', 'put', 'clipboard'],
       shortcut: shortcut('mod', 'V'),
       run: c.paste,
+    },
+    {
+      id: 'copy-look',
+      group: 'Edit',
+      extra: true,
+      title: t('Copy the look'),
+      description: t('Remember how the picked thing looks (its colors, outline, shadow and how solid it is), to give the same look to other things.'),
+      keywords: ['copy style', 'copy look', 'copy format', 'format painter', 'eyedropper', 'same look', 'match style', 'copy effects'],
+      shortcut: shortcut('mod', 'alt', 'C'),
+      needsDocument: true,
+      disabledReason: doc && !active ? t('Pick something first: click it with Arrange.') : undefined,
+      run: c.copyLook,
+    },
+    {
+      id: 'paste-look',
+      group: 'Edit',
+      extra: true,
+      title: t('Paste the look'),
+      description: t('Give the picked things the look you copied. They keep their own place, size, words and pictures.'),
+      keywords: ['paste style', 'paste look', 'paste format', 'apply style', 'same look', 'match style', 'paste effects'],
+      shortcut: shortcut('mod', 'alt', 'V'),
+      needsDocument: true,
+      disabledReason: doc ? (c.pasteLookBlocked() ?? undefined) : undefined,
+      run: c.pasteLook,
     },
     {
       id: 'select-all',
