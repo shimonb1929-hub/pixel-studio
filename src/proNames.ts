@@ -8,6 +8,9 @@ import { englishOf } from './i18n/i18n.ts'
 // things in different places (Size, Softness, Strength) are left out here and given right where
 // they are used, through the tip's `pro`.
 export const PRO_NAMES: Record<string, string> = {
+  // Starting designs
+  'Ready layouts': 'Templates',
+  'Keep as my layout': 'Save as Template',
   // Photos and colors
   Adjust: 'Adjustments, Filters',
   Looks: 'Presets, Filters',
@@ -36,8 +39,12 @@ export const PRO_NAMES: Record<string, string> = {
   'Fill the gap': 'Content-Aware Fill',
   'Move and fill the gap': 'Content-Aware Move',
   'Remove background': 'Remove Background',
-  'Magic select': 'Select Subject',
-  Magic: 'Magic Wand, Select Subject',
+  'Magic select': 'Object Selection',
+  Magic: 'Object Selection tool',
+  'Paint over': 'Quick Selection tool',
+  'Select main thing': 'Select Subject',
+  'Main thing': 'Select Subject',
+  'Select its shape': 'Load layer transparency as selection',
   Freehand: 'Lasso',
   'Take away': 'Subtract from selection',
   'Add to selection': 'Add to selection',

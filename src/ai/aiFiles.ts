@@ -51,3 +51,58 @@ export function pointAtOwnSite(settings: AiSettings, siteBase: string, engine: E
   const wasm = (settings.backends.onnx.wasm ??= {})
   wasm.wasmPaths = { mjs: new URL(files.mjs, siteBase).href, wasm: new URL(files.wasm, siteBase).href }
 }
+
+// Why an AI file couldn't be had, said plainly. `blocked` means something between us and the site
+// (a filter like NetFree) sent a page of its own instead of the file.
+export class AiFileError extends Error {
+  readonly blocked: boolean
+  constructor(file: string, reason: string, blocked: boolean) {
+    super(`${file}: ${reason}`)
+    this.blocked = blocked
+  }
+}
+
+type Fetch = (input: string | URL, init?: RequestInit) => Promise<Response>
+
+// How many times a download is tried, and how long to wait before trying again.
+const TRIES = 3
+const WAIT_MS = 1500
+
+// Fetches an AI file carefully: tries again when the connection drops, and never hands the AI a
+// web page in place of the file. A filter's "please wait" or "blocked" page that was kept by the
+// offline helper is thrown away and fetched fresh once. `forget` drops a kept copy of a file.
+export function carefulFetch(fetchFile: Fetch, forget: (url: string) => Promise<void>, wait = (ms: number) => new Promise((r) => setTimeout(r, ms))): Fetch {
+  return async (input, init) => {
+    const url = String(input)
+    const file = url.split('?')[0].split('/').pop() || url
+    let lastError: AiFileError | null = null
+    let fresh = false
+    for (let attempt = 0; attempt < TRIES; attempt++) {
+      if (attempt > 0) await wait(WAIT_MS * attempt)
+      let response: Response
+      try {
+        response = await fetchFile(input, fresh ? { ...init, cache: 'reload' } : init)
+      } catch {
+        lastError = new AiFileError(file, 'the connection failed', false)
+        continue
+      }
+      const type = response.headers.get('content-type') ?? ''
+      // Model files are never web pages; a page here came from something in between.
+      if (response.ok && type.includes('text/html')) {
+        lastError = new AiFileError(file, 'a filter sent a page instead of the file', true)
+        await forget(url).catch(() => {})
+        fresh = true
+        continue
+      }
+      if (response.ok || response.status === 404) return response
+      lastError = new AiFileError(file, `the site answered ${response.status}`, response.status === 403 || response.status === 418)
+    }
+    throw lastError ?? new AiFileError(file, 'it could not be downloaded', false)
+  }
+}
+
+// Drops a file from every copy the offline helper keeps, so it's downloaded fresh next time.
+export async function forgetKept(url: string): Promise<void> {
+  if (typeof caches === 'undefined') return
+  for (const name of await caches.keys()) await (await caches.open(name)).delete(url)
+}

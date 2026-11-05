@@ -8,8 +8,8 @@ import { CanvasView, type ArrangeControls, type BoxEditing, type ShapeDrawing, t
 import { ColorPanel, type DesignColors } from './components/ColorPanel.tsx'
 import { applyTextStyle, colorUses, designColors, findTextStyle, forgetColor, keepColor, lookPatch, matchesStyle, newStyleId, nextStyleName, recolorEverywhere, removeTextStyle, renameTextStyle, saveTextStyle, textStyles, updateTextStyle } from './editor/designStyles.ts'
 import type { TextStylesProps } from './components/TextStyles.tsx'
-import { LayoutsDialog } from './components/LayoutsDialog.tsx'
-import { buildLayout, loadLayoutFonts, type LayoutInfo, type LayoutKind } from './layouts/layouts.ts'
+import { LayoutsDialog, type KindChoice } from './components/LayoutsDialog.tsx'
+import { buildLayout, loadLayoutFonts, type LayoutInfo } from './layouts/layouts.ts'
 import { CommandPalette } from './components/CommandPalette.tsx'
 import { HelpGuide } from './components/HelpGuide.tsx'
 import { Dialog } from './components/Dialog.tsx'
@@ -44,7 +44,7 @@ import { GradientHandles } from './components/GradientHandles.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
 import { PhotoColors, ReadableNote, SmartPreviewBar } from './components/SmartHelpers.tsx'
 import { useSmartDesign } from './hooks/useSmartDesign.ts'
-import { effectThumbnails, flattenDocument, mergeLayers } from './editor/compose.ts'
+import { drawLayer, effectThumbnails, flattenDocument, mergeLayers } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
 import { adjustmentLabel, autoColor, autoLight, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, tidyAdjustments, type Adjustments } from './editor/adjust.ts'
 import { adjustArea, lookThumbnails, paintAdjusted, pixelsToMeasure, previewParts } from './editor/adjustSession.ts'
@@ -54,6 +54,7 @@ import { BRUSH_PRESETS, COPY_BRUSH, ERASER_PRESETS, stepBrushSize, type BrushSet
 import { getClipboard, ownCopyCheck, setClipboard } from './editor/clipboard.ts'
 import {
   createBlankDocument,
+  createDesignId,
   createCanvas,
   createDocumentFromImage,
   createId,
@@ -86,7 +87,7 @@ import {
   updateLayer,
   updateShape,
 } from './editor/layers.ts'
-import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
+import { listDesigns, loadDesign, loadMyLayout, saveMyLayout, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
 import { canFill, hitsLayer, isLineShape, layerAt, layerBounds, layerPixels, polygonPoints } from './editor/objects.ts'
 import { layerPhoto, photoWhereItWas, withPhoto } from './editor/photoFill.ts'
@@ -99,16 +100,16 @@ import { onGapFilled, type GapFill } from './editor/gapFill.ts'
 import { healRegion } from './editor/healRegion.ts'
 import { layerVersion, pixelVersion } from './editor/pixelVersion.ts'
 import { combineFound, maskToOps } from './ai/maskSelection.ts'
-import { AI_PICTURE_SIDE, findThing, onAiProgress, prepareThing } from './ai/segment.ts'
+import { AI_PICTURE_SIDE, aiTrouble, findThing, onAiProgress, prepareThing } from './ai/segment.ts'
 import { useBlurBackground } from './ai/useBlurBackground.ts'
 import { PictureHelper, type PictureHelperKind } from './components/PictureHelpers.tsx'
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
-import { decodeProject } from './editor/project.ts'
+import { decodeProject, designThumbnail, encodeProject } from './editor/project.ts'
 import type { LayerOverride } from './editor/render.ts'
 import { invertSelection, refineSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
-import { colorMaskAt } from './editor/colorSelect.ts'
+import { colorMaskAt, paintedMaskAt } from './editor/colorSelect.ts'
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
@@ -417,7 +418,7 @@ export default function App() {
   const phone = useMediaQuery(PHONE_SCREEN)
   const [openPanel, setOpenPanel] = useState<OpenPanel | null>(null)
   // Which kind of ready layout the layouts dialog shows first.
-  const [layoutsKind, setLayoutsKind] = useState<'all' | LayoutKind>('all')
+  const [layoutsKind, setLayoutsKind] = useState<KindChoice>('all')
   const [layoutsStart, setLayoutsStart] = useState<string | undefined>(undefined)
   // Bigger and sharper, or Words from a picture, open for a photo.
   const [pictureHelper, setPictureHelper] = useState<{ kind: PictureHelperKind; layerId: string } | null>(null)
@@ -1910,6 +1911,37 @@ export default function App() {
     }
   }
 
+  // My layouts: the open design is kept as a layout (pro programs call it a template), so new
+  // designs can start from it. It's a copy: changing the design later leaves the layout as it is.
+  async function saveAsMyLayout() {
+    const d = current()
+    if (!d) return
+    try {
+      const [project, thumbnail] = await Promise.all([encodeProject(d), designThumbnail(d)])
+      await saveMyLayout({ id: createDesignId(), name: d.name, width: d.width, height: d.height, updatedAt: Date.now(), thumbnail }, project)
+      inform(t('“{name}” is saved as your layout. Find it in Ready layouts, under Mine.', { name: d.name }))
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
+  // A new design that starts as a copy of one of the user's own layouts.
+  async function startFromMyLayout(layout: SavedDesign) {
+    try {
+      const file = await loadMyLayout(layout.id)
+      if (!file) throw new Error(t("“{name}” isn't in this browser anymore. It may have been deleted in another tab.", { name: layout.name }))
+      const next = await decodeProject(file)
+      next.name = uniqueName(layout.name, await savedNames())
+      setDialog(null)
+      void leaveDesign(() => {
+        setTool('move')
+        showDocument(next)
+      })
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
   async function download({ format, quality, fileName, pdf }: ExportOptions) {
     const d = current()
     if (!d) return
@@ -2044,6 +2076,42 @@ export default function App() {
     setSelection(mode === 'add' ? t('Add to selection') : mode === 'subtract' ? t('Remove from selection') : t('Select same color'), (doc) => combineFound(doc.selection, ops, mode))
   }
 
+  // Paint over: the brush picks what it touches and spreads to the look-alike colors around it.
+  function paintSelect(points: Point[], radius: number, mode: SelectionMode) {
+    const d = current()
+    if (!d) return
+    const mask = paintedMaskAt(d, points, radius, Math.round(colorTolerance * 255))
+    const ops = mask ? maskToOps(mask, d.width, d.height, 1, 1) : []
+    if (ops.length === 0) {
+      problem(t('Nothing was picked there. Paint right over the part you want.'))
+      return
+    }
+    setSelection(mode === 'add' ? t('Add to selection') : mode === 'subtract' ? t('Remove from selection') : t('Paint to select'), (doc) => combineFound(doc.selection, ops, mode))
+  }
+
+  // Its shape: exactly the parts of the picked thing that show, nothing around it.
+  function selectLayerShape() {
+    const d = current()
+    const layer = d && activeLayer(d)
+    if (!d) return
+    if (!layer) {
+      problem(t('Pick something on your design first, then select its shape.'))
+      return
+    }
+    const canvas = createCanvas(d.width, d.height)
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+    drawLayer(ctx, d, layer)
+    const pixels = ctx.getImageData(0, 0, d.width, d.height).data
+    const mask = new Uint8Array(d.width * d.height)
+    for (let i = 0; i < mask.length; i++) mask[i] = pixels[i * 4 + 3] >= 128 ? 1 : 0
+    const ops = maskToOps(mask, d.width, d.height, 1, 1)
+    if (ops.length === 0) {
+      problem(t('“{name}” has nothing on the page to select.', { name: layer.name }))
+      return
+    }
+    setSelection(t('Select its shape'), () => ({ ops }))
+  }
+
   function applyEdge() {
     const edit = edgeShown
     setEdgeEdit(null)
@@ -2052,6 +2120,8 @@ export default function App() {
   }
 
   function handleSelect(selection: Selection | null, label: string) {
+    // A warning from an earlier try (say, Same color finding nothing) no longer fits a new selection.
+    setNotice((n) => (n?.tone === 'problem' ? null : n))
     editor.change(label, (d) => ({ ...d, selection }))
   }
 
@@ -2147,6 +2217,7 @@ export default function App() {
 
   // Selections that end up empty (say, everything was taken away) count as no selection.
   function setSelection(label: string, next: (d: EditorDocument) => Selection | null) {
+    setNotice((n) => (n?.tone === 'problem' ? null : n))
     editor.change(label, (d) => {
       const selection = next(d)
       return { ...d, selection: selection && selectionInfo(selection, d.width, d.height).bounds ? selection : null }
@@ -2173,8 +2244,20 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [magicOn, editor.revision])
 
+  // Main thing: AI finds what the design or photo is mostly of, with one click (pro: Select Subject).
+  function selectMainThing() {
+    const d = current()
+    if (!d) return
+    // With a photo picked, it looks inside that photo; otherwise at the whole design.
+    const layer = activeLayer(d)
+    const page = { x: 0, y: 0, width: d.width, height: d.height }
+    const area = (layer?.kind === 'raster' && intersectRect(layerBounds(layer), page)) || page
+    const inset = Math.max(1, Math.round(Math.min(area.width, area.height) * 0.01))
+    void magicSelect({ box: { x: area.x + inset, y: area.y + inset, width: area.width - inset * 2, height: area.height - inset * 2 } }, 'replace', true)
+  }
+
   // Magic selection: AI finds the thing that was clicked (or boxed) in everything that shows.
-  async function magicSelect(target: { point: Point } | { box: Rect }, mode: SelectionMode) {
+  async function magicSelect(target: { point: Point } | { box: Rect }, mode: SelectionMode, mainThing = false) {
     const d = current()
     if (!d) return
     const { key, width, height, picture } = aiPicture(d)
@@ -2190,14 +2273,26 @@ export default function App() {
     try {
       const found = await findThing(key, picture, points, box)
       const ops = maskToOps(found.mask, found.width, found.height, d.width / found.width, d.height / found.height)
+      const size = found.width * found.height
+      let kept = 0
+      for (let i = 0; i < size; i++) kept += found.mask[i] ? 1 : 0
+      if (mainThing && (kept < size * 0.005 || kept > size * 0.97)) {
+        problem(t('The AI could not tell what the main thing is here. Choose Magic and click right on it instead.'))
+        return
+      }
       if (ops.length === 0) {
         problem(t('Nothing was found there. Click right on the thing you want, or drag a box around it.'))
         return
       }
       setNotice(null)
+      if (mainThing) {
+        setSelection(t('Select main thing'), () => ({ ops }))
+        inform(t('The main thing is selected. To work on the background instead, press Swap.'))
+        return
+      }
       setSelection(mode === 'add' ? t('Add to selection') : mode === 'subtract' ? t('Remove from selection') : t('Magic select'), (doc) => combineFound(doc.selection, ops, mode))
-    } catch {
-      problem(t("The magic selection couldn't start. Check that you're online, then try again."))
+    } catch (error) {
+      problem(aiTrouble(error, t("The magic selection couldn't start. Check that you're online, then try again.")))
     } finally {
       stop()
     }
@@ -2253,8 +2348,8 @@ export default function App() {
         return now && now.kind === 'raster' && now.canvas === source ? replaceLayer(next, { ...now, canvas: out }) : next
       }, { bytes: canvasBytes(out) })
       inform(t('Background removed. Press Undo if you want it back.'))
-    } catch {
-      problem(t("Remove background couldn't start. Check that you're online, then try again."))
+    } catch (error) {
+      problem(aiTrouble(error, t("Remove background couldn't start. Check that you're online, then try again.")))
     } finally {
       stop()
     }
@@ -2511,6 +2606,7 @@ export default function App() {
       setDialog('new')
       void savedNames().then((names) => setNewDesignName(nextNumberedName(t('My design'), names, designCount)))
     },
+    saveAsLayout: () => void saveAsMyLayout(),
     readyLayouts: () => {
       settle()
       setLayoutsKind('all')
@@ -2643,6 +2739,14 @@ export default function App() {
     invert: () => {
       settle()
       if (current()) setSelection(t('Select everything else'), (d) => invertSelection(d.selection, d.width, d.height))
+    },
+    selectMainThing: () => {
+      settle()
+      selectMainThing()
+    },
+    selectLayerShape: () => {
+      settle()
+      selectLayerShape()
     },
     fill: () => {
       settle()
@@ -2936,7 +3040,7 @@ export default function App() {
         actionsById(['cut', 'copy', 'paste', 'layer-duplicate', 'layer-delete']),
         actionsById(['layer-front', 'layer-up', 'layer-down', 'layer-back']),
         [...fitting(['keep-together', 'take-apart']), ...actionsById(['layer-join'])],
-        [...actionsById(['effects']), ...fitting(['remove-background'])],
+        [...actionsById(['effects']), ...fitting(['remove-background', 'select-shape'])],
       ]
     : [actionsById(['paste', 'select-all']), actionsById(['color-page', 'add-photo', 'add-table']), actionsById(['fit'])]
 
@@ -3499,13 +3603,17 @@ export default function App() {
         onEraserChange={(settings, presetId) => setEraser({ settings, presetId })}
         selectionShape={selectionShape}
         selectionMode={selectionMode}
-        onSelectionShapeChange={setSelectionShape}
+        onSelectionShapeChange={(shape) => {
+          setSelectionShape(shape)
+          setNotice((n) => (n?.tone === 'problem' ? null : n))
+        }}
         onSelectionModeChange={setSelectionMode}
         selection={{
           hasSelection: !!doc?.selection,
           selectAll: commands.selectAll,
           deselect: commands.deselect,
           invert: commands.invert,
+          mainThing: commands.selectMainThing,
           fill: commands.fill,
           remove: commands.deleteArea,
           toNewLayer: commands.toNewLayer,
@@ -3625,6 +3733,7 @@ export default function App() {
                 onSelect={handleSelect}
                 onMagicSelect={(target, mode) => void magicSelect(target, mode)}
                 onColorSelect={colorSelect}
+                onPaintSelect={paintSelect}
                 selectionPreview={edgePreview}
                 clone={
                   tool === 'clone'
@@ -3690,6 +3799,11 @@ export default function App() {
                             onAdd={() => changeSelectionBy('add')}
                             onTakeAway={() => changeSelectionBy('subtract')}
                             onLetGo={commands.deselect}
+                            next={
+                              tool === 'select'
+                                ? { move: () => setTool('move'), adjust: () => setTool('adjust'), fill: commands.fill, toNewLayer: commands.toNewLayer, remove: commands.deleteArea }
+                                : undefined
+                            }
                           />
                         ) : undefined
                       }
@@ -3967,7 +4081,16 @@ export default function App() {
           onClose={() => setDialog(null)}
         />
       )}
-      {dialog === 'layouts' && <LayoutsDialog kind={layoutsKind} layoutId={layoutsStart} onUse={(layout, colors) => void startFromLayout(layout, colors)} onClose={() => setDialog(null)} />}
+      {dialog === 'layouts' && (
+        <LayoutsDialog
+          kind={layoutsKind}
+          layoutId={layoutsStart}
+          onUse={(layout, colors) => void startFromLayout(layout, colors)}
+          onUseMine={(layout) => void startFromMyLayout(layout)}
+          onSaveCurrent={doc ? saveAsMyLayout : undefined}
+          onClose={() => setDialog(null)}
+        />
+      )}
       {dialog === 'export' && doc && (
         <ExportDialog doc={doc} initialFormat={exportFormat} onExport={download} onClose={() => setDialog(null)} />
       )}

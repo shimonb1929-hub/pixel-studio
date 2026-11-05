@@ -82,6 +82,14 @@ export const GOALS: Goal[] = [
     keywords: ['selection', 'area', 'only', 'mask', 'marquee', 'lasso'],
   },
   {
+    id: 'smart-select',
+    goal: msg('Select one thing in a photo without drawing around it'),
+    how: msg('Choose Select. Press Main thing and AI selects what the photo is mostly of. Or pick Magic and click the thing, Same color and click a color, or Paint over and brush across it. Press Swap to select everything else.'),
+    tool: 'select',
+    pro: 'Select Subject, Object Selection, Quick Selection, Magic Wand',
+    keywords: ['smart', 'automatic', 'auto', 'subject', 'object', 'quick select', 'magic wand', 'sky', 'person', 'background', 'ai'],
+  },
+  {
     id: 'spots',
     goal: msg('Remove a spot, a scratch or a small thing'),
     how: msg('Choose Fix spots and brush over it. When you let go, it is filled in from what is around it.'),
@@ -384,5 +392,13 @@ export const GOALS: Goal[] = [
     action: 'panels',
     pro: 'Workspace, Window menu, panel layout',
     keywords: ['panels', 'workspace', 'sidebar', 'hide', 'show', 'wider', 'bigger', 'smaller', 'move', 'order', 'customize', 'layout'],
+  },
+  {
+    id: 'my-layout',
+    goal: msg('Use my design again as a starting point'),
+    how: msg('Open the Menu and choose Keep as my layout. Next time, open Ready layouts, choose Mine, and start a new design from it.'),
+    action: 'save-as-layout',
+    pro: 'Save as Template',
+    keywords: ['template', 'templates', 'reuse', 'again', 'same', 'start from', 'copy', 'my layout'],
   },
 ]

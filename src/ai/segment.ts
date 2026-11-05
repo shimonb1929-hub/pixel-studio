@@ -1,3 +1,4 @@
+import { t } from '../i18n/i18n.ts'
 import type { SegmentPoint, SegmentRequest, SegmentResponse } from './segmentTypes.ts'
 
 // Finding things in a picture with AI. The work happens in a worker, so the page stays smooth; the
@@ -84,4 +85,15 @@ export async function findThing(key: string, picture: () => ImageData, points: S
   const found = await send({ type: 'segment', id: nextId++, key, image: pictureFor(key, picture), points, box })
   if (!found) throw new Error('Nothing came back.')
   return found
+}
+
+// What to tell people when the AI couldn't start: a filter in the way, a download that failed, or
+// the usual "try again". The worker starts its messages with which one it was.
+export function aiTrouble(error: unknown, usual: string): string {
+  const message = error instanceof Error ? error.message : ''
+  const [kind, detail = ''] = message.split('|')
+  const file = detail.split(':')[0]
+  if (kind === 'blocked') return t('A filter on your internet (like NetFree) stopped the AI file “{file}” from downloading. Ask it to allow this site, then try again.', { file })
+  if (kind === 'download') return t('The AI file “{file}” could not be downloaded. Check that you’re online, then try again.', { file })
+  return usual
 }
