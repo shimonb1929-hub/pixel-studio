@@ -2165,5 +2165,9 @@
  "Show the rulers": "הצגת הסרגלים",
  "Squared paper over the page, to place things evenly. Things click onto its lines as you move them. It is never printed or downloaded.": "נייר משבצות מעל העמוד, כדי למקם דברים בצורה אחידה. דברים נצמדים לקווים שלו כשמזיזים אותם. הוא אף פעם לא מודפס ולא יורד בהורדה.",
  "Measure things and place them evenly": "למדוד דברים ולמקם אותם בצורה אחידה",
- "Menu › Show the grid puts squared paper over the page, and things click onto its lines as you move them (Ctrl+' turns it on and off). Menu › Show the rulers adds rulers in the unit you chose for sizes.": "תפריט › הצגת הרשת שמה נייר משבצות מעל העמוד, ודברים נצמדים לקווים שלו כשמזיזים אותם (Ctrl+' מדליק ומכבה). תפריט › הצגת הסרגלים מוסיפה סרגלים ביחידה שבחרתם לגדלים."
+ "Menu › Show the grid puts squared paper over the page, and things click onto its lines as you move them (Ctrl+' turns it on and off). Menu › Show the rulers adds rulers in the unit you chose for sizes.": "תפריט › הצגת הרשת שמה נייר משבצות מעל העמוד, ודברים נצמדים לקווים שלו כשמזיזים אותם (Ctrl+' מדליק ומכבה). תפריט › הצגת הסרגלים מוסיפה סרגלים ביחידה שבחרתם לגדלים.",
+ "Every other choice for what is picked, like a right-click.": "כל שאר האפשרויות למה שנבחר, כמו לחיצה ימנית.",
+ "Make a copy": "יצירת עותק",
+ "Quick choices for what is picked": "אפשרויות מהירות למה שנבחר",
+ "To front": "לחזית"
 }

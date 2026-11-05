@@ -2165,5 +2165,9 @@
  "Show the rulers": "Afficher les règles",
  "Squared paper over the page, to place things evenly. Things click onto its lines as you move them. It is never printed or downloaded.": "Du papier quadrillé sur la page, pour placer les choses régulièrement. Les choses s’accrochent à ses lignes quand vous les déplacez. Elle n’est jamais imprimée ni téléchargée.",
  "Measure things and place them evenly": "Mesurer les choses et les placer régulièrement",
- "Menu › Show the grid puts squared paper over the page, and things click onto its lines as you move them (Ctrl+' turns it on and off). Menu › Show the rulers adds rulers in the unit you chose for sizes.": "Menu › Afficher la grille pose du papier quadrillé sur la page, et les choses s’accrochent à ses lignes quand vous les déplacez (Ctrl+' l’active et la désactive). Menu › Afficher les règles ajoute des règles dans l’unité choisie pour les tailles."
+ "Menu › Show the grid puts squared paper over the page, and things click onto its lines as you move them (Ctrl+' turns it on and off). Menu › Show the rulers adds rulers in the unit you chose for sizes.": "Menu › Afficher la grille pose du papier quadrillé sur la page, et les choses s’accrochent à ses lignes quand vous les déplacez (Ctrl+' l’active et la désactive). Menu › Afficher les règles ajoute des règles dans l’unité choisie pour les tailles.",
+ "Every other choice for what is picked, like a right-click.": "Tous les autres choix pour ce qui est choisi, comme un clic droit.",
+ "Make a copy": "Faire une copie",
+ "Quick choices for what is picked": "Choix rapides pour ce qui est choisi",
+ "To front": "Au premier plan"
 }

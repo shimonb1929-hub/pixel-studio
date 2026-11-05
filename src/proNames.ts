@@ -138,6 +138,9 @@ export const PRO_NAMES: Record<string, string> = {
   'Earlier versions': 'Version History, History panel, Revert',
   'Show the grid': 'Grid, Snap to Grid',
   'Show the rulers': 'Rulers',
+  'Make a copy': 'Duplicate',
+  'To front': 'Bring to Front',
+  'Quick choices for what is picked': 'Contextual task bar',
 }
 
 // The pro word for a word on screen, in any language, or undefined when it has none or it is the

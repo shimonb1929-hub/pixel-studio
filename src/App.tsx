@@ -38,6 +38,7 @@ import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { InstallDialog } from './components/InstallDialog.tsx'
 import { VersionsDialog } from './components/VersionsDialog.tsx'
 import { Rulers } from './components/Rulers.tsx'
+import { QuickBar } from './components/QuickBar.tsx'
 import { useRememberedChoice } from './hooks/useRememberedChoice.ts'
 import { DesignInfo, SelectionBar, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
 import { PagePanel } from './components/PagePanel.tsx'
@@ -420,6 +421,17 @@ export default function App() {
   // The grid and the rulers, as chosen last time.
   const [showGrid, setShowGrid] = useRememberedChoice('pixel-studio-grid')
   const [showRulers, setShowRulers] = useRememberedChoice('pixel-studio-rulers')
+  // True while a mouse button or finger is down on the design, so the quick bar keeps out of the way.
+  const [pressing, setPressing] = useState(false)
+  useEffect(() => {
+    const up = () => setPressing(false)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+  }, [])
   const [dialog, setDialog] = useState<DialogId | null>(null)
   // Which kind of ready layout the layouts dialog shows first.
   const [layoutsKind, setLayoutsKind] = useState<'all' | LayoutKind>('all')
@@ -2958,6 +2970,14 @@ export default function App() {
     commands,
   )
 
+  // The quick bar shows next to what is picked with Arrange, unless something else is going on.
+  const quickPicked = doc && tool === 'move' && !doc.selection && !pressing && !textEdit && !transformEdit && !cropEdit && !contextMenu ? (manyIn(doc) ?? (activeLayer(doc) ? [doc.activeLayerId] : [])) : []
+  const quickFrame = quickPicked.length && doc ? frameOf(doc.layers.filter((l) => quickPicked.includes(l.id) && l.visible)) : null
+  const quickBounds = quickFrame ? polygonBounds(boxCorners(quickFrame)) : null
+  const quickAround = quickBounds
+    ? { x: quickBounds.x * viewport.zoom + viewport.panX, y: quickBounds.y * viewport.zoom + viewport.panY, width: quickBounds.width * viewport.zoom, height: quickBounds.height * viewport.zoom }
+    : null
+
   // The right-click menu: the everyday things to do with what was clicked, in short sections.
   const actionsById = (ids: string[]) => ids.map((id) => actions.find((a) => a.id === id)).filter((a): a is Action => !!a)
   // Choices that only fit some things (a photo, several things) are left out when they don't fit.
@@ -3608,6 +3628,7 @@ export default function App() {
         <main
           ref={workspaceRef}
           onContextMenu={openDesignMenu}
+          onPointerDownCapture={(event) => !(event.target as HTMLElement).closest('[data-quickbar]') && setPressing(true)}
           // The start screen sits on the bright room itself; the table with its dots appears with a design.
           className={`relative min-w-0 flex-1 overflow-hidden ${doc ? 'rounded-card border border-line bg-workspace shadow-card' : ''}`}
           style={doc ? DOT_BACKGROUND : undefined}
@@ -3684,6 +3705,9 @@ export default function App() {
                 onEditText={editText}
                 onEditTable={editTable}
               />
+              {quickAround && (
+                <QuickBar around={quickAround} width={workspace.width} height={workspace.height} actions={actions} onMore={(x, y) => setContextMenu({ x, y, thing: true })} />
+              )}
               {showRulers && <Rulers doc={doc} viewport={viewport} width={workspace.width} height={workspace.height} cursor={cursor} />}
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
               {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
