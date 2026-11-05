@@ -75,6 +75,8 @@ export const PRO_NAMES: Record<string, string> = {
   'Outline color': 'Stroke color',
   'Outline width': 'Stroke weight',
   'Outline style': 'Stroke style, Dashes',
+  Pattern: 'Pattern fill, Pattern swatches',
+  'Pattern size': 'Pattern scale',
   'Straight gradient': 'Linear gradient',
   'Round gradient': 'Radial gradient',
   'Edit points': 'Direct Selection',
