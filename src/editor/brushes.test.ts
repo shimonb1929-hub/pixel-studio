@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BRUSH_PRESETS,
   describeSmoothing,
+  lightColor,
   ERASER_PRESETS,
   MAX_BRUSH_SIZE,
   MIN_BRUSH_SIZE,
@@ -73,5 +74,14 @@ describe('describeSmoothing', () => {
     expect(describeSmoothing(0.2)).toMatch(/little/)
     expect(describeSmoothing(0.6)).toMatch(/clean/)
     expect(describeSmoothing(0.9)).toMatch(/trail/)
+  })
+})
+
+describe('lightColor', () => {
+  it('paints white to lighten, black to darken, and the chosen color otherwise', () => {
+    const preset = (id: string) => BRUSH_PRESETS.find((p) => p.id === id)!.settings
+    expect(lightColor(preset('lighten'))).toBe('#ffffff')
+    expect(lightColor(preset('darken'))).toBe('#000000')
+    expect(lightColor(BRUSH_PRESETS[0].settings)).toBeNull()
   })
 })
