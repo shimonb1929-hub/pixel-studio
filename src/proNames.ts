@@ -150,6 +150,8 @@ export const PRO_NAMES: Record<string, string> = {
   'On every page': 'Parent page (Master page)',
   'Show on every page': 'Parent page (Master page)',
   'Add page numbers': 'Auto page numbering',
+  'Contents list': 'Table of Contents',
+  'Print inks': 'CMYK',
   'Margins and columns': 'Margins and Columns',
   'Space around the edge': 'Margins',
   'Extra edge for cutting': 'Bleed',

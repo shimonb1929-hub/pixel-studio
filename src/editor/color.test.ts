@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hexToHsv, hexToRgb, hsvToHex, hsvToRgb, isLight, normalizeHex, rgbToHex, rgbToHsv } from './color.ts'
+import { cmykToHex, hexToCmyk, hexToHsv, hexToRgb, hsvToHex, hsvToRgb, isLight, normalizeHex, rgbToHex, rgbToHsv } from './color.ts'
 
 describe('normalizeHex', () => {
   it('accepts short and long codes, with or without #', () => {
@@ -50,5 +50,18 @@ describe('isLight', () => {
     expect(isLight('#facc15')).toBe(true)
     expect(isLight('#1b1d23')).toBe(false)
     expect(isLight('#3b5bfd')).toBe(false)
+  })
+})
+
+describe('print inks', () => {
+  it('gives the ink of plain colors and turns back into the same color', () => {
+    expect(hexToCmyk('#ff0000')).toEqual({ c: 0, m: 100, y: 100, k: 0 })
+    expect(hexToCmyk('#000000')).toEqual({ c: 0, m: 0, y: 0, k: 100 })
+    expect(hexToCmyk('#ffffff')).toEqual({ c: 0, m: 0, y: 0, k: 0 })
+    expect(cmykToHex({ c: 100, m: 0, y: 0, k: 0 })).toBe('#00ffff')
+    // Whole numbers of ink come back within a step or two of the color.
+    const back = hexToRgb(cmykToHex(hexToCmyk('#336699')))
+    const was = hexToRgb('#336699')
+    for (const part of ['r', 'g', 'b'] as const) expect(Math.abs(back[part] - was[part])).toBeLessThanOrEqual(2)
   })
 })

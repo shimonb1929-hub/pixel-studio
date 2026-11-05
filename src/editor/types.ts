@@ -207,6 +207,8 @@ export interface TextLayer extends LayerBase {
   flow?: TextFlow
   // A page number: its text is always the number of the page it's on.
   pageNumber?: boolean
+  // The design's contents list: making it again brings its headings and page numbers up to date.
+  contents?: boolean
   // A photo showing through the letters instead of a color (words with their own color keep it).
   photo?: PhotoFill
   // Set when the text uses one of the design's saved text styles: changing the style changes it.

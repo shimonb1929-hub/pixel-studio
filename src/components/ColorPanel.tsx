@@ -1,6 +1,6 @@
-import { CircleHelp, Pipette, Plus, X } from 'lucide-react'
+import { ChevronDown, CircleHelp, Pipette, Plus, X } from 'lucide-react'
 import { useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
-import { hexToHsv, hsvToHex, normalizeHex, SWATCHES, type Hsv } from '../editor/color.ts'
+import { cmykToHex, hexToCmyk, hexToHsv, hsvToHex, normalizeHex, SWATCHES, type Cmyk, type Hsv } from '../editor/color.ts'
 import { shortcut } from '../keys.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button } from './ui.tsx'
@@ -132,6 +132,83 @@ function DesignColorsRow({ color, design, onChange }: { color: string; design: D
   )
 }
 
+const INKS: { key: keyof Cmyk; letter: string; name: () => string }[] = [
+  { key: 'c', letter: 'C', name: () => t('Cyan ink') },
+  { key: 'm', letter: 'M', name: () => t('Magenta ink') },
+  { key: 'y', letter: 'Y', name: () => t('Yellow ink') },
+  { key: 'k', letter: 'K', name: () => t('Black ink') },
+]
+
+// The color as the four inks a printer uses (pro: CMYK), hidden until asked for. Typing a number
+// changes the color.
+function PrintInks({ color, onChange }: { color: string; onChange: (hex: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState<{ key: keyof Cmyk; value: string } | null>(null)
+  // Kept as typed, so a mix that comes out black keeps its other inks.
+  const [inks, setInks] = useState<Cmyk>(() => hexToCmyk(color))
+  const [synced, setSynced] = useState(color)
+  if (color !== synced) {
+    setSynced(color)
+    if (cmykToHex(inks) !== color) setInks(hexToCmyk(color))
+  }
+
+  function commit() {
+    if (!draft) return
+    const value = Number(draft.value)
+    if (draft.value.trim() !== '' && Number.isFinite(value)) {
+      const next = { ...inks, [draft.key]: Math.round(Math.min(100, Math.max(0, value))) }
+      const hex = cmykToHex(next)
+      setInks(next)
+      setSynced(hex)
+      onChange(hex)
+    }
+    setDraft(null)
+  }
+
+  return (
+    <div className="mt-2">
+      <Tooltip
+        title={t('Print inks')}
+        description={t('The color as the four inks a printer uses, from 0 to 100. Print shops ask for these. Very bright screen colors look a little duller on paper.')}
+        className="flex"
+      >
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-1 rounded-md text-[12px] text-ink-2 transition-colors hover:text-ink"
+        >
+          {t('Print inks')}
+          <ChevronDown size={13} className={`transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+      </Tooltip>
+      {open && (
+        <div dir="ltr" className="mt-1.5 grid grid-cols-4 gap-1.5">
+          {INKS.map((ink) => (
+            <label key={ink.key} className="flex h-8 items-center rounded-lg border border-line bg-subtle px-2 focus-within:border-accent focus-within:bg-surface">
+              <span className="text-[11px] font-semibold text-ink-3" aria-hidden>
+                {ink.letter}
+              </span>
+              <input
+                aria-label={ink.name()}
+                inputMode="numeric"
+                value={draft?.key === ink.key ? draft.value : String(inks[ink.key])}
+                onChange={(event) => setDraft({ key: ink.key, value: event.target.value })}
+                onBlur={commit}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commit()
+                  if (event.key === 'Escape') setDraft(null)
+                }}
+                className="w-full min-w-0 bg-transparent ps-1 text-[12px] tabular-nums text-ink outline-none"
+              />
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ColorPanel({ color, recent, onChange, onPickFromDesign, design, photoColors }: ColorPanelProps) {
   // Kept separately from the hex color so the hue doesn't jump when a color is gray or black.
   const [hsv, setHsv] = useState<Hsv>(() => hexToHsv(color))
@@ -241,6 +318,7 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign, design, 
           </label>
         </Tooltip>
       </div>
+      <PrintInks color={color} onChange={onChange} />
 
       {/* Ready colors first: one click and you have a color. Below them, the square and the strip
           fine-tune it. */}
