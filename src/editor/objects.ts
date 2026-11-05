@@ -6,8 +6,10 @@ import { createCanvas, getContext2d, MAX_LAYER_SIDE } from './document.ts'
 import { intersectRect, polygonBounds, snapRect, type Rect } from './geometry.ts'
 import { canvasGradient } from './gradient.ts'
 import { photoPlacement } from './photoFill.ts'
+import { patternPath, type Pattern } from './pattern.ts'
 import { endDirection, mapPath, segmentCount, trimForArrow, tracePath, type ShapePath } from './path.ts'
 import { layerVersion } from './pixelVersion.ts'
+import { drawSharp, sharpMisses } from './sharp.ts'
 import { applyAffine, boxCorners, boxMatrix, invertAffine, multiplyAffine, type Affine, type TransformBox } from './transform.ts'
 import type { EditorDocument, Layer, LayerHide, PixelLayer, Point, ShapeGeometry, ShapeLayer, ShapeOutline, TextLayer } from './types.ts'
 
@@ -138,6 +140,16 @@ function enterShape(ctx: CanvasRenderingContext2D, box: TransformBox): { w: numb
   return { w: Math.abs(box.width), h: Math.abs(box.height) }
 }
 
+// The pattern's little shapes are worked out once for each pattern and size.
+const patternPaths = new WeakMap<Pattern, { w: number; h: number; path: Path2D }>()
+function cachedPatternPath(pattern: Pattern, w: number, h: number): Path2D {
+  const kept = patternPaths.get(pattern)
+  if (kept && kept.w === w && kept.h === h) return kept.path
+  const path = patternPath(pattern, w, h, new Path2D())
+  patternPaths.set(pattern, { w, h, path })
+  return path
+}
+
 export function drawShape(ctx: CanvasRenderingContext2D, layer: ShapeLayer): void {
   const { geometry, fill, outline } = layer
   ctx.save()
@@ -151,13 +163,23 @@ export function drawShape(ctx: CanvasRenderingContext2D, layer: ShapeLayer): voi
       ctx.fillStyle = canvasGradient(ctx, fill.gradient, w, h)
       // An arrow's path stops short, so the fill uses the whole path.
       ctx.fill(hasArrow(geometry) ? shapePath({ ...geometry, arrow: false }, w, h) : path, fillRule(geometry))
+    } else if (fill.kind === 'pattern') {
+      ctx.save()
+      ctx.clip(path, fillRule(geometry))
+      if (fill.pattern.background) {
+        ctx.fillStyle = fill.pattern.background
+        ctx.fill(path, fillRule(geometry))
+      }
+      ctx.fillStyle = fill.pattern.color
+      ctx.fill(cachedPatternPath(fill.pattern, w, h))
+      ctx.restore()
     } else if (fill.kind === 'photo') {
       ctx.save()
       ctx.clip(path, fillRule(geometry))
       const place = photoPlacement(fill, w, h)
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
-      ctx.drawImage(fill.canvas, place.x, place.y, place.width, place.height)
+      drawSharp(ctx, fill.canvas, place.x, place.y, place.width, place.height)
       ctx.restore()
     }
   }
@@ -320,7 +342,8 @@ export function drawOwnContent(ctx: CanvasRenderingContext2D, layer: Layer): voi
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
   }
-  ctx.drawImage(layer.canvas, 0, 0)
+  // Shown bigger than its own pixels, it's drawn from a sharp bigger copy of them.
+  drawSharp(ctx, layer.canvas, 0, 0, layer.canvas.width, layer.canvas.height)
   ctx.restore()
 }
 
@@ -397,9 +420,11 @@ export function layerPixels(layer: Layer): PixelLayer {
   const version = layerVersion(layer)
   const cached = pixelCopies.get(layer)
   if (cached && cached.version === version) return cached.copy
+  const misses = sharpMisses()
   const { canvas, x, y } = toPixels(layer)
   const copy: PixelLayer = { id: layer.id, kind: 'raster', name: layer.name, visible: layer.visible, opacity: layer.opacity, locked: layer.locked, adjust: layer.adjust, canvas, x, y, box: null }
-  pixelCopies.set(layer, { version, copy })
+  // Drawn for the screen before its sharp copy was ready: good for now, but not kept.
+  if (sharpMisses() === misses) pixelCopies.set(layer, { version, copy })
   return copy
 }
 

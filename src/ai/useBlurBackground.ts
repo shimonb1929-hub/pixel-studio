@@ -8,7 +8,7 @@ import type { Layer, PixelLayer } from '../editor/types.ts'
 import { t } from '../i18n/i18n.ts'
 import { DEFAULT_BACKGROUND_BLUR, usableSubject } from './blurBackground.ts'
 import { blurPreviewScale, findMainThing, renderBlurredBackground } from './blurBackgroundRender.ts'
-import { onAiProgress, type FoundMask } from './segment.ts'
+import { aiTrouble, onAiProgress, type FoundMask } from './segment.ts'
 
 // Blur the background, from pressing the button to Apply or Cancel: the AI finds the main thing
 // once, then the slider shows the blur live on the design, and Apply keeps it as one undo step.
@@ -95,8 +95,8 @@ export function useBlurBackground({ editor, active, showing, setNotice }: Option
       }
       setNotice(null)
       setSession({ layerId, source, found, amount: DEFAULT_BACKGROUND_BLUR })
-    } catch {
-      setNotice({ message: t("Blur the background couldn't start. Check that you're online, then try again."), tone: 'problem' })
+    } catch (error) {
+      setNotice({ message: aiTrouble(error, t("Blur the background couldn't start. Check that you're online, then try again.")), tone: 'problem' })
     } finally {
       finding.current = null
       stop()

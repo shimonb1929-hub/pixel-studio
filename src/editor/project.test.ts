@@ -220,6 +220,17 @@ describe('project files', () => {
     expect(read).toEqual(original)
   })
 
+  it('keeps pattern fills, and turns away a damaged one', async () => {
+    const pattern = { kind: 'stars' as const, color: '#ff0000', background: null, size: 24, angle: 30 }
+    const original = manifest({ layers: [shape({ fill: { kind: 'pattern', pattern } }), shape({ fill: { kind: 'pattern', pattern: { ...pattern, kind: 'waves', background: '#00ff00' } } })], activeLayer: 0 })
+    const { manifest: read } = await unpackProject(packProject(original, []))
+    expect(read).toEqual(original)
+    for (const wrong of [{ ...pattern, kind: 'spots' }, { ...pattern, size: 0 }, { ...pattern, color: 'red' }, { ...pattern, angle: 'up' }, { ...pattern, background: 5 }]) {
+      const layer = shape({ fill: { kind: 'pattern', pattern: wrong as unknown as typeof pattern } })
+      expect(() => validateManifest(manifest({ layers: [layer], activeLayer: 0 })), JSON.stringify(wrong)).toThrow(ProjectError)
+    }
+  })
+
   it('keeps text, which brings no pictures along', async () => {
     const original = manifest({ layers: [pixels(), words(), words({ name: 'Box', wrap: true, style: { ...(words() as Extract<ProjectLayer, { kind: 'text' }>).style, direction: 'rtl', align: 'justify' } })], activeLayer: 1 })
     const file = packProject(original, [new Blob([new Uint8Array([1, 2, 3])])])

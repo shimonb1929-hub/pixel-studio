@@ -9,7 +9,7 @@ import graphicsMjs from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url
 import graphicsWasm from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
 import plainMjs from 'onnxruntime-web/ort-wasm-simd-threaded.mjs?url'
 import plainWasm from 'onnxruntime-web/ort-wasm-simd-threaded.wasm?url'
-import { isSafari, pointAtOwnSite, type AiSettings } from './aiFiles.ts'
+import { AiFileError, carefulFetch, forgetKept, isSafari, pointAtOwnSite, type AiSettings } from './aiFiles.ts'
 import { refineEdge } from './refineEdge.ts'
 import type { SegmentRequest, SegmentResponse } from './segmentTypes.ts'
 
@@ -29,6 +29,14 @@ function pointAtOurSite() {
     { plain: { mjs: own(plainMjs), wasm: own(plainWasm) }, graphics: { mjs: own(graphicsMjs), wasm: own(graphicsWasm) } },
     isSafari(navigator.userAgent, (navigator as Navigator & { vendor?: string }).vendor ?? ''),
   )
+  // Downloads try again when the connection drops, and a filter's page is never taken for the file.
+  ;(env as unknown as { fetch: typeof fetch }).fetch = carefulFetch((input, init) => fetch(input, init), forgetKept) as typeof fetch
+}
+
+// Said to the page so it can explain what went wrong in plain words.
+function describeError(error: unknown): string {
+  if (error instanceof AiFileError) return `${error.blocked ? 'blocked' : 'download'}|${error.message}`
+  return `other|${String(error)}`
 }
 
 let loading: Promise<{ model: SamModel; processor: SamProcessor }> | null = null
@@ -46,6 +54,9 @@ function post(message: SegmentResponse) {
   self.postMessage(message)
 }
 
+// Set when the graphics card failed to run the AI, so it runs on the processor from then on.
+let noGpu = false
+
 function load() {
   loading ??= (async () => {
     pointAtOurSite()
@@ -62,7 +73,7 @@ function load() {
       post({ type: 'progress', loaded, total })
     }
     // The graphics card is much quicker where the browser lets the page use it.
-    const gpu = 'gpu' in navigator && !!(await (navigator as Navigator & { gpu: { requestAdapter(): Promise<unknown> } }).gpu.requestAdapter().catch(() => null))
+    const gpu = !noGpu && 'gpu' in navigator && !!(await (navigator as Navigator & { gpu: { requestAdapter(): Promise<unknown> } }).gpu.requestAdapter().catch(() => null))
     const model = gpu
       ? await (SamModel.from_pretrained(MODEL, { device: 'webgpu', dtype: 'fp32', progress_callback: onProgress }) as Promise<SamModel>).catch(() => null)
       : null
@@ -92,7 +103,16 @@ function prepare(key: string, picture: Extract<SegmentRequest, { type: 'segment'
     }
     const image = new RawImage(rgb, width, height, 3)
     const inputs = await processor(image)
-    return { model, processor, image, embeddings: await model.get_image_embeddings(inputs) }
+    try {
+      return { model, processor, image, embeddings: await model.get_image_embeddings(inputs) }
+    } catch (error) {
+      if (noGpu) throw error
+      // Some graphics cards can't run it after all: start again on the processor, which always can.
+      noGpu = true
+      loading = null
+      const again = await load()
+      return { model: again.model, processor: again.processor, image, embeddings: await again.model.get_image_embeddings(await again.processor(image)) }
+    }
   })()
   kept = { key, ready }
   ready.catch(() => {
@@ -183,9 +203,9 @@ self.onmessage = (event: MessageEvent<SegmentRequest>) => {
   } else if (request.type === 'prepare') {
     prepare(request.key, request.image).then(
       () => post({ type: 'prepared', id: request.id }),
-      (error: unknown) => post({ type: 'error', id: request.id, message: String(error) }),
+      (error: unknown) => post({ type: 'error', id: request.id, message: describeError(error) }),
     )
   } else if (request.type === 'segment') {
-    segment(request).catch((error: unknown) => post({ type: 'error', id: request.id, message: String(error) }))
+    segment(request).catch((error: unknown) => post({ type: 'error', id: request.id, message: describeError(error) }))
   }
 }

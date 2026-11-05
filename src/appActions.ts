@@ -14,6 +14,8 @@ import { inSentence, msg, t } from './i18n/i18n.ts'
 export interface AppCommands {
   newDesign: () => void
   readyLayouts: () => void
+  // Keeps the open design as one of the user's own layouts (a template).
+  saveAsLayout: () => void
   open: () => void
   addPhoto: () => void
   addText: (kind: TextKind) => void
@@ -35,6 +37,9 @@ export interface AppCommands {
   selectAll: () => void
   deselect: () => void
   invert: () => void
+  // AI selects what the design is mostly of; or exactly the parts of the picked thing that show.
+  selectMainThing: () => void
+  selectLayerShape: () => void
   fill: () => void
   deleteArea: () => void
   toNewLayer: () => void
@@ -247,6 +252,15 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       run: c.downloadProject,
     },
     {
+      id: 'save-as-layout',
+      group: 'Design',
+      title: t('Keep as my layout'),
+      description: t('Keeps the design you have open as a layout, so you can start new designs from it. Find it in Ready layouts, under Mine.'),
+      keywords: ['template', 'save template', 'save as template', 'my templates', 'layout', 'reuse', 'start from', 'copy', 'again', 'same design'],
+      needsDocument: true,
+      run: c.saveAsLayout,
+    },
+    {
       id: 'rename',
       group: 'Design',
       title: t('Rename design…'),
@@ -375,6 +389,25 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       keywords: ['invert', 'reverse', 'opposite', 'swap', 'everything else'],
       needsDocument: true,
       run: c.invert,
+    },
+    {
+      id: 'select-main-thing',
+      group: 'Select',
+      title: t('Select main thing'),
+      description: t('AI finds what your design or photo is mostly of (a person, a pet, a cup) and selects it right to its edges. Press Swap after it to select the background instead.'),
+      keywords: ['select subject', 'subject', 'main thing', 'object', 'person', 'foreground', 'background', 'select background', 'cut out', 'smart select', 'auto select', 'ai'],
+      needsDocument: true,
+      run: c.selectMainThing,
+    },
+    {
+      id: 'select-shape',
+      group: 'Select',
+      title: t('Select its shape'),
+      description: t('Select exactly the parts of the picked thing that show, so you can fill, copy or change just them.'),
+      keywords: ['load selection', 'selection from layer', 'layer transparency', 'transparency mask', 'select pixels', 'select layer', 'outline of layer', 'shape of'],
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: c.selectLayerShape,
     },
     {
       id: 'fill',
@@ -931,7 +964,7 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       id: 'upscale',
       group: 'Photo',
       title: t('Bigger and sharper…'),
-      description: t('Give the picked photo two or four times as many pixels, so a small photo prints sharp. It stays the same size on your design. Plain math, no AI: nothing is made up. You see it first. (pro: Super Resolution, Preserve Details upscale)'),
+      description: t('Give the picked photo two or four times as many pixels, so a small photo looks and prints sharp. It stays the same size on your design. Choose AI for the most detail, or plain math that adds nothing. You see it first. (pro: Super Resolution, Preserve Details upscale)'),
       keywords: ['upscale', 'super resolution', 'preserve details', 'enlarge', 'enhance', 'bigger', 'sharper', 'sharpen', 'resolution', 'more pixels', 'blurry', 'pixelated', 'print', 'dpi', 'ppi', 'hd', 'high resolution', 'quality'],
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
