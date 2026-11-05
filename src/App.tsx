@@ -144,6 +144,8 @@ import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/every
 import { canLink, linkCopies, unlink } from './editor/linked.ts'
 import { isWarped, warpedPaths, type Warp } from './editor/warp.ts'
 import { DEFAULT_PUSH, type PushSettings } from './editor/push.ts'
+import { brushShapeFrom } from './editor/brushPicture.ts'
+import { shapePreset } from './editor/brushShapes.ts'
 import { canBeShapes, placeWordShapes, traceWords, wordPictures, wordShapes } from './editor/wordShapes.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
 import { changeText, fitText, keepOnPage, newTextBox, textIndexAt, textLayout, textName } from './text/textLayer.ts'
@@ -1579,6 +1581,21 @@ export default function App() {
     setTool('move')
     pickMany(shapes.map((s) => s.id))
     inform(t('The letters are shapes now: pick one with the Curve tool to drag its points. The words are hidden below them, in case you want to change them.'))
+  }
+
+  // Your own brush shapes (pro: Define Brush Preset): what is picked becomes a brush tip.
+  function makeBrush() {
+    settle()
+    const d = current()
+    const layer = d && activeLayer(d)
+    if (!d || !layer) return problem(t('Pick something on your design first.'))
+    const ids = new Set(manyIn(d) ?? pickedWith(d, layer.id))
+    const shape = brushShapeFrom(d, d.layers.filter((l) => ids.has(l.id) && l.visible))
+    if (!shape) return problem(t('There is nothing to see in what is picked, so it can’t become a brush.'))
+    const preset = shapePreset(shape)
+    setBrush({ settings: preset.settings, presetId: preset.id })
+    setTool('brush')
+    inform(t('“{name}” is ready: paint to leave a trail of it. Find it again under Your brush shapes.', { name: shape.name }))
   }
 
   function continueInAnotherBox() {
@@ -3097,6 +3114,7 @@ export default function App() {
       if (layer?.kind === 'raster') setPictureHelper({ kind: 'upscale', layerId: layer.id })
     },
     wordsIntoShapes: () => void wordsIntoShapes(),
+    makeBrush: () => makeBrush(),
     stepsBetween: () => {
       const ids = targets()
       settle()
@@ -3761,6 +3779,7 @@ export default function App() {
         onHealSizeChange={setHealSize}
         push={pushSettings}
         onPushChange={setPushSettings}
+        onMakeBrush={doc && activeLayer(doc) ? makeBrush : undefined}
         fade={{ brush: fadeBrush, mode: fadeMode, onBrush: setFadeBrush, onMode: setFadeMode }}
         copy={{
           brush: copyBrush,

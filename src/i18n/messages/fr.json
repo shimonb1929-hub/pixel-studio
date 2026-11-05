@@ -2354,5 +2354,18 @@
  "Smaller": "Plus petit",
  "Use it to gently reshape part of a photo or drawing without painting on it.": "Utilisez-le pour remodeler doucement une partie d’une photo ou d’un dessin sans peindre dessus.",
  "What the brush does": "Ce que fait le pinceau",
- "“{name}” is locked, so it can't be changed by accident. Click its lock in the Layers panel to unlock it.": "« {name} » est verrouillé pour ne pas être changé par erreur. Cliquez sur son cadenas dans le panneau Calques pour le déverrouiller."
+ "“{name}” is locked, so it can't be changed by accident. Click its lock in the Layers panel to unlock it.": "« {name} » est verrouillé pour ne pas être changé par erreur. Cliquez sur son cadenas dans le panneau Calques pour le déverrouiller.",
+ "Make a brush": "Créer un pinceau",
+ "My brush {number}": "Mon pinceau {number}",
+ "Paint with my own shape, like stars or leaves": "Peindre avec ma propre forme, comme des étoiles ou des feuilles",
+ "Paints a trail of your own shape in the brush color.": "Peint une traînée de votre propre forme dans la couleur du pinceau.",
+ "Pick something on your design with Arrange, then come back here to make a brush from it.": "Choisissez quelque chose sur votre design avec Disposer, puis revenez ici pour en faire un pinceau.",
+ "Pick the shape or drawing with Arrange, choose Brush, open the brushes and press Make a brush. Paint to leave a trail of it in the brush color.": "Choisissez la forme ou le dessin avec Disposer, choisissez Pinceau, ouvrez les pinceaux et appuyez sur Créer un pinceau. Peignez pour en laisser une traînée dans la couleur du pinceau.",
+ "Remove brush": "Retirer le pinceau",
+ "Remove {name}": "Retirer {name}",
+ "Takes this brush shape away. Nothing you painted with it changes.": "Retire cette forme de pinceau. Rien de ce que vous avez peint avec ne change.",
+ "There is nothing to see in what is picked, so it can’t become a brush.": "Il n’y a rien de visible dans ce qui est choisi, cela ne peut donc pas devenir un pinceau.",
+ "Turns what is picked on your design (a star, a leaf you drew, a word) into a brush that paints a trail of it.": "Change ce qui est choisi sur votre design (une étoile, une feuille dessinée, un mot) en un pinceau qui en peint une traînée.",
+ "Your brush shapes": "Vos formes de pinceau",
+ "“{name}” is ready: paint to leave a trail of it. Find it again under Your brush shapes.": "« {name} » est prêt : peignez pour en laisser une traînée. Vous le retrouverez dans Vos formes de pinceau."
 }

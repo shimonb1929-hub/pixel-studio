@@ -2354,5 +2354,18 @@
  "Smaller": "קטן יותר",
  "Use it to gently reshape part of a photo or drawing without painting on it.": "השתמש בזה כדי לשנות בעדינות את הצורה של חלק מתמונה או מציור בלי לצבוע עליו.",
  "What the brush does": "מה המכחול עושה",
- "“{name}” is locked, so it can't be changed by accident. Click its lock in the Layers panel to unlock it.": "“{name}” נעול, כך שאי אפשר לשנות אותו בטעות. לחץ על המנעול שלו בחלונית השכבות כדי לפתוח אותו."
+ "“{name}” is locked, so it can't be changed by accident. Click its lock in the Layers panel to unlock it.": "“{name}” נעול, כך שאי אפשר לשנות אותו בטעות. לחץ על המנעול שלו בחלונית השכבות כדי לפתוח אותו.",
+ "Make a brush": "יצירת מכחול",
+ "My brush {number}": "המכחול שלי {number}",
+ "Paint with my own shape, like stars or leaves": "לצבוע עם צורה משלי, כמו כוכבים או עלים",
+ "Paints a trail of your own shape in the brush color.": "צובע שובל של הצורה שלך בצבע המכחול.",
+ "Pick something on your design with Arrange, then come back here to make a brush from it.": "בחר משהו בעיצוב עם סידור, ואז חזור לכאן כדי ליצור ממנו מכחול.",
+ "Pick the shape or drawing with Arrange, choose Brush, open the brushes and press Make a brush. Paint to leave a trail of it in the brush color.": "בחר את הצורה או הציור עם סידור, בחר מכחול, פתח את המכחולים ולחץ יצירת מכחול. צבע כדי להשאיר שובל שלה בצבע המכחול.",
+ "Remove brush": "הסרת המכחול",
+ "Remove {name}": "הסרת {name}",
+ "Takes this brush shape away. Nothing you painted with it changes.": "מסיר את צורת המכחול הזאת. שום דבר שצבעת איתה לא משתנה.",
+ "There is nothing to see in what is picked, so it can’t become a brush.": "אין מה לראות במה שנבחר, אז זה לא יכול להפוך למכחול.",
+ "Turns what is picked on your design (a star, a leaf you drew, a word) into a brush that paints a trail of it.": "הופך את מה שנבחר בעיצוב (כוכב, עלה שציירת, מילה) למכחול שצובע שובל שלו.",
+ "Your brush shapes": "צורות המכחול שלך",
+ "“{name}” is ready: paint to leave a trail of it. Find it again under Your brush shapes.": "“{name}” מוכן: צבע כדי להשאיר שובל שלו. תמצא אותו שוב תחת צורות המכחול שלך."
 }

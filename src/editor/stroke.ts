@@ -2,6 +2,7 @@ import type { BrushSettings } from './brushes.ts'
 import { hexToRgb, type Rgb } from './color.ts'
 import { createCanvas, getContext2d } from './document.ts'
 import { clampRect, unionRect, type Rect } from './geometry.ts'
+import { shapeTip } from './brushShapes.ts'
 import type { PixelLayer, Point } from './types.ts'
 
 export interface InputPoint extends Point {
@@ -126,6 +127,8 @@ export class DabPainter {
     if (this.settings.tip === 'oil') return Math.max(0.5, (radius * 1.2) / Math.max(1, this.bristles.length))
     // Splatter throws drops every so often, not a solid line.
     if (this.settings.tip === 'splatter') return Math.max(1, radius * 0.7)
+    // Your own shapes sit a little apart, so each one shows.
+    if (this.settings.tip === 'stamp') return Math.max(1, radius * 1.2)
     return Math.max(0.5, radius * 2 * SPACING)
   }
 
@@ -144,7 +147,32 @@ export class DabPainter {
     const { tip } = this.settings
     if (tip === 'oil') this.oilDab(point)
     else if (tip === 'splatter') this.splatterDab(point)
+    else if (tip === 'stamp' && this.stampTip()) this.stampDab(point)
     else this.roundDab(point)
+  }
+
+  // Your own brush shape, filled with the brush color once for the whole stroke.
+  private tinted: HTMLCanvasElement | null | undefined
+  private stampTip(): HTMLCanvasElement | null {
+    if (this.tinted !== undefined) return this.tinted
+    const tip = this.settings.stamp ? shapeTip(this.settings.stamp) : null
+    if (!tip) return (this.tinted = null)
+    const canvas = createCanvas(tip.width, tip.height)
+    const ctx = getContext2d(canvas)
+    ctx.drawImage(tip, 0, 0)
+    ctx.globalCompositeOperation = 'source-in'
+    ctx.fillStyle = this.solid
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    return (this.tinted = canvas)
+  }
+
+  private stampDab({ x, y, pressure }: InputPoint): void {
+    const tip = this.tinted
+    if (!tip) return
+    const radius = this.radius(pressure)
+    this.ctx.globalAlpha = this.settings.flow
+    this.ctx.drawImage(tip, x - radius, y - radius, radius * 2, radius * 2)
+    this.mark(x, y, radius)
   }
 
   private roundDab({ x, y, pressure }: InputPoint): void {

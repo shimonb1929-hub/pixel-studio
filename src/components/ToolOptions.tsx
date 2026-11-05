@@ -1,6 +1,7 @@
+import { brushShapes, removeBrushShape, shapePreset, subscribeBrushShapes } from '../editor/brushShapes.ts'
 import type { PushMode, PushSettings } from '../editor/push.ts'
-import { Aperture, Layers, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus, Copy } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Aperture, Layers, X, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus, Copy } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   BRUSH_PRESETS,
@@ -43,10 +44,19 @@ interface PaintOptionsProps {
   presetId: string | null
   color: string
   onChange: (settings: BrushSettings, presetId: string | null) => void
+  // Makes a brush shape from what is picked. Missing when nothing is picked.
+  onMakeBrush?: () => void
 }
 
-function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOptionsProps) {
-  const presets = erasing ? ERASER_PRESETS : BRUSH_PRESETS
+// Your own brush shapes as brushes, kept up to date.
+function useOwnBrushes(): BrushPreset[] {
+  const shapes = useSyncExternalStore(subscribeBrushShapes, brushShapes)
+  return useMemo(() => shapes.map(shapePreset), [shapes])
+}
+
+function PaintOptions({ erasing, settings, presetId, color, onChange, onMakeBrush }: PaintOptionsProps) {
+  const own = useOwnBrushes()
+  const presets = erasing ? ERASER_PRESETS : [...BRUSH_PRESETS, ...own]
   const preset = presets.find((p) => p.id === presetId)
   const changed = preset !== undefined && !sameSettings(preset.settings, settings)
   const mode = erasing ? 'erase' : 'paint'
@@ -61,7 +71,7 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
           ))}
         </div>
       ) : (
-        <BrushPicker presetId={presetId} color={color} onChoose={(p) => onChange(p.settings, p.id)} />
+        <BrushPicker presetId={presetId} color={color} onChoose={(p) => onChange(p.settings, p.id)} onMakeBrush={onMakeBrush} />
       )}
 
       <div className="h-9 w-px shrink-0 bg-line" />
@@ -156,13 +166,15 @@ function PresetTile({ preset, chosen, color, mode, big, onChoose }: { preset: Br
 
 // All the ready-made brushes, in a panel that opens from one button, so the bar stays short as
 // more brushes are added.
-function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; color: string; onChoose: (preset: BrushPreset) => void }) {
+function BrushPicker({ presetId, color, onChoose, onMakeBrush }: { presetId: string | null; color: string; onChoose: (preset: BrushPreset) => void; onMakeBrush?: () => void }) {
   const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="radio"][aria-checked="true"]', '[role="radio"]')
-  const current = BRUSH_PRESETS.find((p) => p.id === presetId)
+  const own = useOwnBrushes()
+  const current = [...BRUSH_PRESETS, ...own].find((p) => p.id === presetId)
   const groups = [
     { title: t('For drawing'), presets: BRUSH_PRESETS.filter((p) => !p.kind || p.kind === 'draw') },
     { title: t('Paint and effects'), presets: BRUSH_PRESETS.filter((p) => p.kind === 'paint') },
     { title: t('Light and shade on photos'), presets: BRUSH_PRESETS.filter((p) => p.kind === 'light') },
+    { title: t('Your brush shapes'), presets: own, own: true },
   ]
   return (
     <>
@@ -211,22 +223,54 @@ function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; c
                   <p className="px-1 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{group.title}</p>
                   <div className="grid grid-cols-5 gap-1.5 pb-1.5">
                     {group.presets.map((p) => (
-                      <PresetTile
-                        key={p.id}
-                        preset={p}
-                        chosen={p.id === presetId}
-                        color={color}
-                        mode="paint"
-                        big
-                        onChoose={() => {
-                          setOpen(false)
-                          setPosition(null)
-                          onChoose(p)
-                          buttonRef.current?.focus()
-                        }}
-                      />
+                      <div key={p.id} className="relative">
+                        <PresetTile
+                          preset={p}
+                          chosen={p.id === presetId}
+                          color={color}
+                          mode="paint"
+                          big
+                          onChoose={() => {
+                            setOpen(false)
+                            setPosition(null)
+                            onChoose(p)
+                            buttonRef.current?.focus()
+                          }}
+                        />
+                        {group.own && (
+                          <Tooltip title={t('Remove brush')} description={t('Takes this brush shape away. Nothing you painted with it changes.')} className="absolute end-0.5 top-0.5 flex">
+                            <button
+                              type="button"
+                              aria-label={t('Remove {name}', { name: p.name })}
+                              onClick={() => p.settings.stamp && removeBrushShape(p.settings.stamp)}
+                              className="flex h-5 w-5 items-center justify-center rounded-md text-ink-3 hover:bg-surface hover:text-ink"
+                            >
+                              <X size={12} />
+                            </button>
+                          </Tooltip>
+                        )}
+                      </div>
                     ))}
+                    {group.own && onMakeBrush && (
+                      <Tooltip title={t('Make a brush')} description={t('Turns what is picked on your design (a star, a leaf you drew, a word) into a brush that paints a trail of it.')}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpen(false)
+                            setPosition(null)
+                            onMakeBrush()
+                          }}
+                          className="flex h-[66px] w-[104px] flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-line text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+                        >
+                          <Plus size={16} />
+                          {t('Make a brush')}
+                        </button>
+                      </Tooltip>
+                    )}
                   </div>
+                  {group.own && own.length === 0 && !onMakeBrush && (
+                    <p className="max-w-[540px] px-1 pb-2 text-[12px] text-ink-2">{t('Pick something on your design with Arrange, then come back here to make a brush from it.')}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -1689,6 +1733,8 @@ interface ToolOptionsProps {
   healSize: number
   onHealSizeChange: (size: number) => void
   push: PushSettings
+  // Makes a brush shape from what is picked. Missing when nothing is picked.
+  onMakeBrush?: () => void
   onPushChange: (settings: PushSettings) => void
   fade: { brush: HideBrush; mode: HideMode; onBrush: (brush: HideBrush) => void; onMode: (mode: HideMode) => void }
   copy: CopyBarControls
@@ -1721,7 +1767,7 @@ export function ToolOptions(props: ToolOptionsProps) {
       </div>
       <div className="h-9 w-px shrink-0 bg-line" />
       {props.tool === 'brush' ? (
-        <PaintOptions erasing={false} settings={props.brush} presetId={props.brushPresetId} color={props.color} onChange={props.onBrushChange} />
+        <PaintOptions erasing={false} settings={props.brush} presetId={props.brushPresetId} color={props.color} onChange={props.onBrushChange} onMakeBrush={props.onMakeBrush} />
       ) : props.tool === 'eraser' ? (
         <PaintOptions erasing settings={props.eraser} presetId={props.eraserPresetId} color={props.color} onChange={props.onEraserChange} />
       ) : props.tool === 'select' ? (

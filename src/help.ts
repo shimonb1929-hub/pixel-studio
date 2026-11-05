@@ -170,6 +170,14 @@ export const GOALS: Goal[] = [
     keywords: ['repeat', 'duplicate', 'pattern', 'border', 'flower', 'wreath', 'symmetry', 'mirror', 'tiles'],
   },
   {
+    id: 'own-brush',
+    goal: msg('Paint with my own shape, like stars or leaves'),
+    how: msg('Pick the shape or drawing with Arrange, choose Brush, open the brushes and press Make a brush. Paint to leave a trail of it in the brush color.'),
+    action: 'make-brush',
+    pro: 'Define Brush Preset, Scatter brush',
+    keywords: ['custom brush', 'own brush', 'stamp', 'brush shape', 'brush tip', 'scatter'],
+  },
+  {
     id: 'push-pull',
     goal: msg('Gently reshape part of a photo'),
     how: msg('Choose Push and pull under More tools. Drag over the photo to push that part along, or choose Bigger or Smaller and brush over a part to swell or shrink it.'),

@@ -119,6 +119,8 @@ export interface AppCommands {
   wordsIntoShapes: () => void
   // Shapes in between the two picked shapes, shown first.
   stepsBetween: () => void
+  // What is picked becomes a brush tip.
+  makeBrush: () => void
 }
 
 interface ActionState {
@@ -567,6 +569,16 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       needsDocument: true,
       disabledReason: noLayerPicked,
       run: c.makeCopies,
+    },
+    {
+      id: 'make-brush',
+      group: 'Brush',
+      title: t('Make a brush'),
+      description: t('Turns what is picked on your design (a star, a leaf you drew, a word) into a brush that paints a trail of it.'),
+      keywords: ['define brush', 'brush preset', 'custom brush', 'brush shape', 'stamp', 'own brush', 'my brush', 'brush tip', 'pattern brush', 'scatter brush'],
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: c.makeBrush,
     },
     {
       id: 'steps-between',

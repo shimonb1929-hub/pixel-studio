@@ -2354,5 +2354,18 @@
  "Smaller": "קלענער",
  "Use it to gently reshape part of a photo or drawing without painting on it.": "ניצט עס צו צארט איבערפארעמען א טייל פון א פאטאגראפיע אדער צייכענונג אן מאלן דערויף.",
  "What the brush does": "וואס דער בארשט טוט",
- "“{name}” is locked, so it can't be changed by accident. Click its lock in the Layers panel to unlock it.": "“{name}” איז פארשלאסן, אזוי אז מען קען עס נישט טוישן בטעות. קליקט אויף זיין שלאס אין לעיערס עס אויפצושליסן."
+ "“{name}” is locked, so it can't be changed by accident. Click its lock in the Layers panel to unlock it.": "“{name}” איז פארשלאסן, אזוי אז מען קען עס נישט טוישן בטעות. קליקט אויף זיין שלאס אין לעיערס עס אויפצושליסן.",
+ "Make a brush": "מאכן א בארשט",
+ "My brush {number}": "מיין בארשט {number}",
+ "Paint with my own shape, like stars or leaves": "מאלן מיט מיין אייגענע פארעם, ווי שטערן אדער בלעטער",
+ "Paints a trail of your own shape in the brush color.": "מאלט א שטעג פון אייער אייגענע פארעם אין דער בארשט-קאליר.",
+ "Pick something on your design with Arrange, then come back here to make a brush from it.": "קלויבט עפעס אויף אייער דיזיין מיט ארדענען, דערנאך קומט צוריק אהער צו מאכן דערפון א בארשט.",
+ "Pick the shape or drawing with Arrange, choose Brush, open the brushes and press Make a brush. Paint to leave a trail of it in the brush color.": "קלויבט די פארעם אדער צייכענונג מיט ארדענען, קלויבט בארשט, עפנט די בארשטן און דריקט מאכן א בארשט. מאלט צו לאזן א שטעג דערפון אין דער בארשט-קאליר.",
+ "Remove brush": "אוועקנעמען דעם בארשט",
+ "Remove {name}": "אוועקנעמען {name}",
+ "Takes this brush shape away. Nothing you painted with it changes.": "נעמט אוועק די בארשט-פארעם. גארנישט וואס איר האט געמאלן דערמיט טוישט זיך.",
+ "There is nothing to see in what is picked, so it can’t become a brush.": "עס איז נישטא וואס צו זען אין דעם אויסגעקליבענעם, אזוי קען עס נישט ווערן א בארשט.",
+ "Turns what is picked on your design (a star, a leaf you drew, a word) into a brush that paints a trail of it.": "מאכט פון דעם אויסגעקליבענעם אויף אייער דיזיין (א שטערן, א בלאט וואס איר האט געצייכנט, א ווארט) א בארשט וואס מאלט א שטעג דערפון.",
+ "Your brush shapes": "אייערע בארשט-פארמען",
+ "“{name}” is ready: paint to leave a trail of it. Find it again under Your brush shapes.": "“{name}” איז גרייט: מאלט צו לאזן א שטעג דערפון. איר געפינט עס ווידער אונטער אייערע בארשט-פארמען."
 }
