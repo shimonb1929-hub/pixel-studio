@@ -246,7 +246,6 @@
  "Click anything on your design to pick it.": "לחץ על כל דבר בעיצוב כדי לבחור אותו.",
  "Click anything on your design to pick it. Drag it to move it, pull a corner to resize it, or the round handle to turn it. Drag a box around several things to pick them all. Pictures never lose quality, however often you resize them.": "לחץ על כל דבר בעיצוב כדי לבחור אותו. גרור כדי להזיז, משוך פינה כדי לשנות גודל, או את הידית העגולה כדי לסובב. גרור מסגרת סביב כמה דברים כדי לבחור את כולם. תמונות לא מאבדות איכות, לא משנה כמה פעמים תשנה את הגודל שלהן.",
  "Click anywhere on your design to paint with that color.": "לחץ בכל מקום בעיצוב כדי לצייר בצבע הזה.",
- "Click something to pick it, or drag a box around several. Drag to move; it lines up by itself (hold {alt} to move freely). Pull a corner to resize, the round handle to turn.": "לחץ על משהו כדי לבחור אותו, או גרור מסגרת סביב כמה דברים. גרור כדי להזיז; זה מתיישר לבד (החזק {alt} כדי להזיז בחופשיות). משוך פינה כדי לשנות גודל, ואת הידית העגולה כדי לסובב.",
  "Click the part of your photo you want to copy.": "לחץ על החלק בתמונה שברצונך להעתיק.",
  "Click the part you want to copy first.": "קודם לחץ על החלק שברצונך להעתיק.",
  "Click the photo, choose Adjust, and move the Brightness slider. Contrast makes darks darker and lights lighter.": "לחץ על התמונה, בחר “כוונון”, והזז את המחוון “בהירות”. “ניגודיות” הופכת את הכהה לכהה יותר ואת הבהיר לבהיר יותר.",
@@ -1462,7 +1461,7 @@
  "This browser isn't letting Pixel Studio keep designs (it may be a private window).": "הדפדפן הזה לא מאפשר ל־Pixel Studio לשמור עיצובים (אולי זה חלון פרטי).",
  "This design already has page numbers. To take them off, pick one and delete it.": "בעיצוב הזה כבר יש מספרי עמודים. כדי להוריד אותם, בוחרים אחד ומוחקים אותו.",
  "This design has only one page.": "לעיצוב הזה יש רק עמוד אחד.",
- "This file couldn't be opened. Try a PNG, JPG, GIF, WebP or BMP image.": "לא ניתן לפתוח את הקובץ הזה. נסה תמונת PNG,‏ JPG,‏ GIF,‏ WebP או BMP.",
+ "This file couldn't be opened. Try a PNG, JPG, HEIC, GIF, WebP or BMP image.": "לא ניתן לפתוח את הקובץ הזה. נסה תמונת PNG,‏ JPG,‏ HEIC,‏ GIF,‏ WebP או BMP.",
  "This font comes in one boldness.": "הגופן הזה מגיע בעובי אחד בלבד.",
  "This font couldn’t be added. Try another file.": "לא ניתן היה להוסיף את הגופן. נסה קובץ אחר.",
  "This font file is damaged, so it can’t be used. Try downloading it again.": "קובץ הגופן הזה פגום, ולכן אי אפשר להשתמש בו. נסה להוריד אותו שוב.",
@@ -2099,5 +2098,9 @@
  "Tap Install app, or Add to Home screen.": "הקישו על Install app, או על Add to Home screen.",
  "Tap Install.": "הקישו על Install.",
  "Tap the Share button: a square with an arrow pointing up.": "הקישו על כפתור השיתוף: ריבוע עם חץ שמצביע למעלה.",
- "Tap the menu button: three dots at the top right.": "הקישו על כפתור התפריט: שלוש נקודות למעלה בצד."
+ "Tap the menu button: three dots at the top right.": "הקישו על כפתור התפריט: שלוש נקודות למעלה בצד.",
+ "Click something to pick it, or drag a box around several. Drag to move; it lines up by itself (hold {mod} to move freely). Hold {alt} and drag to pull out a copy. Pull a corner to resize, the round handle to turn.": "לחץ על משהו כדי לבחור אותו, או גרור מסגרת סביב כמה דברים. גרור כדי להזיז; זה מתיישר לבד (החזק {mod} כדי להזיז בחופשיות). החזק {alt} וגרור כדי להוציא עותק. משוך פינה כדי לשנות גודל, ואת הידית העגולה כדי לסובב.",
+ "Copy by dragging": "העתקה בגרירה",
+ "Make a copy of something": "ליצור עותק של משהו",
+ "With Arrange, hold Alt (Option on a Mac) and drag it: a copy comes out and the original stays. Or press Ctrl+J (Cmd+J) for a copy right on top of it.": "עם סידור, החזק Alt (‏Option במק) וגרור: יוצא עותק והמקור נשאר במקומו. או לחץ Ctrl+J (‏Cmd+J) לעותק בדיוק מעליו."
 }

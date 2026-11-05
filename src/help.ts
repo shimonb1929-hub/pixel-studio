@@ -250,6 +250,14 @@ export const GOALS: Goal[] = [
     keywords: ['align', 'distribute', 'snap', 'center', 'even'],
   },
   {
+    id: 'copy-drag',
+    goal: msg('Make a copy of something'),
+    how: msg('With Arrange, hold Alt (Option on a Mac) and drag it: a copy comes out and the original stays. Or press Ctrl+J (Cmd+J) for a copy right on top of it.'),
+    tool: 'move',
+    pro: 'Alt-drag duplicate, Duplicate',
+    keywords: ['copy', 'duplicate', 'clone', 'another one', 'same again', 'repeat', 'alt drag'],
+  },
+  {
     id: 'order',
     goal: msg('Put something in front of or behind something else'),
     how: msg('Drag it up or down in the Layers list. Or pick it, then press Forward or Backward in the bar at the top.'),

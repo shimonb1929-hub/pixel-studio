@@ -22,11 +22,11 @@ async function undoLabel(page: Page) {
   return page.getByRole('tooltip').textContent()
 }
 
-// Drags with Alt held, so nothing lines up by itself.
+// Drags with Ctrl held, so nothing lines up by itself.
 async function dragFreely(page: Page, size: Size, from: [number, number], to: [number, number]) {
-  await page.keyboard.down('Alt')
+  await page.keyboard.down('Control')
   await drag(page, size, [from, to])
-  await page.keyboard.up('Alt')
+  await page.keyboard.up('Control')
 }
 
 test('drag a box to pick several things and move them together', async ({ page }) => {

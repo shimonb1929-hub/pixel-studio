@@ -246,7 +246,6 @@
  "Click anything on your design to pick it.": "Cliquez sur n’importe quel élément de votre création pour le choisir.",
  "Click anything on your design to pick it. Drag it to move it, pull a corner to resize it, or the round handle to turn it. Drag a box around several things to pick them all. Pictures never lose quality, however often you resize them.": "Cliquez sur n’importe quel élément de votre création pour le choisir. Faites-le glisser pour le déplacer, tirez un coin pour le redimensionner, ou la poignée ronde pour le faire pivoter. Tracez un cadre autour de plusieurs éléments pour tous les choisir. Les images ne perdent jamais en qualité, même redimensionnées souvent.",
  "Click anywhere on your design to paint with that color.": "Cliquez n’importe où sur votre création pour peindre avec cette couleur.",
- "Click something to pick it, or drag a box around several. Drag to move; it lines up by itself (hold {alt} to move freely). Pull a corner to resize, the round handle to turn.": "Cliquez sur un élément pour le choisir, ou tracez un cadre autour de plusieurs. Faites glisser pour déplacer ; il s’aligne tout seul (maintenez {alt} pour déplacer librement). Tirez un coin pour redimensionner, la poignée ronde pour faire pivoter.",
  "Click the part of your photo you want to copy.": "Cliquez sur la partie de votre photo que vous voulez copier.",
  "Click the part you want to copy first.": "Cliquez d’abord sur la partie à copier.",
  "Click the photo, choose Adjust, and move the Brightness slider. Contrast makes darks darker and lights lighter.": "Cliquez sur la photo, choisissez Ajuster, et déplacez le curseur Luminosité. Contraste rend les parties sombres plus sombres et les parties claires plus claires.",
@@ -1462,7 +1461,7 @@
  "This browser isn't letting Pixel Studio keep designs (it may be a private window).": "Ce navigateur ne permet pas à Pixel Studio de garder des créations (c’est peut-être une fenêtre privée).",
  "This design already has page numbers. To take them off, pick one and delete it.": "Ce design a déjà des numéros de page. Pour les enlever, choisissez-en un et supprimez-le.",
  "This design has only one page.": "Cette création n’a qu’une page.",
- "This file couldn't be opened. Try a PNG, JPG, GIF, WebP or BMP image.": "Ce fichier n’a pas pu être ouvert. Essayez une image PNG, JPG, GIF, WebP ou BMP.",
+ "This file couldn't be opened. Try a PNG, JPG, HEIC, GIF, WebP or BMP image.": "Ce fichier n’a pas pu être ouvert. Essayez une image PNG, JPG, HEIC, GIF, WebP ou BMP.",
  "This font comes in one boldness.": "Cette police n’existe qu’en une seule graisse.",
  "This font couldn’t be added. Try another file.": "Impossible d’ajouter cette police. Essayez un autre fichier.",
  "This font file is damaged, so it can’t be used. Try downloading it again.": "Ce fichier de police est abîmé et ne peut pas être utilisé. Essayez de le télécharger à nouveau.",
@@ -2099,5 +2098,9 @@
  "Tap Install app, or Add to Home screen.": "Touchez Installer l’appli, ou Ajouter à l’écran d’accueil.",
  "Tap Install.": "Touchez Installer.",
  "Tap the Share button: a square with an arrow pointing up.": "Touchez le bouton Partager : un carré avec une flèche vers le haut.",
- "Tap the menu button: three dots at the top right.": "Touchez le bouton de menu : trois points en haut à droite."
+ "Tap the menu button: three dots at the top right.": "Touchez le bouton de menu : trois points en haut à droite.",
+ "Click something to pick it, or drag a box around several. Drag to move; it lines up by itself (hold {mod} to move freely). Hold {alt} and drag to pull out a copy. Pull a corner to resize, the round handle to turn.": "Cliquez sur un élément pour le choisir, ou tracez un cadre autour de plusieurs. Faites glisser pour déplacer ; il s’aligne tout seul (maintenez {mod} pour déplacer librement). Maintenez {alt} et faites glisser pour sortir une copie. Tirez un coin pour redimensionner, la poignée ronde pour faire pivoter.",
+ "Copy by dragging": "Copier en faisant glisser",
+ "Make a copy of something": "Faire une copie de quelque chose",
+ "With Arrange, hold Alt (Option on a Mac) and drag it: a copy comes out and the original stays. Or press Ctrl+J (Cmd+J) for a copy right on top of it.": "Avec Disposer, maintenez Alt (Option sur un Mac) et faites-le glisser : une copie sort et l’original reste. Ou appuyez sur Ctrl+J (Cmd+J) pour une copie juste au-dessus."
 }

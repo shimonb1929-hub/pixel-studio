@@ -1,7 +1,7 @@
 import { Bandage, Brush, Stamp, Crop, Eclipse, Eraser, Hand, MousePointer2, PaintBucket, Spline, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
 import type { ToolId } from './editor/types.ts'
 import { t } from './i18n/i18n.ts'
-import { ALT_LABEL } from './keys.ts'
+import { ALT_LABEL, MOD_LABEL } from './keys.ts'
 
 export interface ToolInfo {
   id: ToolId
@@ -44,7 +44,7 @@ export const TOOLS: ToolInfo[] = [
       return t('Click anything on your design to pick it. Drag it to move it, pull a corner to resize it, or the round handle to turn it. Drag a box around several things to pick them all. Pictures never lose quality, however often you resize them.')
     },
     get hint() {
-      return t('Click something to pick it, or drag a box around several. Drag to move; it lines up by itself (hold {alt} to move freely). Pull a corner to resize, the round handle to turn.', { alt: ALT_LABEL })
+      return t('Click something to pick it, or drag a box around several. Drag to move; it lines up by itself (hold {mod} to move freely). Hold {alt} and drag to pull out a copy. Pull a corner to resize, the round handle to turn.', { alt: ALT_LABEL, mod: MOD_LABEL })
     },
     get when() {
       return t('Use it whenever you want to move, resize, turn or flip something you already added: a photo, a shape or some text.')

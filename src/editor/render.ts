@@ -69,7 +69,9 @@ export interface RenderPart {
 
 // Shown in place of a layer while it's being painted on, moved, resized or adjusted: either
 // pictures to draw, or a changed copy of the layer, or changed copies of several layers.
-export type LayerOverride = { layerId: string; parts: RenderPart[] } | { layerId: string; layer: Layer } | { layers: Map<string, Layer> }
+// `copy`: the changed layers are new copies, shown just above the originals, which stay as they are
+// (while dragging out a copy).
+export type LayerOverride = { layerId: string; parts: RenderPart[] } | { layerId: string; layer: Layer; copy?: boolean } | { layers: Map<string, Layer>; copy?: boolean }
 
 // Adjusted layers are shown with just the detail the screen needs, worked out again only when the
 // layer, its pixels, the zoom or the design's size change.
@@ -139,7 +141,13 @@ function drawParts(ctx: CanvasRenderingContext2D, parts: RenderPart[]) {
 // text flows around is moved or resized (or the text is), the text flows around it as it goes.
 function shownLayers(layers: Layer[], override: LayerOverride | null | undefined): Layer[] {
   if (!override || 'parts' in override) return layers
-  const changed = layers.map((l) => ('layers' in override ? (override.layers.get(l.id) ?? l) : override.layerId === l.id ? override.layer : l))
+  const changedOf = (l: Layer) => ('layers' in override ? override.layers.get(l.id) : override.layerId === l.id ? override.layer : undefined)
+  const changed = override.copy
+    ? layers.flatMap((l) => {
+        const copy = changedOf(l)
+        return copy ? [l, copy] : [l]
+      })
+    : layers.map((l) => changedOf(l) ?? l)
   return changed.some((l) => l.textWrap) ? wrapLayers(changed) : changed
 }
 

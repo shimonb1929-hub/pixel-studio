@@ -66,6 +66,7 @@ import { addPage, changeEveryPage, goToPage, movePage, pageDocuments, pageIndex,
 import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
 import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
+import { isHeic } from './editor/heic.ts'
 import {
   activeLayer,
   duplicateLayers,
@@ -194,6 +195,9 @@ const HEAL_MIN_MARGIN = 48
 // How long the design must stay the same before the magic selection gets it ready.
 const MAGIC_PREPARE_DELAY_MS = 600
 const HEAL_MAX_MARGIN = 400
+
+// Phone photos (HEIC) don't always count as pictures on Windows, so they're named too.
+const PICTURE_FILES = 'image/*,.heic,.heif'
 
 const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
 
@@ -995,6 +999,21 @@ export default function App() {
     editor.change(label, (doc) => ({ ...doc, layers: doc.layers.map((l) => (ids.includes(l.id) ? layerInFrame(l, from, to) : l)) }), { bytes })
   }
 
+  // Alt+drag: the dragged things are copied, and the copies land where the drag ended.
+  function copyPlaced(ids: string[], from: TransformBox, to: TransformBox) {
+    const d = current()
+    if (!d) return
+    const copies: string[] = []
+    const copy = (layer: Layer) => {
+      const made = layerInFrame(duplicateLayer(layer), from, to)
+      copies.push(made.id)
+      return made
+    }
+    const bytes = d.layers.reduce((sum, l) => (ids.includes(l.id) ? sum + layerBytes(l) : sum), 0)
+    editor.change(t('Copy by dragging'), (doc) => duplicateLayers(doc, ids, copy, (g) => ({ id: createId('group'), name: t('{name} copy', { name: g.name }) })), { bytes })
+    if (copies.length > 1) pickMany(copies)
+  }
+
   const KEEP_TOGETHER_HINT = t('Pick two or more things first: drag a box around them on your design, or hold Shift and click each one.')
 
   // A name for things kept together, from what's in it: "Circle + Star", or "Circle + 2 more".
@@ -1788,7 +1807,8 @@ export default function App() {
   }
 
   async function isProjectDrop(file: File): Promise<boolean> {
-    return file.name.toLowerCase().endsWith(`.${EXPORT_FORMATS.project.extension}`) || !file.type.startsWith('image/')
+    if (file.name.toLowerCase().endsWith(`.${EXPORT_FORMATS.project.extension}`)) return true
+    return !file.type.startsWith('image/') && !(await isHeic(file))
   }
 
   // Opens the computer's file picker for one of the jobs a picked file can have.
@@ -1796,7 +1816,7 @@ export default function App() {
     const input = fileInputRef.current
     if (!input) return
     fileModeRef.current = mode
-    input.accept = mode === 'open' ? `image/*,.${EXPORT_FORMATS.project.extension}` : 'image/*'
+    input.accept = mode === 'open' ? `${PICTURE_FILES},.${EXPORT_FORMATS.project.extension}` : PICTURE_FILES
     input.click()
   }
 
@@ -2631,6 +2651,8 @@ export default function App() {
       const d = current()
       const layer = d && activeLayer(d)
       const piece = selectedPiece()
+      // With no part selected, Ctrl+J copies the whole picked thing (as other programs do).
+      if (layer && !d.selection) return layers.duplicate()
       if (!layer || !piece) return
       editor.change(
         t('Copy to new layer'),
@@ -3270,6 +3292,7 @@ export default function App() {
           onToggle: togglePicked,
           onPlace: placeLayer,
           onPlaceMany: placeMany,
+          onCopy: copyPlaced,
         }
       : null
 
@@ -3864,7 +3887,7 @@ export default function App() {
       <input
         ref={fileInputRef}
         type="file"
-        accept={`image/*,.${EXPORT_FORMATS.project.extension}`}
+        accept={`${PICTURE_FILES},.${EXPORT_FORMATS.project.extension}`}
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0]

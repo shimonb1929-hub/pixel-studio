@@ -413,6 +413,7 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       title: t('Duplicate layer'),
       description: t('Make an exact copy of the selected layer, placed right above it.'),
       keywords: ['copy layer', 'clone', 'duplicate'],
+      shortcut: shortcut('mod', 'J'),
       needsDocument: true,
       run: c.layerDuplicate,
     },

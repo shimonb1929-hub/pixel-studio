@@ -386,7 +386,7 @@ function overlayPixel(page: Page, size: Size, x: number, y: number): Promise<num
   )
 }
 
-test('dragging lines things up with the page and each other, with guides; Alt moves freely', async ({ page }) => {
+test('dragging lines things up with the page and each other, with guides; Ctrl moves freely', async ({ page }) => {
   const size = await newDesign(page)
   await drawShape(page, size, 'Rectangle', [20, 20], [60, 60])
   // Drag so its middle lands 3 pixels right of the page's middle: it clicks into place.
@@ -403,18 +403,43 @@ test('dragging lines things up with the page and each other, with guides; Alt mo
   expectColor(await designPixel(page, size, 179, 120), WHITE)
   expectColor(await designPixel(page, size, 219, 120), BLUE)
 
-  // With Alt held, it goes exactly where it's dropped.
-  await page.keyboard.down('Alt')
+  // With Ctrl held, it goes exactly where it's dropped.
+  await page.keyboard.down('Control')
   await drag(page, size, [
     [200, 120],
     [203, 220],
   ])
-  await page.keyboard.up('Alt')
+  await page.keyboard.up('Control')
   // Three pixels right of the middle, not pulled back to it.
   expectColor(await designPixel(page, size, 182, 220), WHITE)
   expectColor(await designPixel(page, size, 184, 220), BLUE)
   expectColor(await designPixel(page, size, 222, 220), BLUE)
   expectColor(await designPixel(page, size, 224, 220), WHITE)
+})
+
+test('Alt+drag pulls out a copy; the original stays, and one undo takes the copy back', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawShape(page, size, 'Rectangle', [20, 20], [60, 60])
+  await page.keyboard.down('Alt')
+  await drag(page, size, [
+    [40, 40],
+    [140, 140],
+  ])
+  await page.keyboard.up('Alt')
+  // Both are there: the original where it was, and the copy where the drag ended.
+  expectColor(await designPixel(page, size, 40, 40), BLUE)
+  expectColor(await designPixel(page, size, 140, 140), BLUE)
+  expect(await layerNames(page)).toHaveLength(2)
+  expect(await undoLabel(page)).toContain('Undo copy by dragging')
+  await page.keyboard.press('ControlOrMeta+z')
+  expectColor(await designPixel(page, size, 40, 40), BLUE)
+  expectColor(await designPixel(page, size, 140, 140), WHITE)
+  expect(await layerNames(page)).toHaveLength(1)
+
+  // Ctrl+J copies the picked thing too, right on top of it.
+  await clickAt(page, size, 40, 40)
+  await page.keyboard.press('ControlOrMeta+j')
+  expect(await layerNames(page)).toHaveLength(2)
 })
 
 test('pulling an edge or drawing a shape lines up too; Alt pulls freely', async ({ page }) => {

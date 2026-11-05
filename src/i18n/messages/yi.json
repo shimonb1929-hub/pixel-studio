@@ -246,7 +246,6 @@
  "Click anything on your design to pick it.": "קליקט אויף סיי וואס אויף אייער דיזיין עס אויסצוקלייבן.",
  "Click anything on your design to pick it. Drag it to move it, pull a corner to resize it, or the round handle to turn it. Drag a box around several things to pick them all. Pictures never lose quality, however often you resize them.": "קליקט אויף סיי וואס אויף אייער דיזיין עס אויסצוקלייבן. שלעפט עס צו רירן, ציט א ווינקל צו טוישן די גרייס, אדער דעם קיילעכדיגן הענטל עס צו דרייען. שלעפט א קעסטל ארום עטליכע זאכן זיי אלע אויסצוקלייבן. בילדער פארלירן קיינמאל נישט די קוואליטעט, ווי אפט איר זאלט נישט טוישן די גרייס.",
  "Click anywhere on your design to paint with that color.": "קליקט ערגעץ וואו אויף אייער דיזיין צו מאלן מיט יענעם קאליר.",
- "Click something to pick it, or drag a box around several. Drag to move; it lines up by itself (hold {alt} to move freely). Pull a corner to resize, the round handle to turn.": "קליקט אויף עפעס עס אויסצוקלייבן, אדער שלעפט א קעסטל ארום עטליכע. שלעפט צו רירן; עס שטעלט זיך אליין אויס אין א שורה (האלט {alt} צו רירן פריי). ציט א ווינקל צו טוישן די גרייס, דעם קיילעכדיגן הענטל צו דרייען.",
  "Click the part of your photo you want to copy.": "קוועטשט אויפן טייל פון אייער בילד וואס איר ווילט קאפירן.",
  "Click the part you want to copy first.": "קוועטשט קודם אויפן טייל וואס איר ווילט קאפירן.",
  "Click the photo, choose Adjust, and move the Brightness slider. Contrast makes darks darker and lights lighter.": "קליקט אויפן פאטא, קלויבט אויס צופאסן, און רירט דעם העלקייט סליידער. קאנטראסט מאכט טונקעלע טיילן טונקעלער און העלע טיילן העלער.",
@@ -1462,7 +1461,7 @@
  "This browser isn't letting Pixel Studio keep designs (it may be a private window).": "דער בראוזער לאזט נישט Pixel Studio אפהיטן דיזיינס (עס קען זיין א פריוואטער פענסטער).",
  "This design already has page numbers. To take them off, pick one and delete it.": "די דיזיין האט שוין בלאט נומערן. כדי זיי אראפצונעמען, קלייב איינעם און מעק אים אויס.",
  "This design has only one page.": "דער דיזיין האט נאר איין בלאט.",
- "This file couldn't be opened. Try a PNG, JPG, GIF, WebP or BMP image.": "דער פייל האט נישט געקענט ווערן געעפנט. פרובירט א PNG, JPG, GIF, WebP אדער BMP בילד.",
+ "This file couldn't be opened. Try a PNG, JPG, HEIC, GIF, WebP or BMP image.": "דער פייל האט נישט געקענט ווערן געעפנט. פרובירט א PNG, JPG, HEIC, GIF, WebP אדער BMP בילד.",
  "This font comes in one boldness.": "די שריפט קומט נאר אין איין דיקקייט.",
  "This font couldn’t be added. Try another file.": "מען האט נישט געקענט צולייגן דעם שריפט. פרובירט אן אנדער טעקע.",
  "This font file is damaged, so it can’t be used. Try downloading it again.": "די שריפט־טעקע איז קאליע, דערפאר קען מען זי נישט נוצן. פרובירט זי נאכאמאל אראפצונעמען.",
@@ -2099,5 +2098,9 @@
  "Tap Install app, or Add to Home screen.": "טאפט אויף Install app, אדער Add to Home screen.",
  "Tap Install.": "טאפט אויף Install.",
  "Tap the Share button: a square with an arrow pointing up.": "טאפט אויפן Share קנעפל: א פירעק מיט א פייל וואס ווייזט ארויף.",
- "Tap the menu button: three dots at the top right.": "טאפט אויפן מעניו קנעפל: דריי פינטלעך אויבן אין דער זייט."
+ "Tap the menu button: three dots at the top right.": "טאפט אויפן מעניו קנעפל: דריי פינטלעך אויבן אין דער זייט.",
+ "Click something to pick it, or drag a box around several. Drag to move; it lines up by itself (hold {mod} to move freely). Hold {alt} and drag to pull out a copy. Pull a corner to resize, the round handle to turn.": "קליקט אויף עפעס עס אויסצוקלייבן, אדער שלעפט א קעסטל ארום עטליכע. שלעפט צו רירן; עס שטעלט זיך אליין אויס אין א שורה (האלט {mod} צו רירן פריי). האלט {alt} און שלעפט צו ארויסציען א קאפיע. ציט א ווינקל צו טוישן די גרייס, דעם קיילעכדיגן הענטל צו דרייען.",
+ "Copy by dragging": "קאפירן מיט שלעפן",
+ "Make a copy of something": "מאכן א קאפיע פון עפעס",
+ "With Arrange, hold Alt (Option on a Mac) and drag it: a copy comes out and the original stays. Or press Ctrl+J (Cmd+J) for a copy right on top of it.": "מיט ארדענען, האלט Alt (‏Option אויף א מעק) און שלעפט עס: א קאפיע קומט ארויס און דער ארגינעל בלייבט. אדער דריקט Ctrl+J (‏Cmd+J) פאר א קאפיע גראד אויף אים."
 }

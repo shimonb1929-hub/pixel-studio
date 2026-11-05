@@ -45,8 +45,16 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Lining up happens by itself.** While you drag something, it clicks into line with the page's
   middle and edges and with other things' edges and middles, and into even gaps between things;
   thin pink guides show what lined up, and gaps show their size. Pulling a side or corner and
-  drawing a new shape line up the same way. Hold Alt to place it freely. A click or a tap never moves
-  anything by accident.
+  drawing a new shape line up the same way. Hold Ctrl (Cmd on a Mac) while moving, or Alt while
+  pulling or drawing, to place it freely. A click or a tap never moves anything by accident.
+- **Copies by dragging.** Hold Alt (Option on a Mac) and drag something with Arrange: a copy comes
+  out and the original stays where it was, lining up like any move. Ctrl+J copies the picked thing
+  right on top of it.
+- **Fingers work too.** On a tablet or phone, two fingers pinch to zoom and slide to move around
+  the design; one finger paints, picks and moves as a mouse does.
+- **Phone photos open.** iPhone and other phone photos (HEIC) open in every browser, not only
+  Safari: they are read by libheif, which comes from Pixel Studio's own site the first time it is
+  needed.
 - **Several things at once, without folders.** Drag a box around things (or Shift+click them) to
   pick several; they move, resize, turn, recolor and delete together. "Keep together" makes them
   one thing: a click on any part picks it all, a double-click picks just that part, and the Layers
@@ -314,6 +322,10 @@ only when a design uses them and kept for offline use after that. `node scripts/
 downloads them again and rebuilds the font list from `scripts/fonts/list.json`;
 `python3 scripts/fonts/culmus.py` remakes the Culmus, Taamey and Ezra files first. What each font
 is good for is chosen by hand in `src/text/fontPurposes.ts`.
+
+Phone photos (HEIC) are read with libheif through libheif-js (GNU LGPL 3.0). It is a separate
+file of the built site, loaded only when a HEIC photo is opened, so it can be swapped for any other
+build of libheif.
 
 Words from a picture uses Tesseract through tesseract.js (Apache License 2.0). Its worker, engine
 and English, Hebrew and Yiddish models are in `public/ocr/<version>/`, served by our own site and

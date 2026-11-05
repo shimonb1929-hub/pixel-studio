@@ -246,7 +246,6 @@
  "Click anything on your design to pick it.": "Haz clic en cualquier cosa de tu diseño para elegirla.",
  "Click anything on your design to pick it. Drag it to move it, pull a corner to resize it, or the round handle to turn it. Drag a box around several things to pick them all. Pictures never lose quality, however often you resize them.": "Haz clic en cualquier cosa de tu diseño para elegirla. Arrástrala para moverla, tira de una esquina para cambiar su tamaño o del controlador redondo para girarla. Arrastra un recuadro alrededor de varias cosas para elegirlas todas. Las imágenes nunca pierden calidad, por muchas veces que cambies su tamaño.",
  "Click anywhere on your design to paint with that color.": "Haz clic en cualquier parte de tu diseño para pintar con ese color.",
- "Click something to pick it, or drag a box around several. Drag to move; it lines up by itself (hold {alt} to move freely). Pull a corner to resize, the round handle to turn.": "Haz clic en algo para elegirlo, o arrastra un recuadro alrededor de varias cosas. Arrastra para mover; se alinea solo (mantén {alt} para moverlo libremente). Tira de una esquina para cambiar el tamaño, del controlador redondo para girar.",
  "Click the part of your photo you want to copy.": "Haz clic en la parte de tu foto que quieres copiar.",
  "Click the part you want to copy first.": "Primero haz clic en la parte que quieres copiar.",
  "Click the photo, choose Adjust, and move the Brightness slider. Contrast makes darks darker and lights lighter.": "Haz clic en la foto, elige Ajustar y mueve el control Brillo. Contraste hace que lo oscuro sea más oscuro y lo claro más claro.",
@@ -1462,7 +1461,7 @@
  "This browser isn't letting Pixel Studio keep designs (it may be a private window).": "Este navegador no deja que Pixel Studio guarde diseños (puede que sea una ventana privada).",
  "This design already has page numbers. To take them off, pick one and delete it.": "Este diseño ya tiene números de página. Para quitarlos, elige uno y bórralo.",
  "This design has only one page.": "Este diseño tiene una sola página.",
- "This file couldn't be opened. Try a PNG, JPG, GIF, WebP or BMP image.": "No se pudo abrir este archivo. Prueba con una imagen PNG, JPG, GIF, WebP o BMP.",
+ "This file couldn't be opened. Try a PNG, JPG, HEIC, GIF, WebP or BMP image.": "No se pudo abrir este archivo. Prueba con una imagen PNG, JPG, HEIC, GIF, WebP o BMP.",
  "This font comes in one boldness.": "Esta fuente solo tiene un grosor.",
  "This font couldn’t be added. Try another file.": "No se pudo añadir esta fuente. Prueba con otro archivo.",
  "This font file is damaged, so it can’t be used. Try downloading it again.": "Este archivo de fuente está dañado y no se puede usar. Prueba a descargarlo de nuevo.",
@@ -2099,5 +2098,9 @@
  "Tap Install app, or Add to Home screen.": "Toca Instalar app, o Añadir a pantalla de inicio.",
  "Tap Install.": "Toca Instalar.",
  "Tap the Share button: a square with an arrow pointing up.": "Toca el botón Compartir: un cuadrado con una flecha hacia arriba.",
- "Tap the menu button: three dots at the top right.": "Toca el botón de menú: tres puntos arriba a la derecha."
+ "Tap the menu button: three dots at the top right.": "Toca el botón de menú: tres puntos arriba a la derecha.",
+ "Click something to pick it, or drag a box around several. Drag to move; it lines up by itself (hold {mod} to move freely). Hold {alt} and drag to pull out a copy. Pull a corner to resize, the round handle to turn.": "Haz clic en algo para elegirlo, o arrastra un recuadro alrededor de varias cosas. Arrastra para mover; se alinea solo (mantén {mod} para moverlo libremente). Mantén {alt} y arrastra para sacar una copia. Tira de una esquina para cambiar el tamaño, del controlador redondo para girar.",
+ "Copy by dragging": "Copiar arrastrando",
+ "Make a copy of something": "Hacer una copia de algo",
+ "With Arrange, hold Alt (Option on a Mac) and drag it: a copy comes out and the original stays. Or press Ctrl+J (Cmd+J) for a copy right on top of it.": "Con Organizar, mantén Alt (Opción en un Mac) y arrástralo: sale una copia y el original se queda. O pulsa Ctrl+J (Cmd+J) para una copia justo encima."
 }
