@@ -154,6 +154,14 @@ export const GOALS: Goal[] = [
     keywords: ['unite', 'merge', 'subtract', 'intersect', 'exclude', 'boolean'],
   },
   {
+    id: 'copies',
+    goal: msg('Make many copies in a row, a grid or around a circle'),
+    how: msg('Pick the thing with Arrange and press Copies in the bar at the top. Choose Row, Column, Grid, Circle or Mirror, see them on your design, then press Apply.'),
+    action: 'make-copies',
+    pro: 'Repeat, Step and Repeat, Radial repeat',
+    keywords: ['repeat', 'duplicate', 'pattern', 'border', 'flower', 'wreath', 'symmetry', 'mirror', 'tiles'],
+  },
+  {
     id: 'words',
     goal: msg('Add a title or some words'),
     how: msg('Choose Text and click where the words should start, or drag a box for a paragraph. Then type.'),
@@ -168,6 +176,14 @@ export const GOALS: Goal[] = [
     tool: 'text',
     pro: 'Right-to-left text, Middle Eastern features',
     keywords: ['hebrew', 'yiddish', 'rtl', 'right to left', 'ivrit'],
+  },
+  {
+    id: 'find-change',
+    goal: msg('Change a word everywhere at once'),
+    how: msg('Open the Menu and choose Find and change words. Type the word to find and what to put instead, then press Change.'),
+    action: 'find-and-change',
+    pro: 'Find/Change, Find and Replace',
+    keywords: ['find', 'replace', 'search', 'typo', 'name', 'date', 'everywhere'],
   },
   {
     id: 'fonts',
