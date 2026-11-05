@@ -1,0 +1,13 @@
+{
+  "name": "Shishimvearba",
+  "license": "OFL-1.1",
+  "version": "",
+  "faces": [
+    {
+      "file": "shishimvearba-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+0020-007B,U+007D,U+00A1-00A3,U+00A5,U+00A8,U+00AF,U+00B4,U+00B7-00B8,U+00BF-00D6,U+00D8-00F6,U+00F8-00FF,U+0102-0103,U+0106-0107,U+010C-010F,U+0139-013A,U+0152-0153,U+0174-0178,U+02C6-02C7,U+02D8-02DD,U+05D0-05EA,U+1E80-1E85,U+1EF2-1EF3,U+2013-2014,U+2018-2019,U+201C-201D,U+2022,U+2026,U+20AC,U+FB01,U+FB4F"
+    }
+  ]
+}
