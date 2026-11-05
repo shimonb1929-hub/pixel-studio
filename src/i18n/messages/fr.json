@@ -2156,5 +2156,14 @@
  "{count} minutes ago": "Il y a {count} minutes",
  "{date} at {time}": "{date} à {time}",
  "Go back to how my design looked earlier": "Revenir à l’aspect antérieur de mon dessin",
- "Menu › Earlier versions… shows how the design looked along the way, kept every ten minutes of work. Pick one to see it, then Go back to this. How it is now is kept too, so nothing is lost.": "Menu › Versions précédentes… montre l’aspect du dessin au fil du travail, gardé toutes les dix minutes. Choisissez-en une pour la voir, puis Revenir à celle-ci. L’état actuel est gardé aussi : rien n’est perdu."
+ "Menu › Earlier versions… shows how the design looked along the way, kept every ten minutes of work. Pick one to see it, then Go back to this. How it is now is kept too, so nothing is lost.": "Menu › Versions précédentes… montre l’aspect du dessin au fil du travail, gardé toutes les dix minutes. Choisissez-en une pour la voir, puis Revenir à celle-ci. L’état actuel est gardé aussi : rien n’est perdu.",
+ "Hide the grid": "Masquer la grille",
+ "Hide the rulers": "Masquer les règles",
+ "Rulers": "Règles",
+ "Rulers along the top and left edges, measuring from the corner of the page in the unit you chose for sizes. A blue mark shows where the pointer is.": "Des règles le long des bords haut et gauche, qui mesurent depuis le coin de la page dans l’unité choisie pour les tailles. Un repère bleu montre où est le pointeur.",
+ "Show the grid": "Afficher la grille",
+ "Show the rulers": "Afficher les règles",
+ "Squared paper over the page, to place things evenly. Things click onto its lines as you move them. It is never printed or downloaded.": "Du papier quadrillé sur la page, pour placer les choses régulièrement. Les choses s’accrochent à ses lignes quand vous les déplacez. Elle n’est jamais imprimée ni téléchargée.",
+ "Measure things and place them evenly": "Mesurer les choses et les placer régulièrement",
+ "Menu › Show the grid puts squared paper over the page, and things click onto its lines as you move them (Ctrl+' turns it on and off). Menu › Show the rulers adds rulers in the unit you chose for sizes.": "Menu › Afficher la grille pose du papier quadrillé sur la page, et les choses s’accrochent à ses lignes quand vous les déplacez (Ctrl+' l’active et la désactive). Menu › Afficher les règles ajoute des règles dans l’unité choisie pour les tailles."
 }

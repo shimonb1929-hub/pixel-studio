@@ -12,6 +12,7 @@ import { startMove, type MoveSession } from '../editor/move.ts'
 import { renderScene, type LayerOverride } from '../editor/render.ts'
 import { sampleColor } from '../editor/sample.ts'
 import { layoutFrames } from '../editor/pageLayout.ts'
+import { gridLines, gridPositions, gridStep } from '../editor/grid.ts'
 import { documentPpi, formatInUnit, getUnit } from '../editor/units.ts'
 import { linedUp, snapLines, snapMove, type SnapResult } from '../editor/snap.ts'
 import {
@@ -98,6 +99,8 @@ export interface ShapeDrawing {
 }
 
 export interface CanvasViewProps {
+  // Squared paper over the page; things line up with its lines while moved.
+  grid?: boolean
   doc: EditorDocument
   revision: number
   viewport: Viewport
@@ -610,6 +613,31 @@ function drawFlowBoxes(ctx: CanvasRenderingContext2D, doc: EditorDocument, viewp
   ctx.restore()
 }
 
+// The grid: faint lines over the page, under everything else on the overlay. A grid too fine to
+// see at this zoom shows only every few lines.
+function drawGrid(ctx: CanvasRenderingContext2D, doc: EditorDocument, viewport: Viewport) {
+  let step = gridStep(doc.width, doc.height)
+  while (step * viewport.zoom < 8) step *= 5
+  ctx.save()
+  ctx.strokeStyle = 'rgba(16, 24, 40, 0.16)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  const topLeft = toScreen({ x: 0, y: 0 }, viewport)
+  const bottomRight = toScreen({ x: doc.width, y: doc.height }, viewport)
+  for (const x of gridPositions(doc.width, step)) {
+    const at = Math.round(toScreen({ x, y: 0 }, viewport).x) + 0.5
+    ctx.moveTo(at, topLeft.y)
+    ctx.lineTo(at, bottomRight.y)
+  }
+  for (const y of gridPositions(doc.height, step)) {
+    const at = Math.round(toScreen({ x: 0, y }, viewport).y) + 0.5
+    ctx.moveTo(topLeft.x, at)
+    ctx.lineTo(bottomRight.x, at)
+  }
+  ctx.stroke()
+  ctx.restore()
+}
+
 // Margins and columns: faint dashed lines, under everything else on the overlay.
 function drawLayoutLines(ctx: CanvasRenderingContext2D, doc: EditorDocument, viewport: Viewport) {
   const frames = layoutFrames(doc)
@@ -898,6 +926,7 @@ export function CanvasView(props: CanvasViewProps) {
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    if (p.grid) drawGrid(ctx, p.doc, p.viewport)
     drawLayoutLines(ctx, p.doc, p.viewport)
     drawFlowBoxes(ctx, p.doc, p.viewport)
     drawSelection(ctx, p)
@@ -1011,7 +1040,7 @@ export function CanvasView(props: CanvasViewProps) {
   const arrangeOff = !props.arrange
   useLayoutEffect(() => {
     drawOverlay()
-  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box, arrangeOff, props.textEditing, props.pen?.version, props.selectionPreview, props.clone?.source, props.clone?.offset])
+  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box, arrangeOff, props.textEditing, props.pen?.version, props.selectionPreview, props.clone?.source, props.clone?.offset, props.grid])
 
   // A gap being filled while a part is dragged shows as soon as it's ready.
   useEffect(() => onGapFilled(() => moveRef.current && requestScene()), [])
@@ -1137,7 +1166,7 @@ export function CanvasView(props: CanvasViewProps) {
   // The page, and the margins and columns on it, that things line up with.
   function snapPage(): Rect[] {
     const frames = layoutFrames(doc)
-    return [{ x: 0, y: 0, width: doc.width, height: doc.height }, ...(frames ? [frames.inside, ...frames.columns] : [])]
+    return [{ x: 0, y: 0, width: doc.width, height: doc.height }, ...(frames ? [frames.inside, ...frames.columns] : []), ...(props.grid ? gridLines(doc.width, doc.height) : [])]
   }
 
   // Where to put the pointer so a pulled handle lands on a line of the page or another thing, or

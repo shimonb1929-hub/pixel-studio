@@ -290,6 +290,14 @@ export const GOALS: Goal[] = [
     keywords: ['version', 'history', 'earlier', 'restore', 'revert', 'go back', 'older', 'lost my work', 'yesterday', 'backup'],
   },
   {
+    id: 'grid-rulers',
+    goal: msg('Measure things and place them evenly'),
+    how: msg("Menu › Show the grid puts squared paper over the page, and things click onto its lines as you move them (Ctrl+' turns it on and off). Menu › Show the rulers adds rulers in the unit you chose for sizes."),
+    action: 'grid',
+    pro: 'Grid, Snap to Grid, Rulers',
+    keywords: ['grid', 'ruler', 'rulers', 'measure', 'snap', 'graph paper', 'even', 'inches', 'centimeters', 'place exactly'],
+  },
+  {
     id: 'copy-drag',
     goal: msg('Make a copy of something'),
     how: msg('With Arrange, hold Alt (Option on a Mac) and drag it: a copy comes out and the original stays. Or press Ctrl+J (Cmd+J) for a copy right on top of it.'),

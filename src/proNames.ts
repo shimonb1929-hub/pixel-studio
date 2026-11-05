@@ -136,6 +136,8 @@ export const PRO_NAMES: Record<string, string> = {
   'Cut lines': 'Crop marks',
   Download: 'Export',
   'Earlier versions': 'Version History, History panel, Revert',
+  'Show the grid': 'Grid, Snap to Grid',
+  'Show the rulers': 'Rulers',
 }
 
 // The pro word for a word on screen, in any language, or undefined when it has none or it is the

@@ -2156,5 +2156,14 @@
  "{count} minutes ago": "לפני {count} דקות",
  "{date} at {time}": "{date} ב‑{time}",
  "Go back to how my design looked earlier": "לחזור למראה של העיצוב שלי קודם",
- "Menu › Earlier versions… shows how the design looked along the way, kept every ten minutes of work. Pick one to see it, then Go back to this. How it is now is kept too, so nothing is lost.": "תפריט › גרסאות קודמות… מראה איך העיצוב נראה לאורך הדרך, נשמר כל עשר דקות של עבודה. בחרו אחת כדי לראות אותה, ואז לחזור לזה. איך שהוא עכשיו נשמר גם כן, כך ששום דבר לא הולך לאיבוד."
+ "Menu › Earlier versions… shows how the design looked along the way, kept every ten minutes of work. Pick one to see it, then Go back to this. How it is now is kept too, so nothing is lost.": "תפריט › גרסאות קודמות… מראה איך העיצוב נראה לאורך הדרך, נשמר כל עשר דקות של עבודה. בחרו אחת כדי לראות אותה, ואז לחזור לזה. איך שהוא עכשיו נשמר גם כן, כך ששום דבר לא הולך לאיבוד.",
+ "Hide the grid": "הסתרת הרשת",
+ "Hide the rulers": "הסתרת הסרגלים",
+ "Rulers": "סרגלים",
+ "Rulers along the top and left edges, measuring from the corner of the page in the unit you chose for sizes. A blue mark shows where the pointer is.": "סרגלים לאורך הקצה העליון והשמאלי, שמודדים מפינת העמוד ביחידה שבחרתם לגדלים. סימן כחול מראה איפה הסמן.",
+ "Show the grid": "הצגת הרשת",
+ "Show the rulers": "הצגת הסרגלים",
+ "Squared paper over the page, to place things evenly. Things click onto its lines as you move them. It is never printed or downloaded.": "נייר משבצות מעל העמוד, כדי למקם דברים בצורה אחידה. דברים נצמדים לקווים שלו כשמזיזים אותם. הוא אף פעם לא מודפס ולא יורד בהורדה.",
+ "Measure things and place them evenly": "למדוד דברים ולמקם אותם בצורה אחידה",
+ "Menu › Show the grid puts squared paper over the page, and things click onto its lines as you move them (Ctrl+' turns it on and off). Menu › Show the rulers adds rulers in the unit you chose for sizes.": "תפריט › הצגת הרשת שמה נייר משבצות מעל העמוד, ודברים נצמדים לקווים שלו כשמזיזים אותם (Ctrl+' מדליק ומכבה). תפריט › הצגת הסרגלים מוסיפה סרגלים ביחידה שבחרתם לגדלים."
 }

@@ -55,6 +55,9 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Phone photos open.** iPhone and other phone photos (HEIC) open in every browser, not only
   Safari: they are read by libheif, which comes from Pixel Studio's own site the first time it is
   needed.
+- **Grid and rulers.** Menu › Show the grid puts squared paper over the page (squares sized to the
+  design), and things click onto its lines as they move; Ctrl+' turns it on and off. Rulers measure
+  from the page's corner in the unit chosen for sizes. Both are remembered for next time.
 - **Earlier versions.** Menu › Earlier versions… shows how the design looked along the way (the
   last of every ten minutes of work, up to twenty), and goes back to any of them. How it is now
   is kept first, so going back can be taken back too.

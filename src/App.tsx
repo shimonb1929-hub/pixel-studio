@@ -37,6 +37,8 @@ import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { InstallDialog } from './components/InstallDialog.tsx'
 import { VersionsDialog } from './components/VersionsDialog.tsx'
+import { Rulers } from './components/Rulers.tsx'
+import { useRememberedChoice } from './hooks/useRememberedChoice.ts'
 import { DesignInfo, SelectionBar, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
 import { PagePanel } from './components/PagePanel.tsx'
 import { GradientHandles } from './components/GradientHandles.tsx'
@@ -415,6 +417,9 @@ export default function App() {
   // A new design starts on Arrange: clicking never paints by surprise.
   const [tool, setToolState] = useState<ToolId>('move')
   const [cursor, setCursor] = useState<Point | null>(null)
+  // The grid and the rulers, as chosen last time.
+  const [showGrid, setShowGrid] = useRememberedChoice('pixel-studio-grid')
+  const [showRulers, setShowRulers] = useRememberedChoice('pixel-studio-rulers')
   const [dialog, setDialog] = useState<DialogId | null>(null)
   // Which kind of ready layout the layouts dialog shows first.
   const [layoutsKind, setLayoutsKind] = useState<'all' | LayoutKind>('all')
@@ -2577,6 +2582,8 @@ export default function App() {
     },
     installApp: () => setDialog('install'),
     earlierVersions: () => setDialog('versions'),
+    toggleGrid: () => setShowGrid(!showGrid),
+    toggleRulers: () => setShowRulers(!showRulers),
     close: () =>
       void leaveDesign(() => {
         editor.close()
@@ -2945,6 +2952,7 @@ export default function App() {
       doc,
       undoLabel: editor.undoLabel,
       redoLabel: editor.redoLabel,
+      view: { grid: showGrid, rulers: showRulers },
       organize: { keepTogether: keepTogetherBlocker(doc), alongShape: alongPair(doc) ? null : t('Pick one text and one shape together first: click one, then hold Shift and click the other.'), takeApart: pickedGroups(doc).length === 0 ? t('Pick something kept together first.') : null, picked },
     },
     commands,
@@ -3050,6 +3058,7 @@ export default function App() {
       else if (mod && event.altKey && !event.shiftKey && code === 'KeyC' && hasDoc) action = c.copyLook
       else if (mod && event.altKey && !event.shiftKey && code === 'KeyV' && hasDoc) action = c.pasteLook
       else if (mod && !event.shiftKey && !event.altKey && code === 'KeyP' && hasDoc) action = c.print
+      else if (mod && !event.shiftKey && !event.altKey && code === 'Quote' && hasDoc) action = c.toggleGrid
       else if (mod && !event.shiftKey && code === 'KeyC' && hasDoc) action = c.copy
       else if (mod && code === 'KeyX' && hasDoc) action = c.cut
       else if (mod && code === 'KeyJ' && hasDoc) action = c.toNewLayer
@@ -3606,6 +3615,7 @@ export default function App() {
           {doc ? (
             <>
               <CanvasView
+                grid={showGrid}
                 doc={smart.shown ?? shownDoc ?? doc}
                 revision={editor.revision}
                 viewport={viewport}
@@ -3674,6 +3684,7 @@ export default function App() {
                 onEditText={editText}
                 onEditTable={editTable}
               />
+              {showRulers && <Rulers doc={doc} viewport={viewport} width={workspace.width} height={workspace.height} cursor={cursor} />}
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
               {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
               {corners.dots && <CornerHandles state={corners.dots} viewport={viewport} />}

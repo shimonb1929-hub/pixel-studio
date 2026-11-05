@@ -2156,5 +2156,14 @@
  "{count} minutes ago": "מיט {count} מינוט צוריק",
  "{date} at {time}": "{date} {time}",
  "Go back to how my design looked earlier": "גיין צוריק צו ווי מײַן דיזיין האָט פֿריִער אויסגעזען",
- "Menu › Earlier versions… shows how the design looked along the way, kept every ten minutes of work. Pick one to see it, then Go back to this. How it is now is kept too, so nothing is lost.": "מעניו › פֿריִערדיקע ווערסיעס… ווײַזט ווי דער דיזיין האָט אויסגעזען אויפֿן וועג, געהאַלטן יעדע צען מינוט אַרבעט. קלײַבט איינע אויס צו זען זי, דערנאָך גיין צוריק צו דעם. ווי ער איז איצט ווערט אויך געהאַלטן, אַזוי אַז גאָרנישט גייט ניט פֿאַרלוירן."
+ "Menu › Earlier versions… shows how the design looked along the way, kept every ten minutes of work. Pick one to see it, then Go back to this. How it is now is kept too, so nothing is lost.": "מעניו › פֿריִערדיקע ווערסיעס… ווײַזט ווי דער דיזיין האָט אויסגעזען אויפֿן וועג, געהאַלטן יעדע צען מינוט אַרבעט. קלײַבט איינע אויס צו זען זי, דערנאָך גיין צוריק צו דעם. ווי ער איז איצט ווערט אויך געהאַלטן, אַזוי אַז גאָרנישט גייט ניט פֿאַרלוירן.",
+ "Hide the grid": "באַהאַלטן די נעץ",
+ "Hide the rulers": "באַהאַלטן די ווירעס",
+ "Rulers": "ווירעס",
+ "Rulers along the top and left edges, measuring from the corner of the page in the unit you chose for sizes. A blue mark shows where the pointer is.": "ווירעס לענגאויס דעם אויבערשטן און לינקן ראַנד, וואָס מעסטן פֿונעם ווינקל פֿון דער זײַט אין דער איינהייט וואָס איר האָט אויסגעקליבן פֿאַר גרייסן. אַ בלאָע צייכן ווײַזט וווּ דער טייַטל איז.",
+ "Show the grid": "ווײַזן די נעץ",
+ "Show the rulers": "ווײַזן די ווירעס",
+ "Squared paper over the page, to place things evenly. Things click onto its lines as you move them. It is never printed or downloaded.": "קעסטלדיק פּאַפּיר איבער דער זײַט, צו שטעלן זאַכן גלײַכמעסיק. זאַכן קלעפּן זיך צו אירע ליניעס ווען איר רירט זיי. זי ווערט קיינמאָל ניט געדרוקט אָדער אַראָפּגעלאָדן.",
+ "Measure things and place them evenly": "מעסטן זאַכן און זיי שטעלן גלײַכמעסיק",
+ "Menu › Show the grid puts squared paper over the page, and things click onto its lines as you move them (Ctrl+' turns it on and off). Menu › Show the rulers adds rulers in the unit you chose for sizes.": "מעניו › ווײַזן די נעץ לייגט קעסטלדיק פּאַפּיר איבער דער זײַט, און זאַכן קלעפּן זיך צו אירע ליניעס ווען איר רירט זיי (Ctrl+' צינדט אָן און לעשט אויס). מעניו › ווײַזן די ווירעס לייגט צו ווירעס אין דער איינהייט וואָס איר האָט אויסגעקליבן פֿאַר גרייסן."
 }

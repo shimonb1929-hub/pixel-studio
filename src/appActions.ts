@@ -27,6 +27,8 @@ export interface AppCommands {
   renameDesign: () => void
   installApp: () => void
   earlierVersions: () => void
+  toggleGrid: () => void
+  toggleRulers: () => void
   close: () => void
   undo: () => void
   redo: () => void
@@ -113,6 +115,8 @@ interface ActionState {
   // Why what's picked can't be kept together or taken apart (null when it can), and the things
   // picked together, if several are.
   organize: { keepTogether: string | null; takeApart: string | null; alongShape: string | null; picked: string[] | null }
+  // Whether the grid and the rulers show.
+  view?: { grid: boolean; rulers: boolean }
 }
 
 const LINE_UPS: { edge: LineUpEdge; title: string; description: string; keywords: string[] }[] = [
@@ -128,7 +132,7 @@ const NOTHING_SELECTED = msg('Select an area first, with the Select tool.')
 
 // Everything a person can do, in plain words. The menu, the search box and the hover tips all
 // come from this one list.
-export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionState, c: AppCommands): Action[] {
+export function buildActions({ doc, undoLabel, redoLabel, organize, view }: ActionState, c: AppCommands): Action[] {
   const active = doc ? activeLayer(doc) : undefined
   const activeIndex = doc && active ? doc.layers.indexOf(active) : -1
   const noLayerPicked = doc && !active ? t('Pick something on your design first.') : undefined
@@ -817,6 +821,25 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       shortcut: shortcut('mod', '0'),
       needsDocument: true,
       run: c.fit,
+    },
+    {
+      id: 'grid',
+      group: 'View',
+      title: view?.grid ? t('Hide the grid') : t('Show the grid'),
+      description: t('Squared paper over the page, to place things evenly. Things click onto its lines as you move them. It is never printed or downloaded.'),
+      keywords: ['grid', 'squares', 'graph paper', 'snap', 'line up', 'even', 'guides', 'show grid', 'hide grid'],
+      shortcut: shortcut('mod', "'"),
+      needsDocument: true,
+      run: c.toggleGrid,
+    },
+    {
+      id: 'rulers',
+      group: 'View',
+      title: view?.rulers ? t('Hide the rulers') : t('Show the rulers'),
+      description: t('Rulers along the top and left edges, measuring from the corner of the page in the unit you chose for sizes. A blue mark shows where the pointer is.'),
+      keywords: ['ruler', 'rulers', 'measure', 'measurement', 'inches', 'centimeters', 'size', 'show rulers', 'hide rulers'],
+      needsDocument: true,
+      run: c.toggleRulers,
     },
     {
       id: 'actual-size',

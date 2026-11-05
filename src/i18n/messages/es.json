@@ -2156,5 +2156,14 @@
  "{count} minutes ago": "Hace {count} minutos",
  "{date} at {time}": "{date} a las {time}",
  "Go back to how my design looked earlier": "Volver a cómo se veía mi diseño antes",
- "Menu › Earlier versions… shows how the design looked along the way, kept every ten minutes of work. Pick one to see it, then Go back to this. How it is now is kept too, so nothing is lost.": "Menú › Versiones anteriores… muestra cómo se veía el diseño a lo largo del trabajo, guardado cada diez minutos. Elige una para verla y luego Volver a esta. Cómo está ahora también se guarda, así que nada se pierde."
+ "Menu › Earlier versions… shows how the design looked along the way, kept every ten minutes of work. Pick one to see it, then Go back to this. How it is now is kept too, so nothing is lost.": "Menú › Versiones anteriores… muestra cómo se veía el diseño a lo largo del trabajo, guardado cada diez minutos. Elige una para verla y luego Volver a esta. Cómo está ahora también se guarda, así que nada se pierde.",
+ "Hide the grid": "Ocultar la cuadrícula",
+ "Hide the rulers": "Ocultar las reglas",
+ "Rulers": "Reglas",
+ "Rulers along the top and left edges, measuring from the corner of the page in the unit you chose for sizes. A blue mark shows where the pointer is.": "Reglas en los bordes superior e izquierdo, que miden desde la esquina de la página en la unidad que elegiste para los tamaños. Una marca azul muestra dónde está el puntero.",
+ "Show the grid": "Mostrar la cuadrícula",
+ "Show the rulers": "Mostrar las reglas",
+ "Squared paper over the page, to place things evenly. Things click onto its lines as you move them. It is never printed or downloaded.": "Papel cuadriculado sobre la página, para colocar las cosas de forma pareja. Las cosas se ajustan a sus líneas al moverlas. Nunca se imprime ni se descarga.",
+ "Measure things and place them evenly": "Medir las cosas y colocarlas de forma pareja",
+ "Menu › Show the grid puts squared paper over the page, and things click onto its lines as you move them (Ctrl+' turns it on and off). Menu › Show the rulers adds rulers in the unit you chose for sizes.": "Menú › Mostrar la cuadrícula pone papel cuadriculado sobre la página, y las cosas se ajustan a sus líneas al moverlas (Ctrl+' la activa y desactiva). Menú › Mostrar las reglas añade reglas en la unidad que elegiste para los tamaños."
 }
