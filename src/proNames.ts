@@ -129,6 +129,8 @@ export const PRO_NAMES: Record<string, string> = {
   'Extra edge for cutting': 'Bleed',
   'Cut lines': 'Crop marks',
   Download: 'Export',
+  // The app itself
+  'Your panels': 'Workspace, Window menu',
 }
 
 // The pro word for a word on screen, in any language, or undefined when it has none or it is the

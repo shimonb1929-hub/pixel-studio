@@ -33,7 +33,7 @@ import { ToolDock } from './components/ToolDock.tsx'
 import { ToolOptions, type ArrangeBarControls, type CropShape, type TextWrapControls } from './components/ToolOptions.tsx'
 import { canWrapText, defaultTextWrap, wrapTextOn } from './text/wrapAround.ts'
 import { Eclipse, File, Palette, Shapes, SlidersHorizontal, Table2, Type, type LucideIcon } from 'lucide-react'
-import { PanelButtons, SidePanels, type OpenPanel } from './components/SidePanels.tsx'
+import { OPEN_YOUR_PANELS, PanelButtons, SidePanels, type OpenPanel } from './components/SidePanels.tsx'
 import { PHONE_SCREEN, useMediaQuery, WIDE_SCREEN } from './hooks/useMediaQuery.ts'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
@@ -2803,6 +2803,8 @@ export default function App() {
     tidyUp: organize.tidyUp,
     lineUp: organize.lineUp,
     spreadOut: organize.spreadOut,
+    // Beside the design on a wide screen; a narrow screen has no column, so its panels open instead.
+    choosePanels: () => (wide ? window.dispatchEvent(new Event(OPEN_YOUR_PANELS)) : setOpenPanel('settings')),
     zoomIn: () => doc && zoomBy(1),
     zoomOut: () => doc && zoomBy(-1),
     fit: () => doc && setViewport(fitted(doc)),
@@ -3706,8 +3708,9 @@ export default function App() {
             onOpen={setOpenPanel}
             settingsName={settingsName}
             settingsIcon={settingsIcon}
-            settings={
-              <>
+            panels={{
+              settings: (
+                <>
                 {tableTarget && !adjustOn && (
                   <TablePanel
                     table={tableTarget}
@@ -3808,8 +3811,8 @@ export default function App() {
                     onShowAll={() => fadeLayer && changeHide(fadeLayer.id, null, t('Show all of it again'))}
                   />
                 )}
-                {/* The picked thing's own settings come first; the Color panel colors it from below. */}
-                {adjustOn && doc ? (
+                {/* Adjusting a photo takes the Color panel's place. */}
+                {adjustOn && doc && (
                   <AdjustPanel
                     settings={adjustments}
                     thumbnails={lookPictures}
@@ -3821,7 +3824,10 @@ export default function App() {
                     match={matchPart}
                     focus={adjustFocus}
                   />
-                ) : tool === 'fade' && doc ? null : (
+                )}
+                </>
+              ),
+              color: !adjustOn && !(tool === 'fade' && doc) && (
                   <ColorPanel
                     color={recolorOn ? recolorOn.now : (panelColor ?? color)}
                     recent={recentColors}
@@ -3830,8 +3836,8 @@ export default function App() {
                     design={designColorsShown}
                     photoColors={<PhotoColors colors={smart.palette} fromPicked={smart.paletteFromPicked} current={panelColor ?? color} onPick={onPanelColor} onMatch={smart.matchDesign} />}
                   />
-                )}
-                {effectsLayer && (
+              ),
+              effects: effectsLayer && (
                   <EffectsPanel
                     title={effectsLayer.name}
                     open={effectsOpen}
@@ -3853,9 +3859,8 @@ export default function App() {
                     onChange={changeEffects}
                     onBlend={changeBlend}
                   />
-                )}
-              </>
-            }
+              ),
+            }}
             layers={
               <LayersPanel
                 doc={doc}
