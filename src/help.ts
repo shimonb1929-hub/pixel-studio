@@ -276,7 +276,7 @@ export const GOALS: Goal[] = [
   {
     id: 'enlarge',
     goal: msg('Make a small photo bigger without it going blurry'),
-    how: msg('With Arrange, click the photo and pull a corner. Pixel Studio enlarges it from its own pixels and keeps the edges crisp, all by itself.'),
+    how: msg('With Arrange, click the photo and pull a corner: it stays crisp by itself. For the clearest result, choose Bigger and sharper in Photo tools and pick Most detail (AI).'),
     tool: 'move',
     pro: 'Preserve Details, Upscale, Resample',
     keywords: ['enlarge', 'upscale', 'blurry', 'pixelated', 'faded', 'low quality', 'sharp', 'zoom in'],
