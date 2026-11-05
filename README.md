@@ -227,8 +227,10 @@ The live site runs on Railway, which builds and publishes `main` on every push. 
 or Netlify work too: build command `npm run build`, output folder `dist`. `public/_headers` tells the host which files
 may be kept long and which must always be checked for updates; `.node-version` picks Node 22.
 
-Once online, Chrome and Edge offer to install Pixel Studio as an app (also from Menu → Install as
-an app). The installed app opens in its own window, works without internet (`pwa/service-worker.js`
+Once online, Pixel Studio can be installed as an app with its own icon on the desktop or home
+screen: press "Get the app for your desktop" on the start screen (or Menu → Install as an app). In
+Chrome and Edge that installs it in one click; on iPhone, iPad, Android, Safari on a Mac and Firefox
+it shows the few steps for that device (`src/editor/installSteps.ts`). The installed app opens in its own window, works without internet (`pwa/service-worker.js`
 keeps every file of the current version), and opens pictures and `.pixel` projects double-clicked
 on the computer.
 

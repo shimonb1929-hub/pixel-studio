@@ -37,6 +37,7 @@ import { PanelButtons, SidePanels, type OpenPanel } from './components/SidePanel
 import { PHONE_SCREEN, useMediaQuery, WIDE_SCREEN } from './hooks/useMediaQuery.ts'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
+import { InstallDialog } from './components/InstallDialog.tsx'
 import { DesignInfo, SelectionBar, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
 import { PagePanel } from './components/PagePanel.tsx'
 import { GradientHandles } from './components/GradientHandles.tsx'
@@ -139,7 +140,7 @@ import { TOOLS } from './tools.ts'
 import { useTurnIntoShapes } from './hooks/useTurnIntoShapes.tsx'
 import { isRtl, live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts'
+type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts' | 'install'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -2523,7 +2524,7 @@ export default function App() {
     renameDesign: () => {
       if (current()) setDialog('rename')
     },
-    installApp: () => void app.install(),
+    installApp: () => setDialog('install'),
     close: () =>
       void leaveDesign(() => {
         editor.close()
@@ -2873,7 +2874,6 @@ export default function App() {
       doc,
       undoLabel: editor.undoLabel,
       redoLabel: editor.redoLabel,
-      app,
       organize: { keepTogether: keepTogetherBlocker(doc), alongShape: alongPair(doc) ? null : t('Pick one text and one shape together first: click one, then hold Shift and click the other.'), takeApart: pickedGroups(doc).length === 0 ? t('Pick something kept together first.') : null, picked },
     },
     commands,
@@ -3681,6 +3681,7 @@ export default function App() {
               onCustom={commands.newDesign}
               onOpen={commands.open}
               onOpenDesign={openSaved}
+              onInstall={app.installed ? undefined : commands.installApp}
               onLayouts={(kind, layoutId) => {
                 setLayoutsKind(kind)
                 setLayoutsStart(layoutId)
@@ -3926,6 +3927,17 @@ export default function App() {
       )}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
       {traceShapes.dialog}
+      {dialog === 'install' && (
+        <InstallDialog
+          installed={app.installed}
+          canInstall={app.canInstall}
+          onInstall={() => {
+            setDialog(null)
+            void app.install()
+          }}
+          onClose={() => setDialog(null)}
+        />
+      )}
       {dialog === 'help' && <HelpGuide actions={actions} hasDocument={!!doc} onPickTool={setTool} onClose={() => setDialog(null)} />}
       {dialog === 'layout' && doc && (
         <PageLayoutDialog

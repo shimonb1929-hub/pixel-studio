@@ -1,0 +1,13 @@
+{
+  "name": "Mazon Hebrew",
+  "license": "OFL-1.1",
+  "version": "",
+  "faces": [
+    {
+      "file": "mazon-400-normal.woff2",
+      "weight": "400",
+      "style": "normal",
+      "unicodeRange": "U+0020-0022,U+0025,U+0027-002F,U+003A-003F,U+005B-0060,U+007B-007D,U+00A0,U+00B1,U+00B7,U+00F7,U+05B0-05C3,U+05C6-05C7,U+05D0-05EA,U+05F3-05F4,U+2000-200F,U+2013-2014,U+2018-2019,U+201C-201D,U+2022,U+2026,U+2030,U+2044,U+F300-F302,U+FB20,U+FB4F"
+    }
+  ]
+}

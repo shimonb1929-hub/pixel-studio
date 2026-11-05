@@ -1,12 +1,14 @@
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, FlipVertical2, Italic, List, ListOrdered, Minus, Plus, Search, Spline, WrapText, X, type LucideIcon } from 'lucide-react'
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, FlipVertical2, Italic, LayoutGrid, List, ListOrdered, Minus, Plus, Search, Spline, WrapText, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { Gradient } from '../editor/gradient.ts'
 import type { TextStyle } from '../editor/types.ts'
-import type { FontCategory, FontInfo } from '../text/fontCatalog.ts'
+import type { FontInfo } from '../text/fontCatalog.ts'
 import { allFonts, fontInfo, fontName, fontStack, isOwnFont, loadFont, nearestWeight, ownFonts } from '../text/fonts.ts'
 import { addOwnFont, FontFileError, removeOwnFont } from '../text/ownFonts.ts'
 import { useFontsVersion } from '../hooks/useFontsVersion.ts'
-import { FONT_PURPOSES, type FontPurpose } from '../text/fontPurposes.ts'
+import { FONT_PURPOSES } from '../text/fontPurposes.ts'
+import { hasLetters, KINDS, LETTERS, searchWords, type FontFor, type FontLetters } from './fontChoices.ts'
+import { FontGallery } from './FontGallery.tsx'
 import type { ListKind, TextAlign, TextDirection } from '../text/layout.ts'
 import { FillKindSwitch, GradientEditor } from './GradientEditor.tsx'
 import { PhotoControls, type ShapePhotoControls } from './ShapePanel.tsx'
@@ -37,42 +39,6 @@ const WEIGHT_NAMES: Record<number, string> = live({
   900: msg('Black'),
   1000: msg('Extra black'),
 })
-
-type FontLetters = 'any' | 'hebrew' | 'yiddish'
-type FontFor = 'all' | FontPurpose
-
-const LETTERS: { value: FontLetters; label: string; description: string }[] = live([
-  { value: 'any', label: msg('Any'), description: msg('Fonts for every language.') },
-  { value: 'hebrew', label: msg('Hebrew'), description: msg('Fonts with Hebrew letters.') },
-  { value: 'yiddish', label: msg('Yiddish'), description: msg('Fonts with all the Yiddish letters (װ ױ ײ) and vowel points.') },
-])
-
-const KINDS: { value: FontCategory; label: string; description: string }[] = live([
-  { value: 'sans', label: msg('Clean'), description: msg('Simple, modern letters without little feet (sans serif).') },
-  { value: 'serif', label: msg('Classic'), description: msg('Letters with little feet, like in books and newspapers (serif).') },
-  { value: 'display', label: msg('Bold & fun'), description: msg('Eye-catching letters for headlines and posters.') },
-  { value: 'handwriting', label: msg('Handwritten'), description: msg('Letters that look written by hand.') },
-  { value: 'mono', label: msg('Typewriter'), description: msg('Every letter the same width, like code or a typewriter.') },
-])
-
-function hasLetters(font: FontInfo, letters: FontLetters): boolean {
-  if (letters === 'hebrew') return font.hebrew
-  if (letters === 'yiddish') return font.yiddish
-  return true
-}
-
-// Words that find a font: its name, its kind and what it's good for, in English and in the
-// language the app is shown in, so "wedding", "kids" or "Torah" find fonts too.
-function searchWords(font: FontInfo): string {
-  const kind = KINDS.find((k) => k.value === font.category)
-  const parts = [font.name, kind?.label ?? '', kind?.description ?? '', font.category]
-  for (const purpose of FONT_PURPOSES) {
-    if (purpose.fonts.includes(font.id)) parts.push(purpose.label, purpose.description, purpose.value)
-  }
-  if (font.hebrew) parts.push('hebrew', t('Hebrew'))
-  if (font.yiddish) parts.push('yiddish', t('Yiddish'))
-  return parts.join(' ').toLowerCase()
-}
 
 // The fonts picked lately on this computer, newest first.
 const RECENT_KEY = 'pixel-studio-recent-fonts'
@@ -205,6 +171,8 @@ function FontPicker({
   const [letters, setLetters] = useState<FontLetters>('any')
   const [purpose, setPurpose] = useState<FontFor>('all')
   const [recent, setRecent] = useState<string[]>([])
+  // The big window that shows every font side by side.
+  const [gallery, setGallery] = useState(false)
   // A font file being added, and what went wrong with the last one.
   const [adding, setAdding] = useState(false)
   const [problem, setProblem] = useState('')
@@ -357,6 +325,21 @@ function FontPicker({
       </Tooltip>
       {open && (
         <div className="flex flex-col gap-2.5 rounded-lg border border-line p-2">
+          <Tooltip
+            title={t('See all fonts big')}
+            description={t('Opens a big window where every font writes your words side by side, so you can compare them and pick one.')}
+            pro="Font browser"
+            className="flex"
+          >
+            <button
+              type="button"
+              onClick={() => setGallery(true)}
+              className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-soft px-2.5 text-[12px] font-medium text-accent transition-colors hover:bg-accent hover:text-white"
+            >
+              <LayoutGrid size={14} aria-hidden />
+              {t('See all fonts big')}
+            </button>
+          </Tooltip>
           <label className="flex h-8 items-center gap-2 rounded-lg bg-subtle px-2 text-ink-2">
             <Search size={14} aria-hidden />
             <input
@@ -482,6 +465,18 @@ function FontPicker({
           </div>
           <p className="px-1 text-[11px] text-ink-3">{t('Point at a font to see it on your page. Click to keep it.')}</p>
         </div>
+      )}
+      {gallery && (
+        <FontGallery
+          value={value}
+          sample={sample}
+          hasRtl={hasRtl}
+          onPick={(id) => {
+            setGallery(false)
+            pick(id)
+          }}
+          onClose={() => setGallery(false)}
+        />
       )}
     </div>
   )
