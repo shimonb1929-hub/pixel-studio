@@ -1,7 +1,7 @@
 import type { Action } from './actions.ts'
 import { LOOKS } from './editor/adjust.ts'
 import { activeLayer, layersToJoin } from './editor/layers.ts'
-import { pageCount, pageIndex } from './editor/pages.ts'
+import { allPages, pageCount, pageIndex } from './editor/pages.ts'
 import { photoSources } from './editor/palette.ts'
 import { hasPageNumbers } from './editor/everyPage.ts'
 import type { LineUpEdge } from './editor/organize.ts'
@@ -98,6 +98,10 @@ export interface AppCommands {
   // Open Bigger and sharper, or Words from a picture, for the picked photo.
   upscale: () => void
   findWords: () => void
+  // Copies of what is picked in a row, a grid, around a circle or mirrored, shown first.
+  makeCopies: () => void
+  // Find words in every text and table and change them.
+  findAndChange: () => void
 }
 
 interface ActionState {
@@ -117,6 +121,11 @@ const LINE_UPS: { edge: LineUpEdge; title: string; description: string; keywords
   { edge: 'middle', title: msg('Line up middles'), description: msg('Move what is picked so they line up through their middles, side by side. One thing on its own goes to the middle of the page, top to bottom.'), keywords: ['align middle', 'center vertically', 'centre'] },
   { edge: 'bottom', title: msg('Line up bottoms'), description: msg('Move what is picked so their bottoms line up. One thing on its own goes to the bottom of the page.'), keywords: ['align bottom', 'bottom'] },
 ]
+
+// Whether any page has text or a table, so there are words to find.
+function hasWords(doc: EditorDocument): boolean {
+  return allPages(doc).some((page) => page.layers.some((l) => (l.kind === 'text' && !l.pageNumber) || l.kind === 'table'))
+}
 
 const NOTHING_SELECTED = msg('Select an area first, with the Select tool.')
 
@@ -326,6 +335,17 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       run: c.paste,
     },
     {
+      id: 'find-and-change',
+      group: 'Edit',
+      title: t('Find and change words…'),
+      description: t('Find words in every text and table, on every page, and change them all at once, like a name or a date that changed. Words keep their font and color.'),
+      keywords: ['find', 'replace', 'find and replace', 'change', 'search', 'words', 'text', 'spelling', 'typo', 'everywhere', 'all'],
+      shortcut: shortcut('mod', 'F'),
+      needsDocument: true,
+      disabledReason: doc && !hasWords(doc) ? t('There are no words on this design yet. Add some with Text first.') : undefined,
+      run: c.findAndChange,
+    },
+    {
       id: 'select-all',
       group: 'Select',
       title: t('Select all'),
@@ -492,6 +512,16 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       needsDocument: true,
       disabledReason: noLayerPicked,
       run: c.layerDelete,
+    },
+    {
+      id: 'make-copies',
+      group: 'Layers',
+      title: t('Make copies…'),
+      description: t('Copies of the picked thing in a row, a grid or around a circle, or a mirror image beside it, like a border of stars or the petals of a flower. You see them before you keep them.'),
+      keywords: ['repeat', 'step and repeat', 'copies', 'copy', 'duplicate', 'many', 'row', 'grid', 'circle', 'radial', 'around', 'pattern', 'mirror', 'symmetry', 'border', 'flower', 'tile'],
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: c.makeCopies,
     },
     {
       id: 'keep-together',
