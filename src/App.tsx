@@ -8,8 +8,8 @@ import { CanvasView, type ArrangeControls, type BoxEditing, type ShapeDrawing, t
 import { ColorPanel, type DesignColors } from './components/ColorPanel.tsx'
 import { applyTextStyle, colorUses, designColors, findTextStyle, forgetColor, keepColor, lookPatch, matchesStyle, newStyleId, nextStyleName, recolorEverywhere, removeTextStyle, renameTextStyle, saveTextStyle, textStyles, updateTextStyle } from './editor/designStyles.ts'
 import type { TextStylesProps } from './components/TextStyles.tsx'
-import { LayoutsDialog } from './components/LayoutsDialog.tsx'
-import { buildLayout, loadLayoutFonts, type LayoutInfo, type LayoutKind } from './layouts/layouts.ts'
+import { LayoutsDialog, type KindChoice } from './components/LayoutsDialog.tsx'
+import { buildLayout, loadLayoutFonts, type LayoutInfo } from './layouts/layouts.ts'
 import { CommandPalette } from './components/CommandPalette.tsx'
 import { HelpGuide } from './components/HelpGuide.tsx'
 import { Dialog } from './components/Dialog.tsx'
@@ -54,6 +54,7 @@ import { BRUSH_PRESETS, COPY_BRUSH, ERASER_PRESETS, stepBrushSize, type BrushSet
 import { getClipboard, ownCopyCheck, setClipboard } from './editor/clipboard.ts'
 import {
   createBlankDocument,
+  createDesignId,
   createCanvas,
   createDocumentFromImage,
   createId,
@@ -86,7 +87,7 @@ import {
   updateLayer,
   updateShape,
 } from './editor/layers.ts'
-import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
+import { listDesigns, loadDesign, loadMyLayout, saveMyLayout, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
 import { canFill, hitsLayer, isLineShape, layerAt, layerBounds, layerPixels, polygonPoints } from './editor/objects.ts'
 import { layerPhoto, photoWhereItWas, withPhoto } from './editor/photoFill.ts'
@@ -105,7 +106,7 @@ import { PictureHelper, type PictureHelperKind } from './components/PictureHelpe
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
-import { decodeProject } from './editor/project.ts'
+import { decodeProject, designThumbnail, encodeProject } from './editor/project.ts'
 import type { LayerOverride } from './editor/render.ts'
 import { invertSelection, refineSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
 import { colorMaskAt, paintedMaskAt } from './editor/colorSelect.ts'
@@ -121,6 +122,7 @@ import { useStraighten } from './hooks/useStraighten.ts'
 import { StraightenPanel } from './components/StraightenPanel.tsx'
 import { RepeatPanel } from './components/RepeatPanel.tsx'
 import { FindDialog } from './components/FindDialog.tsx'
+import { softTint, startingPattern, type Pattern } from './editor/pattern.ts'
 import { replaceEverywhere } from './editor/findReplace.ts'
 import { useRepeat } from './hooks/useRepeat.ts'
 import { useCorners } from './hooks/useCorners.ts'
@@ -416,7 +418,7 @@ export default function App() {
   const phone = useMediaQuery(PHONE_SCREEN)
   const [openPanel, setOpenPanel] = useState<OpenPanel | null>(null)
   // Which kind of ready layout the layouts dialog shows first.
-  const [layoutsKind, setLayoutsKind] = useState<'all' | LayoutKind>('all')
+  const [layoutsKind, setLayoutsKind] = useState<KindChoice>('all')
   const [layoutsStart, setLayoutsStart] = useState<string | undefined>(undefined)
   // Bigger and sharper, or Words from a picture, open for a photo.
   const [pictureHelper, setPictureHelper] = useState<{ kind: PictureHelperKind; layerId: string } | null>(null)
@@ -842,7 +844,11 @@ export default function App() {
         ? shapeShown.fill.color
         : shapeShown.fill.kind === 'gradient'
           ? shapeShown.fill.gradient.stops[Math.min(gradientStop, shapeShown.fill.gradient.stops.length - 1)].color
-          : color
+          : shapeShown.fill.kind === 'pattern'
+            ? gradientStop === 1
+              ? (shapeShown.fill.pattern.background ?? '#ffffff')
+              : shapeShown.fill.pattern.color
+            : color
 
   // A gradient for the picked shapes, or for new shapes when none is picked.
   function changeGradient(gradient: Gradient, label: string, mergeKey?: string) {
@@ -865,14 +871,23 @@ export default function App() {
     }
   }
 
-  function changeFillKind(kind: 'color' | 'gradient') {
+  // A pattern for the picked shapes. New shapes start plain, so nothing is kept for them.
+  function changePattern(pattern: Pattern, label: string, mergeKey?: string) {
+    changeShape(label, () => ({ fill: { kind: 'pattern', pattern } }), (d) => d, mergeKey ?? `shape-pattern-${label}`)
+  }
+
+  function changeFillKind(kind: 'color' | 'gradient' | 'pattern') {
     if (!shapeShown || shapeShown.fill.kind === kind) return
     const fill = shapeShown.fill
-    if (kind === 'gradient') {
+    if (kind === 'pattern') {
+      setGradientStop(0)
+      const main = fill.kind === 'color' ? fill.color : fill.kind === 'gradient' ? fill.gradient.stops[0].color : color
+      changePattern(startingPattern(main, softTint(main), shapeShown.box.width, shapeShown.box.height), t('Pattern fill'))
+    } else if (kind === 'gradient') {
       setGradientStop(0)
       changeGradient(gradientFrom(fill.kind === 'color' ? fill.color : color), t('Gradient fill'))
     } else {
-      const hex = fill.kind === 'gradient' ? fill.gradient.stops[0].color : (shapeDefaults.fill ?? DEFAULT_SHAPES.fill!)
+      const hex = fill.kind === 'gradient' ? fill.gradient.stops[0].color : fill.kind === 'pattern' ? fill.pattern.color : (shapeDefaults.fill ?? DEFAULT_SHAPES.fill!)
       changeShape(t('Fill color'), () => ({ fill: { kind: 'color', color: hex } }), (d) => ({ ...d, fill: hex, gradient: null }))
     }
   }
@@ -890,6 +905,10 @@ export default function App() {
       const gradient = shapeShown.fill.gradient
       const index = Math.min(gradientStop, gradient.stops.length - 1)
       changeGradient({ ...gradient, stops: gradient.stops.map((s, i) => (i === index ? { ...s, color: hex } : s)) }, t('Gradient color'), `shape-gradient-color-${index}`)
+    } else if (shapeShown?.fill.kind === 'pattern') {
+      const pattern = shapeShown.fill.pattern
+      if (gradientStop === 1) changePattern({ ...pattern, background: hex }, t('Pattern background'), 'shape-pattern-background')
+      else changePattern({ ...pattern, color: hex }, t('Pattern color'), 'shape-pattern-color')
     } else {
       changeShape(t('Fill color'), () => ({ fill: { kind: 'color', color: hex } }), (d) => ({ ...d, fill: hex, gradient: null }), 'shape-fill-color')
     }
@@ -1892,6 +1911,37 @@ export default function App() {
     }
   }
 
+  // My layouts: the open design is kept as a layout (pro programs call it a template), so new
+  // designs can start from it. It's a copy: changing the design later leaves the layout as it is.
+  async function saveAsMyLayout() {
+    const d = current()
+    if (!d) return
+    try {
+      const [project, thumbnail] = await Promise.all([encodeProject(d), designThumbnail(d)])
+      await saveMyLayout({ id: createDesignId(), name: d.name, width: d.width, height: d.height, updatedAt: Date.now(), thumbnail }, project)
+      inform(t('“{name}” is saved as your layout. Find it in Ready layouts, under Mine.', { name: d.name }))
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
+  // A new design that starts as a copy of one of the user's own layouts.
+  async function startFromMyLayout(layout: SavedDesign) {
+    try {
+      const file = await loadMyLayout(layout.id)
+      if (!file) throw new Error(t("“{name}” isn't in this browser anymore. It may have been deleted in another tab.", { name: layout.name }))
+      const next = await decodeProject(file)
+      next.name = uniqueName(layout.name, await savedNames())
+      setDialog(null)
+      void leaveDesign(() => {
+        setTool('move')
+        showDocument(next)
+      })
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
   async function download({ format, quality, fileName, pdf }: ExportOptions) {
     const d = current()
     if (!d) return
@@ -2556,6 +2606,7 @@ export default function App() {
       setDialog('new')
       void savedNames().then((names) => setNewDesignName(nextNumberedName(t('My design'), names, designCount)))
     },
+    saveAsLayout: () => void saveAsMyLayout(),
     readyLayouts: () => {
       settle()
       setLayoutsKind('all')
@@ -3900,6 +3951,8 @@ export default function App() {
                   onOutlineDash={changeOutlineDash}
                     onFillKind={changeFillKind}
                     onGradient={changeGradient}
+                    onPattern={changePattern}
+                    side={Math.max(Math.abs(shapeShown.box.width), Math.abs(shapeShown.box.height))}
                     gradientStop={gradientStop}
                     onGradientStop={(index) => {
                       setEffectColor(null)
@@ -4023,7 +4076,16 @@ export default function App() {
           onClose={() => setDialog(null)}
         />
       )}
-      {dialog === 'layouts' && <LayoutsDialog kind={layoutsKind} layoutId={layoutsStart} onUse={(layout, colors) => void startFromLayout(layout, colors)} onClose={() => setDialog(null)} />}
+      {dialog === 'layouts' && (
+        <LayoutsDialog
+          kind={layoutsKind}
+          layoutId={layoutsStart}
+          onUse={(layout, colors) => void startFromLayout(layout, colors)}
+          onUseMine={(layout) => void startFromMyLayout(layout)}
+          onSaveCurrent={doc ? saveAsMyLayout : undefined}
+          onClose={() => setDialog(null)}
+        />
+      )}
       {dialog === 'export' && doc && (
         <ExportDialog doc={doc} initialFormat={exportFormat} onExport={download} onClose={() => setDialog(null)} />
       )}

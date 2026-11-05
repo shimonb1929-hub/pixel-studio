@@ -14,6 +14,8 @@ import { inSentence, msg, t } from './i18n/i18n.ts'
 export interface AppCommands {
   newDesign: () => void
   readyLayouts: () => void
+  // Keeps the open design as one of the user's own layouts (a template).
+  saveAsLayout: () => void
   open: () => void
   addPhoto: () => void
   addText: (kind: TextKind) => void
@@ -248,6 +250,15 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       keywords: ['save project', 'project', 'layers', 'backup', 'keep editing', 'later', 'another computer', 'move', 'file'],
       needsDocument: true,
       run: c.downloadProject,
+    },
+    {
+      id: 'save-as-layout',
+      group: 'Design',
+      title: t('Keep as my layout'),
+      description: t('Keeps the design you have open as a layout, so you can start new designs from it. Find it in Ready layouts, under Mine.'),
+      keywords: ['template', 'save template', 'save as template', 'my templates', 'layout', 'reuse', 'start from', 'copy', 'again', 'same design'],
+      needsDocument: true,
+      run: c.saveAsLayout,
     },
     {
       id: 'rename',

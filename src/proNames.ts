@@ -8,6 +8,9 @@ import { englishOf } from './i18n/i18n.ts'
 // things in different places (Size, Softness, Strength) are left out here and given right where
 // they are used, through the tip's `pro`.
 export const PRO_NAMES: Record<string, string> = {
+  // Starting designs
+  'Ready layouts': 'Templates',
+  'Keep as my layout': 'Save as Template',
   // Photos and colors
   Adjust: 'Adjustments, Filters',
   Looks: 'Presets, Filters',
@@ -79,6 +82,8 @@ export const PRO_NAMES: Record<string, string> = {
   'Outline color': 'Stroke color',
   'Outline width': 'Stroke weight',
   'Outline style': 'Stroke style, Dashes',
+  Pattern: 'Pattern fill, Pattern swatches',
+  'Pattern size': 'Pattern scale',
   'Straight gradient': 'Linear gradient',
   'Round gradient': 'Radial gradient',
   'Edit points': 'Direct Selection',

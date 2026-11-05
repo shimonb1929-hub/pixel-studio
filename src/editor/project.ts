@@ -16,6 +16,7 @@ import { allPages, pageIndex } from './pages.ts'
 import { hasLayout } from './pageLayout.ts'
 import type { DesignPage, EditorDocument, Layer, LayerHide, PageLayout, LayerGroup, SavedTextStyle, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TableLines, TextFlow, TextSpan, TextStyle, TextWrap } from './types.ts'
 import type { Gradient, GradientStop } from './gradient.ts'
+import { PATTERN_KINDS, type Pattern, type PatternKind } from './pattern.ts'
 import { paintPage } from './gradient.ts'
 import type { PathNode, ShapePath } from './path.ts'
 import { msg, t } from '../i18n/i18n.ts'
@@ -44,9 +45,10 @@ import { MAX_DESIGN_COLORS, MAX_TEXT_STYLES } from './designStyles.ts'
 // Version 17 added the design's own colors and text styles (colors, textStyles, a text's styleId).
 // Version 18 added photos inside text (photo) and softly hidden parts (hide), each with its own
 // picture after the layer's other pictures.
+// Version 19 added pattern fills for shapes (a fill of kind 'pattern').
 // Older files still open.
 
-export const PROJECT_VERSION = 18
+export const PROJECT_VERSION = 19
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -98,6 +100,7 @@ export type ProjectFill =
   | { kind: 'none' }
   | { kind: 'color'; color: string }
   | { kind: 'gradient'; gradient: Gradient }
+  | { kind: 'pattern'; pattern: Pattern }
   | { kind: 'photo'; zoom: number; x: number; y: number; width: number; height: number; bytes: number }
 
 export interface ProjectShapeLayer extends ProjectLayerBase {
@@ -420,11 +423,17 @@ function readHide(value: unknown): ProjectLayerBase['hide'] {
   return { rect: { x, y, width, height }, width: value.width, height: value.height, bytes: value.bytes }
 }
 
+function readPattern(value: unknown): Pattern {
+  if (!isRecord(value) || !PATTERN_KINDS.includes(value.kind as PatternKind) || !isBetween(value.size, 0.1, 1e6) || !isBetween(value.angle, -360, 360)) damaged()
+  return { kind: value.kind as PatternKind, color: readColor(value.color), background: value.background === null ? null : readColor(value.background), size: value.size, angle: value.angle }
+}
+
 function readFill(value: unknown): ProjectFill {
   if (!isRecord(value)) damaged()
   if (value.kind === 'none') return { kind: 'none' }
   if (value.kind === 'color') return { kind: 'color', color: readColor(value.color) }
   if (value.kind === 'gradient') return { kind: 'gradient', gradient: readGradient(value.gradient) }
+  if (value.kind === 'pattern') return { kind: 'pattern', pattern: readPattern(value.pattern) }
   if (
     value.kind !== 'photo' ||
     !isBetween(value.zoom, 1, 20) ||
