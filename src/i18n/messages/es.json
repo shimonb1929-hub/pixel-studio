@@ -2115,5 +2115,10 @@
  "Select one thing in a photo without drawing around it": "Seleccionar una cosa de una foto sin dibujar a su alrededor",
  "The AI could not tell what the main thing is here. Choose Magic and click right on it instead.": "La IA no supo qué es lo principal aquí. Elige Mágica y haz clic justo encima.",
  "The main thing is selected. To work on the background instead, press Swap.": "Lo principal está seleccionado. Para trabajar en el fondo, pulsa Intercambiar.",
- "“{name}” has nothing on the page to select.": "«{name}» no tiene nada en la página que seleccionar."
+ "“{name}” has nothing on the page to select.": "«{name}» no tiene nada en la página que seleccionar.",
+ "Drag the selected part to a new place. You can also turn it or make it bigger from its corners.": "Arrastra la parte seleccionada a otro lugar. También puedes girarla o agrandarla desde sus esquinas.",
+ "Next:": "Después:",
+ "What to do with it": "Qué hacer con ello",
+ "A filter on your internet (like NetFree) stopped the AI file “{file}” from downloading. Ask it to allow this site, then try again.": "Un filtro de tu internet (como NetFree) impidió descargar el archivo de IA «{file}». Pídele que permita este sitio y vuelve a intentarlo.",
+ "The AI file “{file}” could not be downloaded. Check that you’re online, then try again.": "No se pudo descargar el archivo de IA «{file}». Comprueba que tienes conexión y vuelve a intentarlo."
 }

@@ -97,7 +97,7 @@ import { onGapFilled, type GapFill } from './editor/gapFill.ts'
 import { healRegion } from './editor/healRegion.ts'
 import { layerVersion, pixelVersion } from './editor/pixelVersion.ts'
 import { combineFound, maskToOps } from './ai/maskSelection.ts'
-import { AI_PICTURE_SIDE, findThing, onAiProgress, prepareThing } from './ai/segment.ts'
+import { AI_PICTURE_SIDE, aiTrouble, findThing, onAiProgress, prepareThing } from './ai/segment.ts'
 import { useBlurBackground } from './ai/useBlurBackground.ts'
 import { PictureHelper, type PictureHelperKind } from './components/PictureHelpers.tsx'
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
@@ -2049,6 +2049,8 @@ export default function App() {
   }
 
   function handleSelect(selection: Selection | null, label: string) {
+    // A warning from an earlier try (say, Same color finding nothing) no longer fits a new selection.
+    setNotice((n) => (n?.tone === 'problem' ? null : n))
     editor.change(label, (d) => ({ ...d, selection }))
   }
 
@@ -2144,6 +2146,7 @@ export default function App() {
 
   // Selections that end up empty (say, everything was taken away) count as no selection.
   function setSelection(label: string, next: (d: EditorDocument) => Selection | null) {
+    setNotice((n) => (n?.tone === 'problem' ? null : n))
     editor.change(label, (d) => {
       const selection = next(d)
       return { ...d, selection: selection && selectionInfo(selection, d.width, d.height).bounds ? selection : null }
@@ -2217,8 +2220,8 @@ export default function App() {
         return
       }
       setSelection(mode === 'add' ? t('Add to selection') : mode === 'subtract' ? t('Remove from selection') : t('Magic select'), (doc) => combineFound(doc.selection, ops, mode))
-    } catch {
-      problem(t("The magic selection couldn't start. Check that you're online, then try again."))
+    } catch (error) {
+      problem(aiTrouble(error, t("The magic selection couldn't start. Check that you're online, then try again.")))
     } finally {
       stop()
     }
@@ -2274,8 +2277,8 @@ export default function App() {
         return now && now.kind === 'raster' && now.canvas === source ? replaceLayer(next, { ...now, canvas: out }) : next
       }, { bytes: canvasBytes(out) })
       inform(t('Background removed. Press Undo if you want it back.'))
-    } catch {
-      problem(t("Remove background couldn't start. Check that you're online, then try again."))
+    } catch (error) {
+      problem(aiTrouble(error, t("Remove background couldn't start. Check that you're online, then try again.")))
     } finally {
       stop()
     }
@@ -3502,7 +3505,10 @@ export default function App() {
         onEraserChange={(settings, presetId) => setEraser({ settings, presetId })}
         selectionShape={selectionShape}
         selectionMode={selectionMode}
-        onSelectionShapeChange={setSelectionShape}
+        onSelectionShapeChange={(shape) => {
+          setSelectionShape(shape)
+          setNotice((n) => (n?.tone === 'problem' ? null : n))
+        }}
         onSelectionModeChange={setSelectionMode}
         selection={{
           hasSelection: !!doc?.selection,
@@ -3692,6 +3698,11 @@ export default function App() {
                             onAdd={() => changeSelectionBy('add')}
                             onTakeAway={() => changeSelectionBy('subtract')}
                             onLetGo={commands.deselect}
+                            next={
+                              tool === 'select'
+                                ? { move: () => setTool('move'), adjust: () => setTool('adjust'), fill: commands.fill, toNewLayer: commands.toNewLayer, remove: commands.deleteArea }
+                                : undefined
+                            }
                           />
                         ) : undefined
                       }

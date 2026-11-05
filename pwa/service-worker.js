@@ -50,7 +50,8 @@ self.addEventListener('fetch', (event) => {
           (kept) =>
             kept ??
             fetch(request).then((response) => {
-              if (response.ok) cache.put(request, response.clone())
+              // A filter's page (NetFree's "please wait") is never kept in place of the file.
+              if (response.ok && !(response.headers.get('content-type') ?? '').includes('text/html')) cache.put(request, response.clone())
               return response
             }),
         ),

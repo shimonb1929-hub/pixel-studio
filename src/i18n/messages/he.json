@@ -2115,5 +2115,10 @@
  "Select one thing in a photo without drawing around it": "לסמן דבר אחד בתמונה בלי לצייר סביבו",
  "The AI could not tell what the main thing is here. Choose Magic and click right on it instead.": "הבינה המלאכותית לא הצליחה לזהות מה הדבר העיקרי כאן. בחר קסם ולחץ ממש עליו במקום.",
  "The main thing is selected. To work on the background instead, press Swap.": "הדבר העיקרי מסומן. כדי לעבוד על הרקע במקום, לחץ על החלף.",
- "“{name}” has nothing on the page to select.": "ב„{name}” אין שום דבר בעמוד לסמן."
+ "“{name}” has nothing on the page to select.": "ב„{name}” אין שום דבר בעמוד לסמן.",
+ "Drag the selected part to a new place. You can also turn it or make it bigger from its corners.": "גרור את החלק המסומן למקום חדש. אפשר גם לסובב אותו או להגדיל אותו מהפינות שלו.",
+ "Next:": "הלאה:",
+ "What to do with it": "מה לעשות עם זה",
+ "A filter on your internet (like NetFree) stopped the AI file “{file}” from downloading. Ask it to allow this site, then try again.": "מסנן באינטרנט שלך (כמו נטפרי) עצר את ההורדה של קובץ הבינה המלאכותית „{file}”. בקש ממנו לאשר את האתר הזה, ואז נסה שוב.",
+ "The AI file “{file}” could not be downloaded. Check that you’re online, then try again.": "לא ניתן היה להוריד את קובץ הבינה המלאכותית „{file}”. בדוק שאתה מחובר לאינטרנט, ואז נסה שוב."
 }

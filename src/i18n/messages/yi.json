@@ -2115,5 +2115,10 @@
  "Select one thing in a photo without drawing around it": "אויסקלייבן איין זאך אין א בילד אן צייכענען ארום איר",
  "The AI could not tell what the main thing is here. Choose Magic and click right on it instead.": "די קינסטלעכע אינטעליגענץ האט נישט געקענט דערקענען וואס די הויפט זאך איז דא. קלויבט קלוג און דריקט גלייך דערויף אנשטאט.",
  "The main thing is selected. To work on the background instead, press Swap.": "די הויפט זאך איז אויסגעקליבן. כדי צו ארבעטן אויפן הינטערגרונט אנשטאט, דריקט אויסטוישן.",
- "“{name}” has nothing on the page to select.": "„{name}” האט גארנישט אויפן בלאט אויסצוקלייבן."
+ "“{name}” has nothing on the page to select.": "„{name}” האט גארנישט אויפן בלאט אויסצוקלייבן.",
+ "Drag the selected part to a new place. You can also turn it or make it bigger from its corners.": "שלעפט דעם אויסגעקליבענעם טייל צו אן אנדער ארט. איר קענט אים אויך דרייען אדער פארגרעסערן פון זיינע עקן.",
+ "Next:": "ווייטער:",
+ "What to do with it": "וואס צו טון דערמיט",
+ "A filter on your internet (like NetFree) stopped the AI file “{file}” from downloading. Ask it to allow this site, then try again.": "א פילטער אויף אייער אינטערנעט (ווי נעטפרי) האט אפגעשטעלט דאס אראפלאדן פון דער קינסטלעכער אינטעליגענץ טעקע „{file}”. בעט אים צו דערלויבן דעם זייטל, און דערנאך פרובירט נאכאמאל.",
+ "The AI file “{file}” could not be downloaded. Check that you’re online, then try again.": "מען האט נישט געקענט אראפלאדן די קינסטלעכע אינטעליגענץ טעקע „{file}”. קוקט אז איר זענט פארבונדן צום אינטערנעט, און דערנאך פרובירט נאכאמאל."
 }

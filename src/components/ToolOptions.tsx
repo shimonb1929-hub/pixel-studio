@@ -1683,7 +1683,7 @@ export function ToolOptions(props: ToolOptionsProps) {
     <div
       aria-label={t('{tool} settings', { tool: info.name })}
       role="toolbar"
-      className="mx-3 mb-3 flex h-[62px] shrink-0 items-center gap-3 overflow-x-auto overflow-y-hidden rounded-card border border-line bg-surface px-3 shadow-card xl:gap-4"
+      className="mx-3 mb-3 flex h-[62px] shrink-0 items-center gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap rounded-card [&>*]:shrink-0 border border-line bg-surface px-3 shadow-card xl:gap-4"
     >
       <div className="flex shrink-0 items-center gap-2 pe-1">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-accent">
