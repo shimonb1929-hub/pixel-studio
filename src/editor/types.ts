@@ -2,6 +2,7 @@ import type { ListKind, TextAlign, TextDirection } from '../text/layout.ts'
 import type { Adjustments } from './adjust.ts'
 import type { BlendMode, LayerEffects } from './effects.ts'
 import type { Gradient } from './gradient.ts'
+import type { Pattern } from './pattern.ts'
 import type { ShapePath } from './path.ts'
 import type { Selection } from './selection.ts'
 import type { TransformBox } from './transform.ts'
@@ -114,6 +115,8 @@ export type ShapeFill =
   | { kind: 'color'; color: string }
   // Colors fading into each other across the shape.
   | { kind: 'gradient'; gradient: Gradient }
+  // Little shapes repeated across the inside, like dots or stripes.
+  | { kind: 'pattern'; pattern: Pattern }
   // A photo filling the shape.
   | ({ kind: 'photo' } & PhotoFill)
 

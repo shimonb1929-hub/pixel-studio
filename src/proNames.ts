@@ -8,6 +8,9 @@ import { englishOf } from './i18n/i18n.ts'
 // things in different places (Size, Softness, Strength) are left out here and given right where
 // they are used, through the tip's `pro`.
 export const PRO_NAMES: Record<string, string> = {
+  // Starting designs
+  'Ready layouts': 'Templates',
+  'Keep as my layout': 'Save as Template',
   // Photos and colors
   Adjust: 'Adjustments, Filters',
   Looks: 'Presets, Filters',
@@ -33,11 +36,17 @@ export const PRO_NAMES: Record<string, string> = {
   Blur: 'Gaussian Blur',
   Sharpen: 'Sharpen, Unsharp Mask',
   'Fix spots': 'Spot Healing Brush',
+  'Most detail (AI)': 'Super Resolution, AI upscale',
+  'True to the photo': 'Preserve Details (enlargement)',
   'Fill the gap': 'Content-Aware Fill',
   'Move and fill the gap': 'Content-Aware Move',
   'Remove background': 'Remove Background',
-  'Magic select': 'Select Subject',
-  Magic: 'Magic Wand, Select Subject',
+  'Magic select': 'Object Selection',
+  Magic: 'Object Selection tool',
+  'Paint over': 'Quick Selection tool',
+  'Select main thing': 'Select Subject',
+  'Main thing': 'Select Subject',
+  'Select its shape': 'Load layer transparency as selection',
   Freehand: 'Lasso',
   'Take away': 'Subtract from selection',
   'Add to selection': 'Add to selection',
@@ -75,6 +84,8 @@ export const PRO_NAMES: Record<string, string> = {
   'Outline color': 'Stroke color',
   'Outline width': 'Stroke weight',
   'Outline style': 'Stroke style, Dashes',
+  Pattern: 'Pattern fill, Pattern swatches',
+  'Pattern size': 'Pattern scale',
   'Straight gradient': 'Linear gradient',
   'Round gradient': 'Radial gradient',
   'Edit points': 'Direct Selection',
@@ -96,6 +107,8 @@ export const PRO_NAMES: Record<string, string> = {
   'Paste the look': 'Paste Style, Paste Layer Style',
   'Line up': 'Align',
   'Tidy up': 'Distribute',
+  'Make copies': 'Repeat, Step and Repeat',
+  'Turn with the circle': 'Rotate copies (radial repeat)',
   'Space evenly across': 'Distribute horizontally',
   'Space evenly down': 'Distribute vertically',
   'Flip left to right': 'Flip Horizontal',
@@ -124,6 +137,9 @@ export const PRO_NAMES: Record<string, string> = {
   'Words along a shape': 'Type on a Path',
   'Slide along': 'Path type start point',
   'Other side': 'Flip (type on a path)',
+  'Find and change words': 'Find/Change, Find and Replace',
+  'Whole words only': 'Whole word',
+  'Same capital letters': 'Match case, Case sensitive',
   // Pages and printing
   'Color the page': 'Background color',
   'Page fill': 'Background color',

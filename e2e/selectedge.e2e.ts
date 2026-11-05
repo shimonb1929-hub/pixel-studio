@@ -93,3 +93,41 @@ test('the edge of a selection can grow and be softened, seen before it is kept',
   expect(edge[0]).toBeGreaterThan(GREEN[0] + 30)
   expect(edge[0]).toBeLessThan(240)
 })
+
+test('Paint over selects the block it was painted on, up to its edges', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.getByRole('button', { name: 'Green', exact: true }).click()
+  await selectRect(page, size, 50, 50, 150, 150)
+  await page.keyboard.press('Alt+Backspace')
+  await page.keyboard.press('Control+d')
+
+  await page.keyboard.press('m')
+  await page.getByRole('radio', { name: 'Paint over' }).click()
+  // A short stroke inside the green block is enough.
+  await drag(page, size, [
+    [90, 100],
+    [110, 100],
+  ])
+  await page.keyboard.press('Delete')
+  expectColor(await designPixel(page, size, 60, 60), WHITE)
+  expectColor(await designPixel(page, size, 140, 140), WHITE)
+  await page.keyboard.press('Control+z')
+  expectColor(await designPixel(page, size, 60, 60), GREEN)
+})
+
+test('Select its shape selects exactly what a thing covers', async ({ page }) => {
+  const size = await newDesign(page)
+  await page.getByRole('button', { name: 'Green', exact: true }).click()
+  await selectRect(page, size, 50, 50, 150, 150)
+  await page.keyboard.press('Alt+Backspace')
+  await page.keyboard.press('Control+d')
+
+  await page.keyboard.press('Control+k')
+  await page.keyboard.type('select its shape')
+  await page.keyboard.press('Enter')
+  // Filling with another color now only changes the block.
+  await page.getByRole('button', { name: 'Red', exact: true }).click()
+  await page.keyboard.press('Alt+Backspace')
+  expectColor(await designPixel(page, size, 100, 100), [239, 68, 68])
+  expectColor(await designPixel(page, size, 200, 200), WHITE)
+})

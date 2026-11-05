@@ -109,7 +109,7 @@ export function Slider({ label, help, value, display, note, onChange, className 
 
 // A column that scrolls when its panels don't fit. While more waits below, its bottom fades out,
 // so a cut-off panel never looks broken.
-export function ScrollRegion({ className = '', children }: { className?: string; children: ReactNode }) {
+export function ScrollRegion({ className = '', style, children }: { className?: string; style?: CSSProperties; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   const [moreBelow, setMoreBelow] = useState(false)
 
@@ -132,7 +132,7 @@ export function ScrollRegion({ className = '', children }: { className?: string;
     <div
       ref={ref}
       className={`flex flex-col overflow-y-auto ${className}`}
-      style={moreBelow ? { maskImage: 'linear-gradient(to bottom, black calc(100% - 28px), transparent)' } : undefined}
+      style={moreBelow ? { ...style, maskImage: 'linear-gradient(to bottom, black calc(100% - 28px), transparent)' } : style}
     >
       {children}
     </div>

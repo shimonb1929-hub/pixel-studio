@@ -231,6 +231,63 @@ test('a photo added to a design keeps all its detail, however it is resized', as
   expectColor(await designPixel(page, size, 200, 104), BLUE)
 })
 
+// A tiny picture: red on the left half, green on the right.
+async function tinyPhoto(page: Page): Promise<Buffer> {
+  const base64 = await page.evaluate(async () => {
+    const canvas = new OffscreenCanvas(20, 10)
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#ef4444'
+    ctx.fillRect(0, 0, 10, 10)
+    ctx.fillStyle = '#22c55e'
+    ctx.fillRect(10, 0, 10, 10)
+    const bytes = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer())
+    let text = ''
+    for (const byte of bytes) text += String.fromCharCode(byte)
+    return btoa(text)
+  })
+  return Buffer.from(base64, 'base64')
+}
+
+// How many pixels along a row of the design are a blend of red and green, neither one nor the other.
+function blendedPixels(page: Page, size: Size, y: number, from: number, to: number): Promise<number> {
+  return page.evaluate(
+    async ([w, h, py, a, b]) => {
+      for (let i = 0; i < 2; i++) await new Promise(requestAnimationFrame)
+      const main = document.querySelector('main')!
+      const canvas = main.querySelector('canvas')!
+      const dpr = devicePixelRatio
+      const left = Math.round(((main.clientWidth - w) / 2) * dpr)
+      const top = Math.round(((main.clientHeight - h) / 2) * dpr)
+      const data = canvas.getContext('2d')!.getImageData(left + Math.round(a * dpr), top + Math.round(py * dpr), Math.round((b - a) * dpr), 1).data
+      let blended = 0
+      for (let i = 0; i < data.length; i += 4) {
+        const red = Math.abs(data[i] - 239) + Math.abs(data[i + 1] - 68) + Math.abs(data[i + 2] - 68) < 30
+        const green = Math.abs(data[i] - 34) + Math.abs(data[i + 1] - 197) + Math.abs(data[i + 2] - 94) < 30
+        if (!red && !green) blended++
+      }
+      return blended / dpr
+    },
+    [size.width, size.height, y, from, to] as const,
+  )
+}
+
+test('a small photo made much bigger stays crisp, not faded', async ({ page }) => {
+  const size = await newDesign(page)
+  await addPhoto(page, await tinyPhoto(page))
+  await expectPickedSize(page, 20, 10)
+  // Ten times bigger, from its bottom right corner.
+  await drag(page, size, [
+    [210, 155],
+    [390, 245],
+  ])
+  await expectPickedSize(page, 200, 100)
+  // Where red meets green, plain blending smears the edge across about a whole old pixel (ten
+  // pixels now). Drawn from the sharp copy, the edge is much narrower.
+  await expect.poll(() => blendedPixels(page, size, 195, 250, 330), { timeout: 5000 }).toBeLessThanOrEqual(5)
+  expectColor(await designPixel(page, size, 220, 195), RED)
+  expectColor(await designPixel(page, size, 360, 195), GREEN)
+})
+
 test('drop a photo onto a shape to fill it, then zoom and slide it inside', async ({ page }) => {
   const size = await newDesign(page)
   await drawShape(page, size, 'Oval', [100, 50], [300, 250])

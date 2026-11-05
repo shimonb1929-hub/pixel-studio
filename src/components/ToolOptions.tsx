@@ -1,4 +1,4 @@
-import { Aperture, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin } from 'lucide-react'
+import { Aperture, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus, Copy } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -279,6 +279,12 @@ const SHAPES: Choice<SelectionShape>[] = live([
     icon: Droplet,
     description: msg('Click a color, and everything of a similar color is selected: a blue sky, a white wall, a green background. Professionals call this the Magic wand.'),
   },
+  {
+    value: 'paint',
+    label: msg('Paint over'),
+    icon: Brush,
+    description: msg('Paint over the part you want, and the selection spreads by itself to its edges. Paint again to add more. Zoom in to paint small parts.'),
+  },
 ])
 
 const MODES: Choice<SelectionMode>[] = live([
@@ -395,7 +401,7 @@ function describeColorReach(tolerance: number): string {
   return t('Selects almost any color. Be careful, it may select a lot.')
 }
 
-function ColorSelectOptions({ controls }: { controls: ColorSelectControls }) {
+function ColorSelectOptions({ controls, painting }: { controls: ColorSelectControls; painting: boolean }) {
   return (
     <>
       <Slider
@@ -407,13 +413,13 @@ function ColorSelectOptions({ controls }: { controls: ColorSelectControls }) {
         note={describeColorReach(controls.tolerance)}
         onChange={(position) => controls.onToleranceChange(Math.round(position * 100) / 100)}
       />
-      <OnOff
+      {!painting && <OnOff
         on={controls.touching}
         icon={Footprints}
         label={t('Only touching')}
         description={t('When on, only the part connected to where you click is selected. When off, that color is selected everywhere on the design. Professionals call this Contiguous.')}
         onChange={controls.onTouchingChange}
-      />
+      />}
     </>
   )
 }
@@ -475,6 +481,7 @@ export interface SelectionCommands {
   selectAll: () => void
   deselect: () => void
   invert: () => void
+  mainThing: () => void
   fill: () => void
   remove: () => void
   toNewLayer: () => void
@@ -561,10 +568,11 @@ function SelectOptions({
   return (
     <>
       <Segmented label={t("Shape")} value={shape} choices={SHAPES} compact onChange={onShapeChange} />
-      {shape === 'color' && <ColorSelectOptions controls={colorSelect} />}
+      {(shape === 'color' || shape === 'paint') && <ColorSelectOptions controls={colorSelect} painting={shape === 'paint'} />}
       <Segmented label={t("When you drag")} value={mode} choices={MODES} onChange={onModeChange} />
       <Divider />
       <div className="flex shrink-0 items-center">
+        <BarButton icon={Focus} label={t('Main thing')} title={t('Select main thing')} description={t('AI finds what your design or photo is mostly of and selects it right to its edges. Press Swap after it to select the background.')} onClick={commands.mainThing} />
         <BarButton icon={SquareDashed} label={t("All")} title={t("Select all")} description={t("Select the whole design.")} onClick={commands.selectAll} />
         <BarButton icon={SquareSlash} roomy label={t("Let go")} description={t('Stop selecting (Deselect), so the whole design can be changed again. Nothing in your design changes.')} disabledReason={nothing} onClick={commands.deselect} />
         <BarButton icon={Contrast} label={t("Swap")} title={t("Select everything else")} description={t("Swap what is selected and what is not.")} onClick={commands.invert} />
@@ -577,12 +585,7 @@ function SelectOptions({
           onClick={edge.start}
         />
       </div>
-      <Divider />
-      <div className="flex shrink-0 items-center">
-        <BarButton icon={PaintBucket} label={t("Fill")} title={t("Fill with color")} description={t("Fill the selected area of the selected layer with your current color.")} disabledReason={nothing} onClick={commands.fill} />
-        <BarButton icon={Trash2} label={t("Delete")} title={t("Delete selected area")} description={t("Erase everything inside the selection on the selected layer.")} disabledReason={nothing} onClick={commands.remove} />
-        <BarButton icon={Copy} label={t("To new layer")} title={t("Copy to new layer")} description={t("Copy the selected part of the layer onto a new layer of its own, so you can move or change it separately.")} disabledReason={nothing} onClick={commands.toNewLayer} />
-      </div>
+
     </>
   )
 }
@@ -624,6 +627,8 @@ export interface ArrangeBarControls {
   tidyUp: () => void
   lineUp: (edge: LineUpEdge) => void
   spreadOut: (axis: 'x' | 'y') => void
+  // Copies of what is picked in a row, a grid, around a circle or mirrored (pro: Repeat).
+  makeCopies: () => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
   // Set when one photo is picked over a shape or words: puts it inside them, right where it is.
@@ -1383,6 +1388,16 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
           onClick={controls.center}
         />
         {!part && target.kind !== 'many' && <LineUpMenu several={false} onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
+        {!part && (
+          <BarButton
+            icon={Copy}
+            roomy
+            label={t('Copies')}
+            title={t('Make copies')}
+            description={several ? t('Make copies of them in a row, a grid or around a circle, or a mirror image beside them. You see them before you keep them.') : t('Make copies of it in a row, a grid or around a circle, or a mirror image beside it. You see them before you keep them.')}
+            onClick={controls.makeCopies}
+          />
+        )}
         {controls.textWrap && <TextWrapMenu controls={controls.textWrap} />}
         {(controls.straighten || controls.moveCorners || controls.removeBackground || controls.blurBackground || controls.turnIntoShapes || controls.upscale || controls.findWords) && (
           <PhotoToolsMenu
@@ -1421,7 +1436,7 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
               controls.upscale && {
                 icon: ImageUpscale,
                 label: t('Bigger and sharper'),
-                description: t('Gives “{name}” more pixels so it prints sharp, especially a small photo printed big. It stays the same size on your design. No AI: nothing is made up. You see it before you keep it.', { name: target.name }),
+                description: t('Gives “{name}” more pixels so it looks and prints sharp, especially a small photo shown big. It stays the same size on your design. Choose AI for the most detail. You see it before you keep it.', { name: target.name }),
                 run: controls.upscale,
               },
               controls.findWords && {
@@ -1675,7 +1690,7 @@ export function ToolOptions(props: ToolOptionsProps) {
     <div
       aria-label={t('{tool} settings', { tool: info.name })}
       role="toolbar"
-      className="mx-3 mb-3 flex h-[62px] shrink-0 items-center gap-3 overflow-x-auto overflow-y-hidden rounded-card border border-line bg-surface px-3 shadow-card xl:gap-4"
+      className="mx-2 mb-2 flex h-[62px] shrink-0 md:mx-3 md:mb-3 items-center gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap [&>*]:shrink-0 rounded-card border border-line bg-surface px-3 shadow-card xl:gap-4"
     >
       <div className="flex shrink-0 items-center gap-2 pe-1">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-accent">

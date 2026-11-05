@@ -1,4 +1,4 @@
-import { Brush, ImagePlus, Maximize2, Minus, Plus, Shapes, SquareMinus, SquarePlus, Type, X, type LucideIcon } from 'lucide-react'
+import { Brush, Copy, ImagePlus, Maximize2, Minus, Move, PaintBucket, Plus, Shapes, SlidersHorizontal, SquareMinus, SquarePlus, Trash2, Type, X, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { EditorDocument, Point, ToolId } from '../editor/types.ts'
 import { formatZoom } from '../editor/viewport.ts'
@@ -13,13 +13,14 @@ import { unitShort } from './unitWords.ts'
 const PILL = 'absolute z-10 items-center border border-line bg-surface/95 shadow-card backdrop-blur'
 
 // Always says what the current tool will do, right where you're looking. `below` sits just under
-// it (the bar that says something is selected).
-export function ToolHint({ tool, extra, below }: { tool: ToolId; extra?: string; below?: ReactNode }) {
+// it (the bar that says something is selected). On a narrow screen it sits `lower`, under the
+// buttons that open the panels.
+export function ToolHint({ tool, extra, below, lower }: { tool: ToolId; extra?: string; below?: ReactNode; lower?: boolean }) {
   const info = TOOLS.find((t) => t.id === tool)!
   const Icon = info.icon
   // Centered with auto margins rather than left: 50%, which would limit it to half the width.
   return (
-    <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-col items-center gap-2">
+    <div className={`pointer-events-none absolute inset-x-3 z-10 flex flex-col items-center gap-2 ${lower ? 'top-[60px]' : 'top-3'}`}>
       <div
         role="status"
         className="flex w-fit max-w-full items-center gap-2 rounded-2xl border border-line bg-surface/95 px-3.5 py-1.5 text-xs leading-[18px] shadow-card backdrop-blur"
@@ -44,19 +45,64 @@ export interface SelectionBarProps {
   onAdd: () => void
   onTakeAway: () => void
   onLetGo: () => void
+  // What can be done with the selected part next, shown right under it while selecting.
+  next?: SelectionNext
+}
+
+export interface SelectionNext {
+  move: () => void
+  adjust: () => void
+  fill: () => void
+  toNewLayer: () => void
+  remove: () => void
+}
+
+// The next steps after selecting, so it's always clear what to do with the selected part.
+function NextSteps({ next }: { next: SelectionNext }) {
+  const adjust = TOOLS.find((tool) => tool.id === 'adjust')!
+  const steps: { icon: LucideIcon; label: string; title: string; description: string; run: () => void }[] = [
+    { icon: Move, label: t('Move'), title: t('Move'), description: t('Drag the selected part to a new place. You can also turn it or make it bigger from its corners.'), run: next.move },
+    { icon: SlidersHorizontal, label: adjust.name, title: adjust.name, description: adjust.description, run: next.adjust },
+    { icon: PaintBucket, label: t('Fill'), title: t('Fill with color'), description: t('Fill the selected area of the selected layer with your current color.'), run: next.fill },
+    { icon: Copy, label: t('To new layer'), title: t('Copy to new layer'), description: t('Copy the selected part of the layer onto a new layer of its own, so you can move or change it separately.'), run: next.toNewLayer },
+    { icon: Trash2, label: t('Delete'), title: t('Delete selected area'), description: t('Erase everything inside the selection on the selected layer.'), run: next.remove },
+  ]
+  return (
+    <div
+      role="group"
+      aria-label={t('What to do with it')}
+      className="pointer-events-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-0.5 rounded-2xl border border-line bg-surface/95 p-1 shadow-card backdrop-blur"
+    >
+      <span className="px-2 text-xs font-semibold text-ink-2">{t('Next:')}</span>
+      {steps.map((step) => (
+        <Tooltip key={step.title} side="bottom" title={step.title} description={step.description}>
+          <button
+            type="button"
+            aria-label={step.title}
+            onClick={step.run}
+            className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+          >
+            <step.icon size={15} />
+            <span className="hidden sm:inline">{step.label}</span>
+          </button>
+        </Tooltip>
+      ))}
+    </div>
+  )
 }
 
 // Shows while part of the design is selected, whatever the tool: says so, and offers the plain
 // ways to change it or let go of it, so no one is ever stuck with a selection.
-export function SelectionBar({ adding, takingAway, onAdd, onTakeAway, onLetGo }: SelectionBarProps) {
+export function SelectionBar({ adding, takingAway, onAdd, onTakeAway, onLetGo, next }: SelectionBarProps) {
   const toggle = (on: boolean) =>
     `flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${on ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`
   return (
-    <div
-      role="group"
-      aria-label={t('Part selected')}
-      className="pointer-events-auto flex w-fit max-w-full items-center gap-1 rounded-2xl border border-line bg-surface/95 py-1 ps-3 pe-1 shadow-card backdrop-blur"
-    >
+    <div className="flex max-w-full flex-col items-center gap-2">
+      <div
+        role="group"
+        aria-label={t('Part selected')}
+        className="pointer-events-auto flex w-fit max-w-full items-center gap-1 rounded-2xl border border-line bg-surface/95 py-1 ps-3 pe-1 shadow-card backdrop-blur"
+      >
       <span className="me-1 flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-ink">
         <span aria-hidden className="h-3 w-3 shrink-0 rounded-[3px] border border-accent bg-accent/15" />
         {t('Part selected')}
@@ -84,6 +130,8 @@ export function SelectionBar({ adding, takingAway, onAdd, onTakeAway, onLetGo }:
           {t('Let go')}
         </button>
       </Tooltip>
+      </div>
+      {next && <NextSteps next={next} />}
     </div>
   )
 }
@@ -113,7 +161,8 @@ interface ZoomControlsProps {
 
 export function ZoomControls({ zoom, onZoomIn, onZoomOut, onActualSize, onFit }: ZoomControlsProps) {
   return (
-    <div className={`${PILL} bottom-3 left-1/2 flex -translate-x-1/2 gap-0.5 rounded-xl p-1`}>
+    // On a phone it sits at the start side, leaving room for the pages at the other end.
+    <div className={`${PILL} bottom-3 start-3 flex gap-0.5 rounded-xl p-1 sm:start-auto sm:left-1/2 sm:-translate-x-1/2`}>
       <PillButton
         onClick={onZoomOut}
         className="w-8 text-ink-2"
@@ -158,7 +207,7 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut, onActualSize, onFit }:
         }}
       >
         <Maximize2 size={14} />
-        {t('Fit')}
+        <span className="hidden sm:inline">{t('Fit')}</span>
       </PillButton>
     </div>
   )

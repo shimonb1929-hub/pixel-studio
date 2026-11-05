@@ -121,3 +121,22 @@ export function sharedStyle(spans: TextSpan[] | undefined, base: TextStyle, star
   }
   return shared
 }
+
+// Keeps spans on the right letters after stretches of the text were replaced (Find and change):
+// each piece in `changes` (in order, never overlapping) took the place of the letters from
+// `start` to `end` and is `length` letters long. The new letters look like the first letter they
+// replaced, so a bold word that is changed stays bold.
+export function replaceSpans(spans: TextSpan[] | undefined, base: TextStyle, before: number, changes: { start: number; end: number; length: number }[]): TextSpan[] | undefined {
+  if (!spans?.length) return undefined
+  const letters = perLetter(spans, before)
+  const next: SpanStyle[] = []
+  let at = 0
+  for (const change of changes) {
+    next.push(...letters.slice(at, change.start))
+    const like = letters[change.start] ?? letters[change.start - 1] ?? {}
+    for (let i = 0; i < change.length; i++) next.push({ ...like })
+    at = change.end
+  }
+  next.push(...letters.slice(at))
+  return fromLetters(next, base)
+}
