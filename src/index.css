@@ -118,3 +118,36 @@ input[type='range'] {
 .slider:focus-visible::-moz-range-thumb {
   box-shadow: 0 0 0 4px rgb(51 102 255 / 0.22), 0 1px 3px rgb(16 24 40 / 0.25);
 }
+
+/* Scroll bars are thin and quiet: a soft gray bar with no arrows or track, darker only while
+   pointed at. Wherever something scrolls, it never looks heavy. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #d5d9e0 transparent;
+  }
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #d5d9e0 padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #b4bac5 padding-box;
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
+}

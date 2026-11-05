@@ -1,5 +1,5 @@
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleHelp, Copy, Eclipse, Eye, EyeOff, Files, Grid2x2, Lock, LockOpen, Merge, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
-import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, CircleHelp, Copy, Eclipse, Eye, EyeOff, Files, GripVertical, Grid2x2, Lock, LockOpen, Merge, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { adjustmentName, isNeutral } from '../editor/adjust.ts'
 import { drawLayer } from '../editor/compose.ts'
 import { cssPage } from '../editor/gradient.ts'
@@ -158,6 +158,8 @@ interface LayersPanelProps {
   // Joins the picked layers (or one and the layer below it) into one picture layer.
   onJoin: () => void
   onDelete: () => void
+  // The trash can on a row: removes that row's layers (or everything picked, if the row is picked).
+  onDeleteRow: (ids: string[]) => void
   // The page under everything: picking it, and making it see-through or giving it a color again.
   onPickPage: () => void
   onSeeThrough: (seeThrough: boolean) => void
@@ -176,9 +178,53 @@ function DropLine({ side }: { side: 'above' | 'below' }) {
   return <span aria-hidden className={`pointer-events-none absolute inset-x-1 z-10 h-0.5 rounded-full bg-accent ${side === 'above' ? '-top-px' : '-bottom-px'}`} />
 }
 
+// The handle at the start of each row: press and drag it up or down to change the order. A finger
+// drags a row only by its handle, so the list can still be scrolled by sliding anywhere else.
+function DragHandle({ name }: { name: string }) {
+  return (
+    <Tooltip title={t('Drag to change the order')} description={t('Press here and drag {name} up or down. Higher in the list is further in front.', { name })} side="right">
+      <span data-grip aria-hidden className="flex h-10 w-4 shrink-0 cursor-grab touch-none items-center justify-center text-ink-3/60 transition-colors hover:text-ink-2 active:cursor-grabbing">
+        <GripVertical size={14} />
+      </span>
+    </Tooltip>
+  )
+}
+
+// While picking several, each row shows a round box that is checked when the row is picked.
+function PickMark({ on }: { on: boolean }) {
+  return (
+    <span aria-hidden className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${on ? 'border-accent bg-accent text-white' : 'border-line bg-surface'}`}>
+      {on && <Check size={12} strokeWidth={3} />}
+    </span>
+  )
+}
+
+// The trash can on a row. It shows on the picked rows, and on any row the pointer is over.
+function RowDelete({ label, several, shown, onClick }: { label: string; several: boolean; shown: boolean; onClick: () => void }) {
+  return (
+    <Tooltip
+      title={several ? t('Delete the picked layers') : t('Delete')}
+      description={several ? t('Remove everything that is picked. You can undo this.') : t('Remove this layer and everything on it. You can undo this.')}
+    >
+      <button
+        type="button"
+        data-no-drag
+        aria-label={label}
+        onClick={onClick}
+        className={`flex h-8 w-7 items-center justify-center rounded-lg text-ink-3 transition-colors hover:bg-danger-soft hover:text-danger focus-visible:opacity-100 ${shown ? '' : 'opacity-0 group-hover:opacity-100'}`}
+      >
+        <Trash2 size={14} />
+      </button>
+    </Tooltip>
+  )
+}
+
 export function LayersPanel(props: LayersPanelProps) {
   const { doc, revision, picked } = props
   const [renamingId, setRenamingId] = useState<string | null>(null)
+  // "Pick several": every click on a row adds it to what's picked, or takes it away, with no key to hold.
+  const [pickingSeveralOn, setPickingSeveral] = useState(false)
+  const pickingSeveral = pickingSeveralOn && !!doc && doc.layers.length > 1
   // Things kept together show as one row; these are opened to show their parts.
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
   // Dragging rows up and down the list to change what's in front.
@@ -216,6 +262,8 @@ export function LayersPanel(props: LayersPanelProps) {
   // Rows are dragged with the mouse, a finger or a pen: press, move a little, and let go where it goes.
   const startDrag = (event: ReactPointerEvent<HTMLLIElement>, ids: string[]) => {
     if (event.button !== 0 || renamingId !== null || (event.target as HTMLElement).closest('[data-no-drag]')) return
+    // A finger sliding on a row scrolls the list; only the handle drags.
+    if (event.pointerType === 'touch' && !(event.target as HTMLElement).closest('[data-grip]')) return
     const start = { x: event.clientX, y: event.clientY }
     const moving = dragIds(ids)
     let started = false
@@ -283,6 +331,10 @@ export function LayersPanel(props: LayersPanelProps) {
   }
   const dropLine = (key: string) => (dragging && dropSpot?.key === key ? <DropLine side={dropSpot.side} /> : null)
 
+  // A click with Shift, Ctrl or ⌘ held, or while picking several, adds to what's picked.
+  const adding = (event: ReactMouseEvent) => pickingSeveral || event.shiftKey || event.ctrlKey || event.metaKey
+  // What a row's trash can removes: everything picked if the row is picked, else just the row.
+  const deleteIds = (ids: string[]) => (picked && ids.every((id) => picked.includes(id)) ? picked : ids)
   const isPicked = (layer: Layer) => (picked ? picked.includes(layer.id) : layer.id === doc?.activeLayerId)
   // A group is open when opened, or when one of its parts is picked on its own.
   const isOpen = (groupId: string) => openGroups.has(groupId) || (!picked && active?.group?.id === groupId)
@@ -308,20 +360,45 @@ export function LayersPanel(props: LayersPanelProps) {
       <div className="flex h-12 shrink-0 items-center justify-between ps-4 pe-2">
         <Tooltip
           title={t("Layers")}
-          description={t("Everything on your design, from front (top of the list) to back. Each photo, shape, text and drawing is its own layer. The page is always at the bottom. Drag a layer up or down to put it in front of or behind others. Hold Shift and click to pick several.")}
+          description={t("Everything on your design, from front (top of the list) to back. Each photo, shape, text and drawing is its own layer. The page is always at the bottom. Drag a layer by its handle up or down to put it in front of or behind others. Press Pick several to pick more than one.")}
         >
           <h2 className="flex cursor-help items-center gap-1.5 text-[14px] font-semibold text-ink">
             {t('Layers')}
             <CircleHelp size={14} className="text-ink-3" aria-hidden />
           </h2>
         </Tooltip>
-        <IconButton
-          tip={{ title: t('New layer'), description: t('Add an empty drawing above the selected layer. Painting makes one by itself when it needs to, so you rarely need this.') }}
-          disabledReason={noDesign}
-          onClick={props.onAdd}
-        >
-          <Plus size={17} />
-        </IconButton>
+        <div className="flex items-center gap-1">
+          {doc && doc.layers.length > 1 && (
+            <Tooltip
+              side="top"
+              title={pickingSeveral ? t('Done picking') : t('Pick several')}
+              description={
+                pickingSeveral
+                  ? t('Go back to picking one layer at a time.')
+                  : t('Tap or click layers to pick several at once, then move, join or delete them together. Holding Shift or Ctrl while clicking does the same.')
+              }
+            >
+              <button
+                type="button"
+                aria-pressed={pickingSeveral}
+                onClick={() => setPickingSeveral(!pickingSeveral)}
+                className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
+                  pickingSeveral ? 'bg-accent text-white hover:bg-accent-hover' : 'text-ink-2 hover:bg-subtle hover:text-ink'
+                }`}
+              >
+                {pickingSeveral ? <Check size={14} /> : <PickMark on={false} />}
+                {pickingSeveral ? t('Done') : t('Pick several')}
+              </button>
+            </Tooltip>
+          )}
+          <IconButton
+            tip={{ title: t('New layer'), description: t('Add an empty drawing above the selected layer. Painting makes one by itself when it needs to, so you rarely need this.') }}
+            disabledReason={noDesign}
+            onClick={props.onAdd}
+          >
+            <Plus size={17} />
+          </IconButton>
+        </div>
       </div>
 
       {!doc ? (
@@ -351,6 +428,7 @@ export function LayersPanel(props: LayersPanelProps) {
                   className={`group relative flex items-center gap-0.5 rounded-[10px] pe-1 transition-colors ${selected ? 'bg-accent-soft' : 'hover:bg-subtle'} ${dragging?.includes(members[0].id) ? 'opacity-50' : ''}`}
                 >
                   {dropLine(`group:${group.id}`)}
+                  <DragHandle name={group.name} />
                   <button
                     type="button"
                     aria-label={open ? t('Hide the parts of {name}', { name: group.name }) : t('Show the parts of {name}', { name: group.name })}
@@ -376,10 +454,11 @@ export function LayersPanel(props: LayersPanelProps) {
                         type="button"
                         aria-label={t('Kept together: {name}', { name: group.name })}
                         aria-pressed={selected}
-                        onClick={(event) => (event.shiftKey ? props.onToggle(members[0].id) : props.onPickGroup(group.id))}
+                        onClick={(event) => (adding(event) ? props.onToggle(members[0].id) : props.onPickGroup(group.id))}
                         onDoubleClick={() => setRenamingId(group.id)}
                         className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 text-start text-[13px] text-ink"
                       >
+                        {pickingSeveral && <PickMark on={selected} />}
                         <LayerThumbnail layers={members} revision={revision} doc={doc} />
                         <span dir="auto" className="min-w-0 flex-1 truncate text-start font-medium">
                           {group.name}
@@ -398,6 +477,12 @@ export function LayersPanel(props: LayersPanelProps) {
                       {visible ? <Eye size={16} /> : <EyeOff size={16} />}
                     </button>
                   </Tooltip>
+                  <RowDelete
+                    label={t('Delete {name}', { name: group.name })}
+                    several={deleteIds(members.map((l) => l.id)).length > members.length}
+                    shown={selected}
+                    onClick={() => props.onDeleteRow(deleteIds(members.map((l) => l.id)))}
+                  />
                 </li>
               )
             }
@@ -415,8 +500,9 @@ export function LayersPanel(props: LayersPanelProps) {
                 className={`group relative flex items-center gap-1 rounded-[10px] pe-1 transition-colors ${inGroup ? 'ms-5' : ''} ${selected ? 'bg-accent-soft' : 'hover:bg-subtle'} ${dragging?.includes(layer.id) ? 'opacity-50' : ''}`}
               >
                 {dropLine(layer.id)}
+                <DragHandle name={layer.name} />
                 {renamingId === layer.id ? (
-                  <div className="flex min-w-0 flex-1 items-center gap-2.5 py-1.5 ps-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5 py-1.5">
                     <LayerThumbnail layers={[layer]} revision={revision} doc={doc} />
                     <RenameInput name={layer.name} onRename={(name) => props.onRename(layer.id, name)} onDone={() => setRenamingId(null)} />
                   </div>
@@ -435,10 +521,11 @@ export function LayersPanel(props: LayersPanelProps) {
                       type="button"
                       aria-label={t('Layer: {name}', { name: layer.name })}
                       aria-pressed={selected}
-                      onClick={(event) => (event.shiftKey ? props.onToggle(layer.id) : props.onSelect(layer.id))}
+                      onClick={(event) => (adding(event) ? props.onToggle(layer.id) : props.onSelect(layer.id))}
                       onDoubleClick={() => setRenamingId(layer.id)}
-                      className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 ps-2 text-start text-[13px] text-ink"
+                      className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 text-start text-[13px] text-ink"
                     >
+                      {pickingSeveral && <PickMark on={selected} />}
                       <LayerThumbnail layers={[layer]} revision={revision} doc={doc} />
                       <span dir="auto" className="min-w-0 flex-1 truncate text-start">
                         {layer.name}
@@ -527,6 +614,12 @@ export function LayersPanel(props: LayersPanelProps) {
                     {layer.visible ? <Eye size={16} /> : <EyeOff size={16} />}
                   </button>
                 </Tooltip>
+                <RowDelete
+                  label={t('Delete {name}', { name: layer.name })}
+                  several={deleteIds([layer.id]).length > 1}
+                  shown={selected}
+                  onClick={() => props.onDeleteRow(deleteIds([layer.id]))}
+                />
               </li>
             )
           })}
@@ -549,7 +642,7 @@ export function LayersPanel(props: LayersPanelProps) {
                 aria-label={t("Page")}
                 aria-pressed={pagePicked}
                 onClick={props.onPickPage}
-                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 ps-2 text-start text-[13px] text-ink"
+                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] py-1.5 ps-5 text-start text-[13px] text-ink"
               >
                 <span aria-hidden className="h-10 w-10 shrink-0 rounded-md border border-line" style={{ background: cssPage(doc) ?? SEE_THROUGH }} />
                 <span className="min-w-0 flex-1 truncate">{t('Page')}</span>
