@@ -1,6 +1,8 @@
-import { ArrowRight, Blend, CircleHelp, Focus, ImagePlus, Move, PenTool, Square, X } from 'lucide-react'
+import { ArrowRight, Blend, CircleHelp, Grid2x2, Focus, ImagePlus, Move, PenTool, Square, X } from 'lucide-react'
 import { cssGradient, type Gradient } from '../editor/gradient.ts'
 import { GradientEditor } from './GradientEditor.tsx'
+import { PatternEditor } from './PatternEditor.tsx'
+import type { Pattern } from '../editor/pattern.ts'
 import { isLineShape } from '../editor/objects.ts'
 import type { OutlineDash, ShapeFill, ShapeGeometry, ShapeOutline } from '../editor/types.ts'
 import { Tooltip } from './Tooltip.tsx'
@@ -55,9 +57,12 @@ interface ShapePanelProps {
   onNoOutline: () => void
   onOutlineWidth: (width: number) => void
   onOutlineDash: (dash: OutlineDash) => void
-  // A plain color or a gradient inside.
-  onFillKind: (kind: 'color' | 'gradient') => void
+  // A plain color, a gradient or a pattern inside.
+  onFillKind: (kind: 'color' | 'gradient' | 'pattern') => void
   onGradient: (gradient: Gradient, label: string, mergeKey?: string) => void
+  onPattern: (pattern: Pattern, label: string, mergeKey?: string) => void
+  // The longer side of the picked shape, for the pattern size slider.
+  side?: number
   gradientStop: number
   onGradientStop: (index: number) => void
   // Shows the shape's points with the Pen, so they can be moved one by one.
@@ -103,7 +108,7 @@ function DashChoice({ value, line, onChange }: { value: OutlineDash; line: boole
 export function ShapePanel(props: ShapePanelProps) {
   const { geometry, fill, outline } = props
   const line = isLineShape(geometry)
-  const fillColor = fill.kind === 'color' ? fill.color : fill.kind === 'gradient' ? cssGradient(fill.gradient) : null
+  const fillColor = fill.kind === 'color' ? fill.color : fill.kind === 'gradient' ? cssGradient(fill.gradient) : fill.kind === 'pattern' ? fill.pattern.color : null
   const target = line ? 'outline' : props.colorTarget
 
   return (
@@ -143,6 +148,8 @@ export function ShapePanel(props: ShapePanelProps) {
               [
                 { kind: 'color', label: t('Color'), icon: Square, description: t('Fill the inside with one plain color.') },
                 { kind: 'gradient', label: t('Gradient'), icon: Blend, description: t('Fill the inside with colors that fade smoothly into each other. Start from a ready-made one, then change it as you like.') },
+                // Patterns are for a shape on the design; new shapes start plain.
+                ...(props.editing ? [{ kind: 'pattern' as const, label: t('Pattern'), icon: Grid2x2, description: t('Fill the inside with little shapes that repeat, like dots, stripes or checks. They stay sharp at any size.') }] : []),
               ] as const
             ).map((choice) => (
               <Tooltip key={choice.kind} title={choice.label} description={choice.description}>
@@ -176,6 +183,12 @@ export function ShapePanel(props: ShapePanelProps) {
           </Button>
         )}
       </div>
+
+      {target === 'fill' && fill.kind === 'pattern' && (
+        <div className="mt-3">
+          <PatternEditor pattern={fill.pattern} side={props.side ?? 400} part={Math.min(props.gradientStop, 1)} onPart={props.onGradientStop} onChange={props.onPattern} />
+        </div>
+      )}
 
       {target === 'fill' && fill.kind === 'gradient' && (
         <div className="mt-3">

@@ -5,6 +5,7 @@ import { effectsReach } from './effects.ts'
 import { gradientLine, type Gradient } from './gradient.ts'
 import { arrowLength, canFill, fillRule, hasArrow, isLineShape, layerBounds, outlineDash, photoPlacement, scaledPath, shapePath, type PathSink } from './objects.ts'
 import { endDirection } from './path.ts'
+import { patternPath } from './pattern.ts'
 import { tableParts, tableTexts } from './table.ts'
 import type { EditorDocument, Layer, PixelLayer, ShapeLayer, TextLayer } from './types.ts'
 import { cssFont, familyName, fontFormat, fontInfo, fontStack, fontStackIds } from '../text/fonts.ts'
@@ -114,6 +115,11 @@ function shapeSvg(layer: ShapeLayer, ids: Ids, defs: string[]): string {
       defs.push(gradientDef(id, fill.gradient, w, h))
       const whole = hasArrow(geometry) ? shapePath({ ...geometry, arrow: false }, w, h, 0, new SvgPath()).d : path
       parts.push(`<path d="${whole}" fill="url(#${id})"${rule}/>`)
+    } else if (fill.kind === 'pattern') {
+      const id = ids.next('inside')
+      defs.push(`<clipPath id="${id}"><path d="${path}"${rule ? ` clip-rule="evenodd"` : ''}/></clipPath>`)
+      if (fill.pattern.background) parts.push(`<path d="${path}" fill="${fill.pattern.background}"${rule}/>`)
+      parts.push(`<path clip-path="url(#${id})" d="${patternPath(fill.pattern, w, h, new SvgPath()).d}" fill="${fill.pattern.color}"/>`)
     } else if (fill.kind === 'photo') {
       const id = ids.next('inside')
       defs.push(`<clipPath id="${id}"><path d="${path}"${rule ? ` clip-rule="evenodd"` : ''}/></clipPath>`)

@@ -131,6 +131,8 @@ export interface CanvasViewProps {
   clone: CloneControls | null
   // With "Same color": a click picks everything of a similar color.
   onColorSelect: (point: Point, mode: SelectionMode) => void
+  // With "Paint over": the brush's path and half-width, in pixels of the design.
+  onPaintSelect: (points: Point[], radius: number, mode: SelectionMode) => void
   // A selection being tried out (a softer or bigger edge), shown in place of the real one with the
   // parts left out dimmed, so you see how soft the edge is before keeping it.
   selectionPreview: Selection | null
@@ -312,7 +314,7 @@ const GUIDE_COLOR = '#e8457a'
 // Margins and columns: a soft violet, quieter than the lines that show what lined up.
 const LAYOUT_COLOR = 'rgba(124, 92, 230, 0.55)'
 
-const SHAPE_LABELS: Record<SelectionShape, string> = live({ rectangle: msg('Select rectangle'), ellipse: msg('Select oval'), freehand: msg('Select freehand area'), magic: msg('Select thing'), color: msg('Select same color') })
+const SHAPE_LABELS: Record<SelectionShape, string> = live({ rectangle: msg('Select rectangle'), ellipse: msg('Select oval'), freehand: msg('Select freehand area'), magic: msg('Select thing'), color: msg('Select same color'), paint: msg('Paint to select') })
 
 function pressureOf(event: globalThis.PointerEvent): number {
   // Only pens report real pressure; a mouse or finger always paints at full size.
@@ -694,10 +696,14 @@ function dimmedOutside(selection: Selection, width: number, height: number): HTM
 }
 
 // Rectangles, ovals and freehand areas are drawn by dragging, so dragging inside the selection
-// moves it; the magic and same-color selections are made by clicking things instead.
+// moves it; the magic, same-color and paint-over selections are made by clicking or painting instead.
 function drawsShape(shape: SelectionShape): boolean {
-  return shape !== 'magic' && shape !== 'color'
+  return shape !== 'magic' && shape !== 'color' && shape !== 'paint'
 }
+
+// How wide the paint-over brush is on screen, so it feels the same at any zoom: zoom in to paint
+// finer parts.
+const PAINT_SELECT_RADIUS = 14
 
 // The shape being drawn with the Select tool, as a polygon in design coordinates.
 function dragPolygon(drag: Extract<SelectDrag, { kind: 'shape' }>): Point[] {
@@ -843,8 +849,28 @@ export function CanvasView(props: CanvasViewProps) {
         drawSelectedLine(ctx)
       }
     }
+    // The paint-over brush's path so far, as a soft see-through band.
+    if (drag?.kind === 'shape' && drag.shape === 'paint') {
+      const dpr = window.devicePixelRatio || 1
+      ctx.save()
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.beginPath()
+      drag.points.forEach((pt, i) => {
+        const x = pt.x * p.viewport.zoom + p.viewport.panX
+        const y = pt.y * p.viewport.zoom + p.viewport.panY
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      })
+      if (drag.points.length === 1) ctx.lineTo(drag.points[0].x * p.viewport.zoom + p.viewport.panX + 0.01, drag.points[0].y * p.viewport.zoom + p.viewport.panY)
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.lineWidth = PAINT_SELECT_RADIUS * 2
+      ctx.strokeStyle = drag.mode === 'subtract' ? 'rgba(196, 50, 10, 0.3)' : 'rgba(51, 102, 255, 0.3)'
+      ctx.stroke()
+      ctx.restore()
+    }
     // The shape being drawn right now, in the "you can click this" blue.
-    if (drag?.kind === 'shape' && drag.moved) {
+    else if (drag?.kind === 'shape' && drag.moved) {
       const polygon = dragPolygon(drag)
       if (polygon.length > 1) {
         tracePath(ctx, [polygon], p.viewport)
@@ -1478,6 +1504,11 @@ export function CanvasView(props: CanvasViewProps) {
       requestOverlay()
       return
     }
+    if (drag.shape === 'paint') {
+      p.onPaintSelect(drag.points, PAINT_SELECT_RADIUS / p.viewport.zoom, drag.mode)
+      requestOverlay()
+      return
+    }
     if (drag.shape === 'magic') {
       const box = rectFromCorners(drag.start, drag.current)
       p.onMagicSelect(drag.moved && box.width >= 2 && box.height >= 2 ? { box } : { point: drag.start }, drag.mode)
@@ -1762,7 +1793,7 @@ export function CanvasView(props: CanvasViewProps) {
         drag.current = point
         drag.constrain = event.shiftKey
         if (!drag.moved && Math.hypot(event.clientX - drag.startClient.x, event.clientY - drag.startClient.y) >= clickSlop(event)) drag.moved = true
-        if (drag.shape === 'freehand') {
+        if (drag.shape === 'freehand' || drag.shape === 'paint') {
           const last = drag.points[drag.points.length - 1]
           if (Math.hypot(point.x - last.x, point.y - last.y) * propsRef.current.viewport.zoom >= 2) drag.points.push(point)
         }

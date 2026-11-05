@@ -6,6 +6,7 @@ import { createCanvas, getContext2d, MAX_LAYER_SIDE } from './document.ts'
 import { intersectRect, polygonBounds, snapRect, type Rect } from './geometry.ts'
 import { canvasGradient } from './gradient.ts'
 import { photoPlacement } from './photoFill.ts'
+import { patternPath, type Pattern } from './pattern.ts'
 import { endDirection, mapPath, segmentCount, trimForArrow, tracePath, type ShapePath } from './path.ts'
 import { layerVersion } from './pixelVersion.ts'
 import { drawSharp, sharpMisses } from './sharp.ts'
@@ -139,6 +140,16 @@ function enterShape(ctx: CanvasRenderingContext2D, box: TransformBox): { w: numb
   return { w: Math.abs(box.width), h: Math.abs(box.height) }
 }
 
+// The pattern's little shapes are worked out once for each pattern and size.
+const patternPaths = new WeakMap<Pattern, { w: number; h: number; path: Path2D }>()
+function cachedPatternPath(pattern: Pattern, w: number, h: number): Path2D {
+  const kept = patternPaths.get(pattern)
+  if (kept && kept.w === w && kept.h === h) return kept.path
+  const path = patternPath(pattern, w, h, new Path2D())
+  patternPaths.set(pattern, { w, h, path })
+  return path
+}
+
 export function drawShape(ctx: CanvasRenderingContext2D, layer: ShapeLayer): void {
   const { geometry, fill, outline } = layer
   ctx.save()
@@ -152,6 +163,16 @@ export function drawShape(ctx: CanvasRenderingContext2D, layer: ShapeLayer): voi
       ctx.fillStyle = canvasGradient(ctx, fill.gradient, w, h)
       // An arrow's path stops short, so the fill uses the whole path.
       ctx.fill(hasArrow(geometry) ? shapePath({ ...geometry, arrow: false }, w, h) : path, fillRule(geometry))
+    } else if (fill.kind === 'pattern') {
+      ctx.save()
+      ctx.clip(path, fillRule(geometry))
+      if (fill.pattern.background) {
+        ctx.fillStyle = fill.pattern.background
+        ctx.fill(path, fillRule(geometry))
+      }
+      ctx.fillStyle = fill.pattern.color
+      ctx.fill(cachedPatternPath(fill.pattern, w, h))
+      ctx.restore()
     } else if (fill.kind === 'photo') {
       ctx.save()
       ctx.clip(path, fillRule(geometry))
