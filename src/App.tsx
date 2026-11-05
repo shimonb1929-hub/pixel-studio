@@ -119,6 +119,10 @@ import { useAutosave } from './hooks/useAutosave.ts'
 import { useEditor } from './hooks/useEditor.ts'
 import { useStraighten } from './hooks/useStraighten.ts'
 import { StraightenPanel } from './components/StraightenPanel.tsx'
+import { RepeatPanel } from './components/RepeatPanel.tsx'
+import { FindDialog } from './components/FindDialog.tsx'
+import { replaceEverywhere } from './editor/findReplace.ts'
+import { useRepeat } from './hooks/useRepeat.ts'
 import { useCorners } from './hooks/useCorners.ts'
 import { CornerHandles, CornersPanel } from './components/CornersPanel.tsx'
 import { photoOnMainThing, smartCropFrame } from './editor/smartPhoto.ts'
@@ -140,7 +144,7 @@ import { TOOLS } from './tools.ts'
 import { useTurnIntoShapes } from './hooks/useTurnIntoShapes.tsx'
 import { isRtl, live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts' | 'install'
+type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts' | 'install' | 'find'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -523,6 +527,8 @@ export default function App() {
   const straightenPhoto = useStraighten(editor, problem)
   // Move the corners of a photo: fit it to a place, or make a slanted page face front.
   const corners = useCorners(editor, problem)
+  // Make copies: copies of what is picked in a row, a grid or around a circle, shown before they're kept.
+  const repeat = useRepeat(editor, problem)
   // Commands read the design through this, so they see changes made earlier in the same click.
   const current = () => editor.getDoc()
 
@@ -1572,6 +1578,13 @@ export default function App() {
 
   // Unfinished resizing or cropping is applied before doing anything else, so nothing gets mixed up.
   // Returns false if a resize couldn't be applied (it would be too big), which has been explained.
+  // Keeps the copies being shown, and picks them all, kept together with the original.
+  function applyRepeat() {
+    if (!repeat.apply()) return
+    const d = current()
+    if (d) pickMany(pickedWith(d, d.activeLayerId))
+  }
+
   function settle(): boolean {
     finishText()
     pen.finish()
@@ -1580,6 +1593,7 @@ export default function App() {
     if (adjustChanged) applyAdjust()
     if (straightenPhoto.pending) straightenPhoto.apply()
     if (corners.pending) corners.apply()
+    if (repeat.pending) applyRepeat()
     return true
   }
 
@@ -1587,6 +1601,7 @@ export default function App() {
     finishText()
     if (straightenPhoto.pending) straightenPhoto.apply()
     if (corners.pending) corners.apply()
+    if (repeat.pending) applyRepeat()
     if (next !== tool) {
       if (tool === 'move') {
         if (!applyTransform()) return
@@ -2542,11 +2557,12 @@ export default function App() {
       if (adjustChanged) return cancelAdjust()
       if (straightenPhoto.pending) return straightenPhoto.cancel()
       if (corners.pending) return corners.cancel()
+      if (repeat.pending) return repeat.cancel()
       editor.undo()
     },
     redo: () => {
       if (pen.drawing) return
-      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending || corners.pending) return
+      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending || corners.pending || repeat.pending) return
       finishText()
       editor.redo()
     },
@@ -2697,6 +2713,7 @@ export default function App() {
       if (blurBackground.apply()) return true
       if (straightenPhoto.pending) return straightenPhoto.apply(), true
       if (corners.pending) return corners.apply(), true
+      if (repeat.pending) return applyRepeat(), true
       if (edgeShown) return applyEdge(), true
       return false
     },
@@ -2711,6 +2728,7 @@ export default function App() {
       if (blurBackground.cancel()) return true
       if (straightenPhoto.pending) return straightenPhoto.cancel(), true
       if (corners.pending) return corners.cancel(), true
+      if (repeat.pending) return repeat.cancel(), true
       if (edgeShown) return setEdgeEdit(null), true
       return false
     },
@@ -2863,6 +2881,16 @@ export default function App() {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') setPictureHelper({ kind: 'upscale', layerId: layer.id })
     },
+    makeCopies: () => {
+      const ids = targets()
+      settle()
+      if (tool !== 'move') setTool('move')
+      repeat.start(ids)
+    },
+    findAndChange: () => {
+      settle()
+      if (current()) setDialog('find')
+    },
     findWords: () => {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') setPictureHelper({ kind: 'words', layerId: layer.id })
@@ -2980,6 +3008,7 @@ export default function App() {
       else if (mod && code === 'KeyX' && hasDoc) action = c.cut
       else if (mod && code === 'KeyJ' && hasDoc) action = c.toNewLayer
       else if (mod && !event.shiftKey && code === 'KeyE' && hasDoc) action = c.layerJoin
+      else if (mod && !event.shiftKey && code === 'KeyF' && hasDoc) action = c.findAndChange
       else if (mod && code === 'KeyG' && hasDoc) action = event.shiftKey ? c.takeApart : c.keepTogether
       else if (event.altKey && !mod && code === 'Backspace' && hasDoc) action = c.fill
       else if (plain && (code === 'Delete' || code === 'Backspace') && hasDoc && currentTool === 'pen') action = c.penDelete
@@ -3179,6 +3208,7 @@ export default function App() {
       onFillGap: setFillGap,
       ppi: doc ? documentPpi(doc) : DEFAULT_PPI,
       blurSession: blurBackground.controls,
+      makeCopies: commands.makeCopies,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
     // Its size and top-left corner before turning, as shown in the boxes.
@@ -3541,7 +3571,7 @@ export default function App() {
           {doc ? (
             <>
               <CanvasView
-                doc={smart.shown ?? shownDoc ?? doc}
+                doc={smart.shown ?? repeat.shown ?? shownDoc ?? doc}
                 revision={editor.revision}
                 viewport={viewport}
                 onViewportChange={setViewport}
@@ -3611,6 +3641,7 @@ export default function App() {
               />
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
               {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
+              {repeat.panel && <RepeatPanel state={{ ...repeat.panel, apply: applyRepeat }} />}
               {corners.dots && <CornerHandles state={corners.dots} viewport={viewport} />}
               {corners.panel && <CornersPanel state={corners.panel} />}
               {doc.layers.length === 0 && tool === 'move' && !textEdit ? (
@@ -3939,6 +3970,22 @@ export default function App() {
         />
       )}
       {dialog === 'help' && <HelpGuide actions={actions} hasDocument={!!doc} onPickTool={setTool} onClose={() => setDialog(null)} />}
+      {dialog === 'find' && doc && (
+        <FindDialog
+          doc={doc}
+          onClose={() => setDialog(null)}
+          onChange={(find, replacement, options) => {
+            setDialog(null)
+            let count = 0
+            editor.change(t('Change words'), (d) => {
+              const result = replaceEverywhere(d, find, replacement, options)
+              count = result.count
+              return result.doc
+            })
+            inform(count === 1 ? t('Changed in 1 place.') : t('Changed in {count} places.', { count }))
+          }}
+        />
+      )}
       {dialog === 'layout' && doc && (
         <PageLayoutDialog
           doc={doc}

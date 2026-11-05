@@ -192,3 +192,27 @@ export function renameStories(layers: Layer[]): Layer[] {
     return { ...l, flow: { ...l.flow, story: names.get(l.flow.story)! } }
   })
 }
+
+// Changes the words of every story running through these boxes, once per story (Find and change).
+// `change` gets the whole story and its looks, and gives back the new words and looks, or null to
+// leave the story as it is. The boxes then share the story out again (call reflowText).
+export function changeStories(layers: Layer[], change: (text: string, spans: TextSpan[] | undefined, style: TextLayer['style']) => { text: string; spans?: TextSpan[] } | null): Layer[] {
+  const stories = new Map<string, (TextLayer & { flow: TextFlow })[]>()
+  for (const layer of layers) if (isFlowing(layer)) stories.set(layer.flow.story, [...(stories.get(layer.flow.story) ?? []), layer])
+  const changed = new Map<string, { text: string; spans?: TextSpan[]; first: number }>()
+  for (const [story, boxes] of stories) {
+    boxes.sort((a, b) => a.flow.index - b.flow.index)
+    const looks = storySpans(boxes)
+    const result = change(boxes[0].flow.full, looks.length ? looks : undefined, boxes[0].style)
+    if (result) changed.set(story, { ...result, first: boxes[0].flow.index })
+  }
+  if (changed.size === 0) return layers
+  return layers.map((l): Layer => {
+    if (!isFlowing(l) || !changed.has(l.flow.story)) return l
+    const { text, spans, first } = changed.get(l.flow.story)!
+    const { spans: _, ...rest } = l
+    // The first box holds the whole story for a moment; splitting it again shares it out.
+    if (l.flow.index !== first) return { ...rest, flow: { ...l.flow, full: text, start: text.length, end: text.length } }
+    return { ...rest, ...(spans?.length ? { spans } : {}), flow: { ...l.flow, full: text, start: 0, end: text.length } }
+  })
+}
