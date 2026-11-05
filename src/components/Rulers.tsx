@@ -1,6 +1,7 @@
+import { usePointerSpot } from '../hooks/usePointerSpot.ts'
 import { useLayoutEffect, useRef } from 'react'
 import { rulerSpacing } from '../editor/grid.ts'
-import type { Point, Viewport } from '../editor/types.ts'
+import type { Viewport } from '../editor/types.ts'
 import { documentPpi, pixelsToUnit, unitToPixels, useUnit } from '../editor/units.ts'
 import { t } from '../i18n/i18n.ts'
 
@@ -14,7 +15,6 @@ interface RulersProps {
   viewport: Viewport
   width: number
   height: number
-  cursor: Point | null
 }
 
 function label(value: number): string {
@@ -22,7 +22,8 @@ function label(value: number): string {
   return String(rounded)
 }
 
-export function Rulers({ doc, viewport, width, height, cursor }: RulersProps) {
+export function Rulers({ doc, viewport, width, height }: RulersProps) {
+  const cursor = usePointerSpot()
   const topRef = useRef<HTMLCanvasElement>(null)
   const leftRef = useRef<HTMLCanvasElement>(null)
   const [unit] = useUnit()

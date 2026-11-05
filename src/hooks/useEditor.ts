@@ -5,12 +5,15 @@ import { History } from '../editor/history.ts'
 import { insertLayerAboveActive, selectLayer, updatePixelLayer } from '../editor/layers.ts'
 import { settleLayer } from '../editor/objects.ts'
 import { goToPage, pageIndex, pageOfLayer } from '../editor/pages.ts'
-import { markPixelsChanged } from '../editor/pixelVersion.ts'
-import { copyRegion, restoreRegion, type StrokeResult } from '../editor/stroke.ts'
+import { pixelsChangedIn } from '../editor/pixels.ts'
+import { copyRegion, restoreRegion, strokeKept, type StrokeResult } from '../editor/stroke.ts'
 import type { EditorDocument, PixelLayer } from '../editor/types.ts'
 import { syncEveryPage } from '../editor/everyPage.ts'
 import { syncLinked } from '../editor/linked.ts'
 import { settleText } from '../text/wrapAround.ts'
+
+// The part of a layer a stroke changed, in the layer's own pixels.
+const strokeRect = (result: StrokeResult): Rect => ({ x: result.x, y: result.y, width: result.after.width, height: result.after.height })
 
 // Everything about a design except its pixels, which change in place and are kept separately.
 type DocState = Pick<EditorDocument, 'width' | 'height' | 'background' | 'pageGradient' | 'layers' | 'activeLayerId' | 'selection' | 'pages' | 'pageIndex' | 'layout' | 'ppi' | 'colors' | 'textStyles'>
@@ -109,8 +112,9 @@ export function useEditor(): Editor {
       }
       const layer = current.layers.find((l) => l.id === change.layerId)
       if (layer?.kind === 'raster') {
-        restoreRegion(layer.canvas, change[side], change.x, change.y)
-        markPixelsChanged(layer.canvas)
+        const region = change[side]
+        restoreRegion(layer.canvas, region, change.x, change.y)
+        pixelsChangedIn(layer.canvas, { x: change.x, y: change.y, width: region.width, height: region.height }, region, false)
       }
       setRevision((r) => r + 1)
     } else {
@@ -217,7 +221,10 @@ export function useEditor(): Editor {
         // The stroke is the new drawing's only content, so one step adds the drawing with it.
         pendingDrawingRef.current = null
         const layer = docRef.current.layers.find((l) => l.id === layerId)
-        if (layer?.kind === 'raster') markPixelsChanged(layer.canvas)
+        if (layer?.kind === 'raster') {
+          pixelsChangedIn(layer.canvas, strokeRect(result), result.after, true, true)
+          strokeKept(layer.canvas)
+        }
         history.push({
           label,
           change: { kind: 'structure', before: pending.before, after: docState(docRef.current) },
@@ -230,7 +237,10 @@ export function useEditor(): Editor {
       const pixels: Change = { kind: 'pixels', layerId, x: result.x, y: result.y, before: result.before, after: result.after }
       const growth = grown ? growLayer(layerId, grown) : null
       const layer = docRef.current?.layers.find((l) => l.id === layerId)
-      if (layer?.kind === 'raster') markPixelsChanged(layer.canvas)
+      if (layer?.kind === 'raster') {
+        pixelsChangedIn(layer.canvas, strokeRect(result), result.after, !!result.grows)
+        strokeKept(layer.canvas)
+      }
       history.push({
         label,
         change: growth ? { kind: 'compound', changes: [growth, pixels] } : pixels,
@@ -262,8 +272,8 @@ export function useEditor(): Editor {
       ctx.save()
       draw(ctx, layer)
       ctx.restore()
-      markPixelsChanged(layer.canvas)
       const after = copyRegion(layer.canvas, local)
+      pixelsChangedIn(layer.canvas, local, after, false)
       const pixels: Change = { kind: 'pixels', layerId, x: local.x, y: local.y, before, after }
       history.push({
         label,

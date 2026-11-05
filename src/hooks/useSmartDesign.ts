@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useIdleValue } from './useIdleValue.ts'
 import { createId } from '../editor/document.ts'
 import { matchDesignToPalette, recoloredCount, type PaletteColor } from '../editor/palette.ts'
 import { applyReadableFix, neededContrast, readability, readableFixes, worstContrast, type Readability, type ReadableFix } from '../editor/readable.ts'
@@ -57,6 +58,8 @@ export function fixDescription(fix: ReadableFix): string {
   return fix.tone === 'light' ? t('Make the words white, so they stand out from what is behind them.') : t('Make the words dark, so they stand out from what is behind them.')
 }
 
+const NO_PALETTE = { colors: [], picked: false }
+
 export function useSmartDesign(editor: Editor, options: { pickedId?: string; pickedText: TextLayer | null; notify: (message: string) => void }): SmartDesign {
   const { doc } = editor
   const { pickedId, pickedText, notify } = options
@@ -66,10 +69,11 @@ export function useSmartDesign(editor: Editor, options: { pickedId?: string; pic
   const preview = previewState && previewState.base === doc ? previewState : null
   const hoveredDoc = hovered && hovered.base === doc ? hovered.doc : null
 
-  const { colors: palette, picked: paletteFromPicked } = useMemo(
-    () => (doc ? designPalette(doc, pickedId) : { colors: [], picked: false }),
+  // Finding a photo's colors reads its pixels and sorts them, so it waits for a quiet moment after
+  // a stroke or change: the screen always answers first.
+  const { colors: palette, picked: paletteFromPicked } = useIdleValue(
+    () => (doc ? designPalette(doc, pickedId) : NO_PALETTE),
     // The revision changes when pixels are painted, which can change a photo's colors.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [doc?.layers, pickedId, editor.revision],
   )
 

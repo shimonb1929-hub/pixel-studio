@@ -3,6 +3,7 @@ import { hexToRgb, type Rgb } from './color.ts'
 import { createCanvas, getContext2d } from './document.ts'
 import { clampRect, unionRect, type Rect } from './geometry.ts'
 import { shapeTip } from './brushShapes.ts'
+import { pixelVersion } from './pixelVersion.ts'
 import type { PixelLayer, Point } from './types.ts'
 
 export interface InputPoint extends Point {
@@ -113,8 +114,15 @@ export class DabPainter {
   takePainted(): Rect | null {
     const painted = this.painted
     this.painted = null
+    if (painted) this.everPainted = unionRect(this.everPainted, painted)
     return painted
   }
+
+  // Everything painted so far, taken or not.
+  get touched(): Rect | null {
+    return this.painted ? unionRect(this.everPainted, this.painted) : this.everPainted
+  }
+  private everPainted: Rect | null = null
 
   private radius(pressure: number): number {
     const scale = this.settings.pressure ? MIN_PRESSURE_SCALE + (1 - MIN_PRESSURE_SCALE) * pressure : 1
@@ -304,6 +312,8 @@ export interface StrokeResult {
   // Copies of the changed area before and after the stroke, kept for undo and redo.
   before: HTMLCanvasElement
   after: HTMLCanvasElement
+  // True when the stroke only added paint (nothing got more see-through).
+  grows?: boolean
 }
 
 // Copies part of a canvas. Canvas-to-canvas copies stay on the graphics card, which is much
@@ -327,6 +337,20 @@ const pool = {
   preview: null as HTMLCanvasElement | null,
   masked: null as HTMLCanvasElement | null,
   copied: null as HTMLCanvasElement | null,
+}
+
+// Wiping and copying a whole big layer at the start of every stroke takes long enough to feel,
+// so only what needs it is redone. The last painter says where the stroke canvas has paint.
+let lastPainter: DabPainter | null = null
+// After a stroke is kept, the preview holds exactly the layer's pixels: the next stroke on the same
+// layer starts from it as it is, as long as nothing else changed the layer in between.
+let previewFinished: HTMLCanvasElement | null = null
+let previewMirrors: { layer: HTMLCanvasElement; preview: HTMLCanvasElement; version: number } | null = null
+
+// Called once a finished stroke has been written into its layer for good.
+export function strokeKept(layer: HTMLCanvasElement): void {
+  if (previewFinished === layer && pool.preview) previewMirrors = { layer, preview: pool.preview, version: pixelVersion(layer) }
+  previewFinished = null
 }
 
 function pooled(key: keyof typeof pool, width: number, height: number): HTMLCanvasElement {
@@ -394,18 +418,28 @@ export class StrokeSession {
     this.width = layer.canvas.width
     this.height = layer.canvas.height
 
+    const reused = pool.stroke
     this.stroke = pooled('stroke', this.width, this.height)
     this.preview = pooled('preview', this.width, this.height)
+    // These two are only ever read where they were just written, so they need no wiping.
     this.masked = mask ? pooled('masked', this.width, this.height) : null
     this.copied = copy ? pooled('copied', this.width, this.height) : null
 
     const strokeCtx = getContext2d(this.stroke)
-    strokeCtx.clearRect(0, 0, this.width, this.height)
+    const used = this.stroke === reused ? lastPainter?.touched : null
+    if (used) strokeCtx.clearRect(used.x, used.y, used.width, used.height)
+    else if (this.stroke === reused) strokeCtx.clearRect(0, 0, this.width, this.height)
     this.previewCtx = getContext2d(this.preview)
-    this.previewCtx.clearRect(0, 0, this.width, this.height)
-    this.previewCtx.drawImage(layer.canvas, 0, 0)
+    const mirrors = previewMirrors
+    previewMirrors = null
+    previewFinished = null
+    if (!(mirrors && mirrors.layer === layer.canvas && mirrors.preview === this.preview && mirrors.version === pixelVersion(layer.canvas))) {
+      this.previewCtx.clearRect(0, 0, this.width, this.height)
+      this.previewCtx.drawImage(layer.canvas, 0, 0)
+    }
 
     this.painter = new DabPainter(strokeCtx, settings, mode === 'erase' ? { r: 0, g: 0, b: 0 } : hexToRgb(color))
+    lastPainter = this.painter
   }
 
   // Where the stroke ended, in design coordinates.
@@ -500,7 +534,8 @@ export class StrokeSession {
     const before = copyRegion(this.layer.canvas, this.total)
     const after = copyRegion(this.preview, this.total)
     restoreRegion(this.layer.canvas, after, x, y)
-    return { x, y, before, after }
+    previewFinished = this.layer.canvas
+    return { x, y, before, after, grows: this.mode !== 'erase' }
   }
 
   // Ends the stroke without changing the layer, for marking an area: where the stroke went, at

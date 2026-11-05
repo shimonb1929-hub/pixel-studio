@@ -53,6 +53,69 @@ function checkerTile(dpr: number): HTMLCanvasElement {
   return tile
 }
 
+// Two soft shadows lift the design off the table, under a white page.
+function paintPageWithShadow(ctx: CanvasRenderingContext2D, left: number, top: number, width: number, height: number, dpr: number) {
+  ctx.save()
+  ctx.fillStyle = '#ffffff'
+  ctx.shadowColor = 'rgba(16, 24, 40, 0.08)'
+  ctx.shadowBlur = 4 * dpr
+  ctx.shadowOffsetY = 1 * dpr
+  ctx.fillRect(left, top, width, height)
+  ctx.shadowColor = 'rgba(16, 24, 40, 0.10)'
+  ctx.shadowBlur = 28 * dpr
+  ctx.shadowOffsetY = 10 * dpr
+  ctx.fillRect(left, top, width, height)
+  ctx.restore()
+}
+
+// Blurring a shadow is slow, and the screen is drawn again many times a second while painting,
+// zooming and scrolling. So the shadowed page is drawn once, small, and stretched to any size:
+// its corners are copied as they are and its middle parts, which are the same all along, are
+// stretched.
+const shadowTiles = new Map<number, { canvas: HTMLCanvasElement; edge: number }>()
+
+function shadowTile(dpr: number) {
+  let tile = shadowTiles.get(dpr)
+  if (!tile) {
+    // How far the softest shadow reaches past the page, and then as far again inside it, so the
+    // corners have faded out by the stretched middle.
+    const reach = Math.ceil((28 * 1.5 + 10 + 2) * dpr)
+    const edge = reach * 2
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = edge * 2 + 1
+    paintPageWithShadow(canvas.getContext('2d')!, reach, reach, canvas.width - reach * 2, canvas.height - reach * 2, dpr)
+    tile = { canvas, edge }
+    shadowTiles.set(dpr, tile)
+  }
+  return tile
+}
+
+function drawPageShadow(ctx: CanvasRenderingContext2D, left: number, top: number, width: number, height: number, dpr: number) {
+  const { canvas, edge } = shadowTile(dpr)
+  const reach = edge / 2
+  // A page smaller than the corners is quick to shadow directly.
+  if (width < edge * 2 || height < edge * 2) {
+    paintPageWithShadow(ctx, left, top, width, height, dpr)
+    return
+  }
+  const x0 = left - reach
+  const y0 = top - reach
+  const w = width + reach * 2
+  const h = height + reach * 2
+  // Source and screen positions of the three columns and three rows.
+  const src = [0, edge, edge + 1, canvas.width]
+  const xs = [x0, x0 + edge, x0 + w - edge, x0 + w]
+  const ys = [y0, y0 + edge, y0 + h - edge, y0 + h]
+  ctx.save()
+  ctx.imageSmoothingEnabled = false
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      ctx.drawImage(canvas, src[col], src[row], src[col + 1] - src[col], src[row + 1] - src[row], xs[col], ys[row], xs[col + 1] - xs[col], ys[row + 1] - ys[row])
+    }
+  }
+  ctx.restore()
+}
+
 export interface Surface {
   // Size in CSS pixels; the canvas itself is width * dpr by height * dpr.
   width: number
@@ -178,18 +241,7 @@ export function renderScene(
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
   }
 
-  // Two soft shadows lift the design off the table.
-  ctx.save()
-  ctx.fillStyle = '#ffffff'
-  ctx.shadowColor = 'rgba(16, 24, 40, 0.08)'
-  ctx.shadowBlur = 4 * dpr
-  ctx.shadowOffsetY = 1 * dpr
-  ctx.fillRect(left, top, width, height)
-  ctx.shadowColor = 'rgba(16, 24, 40, 0.10)'
-  ctx.shadowBlur = 28 * dpr
-  ctx.shadowOffsetY = 10 * dpr
-  ctx.fillRect(left, top, width, height)
-  ctx.restore()
+  drawPageShadow(ctx, left, top, width, height, dpr)
 
   const pattern = ctx.createPattern(checkerTile(dpr), 'repeat')
   if (pattern) {

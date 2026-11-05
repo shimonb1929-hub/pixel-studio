@@ -1,6 +1,7 @@
+import { usePointerSpot } from '../hooks/usePointerSpot.ts'
 import { Brush, Copy, ImagePlus, Maximize2, Minus, Move, PaintBucket, Plus, Shapes, SlidersHorizontal, SquareMinus, SquarePlus, Trash2, Type, X, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import type { EditorDocument, Point, ToolId } from '../editor/types.ts'
+import type { EditorDocument, ToolId } from '../editor/types.ts'
 import { formatZoom } from '../editor/viewport.ts'
 import { ALT_LABEL, shortcut } from '../keys.ts'
 import { TOOLS } from '../tools.ts'
@@ -213,7 +214,8 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut, onActualSize, onFit }:
   )
 }
 
-export function DesignInfo({ doc, cursor }: { doc: EditorDocument; cursor: Point | null }) {
+export function DesignInfo({ doc }: { doc: EditorDocument }) {
+  const cursor = usePointerSpot()
   const inside = cursor && cursor.x >= 0 && cursor.y >= 0 && cursor.x < doc.width && cursor.y < doc.height
   const [unit] = useUnit()
   const ppi = documentPpi(doc)

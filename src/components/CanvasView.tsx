@@ -865,6 +865,8 @@ export function CanvasView(props: CanvasViewProps) {
   }
 
   function drawScene() {
+    // Drawn now, so a frame already asked for has nothing left to do.
+    if (sceneFrameRef.current) cancelAnimationFrame(sceneFrameRef.current)
     sceneFrameRef.current = 0
     const canvas = sceneRef.current
     const p = propsRef.current
@@ -1490,7 +1492,9 @@ export function CanvasView(props: CanvasViewProps) {
     const result = stroke.session.finish()
     const end = stroke.session.endPoint
     if (end) lastEndRef.current = { docId: propsRef.current.doc.id, point: { ...end, pressure: 1 } }
-    drawScene()
+    // The screen already shows the finished stroke, and keeping it redraws the screen right away;
+    // drawing it here too would only draw the same picture twice.
+    requestScene()
     propsRef.current.onStrokeActiveChange(false)
     if (result) propsRef.current.onStroke(stroke.session.layerId, result, stroke.label, stroke.grown)
     else propsRef.current.onStrokeCancelled()

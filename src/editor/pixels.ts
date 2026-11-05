@@ -2,10 +2,10 @@ import { hexToRgb } from './color.ts'
 import { flattenDocument } from './compose.ts'
 import { createCanvas, getContext2d } from './document.ts'
 import { floodRegion, growRegion } from './flood.ts'
-import type { Rect } from './geometry.ts'
+import { unionRect, type Rect } from './geometry.ts'
 import { selectionInfo } from './selection.ts'
 import { layerPixels } from './objects.ts'
-import { pixelVersion } from './pixelVersion.ts'
+import { markPixelsChanged, pixelVersion } from './pixelVersion.ts'
 import type { EditorDocument, Layer, PixelLayer } from './types.ts'
 
 // A piece of a layer, placed somewhere in the design.
@@ -96,27 +96,118 @@ export function cachedContentBounds(layer: PixelLayer): Rect | null {
 
 // The smallest rectangle around a layer's visible pixels, in design coordinates. Null if blank.
 export function contentBounds(layer: PixelLayer): Rect | null {
-  const { width, height } = layer.canvas
-  const probe = createCanvas(width, height)
+  const bounds = canvasContentBounds(layer.canvas)
+  return bounds && { ...bounds, x: bounds.x + layer.x, y: bounds.y + layer.y }
+}
+
+// The rows are read from the top and the bottom in bands, so a picture that fills its canvas (most
+// photos) is answered after reading just a few rows. Each pixel is checked as one number.
+const BAND = 64
+
+function canvasContentBounds(canvas: HTMLCanvasElement): Rect | null {
+  const { width, height } = canvas
+  if (width === 0 || height === 0) return null
+  const probe = createCanvas(width, Math.min(height, BAND))
   const ctx = probe.getContext('2d', { willReadFrequently: true })!
-  ctx.drawImage(layer.canvas, 0, 0)
-  const data = ctx.getImageData(0, 0, width, height).data
-  let minX = width
-  let minY = height
-  let maxX = -1
+  // One band of rows, each pixel as one number with its alpha in the top byte.
+  const band = (top: number): { rows: number; pixels: Uint32Array } => {
+    const rows = Math.min(BAND, height - top)
+    ctx.clearRect(0, 0, width, rows)
+    ctx.drawImage(canvas, 0, top, width, rows, 0, 0, width, rows)
+    return { rows, pixels: new Uint32Array(ctx.getImageData(0, 0, width, rows).data.buffer) }
+  }
+  const rowHas = (pixels: Uint32Array, row: number) => {
+    const start = row * width
+    for (let i = start, end = start + width; i < end; i++) if (pixels[i] > 0xffffff) return true
+    return false
+  }
+  let minY = -1
   let maxY = -1
-  for (let y = 0; y < height; y++) {
-    const row = y * width * 4
-    for (let x = 0; x < width; x++) {
-      if (data[row + x * 4 + 3] === 0) continue
-      if (x < minX) minX = x
-      if (x > maxX) maxX = x
-      if (y < minY) minY = y
-      if (y > maxY) maxY = y
+  let minX = width
+  let maxX = -1
+  // Each band read is remembered while the edges are found, so no band is read twice.
+  const bands = new Map<number, Uint32Array>()
+  const read = (top: number) => {
+    let pixels = bands.get(top)
+    if (!pixels) {
+      pixels = band(top).pixels
+      bands.set(top, pixels)
+    }
+    return pixels
+  }
+  for (let top = 0; top < height && minY < 0; top += BAND) {
+    const pixels = read(top)
+    const rows = Math.min(BAND, height - top)
+    for (let r = 0; r < rows; r++) {
+      if (rowHas(pixels, r)) {
+        minY = top + r
+        break
+      }
     }
   }
-  if (maxX < 0) return null
-  return { x: minX + layer.x, y: minY + layer.y, width: maxX - minX + 1, height: maxY - minY + 1 }
+  if (minY < 0) return null
+  const lastBand = Math.floor((height - 1) / BAND) * BAND
+  for (let top = lastBand; top >= 0 && maxY < 0; top -= BAND) {
+    const pixels = read(top)
+    const rows = Math.min(BAND, height - top)
+    for (let r = rows - 1; r >= 0; r--) {
+      if (rowHas(pixels, r)) {
+        maxY = top + r
+        break
+      }
+    }
+  }
+  // Left and right: only the parts of each row outside what's already found need checking.
+  for (let top = Math.floor(minY / BAND) * BAND; top <= maxY; top += BAND) {
+    const pixels = read(top)
+    bands.delete(top)
+    const from = Math.max(minY, top) - top
+    const to = Math.min(maxY, top + BAND - 1) - top
+    for (let r = from; r <= to; r++) {
+      const start = r * width
+      for (let x = 0; x < minX; x++) {
+        if (pixels[start + x] > 0xffffff) {
+          minX = x
+          break
+        }
+      }
+      for (let x = width - 1; x > maxX; x--) {
+        if (pixels[start + x] > 0xffffff) {
+          maxX = x
+          break
+        }
+      }
+      if (minX === 0 && maxX === width - 1) break
+    }
+    if (minX === 0 && maxX === width - 1) break
+  }
+  return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
+}
+
+// After a layer's pixels changed only inside `rect` (in the layer's own pixels), the area that has
+// something drawn is worked out from the old one by reading just that part, instead of the whole
+// layer. `after` holds the changed part as it is now. `grows` says nothing there got more
+// see-through (painting). Otherwise the old answer still holds when the change stays clear of its
+// edges: whatever made each edge is outside the change, so it is still there.
+export function pixelsChangedIn(canvas: HTMLCanvasElement, rect: Rect, after: HTMLCanvasElement, grows: boolean, blankBefore = false): void {
+  const cached = boundsCache.get(canvas)
+  const version = pixelVersion(canvas)
+  markPixelsChanged(canvas)
+  const old = cached && cached.version === version ? cached : blankBefore ? { x: 0, y: 0, bounds: null } : null
+  if (!old) return
+  // The old answer in the canvas's own pixels.
+  const before = old.bounds && { ...old.bounds, x: old.bounds.x - old.x, y: old.bounds.y - old.y }
+  const inside = (a: number, from: number, size: number) => a >= from && a < from + size
+  const touchesEdge =
+    before &&
+    (inside(before.y, rect.y, rect.height) ||
+      inside(before.y + before.height - 1, rect.y, rect.height) ||
+      inside(before.x, rect.x, rect.width) ||
+      inside(before.x + before.width - 1, rect.x, rect.width))
+  if (!grows && touchesEdge) return
+  const added = canvasContentBounds(after)
+  const now = added ? unionRect(before, { ...added, x: added.x + rect.x, y: added.y + rect.y }) : before
+  boundsCache.set(canvas, { version: version + 1, x: 0, y: 0, bounds: now })
 }
 
 export interface FillPieces {

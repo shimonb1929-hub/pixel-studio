@@ -41,6 +41,7 @@ import { InstallDialog } from './components/InstallDialog.tsx'
 import { VersionsDialog } from './components/VersionsDialog.tsx'
 import { Rulers } from './components/Rulers.tsx'
 import { QuickBar } from './components/QuickBar.tsx'
+import { setPointerSpot } from './hooks/usePointerSpot.ts'
 import { useRememberedChoice } from './hooks/useRememberedChoice.ts'
 import { DesignInfo, SelectionBar, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
 import { PagePanel } from './components/PagePanel.tsx'
@@ -435,7 +436,6 @@ export default function App() {
   const [viewport, setViewport] = useState<Viewport>({ zoom: 1, panX: 0, panY: 0 })
   // A new design starts on Arrange: clicking never paints by surprise.
   const [tool, setToolState] = useState<ToolId>('move')
-  const [cursor, setCursor] = useState<Point | null>(null)
   // The grid and the rulers, as chosen last time.
   const [showGrid, setShowGrid] = useRememberedChoice('pixel-studio-grid')
   const [showRulers, setShowRulers] = useRememberedChoice('pixel-studio-rulers')
@@ -1787,7 +1787,7 @@ export default function App() {
     setPicked(null)
     setTransformEdit(null)
     setCropEdit(null)
-    setCursor(null)
+    setPointerSpot(null)
     setNotice(null)
     setFitPending(next)
   }
@@ -3592,6 +3592,8 @@ export default function App() {
     // Its size and top-left corner before turning, as shown in the boxes.
     const readBox = (box: TransformBox) => ({ width: Math.abs(box.width), height: Math.abs(box.height), x: box.cx - Math.abs(box.width) / 2, y: box.cy - Math.abs(box.height) / 2 })
     const describeTyped = (change: BoxChange) => (change.angle !== undefined ? t('Turn') : change.width !== undefined || change.height !== undefined ? t('Resize') : t('Move'))
+    // Only Arrange shows this bar, and finding a picture's edges means reading its pixels.
+    if (tool !== 'move') return base
     if (!doc) return { ...base, blocked: t('Click anything on your design to pick it.') }
     if (!activeNow) return { ...base, blocked: t('The page is picked: choose its color in the Color panel. Click anything on your design to pick it.') }
     if (doc.selection) {
@@ -3963,7 +3965,7 @@ export default function App() {
                 revision={editor.revision}
                 viewport={viewport}
                 onViewportChange={setViewport}
-                onCursorChange={setCursor}
+                onCursorChange={setPointerSpot}
                 width={workspace.width}
                 height={workspace.height}
                 tool={tool}
@@ -4032,7 +4034,7 @@ export default function App() {
               {quickAround && (
                 <QuickBar around={quickAround} width={workspace.width} height={workspace.height} actions={actions} onMore={(x, y) => setContextMenu({ x, y, thing: true })} />
               )}
-              {showRulers && <Rulers doc={doc} viewport={viewport} width={workspace.width} height={workspace.height} cursor={cursor} />}
+              {showRulers && <Rulers doc={doc} viewport={viewport} width={workspace.width} height={workspace.height} />}
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
               {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
               {repeat.panel && <RepeatPanel state={{ ...repeat.panel, apply: applyRepeat }} />}
@@ -4085,7 +4087,7 @@ export default function App() {
                 onActualSize={commands.actualSize}
                 onFit={commands.fit}
               />
-              <DesignInfo doc={doc} cursor={cursor} />
+              <DesignInfo doc={doc} />
               <PagesBar
                 doc={doc}
                 revision={editor.revision}
