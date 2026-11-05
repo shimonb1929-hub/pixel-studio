@@ -1,4 +1,4 @@
-import { Aperture, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin } from 'lucide-react'
+import { Aperture, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, PaintBucket, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -279,6 +279,12 @@ const SHAPES: Choice<SelectionShape>[] = live([
     icon: Droplet,
     description: msg('Click a color, and everything of a similar color is selected: a blue sky, a white wall, a green background. Professionals call this the Magic wand.'),
   },
+  {
+    value: 'paint',
+    label: msg('Paint over'),
+    icon: Brush,
+    description: msg('Paint over the part you want, and the selection spreads by itself to its edges. Paint again to add more. Zoom in to paint small parts.'),
+  },
 ])
 
 const MODES: Choice<SelectionMode>[] = live([
@@ -395,7 +401,7 @@ function describeColorReach(tolerance: number): string {
   return t('Selects almost any color. Be careful, it may select a lot.')
 }
 
-function ColorSelectOptions({ controls }: { controls: ColorSelectControls }) {
+function ColorSelectOptions({ controls, painting }: { controls: ColorSelectControls; painting: boolean }) {
   return (
     <>
       <Slider
@@ -407,13 +413,13 @@ function ColorSelectOptions({ controls }: { controls: ColorSelectControls }) {
         note={describeColorReach(controls.tolerance)}
         onChange={(position) => controls.onToleranceChange(Math.round(position * 100) / 100)}
       />
-      <OnOff
+      {!painting && <OnOff
         on={controls.touching}
         icon={Footprints}
         label={t('Only touching')}
         description={t('When on, only the part connected to where you click is selected. When off, that color is selected everywhere on the design. Professionals call this Contiguous.')}
         onChange={controls.onTouchingChange}
-      />
+      />}
     </>
   )
 }
@@ -475,6 +481,7 @@ export interface SelectionCommands {
   selectAll: () => void
   deselect: () => void
   invert: () => void
+  mainThing: () => void
   fill: () => void
   remove: () => void
   toNewLayer: () => void
@@ -561,10 +568,11 @@ function SelectOptions({
   return (
     <>
       <Segmented label={t("Shape")} value={shape} choices={SHAPES} compact onChange={onShapeChange} />
-      {shape === 'color' && <ColorSelectOptions controls={colorSelect} />}
+      {(shape === 'color' || shape === 'paint') && <ColorSelectOptions controls={colorSelect} painting={shape === 'paint'} />}
       <Segmented label={t("When you drag")} value={mode} choices={MODES} onChange={onModeChange} />
       <Divider />
       <div className="flex shrink-0 items-center">
+        <BarButton icon={Focus} label={t('Main thing')} title={t('Select main thing')} description={t('AI finds what your design or photo is mostly of and selects it right to its edges. Press Swap after it to select the background.')} onClick={commands.mainThing} />
         <BarButton icon={SquareDashed} label={t("All")} title={t("Select all")} description={t("Select the whole design.")} onClick={commands.selectAll} />
         <BarButton icon={SquareSlash} roomy label={t("Let go")} description={t('Stop selecting (Deselect), so the whole design can be changed again. Nothing in your design changes.')} disabledReason={nothing} onClick={commands.deselect} />
         <BarButton icon={Contrast} label={t("Swap")} title={t("Select everything else")} description={t("Swap what is selected and what is not.")} onClick={commands.invert} />

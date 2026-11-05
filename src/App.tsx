@@ -42,7 +42,7 @@ import { GradientHandles } from './components/GradientHandles.tsx'
 import { EffectsPanel } from './components/EffectsPanel.tsx'
 import { PhotoColors, ReadableNote, SmartPreviewBar } from './components/SmartHelpers.tsx'
 import { useSmartDesign } from './hooks/useSmartDesign.ts'
-import { effectThumbnails, flattenDocument, mergeLayers } from './editor/compose.ts'
+import { drawLayer, effectThumbnails, flattenDocument, mergeLayers } from './editor/compose.ts'
 import { blendInfo, EFFECT_LOOKS, effectUnit, effectsLabel, hasEffects, type BlendMode, type EffectKind, type LayerEffects } from './editor/effects.ts'
 import { adjustmentLabel, autoColor, autoLight, isNeutral, LOOKS, NO_ADJUSTMENTS, sameAdjustments, tidyAdjustments, type Adjustments } from './editor/adjust.ts'
 import { adjustArea, lookThumbnails, paintAdjusted, pixelsToMeasure, previewParts } from './editor/adjustSession.ts'
@@ -106,7 +106,7 @@ import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank,
 import { decodeProject } from './editor/project.ts'
 import type { LayerOverride } from './editor/render.ts'
 import { invertSelection, refineSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
-import { colorMaskAt } from './editor/colorSelect.ts'
+import { colorMaskAt, paintedMaskAt } from './editor/colorSelect.ts'
 import type { StrokeResult } from './editor/stroke.ts'
 import { boxCorners, boxFromRect, describeChange, flipBox, isIdentity, normalizeAngle, rotateBox90, type TransformBox } from './editor/transform.ts'
 import { commitTransform, startTransform, transformParts, type TransformSession } from './editor/transformSession.ts'
@@ -2005,6 +2005,42 @@ export default function App() {
     setSelection(mode === 'add' ? t('Add to selection') : mode === 'subtract' ? t('Remove from selection') : t('Select same color'), (doc) => combineFound(doc.selection, ops, mode))
   }
 
+  // Paint over: the brush picks what it touches and spreads to the look-alike colors around it.
+  function paintSelect(points: Point[], radius: number, mode: SelectionMode) {
+    const d = current()
+    if (!d) return
+    const mask = paintedMaskAt(d, points, radius, Math.round(colorTolerance * 255))
+    const ops = mask ? maskToOps(mask, d.width, d.height, 1, 1) : []
+    if (ops.length === 0) {
+      problem(t('Nothing was picked there. Paint right over the part you want.'))
+      return
+    }
+    setSelection(mode === 'add' ? t('Add to selection') : mode === 'subtract' ? t('Remove from selection') : t('Paint to select'), (doc) => combineFound(doc.selection, ops, mode))
+  }
+
+  // Its shape: exactly the parts of the picked thing that show, nothing around it.
+  function selectLayerShape() {
+    const d = current()
+    const layer = d && activeLayer(d)
+    if (!d) return
+    if (!layer) {
+      problem(t('Pick something on your design first, then select its shape.'))
+      return
+    }
+    const canvas = createCanvas(d.width, d.height)
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+    drawLayer(ctx, d, layer)
+    const pixels = ctx.getImageData(0, 0, d.width, d.height).data
+    const mask = new Uint8Array(d.width * d.height)
+    for (let i = 0; i < mask.length; i++) mask[i] = pixels[i * 4 + 3] >= 128 ? 1 : 0
+    const ops = maskToOps(mask, d.width, d.height, 1, 1)
+    if (ops.length === 0) {
+      problem(t('“{name}” has nothing on the page to select.', { name: layer.name }))
+      return
+    }
+    setSelection(t('Select its shape'), () => ({ ops }))
+  }
+
   function applyEdge() {
     const edit = edgeShown
     setEdgeEdit(null)
@@ -2134,8 +2170,20 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [magicOn, editor.revision])
 
+  // Main thing: AI finds what the design or photo is mostly of, with one click (pro: Select Subject).
+  function selectMainThing() {
+    const d = current()
+    if (!d) return
+    // With a photo picked, it looks inside that photo; otherwise at the whole design.
+    const layer = activeLayer(d)
+    const page = { x: 0, y: 0, width: d.width, height: d.height }
+    const area = (layer?.kind === 'raster' && intersectRect(layerBounds(layer), page)) || page
+    const inset = Math.max(1, Math.round(Math.min(area.width, area.height) * 0.01))
+    void magicSelect({ box: { x: area.x + inset, y: area.y + inset, width: area.width - inset * 2, height: area.height - inset * 2 } }, 'replace', true)
+  }
+
   // Magic selection: AI finds the thing that was clicked (or boxed) in everything that shows.
-  async function magicSelect(target: { point: Point } | { box: Rect }, mode: SelectionMode) {
+  async function magicSelect(target: { point: Point } | { box: Rect }, mode: SelectionMode, mainThing = false) {
     const d = current()
     if (!d) return
     const { key, width, height, picture } = aiPicture(d)
@@ -2151,11 +2199,23 @@ export default function App() {
     try {
       const found = await findThing(key, picture, points, box)
       const ops = maskToOps(found.mask, found.width, found.height, d.width / found.width, d.height / found.height)
+      const size = found.width * found.height
+      let kept = 0
+      for (let i = 0; i < size; i++) kept += found.mask[i] ? 1 : 0
+      if (mainThing && (kept < size * 0.005 || kept > size * 0.97)) {
+        problem(t('The AI could not tell what the main thing is here. Choose Magic and click right on it instead.'))
+        return
+      }
       if (ops.length === 0) {
         problem(t('Nothing was found there. Click right on the thing you want, or drag a box around it.'))
         return
       }
       setNotice(null)
+      if (mainThing) {
+        setSelection(t('Select main thing'), () => ({ ops }))
+        inform(t('The main thing is selected. To work on the background instead, press Swap.'))
+        return
+      }
       setSelection(mode === 'add' ? t('Add to selection') : mode === 'subtract' ? t('Remove from selection') : t('Magic select'), (doc) => combineFound(doc.selection, ops, mode))
     } catch {
       problem(t("The magic selection couldn't start. Check that you're online, then try again."))
@@ -2604,6 +2664,14 @@ export default function App() {
       settle()
       if (current()) setSelection(t('Select everything else'), (d) => invertSelection(d.selection, d.width, d.height))
     },
+    selectMainThing: () => {
+      settle()
+      selectMainThing()
+    },
+    selectLayerShape: () => {
+      settle()
+      selectLayerShape()
+    },
     fill: () => {
       settle()
       const d = current()
@@ -2882,7 +2950,7 @@ export default function App() {
         actionsById(['cut', 'copy', 'paste', 'layer-duplicate', 'layer-delete']),
         actionsById(['layer-front', 'layer-up', 'layer-down', 'layer-back']),
         [...fitting(['keep-together', 'take-apart']), ...actionsById(['layer-join'])],
-        [...actionsById(['effects']), ...fitting(['remove-background'])],
+        [...actionsById(['effects']), ...fitting(['remove-background', 'select-shape'])],
       ]
     : [actionsById(['paste', 'select-all']), actionsById(['color-page', 'add-photo', 'add-table']), actionsById(['fit'])]
 
@@ -3441,6 +3509,7 @@ export default function App() {
           selectAll: commands.selectAll,
           deselect: commands.deselect,
           invert: commands.invert,
+          mainThing: commands.selectMainThing,
           fill: commands.fill,
           remove: commands.deleteArea,
           toNewLayer: commands.toNewLayer,
@@ -3559,6 +3628,7 @@ export default function App() {
                 onSelect={handleSelect}
                 onMagicSelect={(target, mode) => void magicSelect(target, mode)}
                 onColorSelect={colorSelect}
+                onPaintSelect={paintSelect}
                 selectionPreview={edgePreview}
                 clone={
                   tool === 'clone'

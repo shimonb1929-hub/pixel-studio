@@ -35,6 +35,9 @@ export interface AppCommands {
   selectAll: () => void
   deselect: () => void
   invert: () => void
+  // AI selects what the design is mostly of; or exactly the parts of the picked thing that show.
+  selectMainThing: () => void
+  selectLayerShape: () => void
   fill: () => void
   deleteArea: () => void
   toNewLayer: () => void
@@ -355,6 +358,25 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       keywords: ['invert', 'reverse', 'opposite', 'swap', 'everything else'],
       needsDocument: true,
       run: c.invert,
+    },
+    {
+      id: 'select-main-thing',
+      group: 'Select',
+      title: t('Select main thing'),
+      description: t('AI finds what your design or photo is mostly of (a person, a pet, a cup) and selects it right to its edges. Press Swap after it to select the background instead.'),
+      keywords: ['select subject', 'subject', 'main thing', 'object', 'person', 'foreground', 'background', 'select background', 'cut out', 'smart select', 'auto select', 'ai'],
+      needsDocument: true,
+      run: c.selectMainThing,
+    },
+    {
+      id: 'select-shape',
+      group: 'Select',
+      title: t('Select its shape'),
+      description: t('Select exactly the parts of the picked thing that show, so you can fill, copy or change just them.'),
+      keywords: ['load selection', 'selection from layer', 'layer transparency', 'transparency mask', 'select pixels', 'select layer', 'outline of layer', 'shape of'],
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: c.selectLayerShape,
     },
     {
       id: 'fill',
