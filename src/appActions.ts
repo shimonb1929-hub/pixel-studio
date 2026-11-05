@@ -160,7 +160,7 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       group: 'Design',
       title: t('Open…'),
       description: t('Pick a picture or a Pixel Studio project from your computer to edit it. You can also drop a file onto the window.'),
-      keywords: ['open', 'photo', 'picture', 'image', 'upload', 'import', 'load', 'file', 'project', 'continue'],
+      keywords: ['open', 'photo', 'picture', 'image', 'upload', 'import', 'load', 'file', 'project', 'continue', 'svg', 'pdf'],
       shortcut: shortcut('mod', 'O'),
       run: c.open,
     },

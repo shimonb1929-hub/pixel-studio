@@ -11,7 +11,7 @@ import { defineConfig, type Plugin } from 'vite'
 // files of Words from a picture in public/ocr) aren't either: they're big and only needed by the AI
 // tools, so they're kept the first time they're used. The same goes for the phone-photo (HEIC)
 // reader, libheif.
-const AI_FILES = /(^|\/)(ort-wasm|segmentWorker|libheif)/
+const AI_FILES = /(^|\/)(ort-wasm|segmentWorker|libheif|pdf\.worker|pdfjs|pdf-)/
 
 // Stands for the model files in public/models, so installed apps keep their copy of the model
 // until the files change (see pwa/service-worker.js). Names and sizes are enough (reading 40 MB on

@@ -2130,5 +2130,13 @@
  "Print my design": "להדפיס את העיצוב שלי",
  "Print your design on your own printer. Each page fills the paper you choose in the print window, sharp at any size.": "הדפס את העיצוב במדפסת שלך. כל עמוד ממלא את הנייר שתבחר בחלון ההדפסה, חד בכל גודל.",
  "Print…": "הדפסה…",
- "Remember how the picked thing looks (its colors, outline, shadow and how solid it is), to give the same look to other things.": "זוכר איך הדבר שנבחר נראה (הצבעים, קו המתאר, הצל ומידת האטימות), כדי לתת את אותו מראה לדברים אחרים."
+ "Remember how the picked thing looks (its colors, outline, shadow and how solid it is), to give the same look to other things.": "זוכר איך הדבר שנבחר נראה (הצבעים, קו המתאר, הצל ומידת האטימות), כדי לתת את אותו מראה לדברים אחרים.",
+ "Drawing": "ציור",
+ "Only the first {count} pages were opened; {skipped} more were left out.": "נפתחו רק {count} העמודים הראשונים; עוד {skipped} לא נפתחו.",
+ "Original picture": "התמונה המקורית",
+ "Page picture": "תמונת העמוד",
+ "Part {n}": "חלק {n}",
+ "This PDF couldn't be opened. It may be locked with a password or damaged.": "לא ניתן לפתוח את קובץ ה‑PDF הזה. ייתכן שהוא נעול בסיסמה או פגום.",
+ "Open a logo or a PDF to work on": "לפתוח לוגו או PDF כדי לעבוד עליו",
+ "Press Open and pick the file. A logo saved as SVG opens as shapes you can recolor and reshape, kept together. Each page of a PDF becomes a page of the design, as a sharp picture to add to.": "לחצו על פתיחה ובחרו את הקובץ. לוגו ששמור כ‑SVG נפתח כצורות שאפשר לצבוע מחדש ולשנות את צורתן, שמורות יחד. כל עמוד של PDF הופך לעמוד בעיצוב, כתמונה חדה שאפשר להוסיף עליה."
 }

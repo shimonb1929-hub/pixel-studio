@@ -65,7 +65,8 @@ import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocume
 import { addPage, changeEveryPage, goToPage, movePage, pageDocuments, pageIndex, pagesSameSize, removePage } from './editor/pages.ts'
 import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
-import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
+import { MAX_PDF_PAGES } from './editor/pdfImport.ts'
+import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFileWithNote } from './editor/io.ts'
 import { isHeic } from './editor/heic.ts'
 import { lookOf, withLook, type Look } from './editor/copyLook.ts'
 import { printDesign } from './editor/print.ts'
@@ -200,6 +201,8 @@ const HEAL_MAX_MARGIN = 400
 
 // Phone photos (HEIC) don't always count as pictures on Windows, so they're named too.
 const PICTURE_FILES = 'image/*,.heic,.heif'
+// Opening a design also takes PDFs (each page becomes a page of the design).
+const OPEN_FILES = `${PICTURE_FILES},.pdf,application/pdf`
 
 const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
 
@@ -1820,7 +1823,7 @@ export default function App() {
     const input = fileInputRef.current
     if (!input) return
     fileModeRef.current = mode
-    input.accept = mode === 'open' ? `${PICTURE_FILES},.${EXPORT_FORMATS.project.extension}` : PICTURE_FILES
+    input.accept = mode === 'open' ? `${OPEN_FILES},.${EXPORT_FORMATS.project.extension}` : PICTURE_FILES
     input.click()
   }
 
@@ -1835,8 +1838,9 @@ export default function App() {
   // A picture becomes a new design; a project file comes back with all its layers.
   async function openFile(file: File) {
     try {
-      const next = await openDesignFile(file)
+      const { doc: next, skipped } = await openDesignFileWithNote(file)
       await leaveDesign(() => showDocument(next))
+      if (skipped > 0) inform(t('Only the first {count} pages were opened; {skipped} more were left out.', { count: MAX_PDF_PAGES, skipped }))
     } catch (e) {
       problem(errorMessage(e))
     }
@@ -3917,7 +3921,7 @@ export default function App() {
       <input
         ref={fileInputRef}
         type="file"
-        accept={`${PICTURE_FILES},.${EXPORT_FORMATS.project.extension}`}
+        accept={`${OPEN_FILES},.${EXPORT_FORMATS.project.extension}`}
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0]

@@ -55,6 +55,10 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Phone photos open.** iPhone and other phone photos (HEIC) open in every browser, not only
   Safari: they are read by libheif, which comes from Pixel Studio's own site the first time it is
   needed.
+- **Logos and PDFs open.** An SVG logo opens as real shapes, kept together, that stay sharp and
+  can be recolored and reshaped (the picture it makes is kept, hidden, below them). Each page of a
+  PDF becomes a page of the design, drawn at print detail; pdf.js reads it, again loaded only when
+  needed.
 - **Several things at once, without folders.** Drag a box around things (or Shift+click them) to
   pick several; they move, resize, turn, recolor and delete together. "Keep together" makes them
   one thing: a click on any part picks it all, a double-click picks just that part, and the Layers
@@ -332,6 +336,8 @@ only when a design uses them and kept for offline use after that. `node scripts/
 downloads them again and rebuilds the font list from `scripts/fonts/list.json`;
 `python3 scripts/fonts/culmus.py` remakes the Culmus, Taamey and Ezra files first. What each font
 is good for is chosen by hand in `src/text/fontPurposes.ts`.
+
+PDFs are read with pdf.js (Apache License 2.0), also a separate file loaded only when needed.
 
 Phone photos (HEIC) are read with libheif through libheif-js (GNU LGPL 3.0). It is a separate
 file of the built site, loaded only when a HEIC photo is opened, so it can be swapped for any other

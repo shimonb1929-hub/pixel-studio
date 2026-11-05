@@ -274,6 +274,14 @@ export const GOALS: Goal[] = [
     keywords: ['print', 'printer', 'paper', 'print out'],
   },
   {
+    id: 'open-svg-pdf',
+    goal: msg('Open a logo or a PDF to work on'),
+    how: msg('Press Open and pick the file. A logo saved as SVG opens as shapes you can recolor and reshape, kept together. Each page of a PDF becomes a page of the design, as a sharp picture to add to.'),
+    action: 'open',
+    pro: 'Place, Import, Open PDF',
+    keywords: ['svg', 'pdf', 'logo', 'vector', 'import', 'flyer', 'menu', 'form', 'open pdf', 'edit pdf'],
+  },
+  {
     id: 'copy-drag',
     goal: msg('Make a copy of something'),
     how: msg('With Arrange, hold Alt (Option on a Mac) and drag it: a copy comes out and the original stays. Or press Ctrl+J (Cmd+J) for a copy right on top of it.'),

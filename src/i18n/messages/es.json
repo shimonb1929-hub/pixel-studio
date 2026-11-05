@@ -2130,5 +2130,13 @@
  "Print my design": "Imprimir mi diseño",
  "Print your design on your own printer. Each page fills the paper you choose in the print window, sharp at any size.": "Imprime tu diseño en tu propia impresora. Cada página llena el papel que elijas en la ventana de impresión, nítida a cualquier tamaño.",
  "Print…": "Imprimir…",
- "Remember how the picked thing looks (its colors, outline, shadow and how solid it is), to give the same look to other things.": "Recuerda cómo se ve lo elegido (sus colores, contorno, sombra y opacidad) para dar el mismo aspecto a otras cosas."
+ "Remember how the picked thing looks (its colors, outline, shadow and how solid it is), to give the same look to other things.": "Recuerda cómo se ve lo elegido (sus colores, contorno, sombra y opacidad) para dar el mismo aspecto a otras cosas.",
+ "Drawing": "Dibujo",
+ "Only the first {count} pages were opened; {skipped} more were left out.": "Solo se abrieron las primeras {count} páginas; quedaron fuera {skipped} más.",
+ "Original picture": "Imagen original",
+ "Page picture": "Imagen de la página",
+ "Part {n}": "Parte {n}",
+ "This PDF couldn't be opened. It may be locked with a password or damaged.": "No se pudo abrir este PDF. Puede que tenga contraseña o esté dañado.",
+ "Open a logo or a PDF to work on": "Abrir un logotipo o un PDF para trabajar en él",
+ "Press Open and pick the file. A logo saved as SVG opens as shapes you can recolor and reshape, kept together. Each page of a PDF becomes a page of the design, as a sharp picture to add to.": "Pulsa Abrir y elige el archivo. Un logotipo guardado como SVG se abre como formas que puedes recolorear y cambiar, mantenidas juntas. Cada página de un PDF se convierte en una página del diseño, como una imagen nítida a la que añadir cosas."
 }

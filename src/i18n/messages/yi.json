@@ -2130,5 +2130,13 @@
  "Print my design": "דרוקן מיין דיזיין",
  "Print your design on your own printer. Each page fills the paper you choose in the print window, sharp at any size.": "דרוקט אייער דיזיין אויף אייער אייגענעם דרוקער. יעדע זייט פילט אויס דאס פאפיר וואס איר קלויבט אינעם דרוק פענצטער, שארף אין יעדע גרייס.",
  "Print…": "דרוקן…",
- "Remember how the picked thing looks (its colors, outline, shadow and how solid it is), to give the same look to other things.": "געדענקט ווי די אויסגעקליבענע זאך זעט אויס (אירע קאלירן, ראנד, שאטן און ווי פעסט עס איז), כדי צו געבן דאס זעלבע אויסזען צו אנדערע זאכן."
+ "Remember how the picked thing looks (its colors, outline, shadow and how solid it is), to give the same look to other things.": "געדענקט ווי די אויסגעקליבענע זאך זעט אויס (אירע קאלירן, ראנד, שאטן און ווי פעסט עס איז), כדי צו געבן דאס זעלבע אויסזען צו אנדערע זאכן.",
+ "Drawing": "צייכענונג",
+ "Only the first {count} pages were opened; {skipped} more were left out.": "נאָר די ערשטע {count} זײַטן זענען געעפֿנט געוואָרן; נאָך {skipped} זענען איבערגעלאָזט געוואָרן.",
+ "Original picture": "דאָס אָריגינעלע בילד",
+ "Page picture": "בילד פֿון דער זײַט",
+ "Part {n}": "טייל {n}",
+ "This PDF couldn't be opened. It may be locked with a password or damaged.": "מע קען ניט עפֿענען די PDF. זי איז אפֿשר פֿאַרשלאָסן מיט אַ פּאַראָל אָדער צעבראָכן.",
+ "Open a logo or a PDF to work on": "עפֿענען אַ לאָגאָ אָדער אַ PDF צו אַרבעטן דערויף",
+ "Press Open and pick the file. A logo saved as SVG opens as shapes you can recolor and reshape, kept together. Each page of a PDF becomes a page of the design, as a sharp picture to add to.": "דריקט עפֿענען און קלײַבט אויס די טעקע. אַ לאָגאָ געהאַלטן ווי SVG עפֿנט זיך ווי פֿורעמס וואָס מע קען איבערפֿאַרבן און איבערפֿורעמען, צוזאַמענגעהאַלטן. יעדע זײַט פֿון אַ PDF ווערט אַ זײַט פֿון דעם דיזיין, ווי אַ שאַרף בילד צו צוגעבן דערצו."
 }

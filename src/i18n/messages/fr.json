@@ -2130,5 +2130,13 @@
  "Print my design": "Imprimer mon design",
  "Print your design on your own printer. Each page fills the paper you choose in the print window, sharp at any size.": "Imprimez votre design sur votre imprimante. Chaque page remplit le papier choisi dans la fenêtre d’impression, net à toute taille.",
  "Print…": "Imprimer…",
- "Remember how the picked thing looks (its colors, outline, shadow and how solid it is), to give the same look to other things.": "Retient l’aspect de l’élément choisi (couleurs, contour, ombre et opacité) pour le donner à d’autres éléments."
+ "Remember how the picked thing looks (its colors, outline, shadow and how solid it is), to give the same look to other things.": "Retient l’aspect de l’élément choisi (couleurs, contour, ombre et opacité) pour le donner à d’autres éléments.",
+ "Drawing": "Dessin",
+ "Only the first {count} pages were opened; {skipped} more were left out.": "Seules les {count} premières pages ont été ouvertes ; {skipped} autres ont été laissées de côté.",
+ "Original picture": "Image d’origine",
+ "Page picture": "Image de la page",
+ "Part {n}": "Partie {n}",
+ "This PDF couldn't be opened. It may be locked with a password or damaged.": "Impossible d’ouvrir ce PDF. Il est peut-être protégé par un mot de passe ou endommagé.",
+ "Open a logo or a PDF to work on": "Ouvrir un logo ou un PDF pour le travailler",
+ "Press Open and pick the file. A logo saved as SVG opens as shapes you can recolor and reshape, kept together. Each page of a PDF becomes a page of the design, as a sharp picture to add to.": "Appuyez sur Ouvrir et choisissez le fichier. Un logo enregistré en SVG s’ouvre en formes que vous pouvez recolorer et remodeler, gardées ensemble. Chaque page d’un PDF devient une page du dessin, en image nette à compléter."
 }
