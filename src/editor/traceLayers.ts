@@ -35,7 +35,7 @@ export function picturePlace(layer: PixelLayer): { toDesign: Affine; rotation: n
 }
 
 // One shape out of outlines in the design: its box is turned like the picture, and fits them all.
-function shapeFromPaths(paths: ShapePath[], rotation: number): { box: TransformBox; path: ShapePath; parts: ShapePath[] } {
+export function shapeFromPaths(paths: ShapePath[], rotation: number): { box: TransformBox; path: ShapePath; parts: ShapePath[] } {
   const cos = Math.cos(rotation)
   const sin = Math.sin(rotation)
   // Into the box's own (unturned) directions.

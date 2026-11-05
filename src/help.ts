@@ -170,12 +170,28 @@ export const GOALS: Goal[] = [
     keywords: ['repeat', 'duplicate', 'pattern', 'border', 'flower', 'wreath', 'symmetry', 'mirror', 'tiles'],
   },
   {
+    id: 'linked',
+    goal: msg('Use the same thing many times and change them all at once'),
+    how: msg('Pick it and choose Linked copy in Search, or tick Change together in Make copies. Change the color, shape or words of one, and every linked copy changes. The link button in Layers lets one change on its own.'),
+    action: 'linked-copy',
+    pro: 'Symbols, Symbol instances, Linked copies',
+    keywords: ['symbol', 'instance', 'linked', 'component', 'smart object', 'same', 'all at once', 'logo', 'icon'],
+  },
+  {
     id: 'pattern',
     goal: msg('Fill a shape with dots, stripes or checks'),
     how: msg('Pick the shape with Arrange. In the Shape panel choose Pattern, then click the one you like. The Color panel colors the little shapes or what is behind them.'),
     tool: 'move',
     pro: 'Pattern fill, Pattern swatches',
     keywords: ['pattern', 'polka', 'dots', 'stripes', 'checks', 'checkerboard', 'texture', 'tile', 'repeat', 'background'],
+  },
+  {
+    id: 'light-shade',
+    goal: msg('Lighten or darken just part of a photo'),
+    how: msg('Choose Brush, open the brushes and pick Lighten or Darken. Brush over the part to change, again for more. The eraser takes it back.'),
+    tool: 'brush',
+    pro: 'Dodge tool, Burn tool',
+    keywords: ['dodge', 'burn', 'brighten', 'shadow', 'face', 'eyes', 'darker', 'lighter', 'shade'],
   },
   {
     id: 'words',

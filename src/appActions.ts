@@ -1,3 +1,5 @@
+import { canLink } from './editor/linked.ts'
+import { canBeShapes } from './editor/wordShapes.ts'
 import type { Action } from './actions.ts'
 import { LOOKS } from './editor/adjust.ts'
 import { activeLayer, layersToJoin } from './editor/layers.ts'
@@ -109,6 +111,11 @@ export interface AppCommands {
   makeCopies: () => void
   // Find words in every text and table and change them.
   findAndChange: () => void
+  // A copy that changes together with the picked thing, and letting linked copies change on their own.
+  linkedCopy: () => void
+  unlinkCopies: () => void
+  // The letters of the picked text become shapes.
+  wordsIntoShapes: () => void
 }
 
 interface ActionState {
@@ -559,6 +566,26 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       run: c.makeCopies,
     },
     {
+      id: 'linked-copy',
+      group: 'Layers',
+      title: t('Linked copy'),
+      description: t('A copy that changes together with the picked thing: change the color, shape or words of one, and the other changes too. Each keeps its own place and size.'),
+      keywords: ['symbol', 'symbols', 'instance', 'linked', 'link', 'component', 'smart object', 'clone', 'copy', 'duplicate', 'change together', 'same'],
+      needsDocument: true,
+      disabledReason: noLayerPicked ?? (active && !canLink(active) ? t('Only shapes and words can change together. Photos and drawings are copied with Duplicate.') : undefined),
+      run: c.linkedCopy,
+    },
+    {
+      id: 'unlink-copies',
+      group: 'Layers',
+      title: t('Stop changing together'),
+      description: t('The picked thing changes on its own again, and the copies it was linked with no longer follow it.'),
+      keywords: ['unlink', 'break link', 'detach', 'expand symbol', 'own', 'separate', 'symbol', 'instance'],
+      needsDocument: true,
+      disabledReason: noLayerPicked ?? (active && !active.linked ? t('The picked thing is not a linked copy.') : undefined),
+      run: c.unlinkCopies,
+    },
+    {
       id: 'keep-together',
       group: 'Layers',
       title: t('Keep together'),
@@ -929,6 +956,16 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
       run: c.blurBackground,
+    },
+    {
+      id: 'words-into-shapes',
+      group: 'Layers',
+      title: t('Words into shapes'),
+      description: t('Turns the letters of the picked words into shapes, so you can bend and pull each letter, fill it with a pattern, and the design looks the same on any computer. The words stay hidden below.'),
+      keywords: ['create outlines', 'outlines', 'convert to outlines', 'convert to shapes', 'text to shapes', 'text to path', 'letters', 'logo', 'vector', 'expand'],
+      needsDocument: true,
+      disabledReason: doc && (active?.kind !== 'text' || !canBeShapes(active)) ? t('Pick some words on your design first.') : undefined,
+      run: c.wordsIntoShapes,
     },
     {
       id: 'turn-into-shapes',

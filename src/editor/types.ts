@@ -40,6 +40,9 @@ interface LayerBase {
   blend?: BlendMode
   // Set when it's on every page: each page has a copy with the same `everyPage`, kept the same.
   everyPage?: string
+  // Set on linked copies: things with the same `linked` look the same. Change how one looks and
+  // the others change too; each keeps its own place, size and turn.
+  linked?: string
   // Parts of the layer that are softly hidden. Like adjustments, hiding never changes what's on the
   // layer, so hidden parts can be brought back at any time. Missing means nothing is hidden.
   hide?: LayerHide | null

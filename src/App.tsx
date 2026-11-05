@@ -138,6 +138,8 @@ import { hasRtlLetters, resolveAlign } from './text/layout.ts'
 import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './text/presets.ts'
 import { useFontsVersion } from './hooks/useFontsVersion.ts'
 import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
+import { canLink, linkCopies, unlink } from './editor/linked.ts'
+import { canBeShapes, placeWordShapes, traceWords, wordPictures, wordShapes } from './editor/wordShapes.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
 import { changeText, fitText, keepOnPage, newTextBox, textIndexAt, textLayout, textName } from './text/textLayer.ts'
 import { straighten, textAlongShape } from './text/textAlong.ts'
@@ -1530,6 +1532,28 @@ export default function App() {
   }
 
   // An empty box after the picked text, for the words to run on into.
+  // Words into shapes (pro: Create Outlines): each color of the picked text becomes a shape over it,
+  // and the text is hidden below, in case the words need changing later.
+  async function wordsIntoShapes() {
+    settle()
+    const d = current()
+    const layer = d && activeLayer(d)
+    if (!layer || layer.kind !== 'text' || !canBeShapes(layer)) return problem(t('Pick some words on your design first.'))
+    inform(t('Turning the words into shapes…'))
+    const pictures = await wordPictures(layer)
+    const results = await traceWords(pictures)
+    const now = editor.getDoc()?.layers.find((l) => l.id === layer.id)
+    if (!results || now !== layer) return
+    const words = layer.text.trim().replace(/\s+/g, ' ')
+    const name = words.length > 24 ? `${words.slice(0, 24)}…` : words
+    const shapes = wordShapes(layer, pictures, results, name)
+    if (shapes.length === 0) return problem(t('These words have no letters to turn into shapes.'))
+    editor.change(t('Words into shapes'), (doc) => placeWordShapes(doc, layer.id, shapes))
+    setTool('move')
+    pickMany(shapes.map((s) => s.id))
+    inform(t('The letters are shapes now: pick one with the Curve tool to drag its points. The words are hidden below them, in case you want to change them.'))
+  }
+
   function continueInAnotherBox() {
     const d = current()
     if (!d || !pickedText) return
@@ -1999,10 +2023,12 @@ export default function App() {
 
   // A brush stroke where nothing can be painted on (the page, a shape, text, a locked picture) goes
   // on a new drawing right above what's picked.
-  function newDrawingForStroke(): PixelLayer | null {
+  // Lighten and Darken get a drawing of light and shade, which softly mixes with what's below it.
+  function newDrawingForStroke(light = false): PixelLayer | null {
     const d = current()
     if (!d) return null
-    const layer = createLayer(nextLayerName(d.layers), d.width, d.height)
+    const plain = createLayer(light ? t('Light and shade') : nextLayerName(d.layers), d.width, d.height)
+    const layer: PixelLayer = light ? { ...plain, blend: 'soft-light' } : plain
     editor.startDrawing(layer)
     return layer
   }
@@ -2488,6 +2514,29 @@ export default function App() {
       editor.change(ids.length > 1 ? t('Duplicate') : t('Duplicate layer'), (doc) => duplicateLayers(doc, ids, copy, (g) => ({ id: createId('group'), name: t('{name} copy', { name: g.name }) })), { bytes })
       if (copies.length > 1) pickMany(copies)
     },
+    linkedCopy: () => {
+      settle()
+      const d = current()
+      const ids = targets().filter((id) => {
+        const layer = d?.layers.find((l) => l.id === id)
+        return layer && canLink(layer)
+      })
+      if (!d || ids.length === 0) return problem(t('Only shapes and words can change together. Photos and drawings are copied with Duplicate.'))
+      const copiesOf = new Map<string, string[]>()
+      const copy = (layer: Layer) => {
+        const made = duplicateLayer(layer)
+        copiesOf.set(layer.id, [made.id])
+        return made
+      }
+      editor.change(t('Linked copy'), (doc) => linkCopies(duplicateLayers(doc, ids, copy, (g) => ({ id: createId('group'), name: t('{name} copy', { name: g.name }) })), copiesOf))
+      const copies = [...copiesOf.values()].flat()
+      if (copies.length > 1) pickMany(copies)
+      inform(t('Change the color, shape or words of one, and the other changes too.'))
+    },
+    unlinkCopies: () => {
+      settle()
+      editor.change(t('Stop changing together'), (doc) => unlink(doc, targets()))
+    },
     remove: (only?: string[]) => {
       settle()
       const d = current()
@@ -2930,6 +2979,8 @@ export default function App() {
     },
     layerAdd: layers.add,
     layerDuplicate: layers.duplicate,
+    linkedCopy: layers.linkedCopy,
+    unlinkCopies: layers.unlinkCopies,
     layerUp: () => layers.move(1),
     layerDown: () => layers.move(-1),
     layerToFront: () => layers.toEnd('front'),
@@ -3005,6 +3056,7 @@ export default function App() {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') setPictureHelper({ kind: 'upscale', layerId: layer.id })
     },
+    wordsIntoShapes: () => void wordsIntoShapes(),
     makeCopies: () => {
       const ids = targets()
       settle()
@@ -3917,6 +3969,7 @@ export default function App() {
                     gradientStop={gradientStop}
                     onGradientStop={setGradientStop}
                     flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
+                    onIntoShapes={pickedText && pickedTexts <= 1 && canBeShapes(pickedText) && !tableTarget ? () => void wordsIntoShapes() : undefined}
                     onContinue={!tableTarget && pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 && !pickedText.along && !pickedText.style.bend ? continueInAnotherBox : undefined}
                     along={textTarget?.along ? { at: textTarget.along.at, flip: textTarget.along.flip } : null}
                     onAlong={changeAlong}
@@ -4041,6 +4094,7 @@ export default function App() {
                 onEditAdjust={layers.editAdjust}
                 onEditFade={layers.editFade}
                 onOnlyThisPage={(id) => editor.change(t('Only on this page'), (d) => setOnEveryPage(d, [id], false))}
+                onUnlink={(id) => editor.change(t('Stop changing together'), (d) => unlink(d, [id]))}
                 onRename={layers.rename}
                 onOpacity={layers.opacity}
                 onAdd={layers.add}

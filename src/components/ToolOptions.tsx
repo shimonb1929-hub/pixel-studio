@@ -70,7 +70,7 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
         description={t("A sample of how it works right now. It changes as you move the sliders.")}
       >
         <div className="hidden h-[42px] w-[104px] shrink-0 items-center justify-center rounded-lg border border-line bg-white xl:flex">
-          <StrokePreview settings={settings} color={color} mode={mode} width={96} height={36} maxSize={26} />
+          <StrokePreview settings={settings} color={sampleColor(settings, color)} mode={mode} width={96} height={36} maxSize={26} />
         </div>
       </Tooltip>
 
@@ -128,6 +128,11 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
   )
 }
 
+// Light-and-shade brushes don't paint the chosen color, so their samples show light or shade instead.
+function sampleColor(settings: BrushSettings, color: string): string {
+  return settings.light === 'lighten' ? '#fcd34d' : settings.light === 'darken' ? '#344054' : color
+}
+
 function PresetTile({ preset, chosen, color, mode, big, onChoose }: { preset: BrushPreset; chosen: boolean; color: string; mode: 'paint' | 'erase'; big?: boolean; onChoose: () => void }) {
   return (
     <Tooltip title={preset.name} description={preset.description}>
@@ -141,7 +146,7 @@ function PresetTile({ preset, chosen, color, mode, big, onChoose }: { preset: Br
           chosen ? 'bg-accent-soft text-accent ring-1 ring-accent/30' : 'text-ink-2 hover:bg-subtle hover:text-ink'
         }`}
       >
-        <StrokePreview settings={preset.settings} color={color} mode={mode} width={big ? 92 : 58} height={big ? 38 : 24} maxSize={big ? 22 : 14} />
+        <StrokePreview settings={preset.settings} color={sampleColor(preset.settings, color)} mode={mode} width={big ? 92 : 58} height={big ? 38 : 24} maxSize={big ? 22 : 14} />
         <span className={`font-medium ${big ? 'text-[12px]' : 'text-[11px]'}`}>{preset.name}</span>
       </button>
     </Tooltip>
@@ -154,8 +159,9 @@ function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; c
   const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="radio"][aria-checked="true"]', '[role="radio"]')
   const current = BRUSH_PRESETS.find((p) => p.id === presetId)
   const groups = [
-    { title: t('For drawing'), presets: BRUSH_PRESETS.filter((p) => p.kind !== 'paint') },
+    { title: t('For drawing'), presets: BRUSH_PRESETS.filter((p) => !p.kind || p.kind === 'draw') },
     { title: t('Paint and effects'), presets: BRUSH_PRESETS.filter((p) => p.kind === 'paint') },
+    { title: t('Light and shade on photos'), presets: BRUSH_PRESETS.filter((p) => p.kind === 'light') },
   ]
   return (
     <>
@@ -173,7 +179,7 @@ function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; c
           className={`flex h-[50px] shrink-0 items-center gap-1.5 rounded-lg px-2 transition-colors ${open ? 'bg-subtle text-ink' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
         >
           <span className="flex flex-col items-center gap-0.5">
-            {current ? <StrokePreview settings={current.settings} color={color} mode="paint" width={58} height={24} maxSize={14} /> : <span className="h-6" />}
+            {current ? <StrokePreview settings={current.settings} color={sampleColor(current.settings, color)} mode="paint" width={58} height={24} maxSize={14} /> : <span className="h-6" />}
             <span className="text-[11px] font-medium">{current?.name ?? t('Your brush')}</span>
           </span>
           <ChevronDown size={14} />
