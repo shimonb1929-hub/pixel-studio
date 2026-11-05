@@ -47,7 +47,7 @@ import { MAX_DESIGN_COLORS, MAX_TEXT_STYLES } from './designStyles.ts'
 // Version 18 added photos inside text (photo) and softly hidden parts (hide), each with its own
 // picture after the layer's other pictures.
 // Version 19 added pattern fills for shapes (a fill of kind 'pattern'). Version 20 added linked
-// copies (linked) and bent shapes (geometry.warp).
+// copies (linked), bent shapes (geometry.warp) and the contents list (contents).
 // Older files still open.
 
 export const PROJECT_VERSION = 20
@@ -123,6 +123,7 @@ export interface ProjectTextLayer extends ProjectLayerBase {
   wrap: boolean
   flow?: TextFlow
   pageNumber?: boolean
+  contents?: boolean
   photo?: ProjectPhoto
   styleId?: string
   along?: TextPath
@@ -632,6 +633,10 @@ function readLayer(layer: unknown): ProjectLayer {
     const text: ProjectTextLayer = { ...base, kind: 'text', box: readBox(layer.box), text: layer.text, style, ...(spans ? { spans } : {}), wrap: layer.wrap }
     if (layer.flow !== undefined) text.flow = readFlow(layer.flow)
     if (layer.along !== undefined) text.along = readTextPath(layer.along)
+    if (layer.contents !== undefined) {
+      if (layer.contents !== true) damaged()
+      text.contents = true
+    }
     if (layer.pageNumber !== undefined) {
       if (layer.pageNumber !== true) damaged()
       text.pageNumber = true
@@ -817,6 +822,7 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
       wrap: layer.wrap,
       ...(layer.flow ? { flow: layer.flow } : {}),
       ...(layer.pageNumber ? { pageNumber: true } : {}),
+      ...(layer.contents ? { contents: true } : {}),
       ...(layer.along ? { along: layer.along } : {}),
       ...(layer.styleId ? { styleId: layer.styleId } : {}),
       ...(photo ? { photo: { zoom: photo.zoom, x: photo.x, y: photo.y, width: photo.canvas.width, height: photo.canvas.height, bytes: sizes[0] } } : {}),
@@ -926,6 +932,7 @@ async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer>
       wrap: info.wrap,
       ...(info.flow ? { flow: info.flow } : {}),
       ...(info.pageNumber ? { pageNumber: true } : {}),
+      ...(info.contents ? { contents: true } : {}),
       ...(info.along ? { along: info.along } : {}),
       ...(info.styleId ? { styleId: info.styleId } : {}),
       ...(photo ? { photo } : {}),

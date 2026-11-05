@@ -150,6 +150,7 @@ import { hasRtlLetters, resolveAlign } from './text/layout.ts'
 import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './text/presets.ts'
 import { useFontsVersion } from './hooks/useFontsVersion.ts'
 import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
+import { contentsText, findContents, headingsOf, updateContents } from './editor/contents.ts'
 import { canLink, linkCopies, unlink } from './editor/linked.ts'
 import { isWarped, warpedPaths, type Warp } from './editor/warp.ts'
 import { DEFAULT_PUSH, type PushSettings } from './editor/push.ts'
@@ -3121,6 +3122,30 @@ export default function App() {
       settle()
       editor.change(t('Delete page'), (d) => removePage(d))
     },
+    contentsList: () => {
+      settle()
+      const d = current()
+      if (!d) return
+      const headings = headingsOf(d)
+      if (headings.length === 0) {
+        problem(t('No headings found yet. Make the titles of your pages bigger than the other words, then try again.'))
+        return
+      }
+      const text = contentsText(headings)
+      if (findContents(d)) {
+        editor.change(t('Update the contents list'), (doc) => updateContents(doc, (l) => fitText({ ...l, text, spans: undefined })))
+        inform(t('The contents list is up to date.'))
+        return
+      }
+      const style: TextStyle = { ...newTextStyle(d, 'body'), align: 'auto' }
+      const width = Math.round(d.width * 0.6)
+      const box = { cx: d.width / 2, cy: d.height / 2, width, height: style.size * style.lineHeight, rotation: 0 }
+      const fitted = fitText(textObject(style, box, text, true))
+      const layer: TextLayer = { ...fitted, name: t('Contents list'), contents: true, box: { ...fitted.box, cx: d.width / 2, cy: d.height / 2 } }
+      editor.change(t('Add a contents list'), (doc) => ({ ...insertLayerAboveActive(doc, layer), selection: null }))
+      setTool('move')
+      inform(t('Here is the list of your headings and their pages. Add or change pages, then make it again to bring it up to date.'))
+    },
     movePage: (direction) => {
       settle()
       editor.change(t('Move page'), (d) => movePage(d, direction))
@@ -4079,6 +4104,7 @@ export default function App() {
                   run: commands.everyPage,
                 }}
                 pageNumbers={{ disabled: hasPageNumbers(doc), run: commands.pageNumbers }}
+                contentsList={{ label: findContents(doc) ? t('Update the contents list') : t('Add a contents list'), run: commands.contentsList }}
               />
             </>
           ) : (

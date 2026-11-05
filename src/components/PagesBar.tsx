@@ -56,10 +56,11 @@ interface PagesBarProps {
   // Puts the picked thing on every page, or back on this page only.
   everyPage: { label: string; disabled: boolean; run: () => void }
   pageNumbers: { disabled: boolean; run: () => void }
+  contentsList: { label: string; run: () => void }
 }
 
 // The pages of the design, in a row at the bottom. With one page it's just a button to add more.
-export function PagesBar({ doc, revision, onGoTo, onAdd, onOtherSizes, onCopy, onMove, onDelete, everyPage, pageNumbers }: PagesBarProps) {
+export function PagesBar({ doc, revision, onGoTo, onAdd, onOtherSizes, onCopy, onMove, onDelete, everyPage, pageNumbers, contentsList }: PagesBarProps) {
   const pages = allPages(doc)
   const current = pageIndex(doc)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -84,6 +85,7 @@ export function PagesBar({ doc, revision, onGoTo, onAdd, onOtherSizes, onCopy, o
     { label: t('Move page later'), run: () => onMove(1), disabled: current === pages.length - 1 },
     { label: everyPage.label, run: everyPage.run, disabled: everyPage.disabled },
     { label: t('Add page numbers'), run: pageNumbers.run, disabled: pageNumbers.disabled },
+    ...(several ? [{ label: contentsList.label, run: contentsList.run }] : []),
     { label: t('Delete this page'), run: onDelete },
   ]
 

@@ -3,12 +3,12 @@ import { cssGradient } from '../editor/gradient.ts'
 import { photoPlacement } from '../editor/photoFill.ts'
 import type { TextLayer, TextSpan, TextStyle, Viewport } from '../editor/types.ts'
 import { fontStack } from '../text/fonts.ts'
-import { resolveAlign } from '../text/layout.ts'
+import { hasRtlLetters, resolveAlign } from '../text/layout.ts'
 import { editSpans, raiseShift, styledPieces, tidySpans } from '../text/spans.ts'
 import { straightBox, textLayout } from '../text/textLayer.ts'
 import { avoidMargins } from '../text/avoid.ts'
 import { isCurved } from '../text/textCurve.ts'
-import { t } from '../i18n/i18n.ts'
+import { language, t } from '../i18n/i18n.ts'
 
 export interface TextEditing {
   // The text as it is right now. While typing, it shows in this box instead of on the design.
@@ -197,7 +197,8 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
         contentEditable="plaintext-only"
         suppressContentEditableWarning
         dir={layout.direction}
-        spellCheck={false}
+        lang={spellingLanguage(layer.text)}
+        spellCheck
         autoCorrect="off"
         autoCapitalize="off"
         onInput={(event) => {
@@ -413,4 +414,12 @@ function usePhotoAddress(canvas: HTMLCanvasElement | null): string | null {
     }
   }, [canvas])
   return canvas && address?.canvas === canvas ? address.url : null
+}
+
+// The language the browser checks spelling in (pro: Spell Check): Hebrew or Yiddish for Hebrew
+// letters, otherwise the app's language, or English when the app is in Hebrew or Yiddish.
+function spellingLanguage(text: string): string {
+  const app = language()
+  if (hasRtlLetters(text)) return app === 'yi' || /[\u05F0-\u05F2\uFB1F]/.test(text) ? 'yi' : 'he'
+  return app === 'he' || app === 'yi' ? 'en' : app
 }

@@ -31,6 +31,28 @@ export function rgbToHex({ r, g, b }: Rgb): string {
   return `#${part(r)}${part(g)}${part(b)}`
 }
 
+// How much of each print ink (pro: CMYK): cyan, magenta, yellow and black, each 0 to 100.
+export interface Cmyk {
+  c: number
+  m: number
+  y: number
+  k: number
+}
+
+export function hexToCmyk(hex: string): Cmyk {
+  const { r, g, b } = hexToRgb(hex)
+  const k = 1 - Math.max(r, g, b) / 255
+  if (k >= 1) return { c: 0, m: 0, y: 0, k: 100 }
+  const ink = (n: number) => Math.round(((1 - n / 255 - k) / (1 - k)) * 100)
+  return { c: ink(r), m: ink(g), y: ink(b), k: Math.round(k * 100) }
+}
+
+export function cmykToHex({ c, m, y, k }: Cmyk): string {
+  const part = (n: number) => Math.min(100, Math.max(0, n)) / 100
+  const light = 1 - part(k)
+  return rgbToHex({ r: 255 * (1 - part(c)) * light, g: 255 * (1 - part(m)) * light, b: 255 * (1 - part(y)) * light })
+}
+
 export function rgbToHsv({ r, g, b }: Rgb): Hsv {
   const rn = r / 255
   const gn = g / 255
