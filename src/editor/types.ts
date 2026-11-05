@@ -180,10 +180,18 @@ export interface TextStyle {
   // Bends the text into an arc: up like a rainbow when above 0, down like a smile below 0, and a
   // full circle at 1 or -1. Missing or 0 means straight.
   bend?: number
+  // A line under the letters, or through them. Missing means none.
+  underline?: boolean
+  strike?: boolean
+  // Small letters raised above the line (m², 1st) or lowered below it (H₂O). Only words picked
+  // inside a text get it. Missing means on the line.
+  raise?: TextRaise | null
 }
 
+export type TextRaise = 'up' | 'down'
+
 // How some letters look different from the rest of their text: only what differs is kept.
-export type SpanStyle = Partial<Pick<TextStyle, 'font' | 'weight' | 'italic' | 'color'>>
+export type SpanStyle = Partial<Pick<TextStyle, 'font' | 'weight' | 'italic' | 'color' | 'underline' | 'strike' | 'raise'>>
 
 // Letters from `start` up to `end` that look different. Spans never overlap and are in order.
 export interface TextSpan {

@@ -38,6 +38,10 @@ import { PHONE_SCREEN, useMediaQuery, WIDE_SCREEN } from './hooks/useMediaQuery.
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { InstallDialog } from './components/InstallDialog.tsx'
+import { VersionsDialog } from './components/VersionsDialog.tsx'
+import { Rulers } from './components/Rulers.tsx'
+import { QuickBar } from './components/QuickBar.tsx'
+import { useRememberedChoice } from './hooks/useRememberedChoice.ts'
 import { DesignInfo, SelectionBar, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
 import { PagePanel } from './components/PagePanel.tsx'
 import { GradientHandles } from './components/GradientHandles.tsx'
@@ -68,7 +72,11 @@ import { cropDocument, documentBytes, flipDocument, resizeDocument, rotateDocume
 import { addPage, changeEveryPage, goToPage, movePage, pageDocuments, pageIndex, pagesSameSize, removePage } from './editor/pages.ts'
 import { intersectRect, polygonBounds, type Rect } from './editor/geometry.ts'
 import { EXPORT_FORMATS, nextNumberedName, uniqueName, type ExportFormat } from './editor/fileNames.ts'
-import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFile } from './editor/io.ts'
+import { MAX_PDF_PAGES } from './editor/pdfImport.ts'
+import { downloadBlob, exportDocument, imageFileToCanvas, openDesignFileWithNote } from './editor/io.ts'
+import { isHeic } from './editor/heic.ts'
+import { lookOf, withLook, type Look } from './editor/copyLook.ts'
+import { printDesign } from './editor/print.ts'
 import {
   activeLayer,
   duplicateLayers,
@@ -87,7 +95,7 @@ import {
   updateLayer,
   updateShape,
 } from './editor/layers.ts'
-import { listDesigns, loadDesign, loadMyLayout, saveMyLayout, type SavedDesign } from './editor/library.ts'
+import { listDesigns, loadDesign, loadMyLayout, loadVersion, saveDesign, saveMyLayout, type DesignVersion, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
 import { canFill, hitsLayer, isLineShape, layerAt, layerBounds, layerPixels, polygonPoints } from './editor/objects.ts'
 import { layerPhoto, photoWhereItWas, withPhoto } from './editor/photoFill.ts'
@@ -107,6 +115,7 @@ import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, ty
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
 import { decodeProject, designThumbnail, encodeProject } from './editor/project.ts'
+import { describeVersion } from './editor/time.ts'
 import type { LayerOverride } from './editor/render.ts'
 import { invertSelection, refineSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
 import { colorMaskAt, paintedMaskAt } from './editor/colorSelect.ts'
@@ -156,7 +165,7 @@ import { TOOLS } from './tools.ts'
 import { useTurnIntoShapes } from './hooks/useTurnIntoShapes.tsx'
 import { isRtl, live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts' | 'install' | 'find'
+type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts' | 'install' | 'find' | 'versions'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -212,6 +221,11 @@ const HEAL_MIN_MARGIN = 48
 // How long the design must stay the same before the magic selection gets it ready.
 const MAGIC_PREPARE_DELAY_MS = 600
 const HEAL_MAX_MARGIN = 400
+
+// Phone photos (HEIC) don't always count as pictures on Windows, so they're named too.
+const PICTURE_FILES = 'image/*,.heic,.heif'
+// Opening a design also takes PDFs (each page becomes a page of the design).
+const OPEN_FILES = `${PICTURE_FILES},.pdf,application/pdf`
 
 const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
 
@@ -422,6 +436,20 @@ export default function App() {
   // A new design starts on Arrange: clicking never paints by surprise.
   const [tool, setToolState] = useState<ToolId>('move')
   const [cursor, setCursor] = useState<Point | null>(null)
+  // The grid and the rulers, as chosen last time.
+  const [showGrid, setShowGrid] = useRememberedChoice('pixel-studio-grid')
+  const [showRulers, setShowRulers] = useRememberedChoice('pixel-studio-rulers')
+  // True while a mouse button or finger is down on the design, so the quick bar keeps out of the way.
+  const [pressing, setPressing] = useState(false)
+  useEffect(() => {
+    const up = () => setPressing(false)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+  }, [])
   const [dialog, setDialog] = useState<DialogId | null>(null)
   // Wide screens keep the panels beside the design; narrower ones open one over it when asked.
   const wide = useMediaQuery(WIDE_SCREEN)
@@ -516,6 +544,8 @@ export default function App() {
   // Text being typed: new text (not in the design until it has words) or text already there.
   const [textEdit, setTextEditState] = useState<TextEditState | null>(null)
   const textEditRef = useRef<TextEditState | null>(null)
+  // The look kept by Copy the look, for Paste the look.
+  const lookRef = useRef<Look | null>(null)
   // The letters picked while typing: the Text and Color panels change just those words.
   const [textPick, setTextPickState] = useState<{ start: number; end: number } | null>(null)
   const textPickRef = useRef<{ start: number; end: number } | null>(null)
@@ -1058,6 +1088,21 @@ export default function App() {
     editor.change(label, (doc) => ({ ...doc, layers: doc.layers.map((l) => (ids.includes(l.id) ? layerInFrame(l, from, to) : l)) }), { bytes })
   }
 
+  // Alt+drag: the dragged things are copied, and the copies land where the drag ended.
+  function copyPlaced(ids: string[], from: TransformBox, to: TransformBox) {
+    const d = current()
+    if (!d) return
+    const copies: string[] = []
+    const copy = (layer: Layer) => {
+      const made = layerInFrame(duplicateLayer(layer), from, to)
+      copies.push(made.id)
+      return made
+    }
+    const bytes = d.layers.reduce((sum, l) => (ids.includes(l.id) ? sum + layerBytes(l) : sum), 0)
+    editor.change(t('Copy by dragging'), (doc) => duplicateLayers(doc, ids, copy, (g) => ({ id: createId('group'), name: t('{name} copy', { name: g.name }) })), { bytes })
+    if (copies.length > 1) pickMany(copies)
+  }
+
   const KEEP_TOGETHER_HINT = t('Pick two or more things first: drag a box around them on your design, or hold Shift and click each one.')
 
   // A name for things kept together, from what's in it: "Circle + Star", or "Circle + 2 more".
@@ -1378,7 +1423,7 @@ export default function App() {
       const pick = textPickRef.current
       // With some words picked, their font, boldness, slant and color change; everything else
       // (size, spacing, lining up) is for the whole text.
-      const own = Object.keys(patch).every((key) => key === 'font' || key === 'weight' || key === 'italic' || key === 'color')
+      const own = Object.keys(patch).every((key) => ['font', 'weight', 'italic', 'color', 'underline', 'strike', 'raise'].includes(key))
       if (pick && pick.end > pick.start && own) {
         updateTextEdit((layer) => changeText(layer, { spans: styleRange(layer.spans, layer.style, layer.text.length, pick.start, pick.end, patch) }))
       } else {
@@ -1906,7 +1951,8 @@ export default function App() {
   }
 
   async function isProjectDrop(file: File): Promise<boolean> {
-    return file.name.toLowerCase().endsWith(`.${EXPORT_FORMATS.project.extension}`) || !file.type.startsWith('image/')
+    if (file.name.toLowerCase().endsWith(`.${EXPORT_FORMATS.project.extension}`)) return true
+    return !file.type.startsWith('image/') && !(await isHeic(file))
   }
 
   // Opens the computer's file picker for one of the jobs a picked file can have.
@@ -1914,7 +1960,7 @@ export default function App() {
     const input = fileInputRef.current
     if (!input) return
     fileModeRef.current = mode
-    input.accept = mode === 'open' ? `image/*,.${EXPORT_FORMATS.project.extension}` : 'image/*'
+    input.accept = mode === 'open' ? `${OPEN_FILES},.${EXPORT_FORMATS.project.extension}` : PICTURE_FILES
     input.click()
   }
 
@@ -1929,8 +1975,31 @@ export default function App() {
   // A picture becomes a new design; a project file comes back with all its layers.
   async function openFile(file: File) {
     try {
-      const next = await openDesignFile(file)
+      const { doc: next, skipped } = await openDesignFileWithNote(file)
       await leaveDesign(() => showDocument(next))
+      if (skipped > 0) inform(t('Only the first {count} pages were opened; {skipped} more were left out.', { count: MAX_PDF_PAGES, skipped }))
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
+  // Goes back to an earlier version of the open design. How it is now is kept as a version first,
+  // so going back can itself be undone from Earlier versions.
+  async function restoreVersion(version: DesignVersion) {
+    setDialog(null)
+    const d = editor.getDoc()
+    if (!d || d.id !== version.designId) return
+    try {
+      // Read first: keeping how it is now may make room by letting go of the oldest version.
+      const earlier = await loadVersion(version.key)
+      if (!earlier) throw new Error(t("That version isn't in this browser anymore."))
+      if (!(await autosave.flush())) throw new Error(t("Your latest changes couldn't be kept in this browser."))
+      const [project, thumbnail] = await Promise.all([encodeProject(d), designThumbnail(d)])
+      await saveDesign({ id: d.id, name: d.name, width: d.width, height: d.height, updatedAt: Date.now(), thumbnail }, project, undefined, 'keep')
+      const next = await decodeProject(earlier, d.id)
+      await saveDesign({ id: d.id, name: next.name, width: next.width, height: next.height, updatedAt: Date.now(), thumbnail: version.thumbnail }, earlier, undefined, 'none')
+      showDocument(next, true)
+      inform(t('Back to the earlier version ({when}). How it was a moment ago is in Earlier versions too.', { when: describeVersion(version.savedAt) }))
     } catch (e) {
       problem(errorMessage(e))
     }
@@ -2730,6 +2799,12 @@ export default function App() {
     colorPage: () => {
       if (current()) layers.pickPage()
     },
+    print: () => {
+      settle()
+      const d = current()
+      if (!d) return
+      printDesign(d).catch((e) => problem(errorMessage(e)))
+    },
     download: () => {
       settle()
       if (!current()) return
@@ -2758,6 +2833,9 @@ export default function App() {
       if (current()) setDialog('rename')
     },
     installApp: () => setDialog('install'),
+    earlierVersions: () => setDialog('versions'),
+    toggleGrid: () => setShowGrid(!showGrid),
+    toggleRulers: () => setShowRulers(!showRulers),
     close: () =>
       void leaveDesign(() => {
         editor.close()
@@ -2875,11 +2953,30 @@ export default function App() {
       const area = editArea(d)
       if (layer && area) editor.paint(t('Delete selected area'), layer.id, area, (ctx, l) => clearSelected(ctx, l, d))
     },
+    copyLook: () => {
+      settle()
+      const d = current()
+      const layer = d && activeLayer(d)
+      if (!layer) return
+      lookRef.current = lookOf(layer)
+      inform(t('Look copied. Pick other things, then press {keys} (or Menu › Paste the look).', { keys: shortcut('mod', 'alt', 'V') }))
+    },
+    pasteLook: () => {
+      settle()
+      const d = current()
+      const look = lookRef.current
+      const ids = targets()
+      if (!d || !look || ids.length === 0) return
+      editor.change(t('Paste the look'), (doc) => ({ ...doc, layers: doc.layers.map((l) => (ids.includes(l.id) ? withLook(l, look) : l)) }))
+    },
+    pasteLookBlocked: () => (lookRef.current ? null : t('Copy a look first: pick something and press Copy the look.')),
     toNewLayer: () => {
       settle()
       const d = current()
       const layer = d && activeLayer(d)
       const piece = selectedPiece()
+      // With no part selected, Ctrl+J copies the whole picked thing (as other programs do).
+      if (layer && !d.selection) return layers.duplicate()
       if (!layer || !piece) return
       editor.change(
         t('Copy to new layer'),
@@ -3167,10 +3264,19 @@ export default function App() {
       doc,
       undoLabel: editor.undoLabel,
       redoLabel: editor.redoLabel,
+      view: { grid: showGrid, rulers: showRulers },
       organize: { keepTogether: keepTogetherBlocker(doc), alongShape: alongPair(doc) ? null : t('Pick one text and one shape together first: click one, then hold Shift and click the other.'), takeApart: pickedGroups(doc).length === 0 ? t('Pick something kept together first.') : null, picked },
     },
     commands,
   )
+
+  // The quick bar shows next to what is picked with Arrange, unless something else is going on.
+  const quickPicked = doc && tool === 'move' && !doc.selection && !pressing && !textEdit && !transformEdit && !cropEdit && !contextMenu ? (manyIn(doc) ?? (activeLayer(doc) ? [doc.activeLayerId] : [])) : []
+  const quickFrame = quickPicked.length && doc ? frameOf(doc.layers.filter((l) => quickPicked.includes(l.id) && l.visible)) : null
+  const quickBounds = quickFrame ? polygonBounds(boxCorners(quickFrame)) : null
+  const quickAround = quickBounds
+    ? { x: quickBounds.x * viewport.zoom + viewport.panX, y: quickBounds.y * viewport.zoom + viewport.panY, width: quickBounds.width * viewport.zoom, height: quickBounds.height * viewport.zoom }
+    : null
 
   // The right-click menu: the everyday things to do with what was clicked, in short sections.
   const actionsById = (ids: string[]) => ids.map((id) => actions.find((a) => a.id === id)).filter((a): a is Action => !!a)
@@ -3269,6 +3375,10 @@ export default function App() {
       else if (mod && code === 'KeyY') action = c.redo
       else if (mod && code === 'KeyA' && hasDoc) action = c.selectAll
       else if (mod && code === 'KeyD' && hasDoc) action = c.deselect
+      else if (mod && event.altKey && !event.shiftKey && code === 'KeyC' && hasDoc) action = c.copyLook
+      else if (mod && event.altKey && !event.shiftKey && code === 'KeyV' && hasDoc) action = c.pasteLook
+      else if (mod && !event.shiftKey && !event.altKey && code === 'KeyP' && hasDoc) action = c.print
+      else if (mod && !event.shiftKey && !event.altKey && code === 'Quote' && hasDoc) action = c.toggleGrid
       else if (mod && !event.shiftKey && code === 'KeyC' && hasDoc) action = c.copy
       else if (mod && code === 'KeyX' && hasDoc) action = c.cut
       else if (mod && code === 'KeyJ' && hasDoc) action = c.toNewLayer
@@ -3574,6 +3684,7 @@ export default function App() {
           onToggle: togglePicked,
           onPlace: placeLayer,
           onPlaceMany: placeMany,
+          onCopy: copyPlaced,
         }
       : null
 
@@ -3839,6 +3950,7 @@ export default function App() {
         <main
           ref={workspaceRef}
           onContextMenu={openDesignMenu}
+          onPointerDownCapture={(event) => !(event.target as HTMLElement).closest('[data-quickbar]') && setPressing(true)}
           // The start screen sits on the bright room itself; the table with its dots appears with a design.
           className={`relative min-h-0 min-w-0 flex-1 overflow-hidden ${doc ? 'rounded-card border border-line bg-workspace shadow-card' : ''}`}
           style={doc ? DOT_BACKGROUND : undefined}
@@ -3846,6 +3958,7 @@ export default function App() {
           {doc ? (
             <>
               <CanvasView
+                grid={showGrid}
                 doc={smart.shown ?? repeat.shown ?? steps.shown ?? shownDoc ?? doc}
                 revision={editor.revision}
                 viewport={viewport}
@@ -3916,6 +4029,10 @@ export default function App() {
                 onEditText={editText}
                 onEditTable={editTable}
               />
+              {quickAround && (
+                <QuickBar around={quickAround} width={workspace.width} height={workspace.height} actions={actions} onMore={(x, y) => setContextMenu({ x, y, thing: true })} />
+              )}
+              {showRulers && <Rulers doc={doc} viewport={viewport} width={workspace.width} height={workspace.height} cursor={cursor} />}
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
               {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
               {repeat.panel && <RepeatPanel state={{ ...repeat.panel, apply: applyRepeat }} />}
@@ -4215,7 +4332,7 @@ export default function App() {
       <input
         ref={fileInputRef}
         type="file"
-        accept={`image/*,.${EXPORT_FORMATS.project.extension}`}
+        accept={`${OPEN_FILES},.${EXPORT_FORMATS.project.extension}`}
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0]
@@ -4259,6 +4376,7 @@ export default function App() {
       )}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
       {traceShapes.dialog}
+      {dialog === 'versions' && doc && <VersionsDialog designId={doc.id} onRestore={(version) => void restoreVersion(version)} onClose={() => setDialog(null)} />}
       {dialog === 'install' && (
         <InstallDialog
           installed={app.installed}

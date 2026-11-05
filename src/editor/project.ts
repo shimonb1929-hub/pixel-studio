@@ -484,13 +484,14 @@ function readFlow(value: unknown): TextFlow {
 
 function readTextStyle(value: unknown): TextStyle {
   if (!isRecord(value)) damaged()
-  const { font, size, weight, italic, color, align, direction, letterSpacing, lineHeight, gradient, list, bend } = value
+  const { font, size, weight, italic, color, align, direction, letterSpacing, lineHeight, gradient, list, bend, underline, strike } = value
   if (typeof font !== 'string' || font.length === 0 || font.length > 100) damaged()
   if (!isBetween(size, 0.1, 100000) || !isBetween(weight, 1, 1000) || typeof italic !== 'boolean') damaged()
   if (!TEXT_ALIGNS.includes(align as TextAlign) || !TEXT_DIRECTIONS.includes(direction as TextDirection)) damaged()
   if (!isBetween(letterSpacing, -1, 5) || !isBetween(lineHeight, 0.3, 10)) damaged()
   if (list !== undefined && list !== null && !LIST_KINDS.includes(list as ListKind)) damaged()
   if (bend !== undefined && !isBetween(bend, -1, 1)) damaged()
+  if ((underline !== undefined && typeof underline !== 'boolean') || (strike !== undefined && typeof strike !== 'boolean')) damaged()
   return {
     font,
     size,
@@ -504,6 +505,8 @@ function readTextStyle(value: unknown): TextStyle {
     ...(gradient === undefined || gradient === null ? {} : { gradient: readGradient(gradient) }),
     ...(list ? { list: list as ListKind } : {}),
     ...(bend ? { bend: bend as number } : {}),
+    ...(underline ? { underline: true } : {}),
+    ...(strike ? { strike: true } : {}),
   }
 }
 
@@ -554,8 +557,17 @@ function readSpans(value: unknown, base: TextStyle, length: number): TextSpan[] 
   if (!Array.isArray(value) || value.length > MAX_TEXT_LENGTH) damaged()
   const spans = value.map((span): TextSpan => {
     if (!isRecord(span) || !Number.isInteger(span.start) || !Number.isInteger(span.end) || !isRecord(span.style)) damaged()
-    const { font, weight, italic, color } = span.style
+    const { font, weight, italic, color, underline, strike, raise } = span.style
     const style: SpanStyle = {}
+    for (const [key, flag] of [['underline', underline], ['strike', strike]] as const) {
+      if (flag === undefined) continue
+      if (typeof flag !== 'boolean') damaged()
+      style[key] = flag
+    }
+    if (raise !== undefined && raise !== null) {
+      if (raise !== 'up' && raise !== 'down') damaged()
+      style.raise = raise
+    }
     if (font !== undefined) {
       if (typeof font !== 'string' || font.length === 0 || font.length > 100) damaged()
       style.font = font

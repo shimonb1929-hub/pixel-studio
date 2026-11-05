@@ -31,6 +31,9 @@ export interface AppCommands {
   downloadSvg: () => void
   renameDesign: () => void
   installApp: () => void
+  earlierVersions: () => void
+  toggleGrid: () => void
+  toggleRulers: () => void
   close: () => void
   undo: () => void
   redo: () => void
@@ -46,6 +49,11 @@ export interface AppCommands {
   fill: () => void
   deleteArea: () => void
   toNewLayer: () => void
+  copyLook: () => void
+  pasteLook: () => void
+  // Why the look can't be pasted yet, or null.
+  pasteLookBlocked: () => string | null
+  print: () => void
   center: () => void
   resizeDesign: () => void
   cropToSelection: () => void
@@ -131,6 +139,8 @@ interface ActionState {
   // Why what's picked can't be kept together or taken apart (null when it can), and the things
   // picked together, if several are.
   organize: { keepTogether: string | null; takeApart: string | null; alongShape: string | null; picked: string[] | null }
+  // Whether the grid and the rulers show.
+  view?: { grid: boolean; rulers: boolean }
 }
 
 const LINE_UPS: { edge: LineUpEdge; title: string; description: string; keywords: string[] }[] = [
@@ -151,7 +161,7 @@ const NOTHING_SELECTED = msg('Select an area first, with the Select tool.')
 
 // Everything a person can do, in plain words. The menu, the search box and the hover tips all
 // come from this one list.
-export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionState, c: AppCommands): Action[] {
+export function buildActions({ doc, undoLabel, redoLabel, organize, view }: ActionState, c: AppCommands): Action[] {
   const active = doc ? activeLayer(doc) : undefined
   const activeIndex = doc && active ? doc.layers.indexOf(active) : -1
   const noLayerPicked = doc && !active ? t('Pick something on your design first.') : undefined
@@ -184,7 +194,7 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       group: 'Design',
       title: t('Open…'),
       description: t('Pick a picture or a Pixel Studio project from your computer to edit it. You can also drop a file onto the window.'),
-      keywords: ['open', 'photo', 'picture', 'image', 'upload', 'import', 'load', 'file', 'project', 'continue'],
+      keywords: ['open', 'photo', 'picture', 'image', 'upload', 'import', 'load', 'file', 'project', 'continue', 'svg', 'pdf'],
       shortcut: shortcut('mod', 'O'),
       run: c.open,
     },
@@ -231,10 +241,20 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       group: 'Design',
       title: t('Download…'),
       description: t('Save your design to your computer as a picture to share, a page to print (PDF), or a project to keep editing.'),
-      keywords: ['save', 'export', 'download', 'share', 'png', 'jpg', 'jpeg', 'print', 'pdf', 'printer', 'file', 'keep'],
+      keywords: ['save', 'export', 'download', 'share', 'png', 'jpg', 'jpeg', 'pdf', 'file', 'keep'],
       shortcut: shortcut('mod', 'S'),
       needsDocument: true,
       run: c.download,
+    },
+    {
+      id: 'print',
+      group: 'Design',
+      title: t('Print…'),
+      description: t('Print your design on your own printer. Each page fills the paper you choose in the print window, sharp at any size.'),
+      keywords: ['print', 'printer', 'paper', 'print out', 'hard copy'],
+      shortcut: shortcut('mod', 'P'),
+      needsDocument: true,
+      run: c.print,
     },
     {
       id: 'download-pdf',
@@ -292,6 +312,15 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       keywords: ['help', 'how', 'how to', 'tutorial', 'learn', 'guide', 'explain', 'which tool', 'what does', 'manual', 'question', 'photoshop', 'illustrator', 'indesign'],
       shortcut: 'F1',
       run: c.help,
+    },
+    {
+      id: 'earlier-versions',
+      group: 'Design',
+      title: t('Earlier versions…'),
+      description: t('See how this design looked earlier today or on other days, and go back to any of them. How it is now is kept too.'),
+      keywords: ['version', 'versions', 'history', 'earlier', 'restore', 'go back', 'older', 'backup', 'revert', 'lost', 'recover', 'yesterday'],
+      needsDocument: true,
+      run: c.earlierVersions,
     },
     {
       id: 'install',
@@ -362,6 +391,30 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       keywords: ['paste', 'insert', 'put', 'clipboard'],
       shortcut: shortcut('mod', 'V'),
       run: c.paste,
+    },
+    {
+      id: 'copy-look',
+      group: 'Edit',
+      extra: true,
+      title: t('Copy the look'),
+      description: t('Remember how the picked thing looks (its colors, outline, shadow and how solid it is), to give the same look to other things.'),
+      keywords: ['copy style', 'copy look', 'copy format', 'format painter', 'eyedropper', 'same look', 'match style', 'copy effects'],
+      shortcut: shortcut('mod', 'alt', 'C'),
+      needsDocument: true,
+      disabledReason: doc && !active ? t('Pick something first: click it with Arrange.') : undefined,
+      run: c.copyLook,
+    },
+    {
+      id: 'paste-look',
+      group: 'Edit',
+      extra: true,
+      title: t('Paste the look'),
+      description: t('Give the picked things the look you copied. They keep their own place, size, words and pictures.'),
+      keywords: ['paste style', 'paste look', 'paste format', 'apply style', 'same look', 'match style', 'paste effects'],
+      shortcut: shortcut('mod', 'alt', 'V'),
+      needsDocument: true,
+      disabledReason: doc ? (c.pasteLookBlocked() ?? undefined) : undefined,
+      run: c.pasteLook,
     },
     {
       id: 'find-and-change',
@@ -481,6 +534,7 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       title: t('Duplicate layer'),
       description: t('Make an exact copy of the selected layer, placed right above it.'),
       keywords: ['copy layer', 'clone', 'duplicate'],
+      shortcut: shortcut('mod', 'J'),
       needsDocument: true,
       run: c.layerDuplicate,
     },
@@ -894,6 +948,25 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       shortcut: shortcut('mod', '0'),
       needsDocument: true,
       run: c.fit,
+    },
+    {
+      id: 'grid',
+      group: 'View',
+      title: view?.grid ? t('Hide the grid') : t('Show the grid'),
+      description: t('Squared paper over the page, to place things evenly. Things click onto its lines as you move them. It is never printed or downloaded.'),
+      keywords: ['grid', 'squares', 'graph paper', 'snap', 'line up', 'even', 'guides', 'show grid', 'hide grid'],
+      shortcut: shortcut('mod', "'"),
+      needsDocument: true,
+      run: c.toggleGrid,
+    },
+    {
+      id: 'rulers',
+      group: 'View',
+      title: view?.rulers ? t('Hide the rulers') : t('Show the rulers'),
+      description: t('Rulers along the top and left edges, measuring from the corner of the page in the unit you chose for sizes. A blue mark shows where the pointer is.'),
+      keywords: ['ruler', 'rulers', 'measure', 'measurement', 'inches', 'centimeters', 'size', 'show rulers', 'hide rulers'],
+      needsDocument: true,
+      run: c.toggleRulers,
     },
     {
       id: 'actual-size',

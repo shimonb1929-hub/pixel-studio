@@ -7,6 +7,7 @@ const MODIFIER_LABELS = {
 }
 
 export const ALT_LABEL = MODIFIER_LABELS.alt
+export const MOD_LABEL = MODIFIER_LABELS.mod
 
 // shortcut('mod', 'shift', 'E') -> "Ctrl+Shift+E" (or "Cmd+Shift+E" on a Mac)
 export function shortcut(...parts: string[]): string {

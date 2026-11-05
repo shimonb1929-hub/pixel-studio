@@ -45,8 +45,30 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Lining up happens by itself.** While you drag something, it clicks into line with the page's
   middle and edges and with other things' edges and middles, and into even gaps between things;
   thin pink guides show what lined up, and gaps show their size. Pulling a side or corner and
-  drawing a new shape line up the same way. Hold Alt to place it freely. A click or a tap never moves
-  anything by accident.
+  drawing a new shape line up the same way. Hold Ctrl (Cmd on a Mac) while moving, or Alt while
+  pulling or drawing, to place it freely. A click or a tap never moves anything by accident.
+- **Copies by dragging.** Hold Alt (Option on a Mac) and drag something with Arrange: a copy comes
+  out and the original stays where it was, lining up like any move. Ctrl+J copies the picked thing
+  right on top of it.
+- **Fingers work too.** On a tablet or phone, two fingers pinch to zoom and slide to move around
+  the design; one finger paints, picks and moves as a mouse does.
+- **Phone photos open.** iPhone and other phone photos (HEIC) open in every browser, not only
+  Safari: they are read by libheif, which comes from Pixel Studio's own site the first time it is
+  needed.
+- **Choices right next to what is picked.** With Arrange, a small bar of buttons under the picked thing
+  offers Make a copy, Copy the look, To front and Delete (hover for names); More opens every other
+  choice, like a right-click.
+  It steps aside while things are dragged.
+- **Grid and rulers.** Menu › Show the grid puts squared paper over the page (squares sized to the
+  design), and things click onto its lines as they move; Ctrl+' turns it on and off. Rulers measure
+  from the page's corner in the unit chosen for sizes. Both are remembered for next time.
+- **Earlier versions.** Menu › Earlier versions… shows how the design looked along the way (the
+  last of every ten minutes of work, up to twenty), and goes back to any of them. How it is now
+  is kept first, so going back can be taken back too.
+- **Logos and PDFs open.** An SVG logo opens as real shapes, kept together, that stay sharp and
+  can be recolored and reshaped (the picture it makes is kept, hidden, below them). Each page of a
+  PDF becomes a page of the design, drawn at print detail; pdf.js reads it, again loaded only when
+  needed.
 - **Several things at once, without folders.** Drag a box around things (or Shift+click them) to
   pick several; they move, resize, turn, recolor and delete together. "Keep together" makes them
   one thing: a click on any part picks it all, a double-click picks just that part, and the Layers
@@ -92,6 +114,14 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   shows it on the page before you pick it. "Add your own font" takes a .ttf, .otf, .woff or .woff2
   file from your computer: it stays under "Your fonts" for next time, and goes inside your designs
   and SVG downloads, so they look right on any computer.
+- **Lines and small letters.** Line under and Line through (pro: Underline, Strikethrough) go on the
+  whole text or on picked words; Raise and Lower (pro: Superscript, Subscript) make picked letters
+  small and lift them above the line or drop them below it, for m², 1st or H₂O. They look the same
+  while typing, on the design, and in downloads.
+- **Copy the look.** Copy the look (Ctrl+Alt+C) remembers how the picked thing looks: its colors,
+  outline, shadow and other effects, how solid it is and how it mixes; a photo's adjustments too.
+  Paste the look (Ctrl+Alt+V) gives it to the picked things, which keep their place, size, words
+  and pictures. A shape's color colors words, and words' color fills a shape.
 - **Lists.** The Text panel's List row puts dots, numbers or letters before each paragraph: א ב ג
   on the right for Hebrew and Yiddish, a b c on the left for English. They count by themselves, an
   empty line gets none, wrapped lines stay lined up beside them, and text that runs on into another
@@ -148,6 +178,8 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
   however big it prints, and Hebrew and Yiddish come out exactly as on screen. Print shops get an
   extra edge for cutting (bleed) and cut lines, tucked under "For print shops". Text in the PDF can
   be searched and copied: the letters lie invisibly over the picture, right-to-left words included.
+- **Print at home.** Print… (Ctrl+P) hands every page to the browser's print window, one page on
+  each sheet, as big as fits the paper chosen there. Pages are drawn again at print detail first.
 - **Pages.** A design can have many pages (a menu, a booklet). A small row of pages sits at the
   bottom: + adds one, ⋯ copies, moves or deletes, Page Up and Page Down go between them. All pages
   share one size, undo works across them, and a PDF download holds every page.
@@ -314,6 +346,12 @@ only when a design uses them and kept for offline use after that. `node scripts/
 downloads them again and rebuilds the font list from `scripts/fonts/list.json`;
 `python3 scripts/fonts/culmus.py` remakes the Culmus, Taamey and Ezra files first. What each font
 is good for is chosen by hand in `src/text/fontPurposes.ts`.
+
+PDFs are read with pdf.js (Apache License 2.0), also a separate file loaded only when needed.
+
+Phone photos (HEIC) are read with libheif through libheif-js (GNU LGPL 3.0). It is a separate
+file of the built site, loaded only when a HEIC photo is opened, so it can be swapped for any other
+build of libheif.
 
 Words from a picture uses Tesseract through tesseract.js (Apache License 2.0). Its worker, engine
 and English, Hebrew and Yiddish models are in `public/ocr/<version>/`, served by our own site and

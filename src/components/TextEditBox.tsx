@@ -4,7 +4,7 @@ import { photoPlacement } from '../editor/photoFill.ts'
 import type { TextLayer, TextSpan, TextStyle, Viewport } from '../editor/types.ts'
 import { fontStack } from '../text/fonts.ts'
 import { hasRtlLetters, resolveAlign } from '../text/layout.ts'
-import { editSpans, styledPieces, tidySpans } from '../text/spans.ts'
+import { editSpans, raiseShift, styledPieces, tidySpans } from '../text/spans.ts'
 import { straightBox, textLayout } from '../text/textLayer.ts'
 import { avoidMargins } from '../text/avoid.ts'
 import { isCurved } from '../text/textCurve.ts'
@@ -235,6 +235,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
           fontSize: `${style.size}px`,
           fontWeight: style.weight,
           fontStyle: style.italic ? 'italic' : 'normal',
+          ...decorationCss(style),
           letterSpacing: `${style.letterSpacing * style.size}px`,
           lineHeight: `${style.size * style.lineHeight}px`,
           color: through ? 'transparent' : style.color,
@@ -257,6 +258,13 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
   )
 }
 
+// Lines under or through the letters, placed like the ones drawn on the design.
+function decorationCss(style: TextStyle): { textDecorationLine: string; textDecorationThickness?: string; textUnderlineOffset?: string } {
+  const lines = [style.underline ? 'underline' : '', style.strike ? 'line-through' : ''].filter(Boolean).join(' ')
+  if (!lines) return { textDecorationLine: 'none' }
+  return { textDecorationLine: lines, textDecorationThickness: `${Math.max(1, style.size * 0.06)}px`, textUnderlineOffset: `${style.size * 0.09}px` }
+}
+
 // A line break the box adds after text that ends with Enter, so the empty last line shows. It isn't
 // part of the text.
 const END = 'data-end'
@@ -271,10 +279,18 @@ function paint(el: HTMLElement, text: string, spans: TextSpan[] | undefined, bas
       continue
     }
     const look = document.createElement('span')
-    look.dataset.look = JSON.stringify({ font: piece.style.font, weight: piece.style.weight, italic: piece.style.italic, color: piece.style.color })
+    const { font, weight, italic, color, underline, strike, raise } = piece.style
+    look.dataset.look = JSON.stringify({ font, weight, italic, color, underline: !!underline, strike: !!strike, raise: raise ?? null })
     look.style.fontFamily = fontStack(piece.style.font)
     look.style.fontWeight = String(piece.style.weight)
     look.style.fontStyle = piece.style.italic ? 'italic' : 'normal'
+    Object.assign(look.style, decorationCss(piece.style))
+    if (raise) {
+      // Smaller, and moved off the line without making the line taller (as on the design).
+      look.style.fontSize = `${piece.style.size}px`
+      look.style.position = 'relative'
+      look.style.top = `${raiseShift(piece.style, base.size)}px`
+    }
     // Words without a color of their own let the text's photo or gradient show through.
     if (piece.style.color !== base.color || (!base.gradient && !photoInside)) look.style.color = piece.style.color
     look.appendChild(letters)

@@ -1,4 +1,4 @@
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, FlipVertical2, Italic, LayoutGrid, List, ListOrdered, Minus, Plus, Search, Shapes, Spline, WrapText, X, type LucideIcon } from 'lucide-react'
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, FlipVertical2, Italic, LayoutGrid, List, ListOrdered, Minus, Plus, Search, Shapes, Spline, Strikethrough, Subscript, Superscript, Underline, WrapText, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { Gradient } from '../editor/gradient.ts'
 import type { TextStyle } from '../editor/types.ts'
@@ -599,6 +599,67 @@ export interface TextPanelProps {
   onAlongShape?: () => void
 }
 
+// Lines under or through the letters, and small raised or lowered letters (m², H₂O).
+function TextMarks({ style, words, onStyle }: { style: TextStyle; words: boolean; onStyle: TextPanelProps['onStyle'] }) {
+  const raiseNote = t('Pick some letters while typing first: double-click the text, then select them with the mouse.')
+  const marks: { key: string; label: string; description: string; icon: LucideIcon; on: boolean; disabled?: string; toggle: () => void }[] = [
+    {
+      key: 'underline',
+      label: t('Line under'),
+      description: t('A line under the letters.'),
+      icon: Underline,
+      on: !!style.underline,
+      toggle: () => onStyle({ underline: !style.underline }, style.underline ? t('No line under') : t('Line under')),
+    },
+    {
+      key: 'strike',
+      label: t('Line through'),
+      description: t('A line through the letters, like something crossed out.'),
+      icon: Strikethrough,
+      on: !!style.strike,
+      toggle: () => onStyle({ strike: !style.strike }, style.strike ? t('No line through') : t('Line through')),
+    },
+    {
+      key: 'up',
+      label: t('Raise'),
+      description: t('Small letters raised above the line, like the 2 in m² or the st in 1st.'),
+      icon: Superscript,
+      on: style.raise === 'up',
+      disabled: words ? undefined : raiseNote,
+      toggle: () => onStyle({ raise: style.raise === 'up' ? null : 'up' }, style.raise === 'up' ? t('Back on the line') : t('Raise')),
+    },
+    {
+      key: 'down',
+      label: t('Lower'),
+      description: t('Small letters lowered below the line, like the 2 in H₂O.'),
+      icon: Subscript,
+      on: style.raise === 'down',
+      disabled: words ? undefined : raiseNote,
+      toggle: () => onStyle({ raise: style.raise === 'down' ? null : 'down' }, style.raise === 'down' ? t('Back on the line') : t('Lower')),
+    },
+  ]
+  return (
+    <div role="group" aria-label={t('Lines and small letters')} className="flex gap-1">
+      {marks.map((mark) => (
+        <Tooltip key={mark.key} title={mark.label} description={mark.disabled ?? mark.description}>
+          <button
+            type="button"
+            aria-label={mark.label}
+            aria-pressed={mark.on}
+            aria-disabled={mark.disabled ? true : undefined}
+            onClick={() => !mark.disabled && mark.toggle()}
+            className={`flex h-8 flex-1 items-center justify-center rounded-lg transition-colors ${
+              mark.disabled ? 'cursor-default text-ink-3' : mark.on ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'
+            }`}
+          >
+            <mark.icon size={16} />
+          </button>
+        </Tooltip>
+      ))}
+    </div>
+  )
+}
+
 // How text looks: font, size, boldness, lining up, which way it reads and spacing.
 export function TextPanel(props: TextPanelProps) {
   const { style } = props
@@ -711,6 +772,8 @@ export function TextPanel(props: TextPanelProps) {
             </button>
           </Tooltip>
         </div>
+
+        {!props.table && <TextMarks style={props.style} words={props.scope === 'words'} onStyle={props.onStyle} />}
 
         <ChoiceRow label={t("Line up")} value={alignShown} choices={ALIGNS} onChange={(align) => props.onStyle({ align }, t('Line up text'))} />
         {!props.table && (

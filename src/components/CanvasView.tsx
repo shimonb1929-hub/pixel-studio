@@ -12,6 +12,7 @@ import { startMove, type MoveSession } from '../editor/move.ts'
 import { renderScene, type LayerOverride } from '../editor/render.ts'
 import { sampleColor } from '../editor/sample.ts'
 import { layoutFrames } from '../editor/pageLayout.ts'
+import { gridLines, gridPositions, gridStep } from '../editor/grid.ts'
 import { documentPpi, formatInUnit, getUnit } from '../editor/units.ts'
 import { linedUp, snapLines, snapMove, type SnapResult } from '../editor/snap.ts'
 import {
@@ -78,6 +79,8 @@ export interface ArrangeControls {
   onPlace: (layerId: string, box: TransformBox, label: string) => void
   // Several things moved, resized or turned together, from one frame around them to another.
   onPlaceMany: (ids: string[], from: TransformBox, to: TransformBox, label: string) => void
+  // Alt+drag: copies of these things, moved from one frame around them to another.
+  onCopy: (ids: string[], from: TransformBox, to: TransformBox) => void
 }
 
 // The Text tool: a click starts text where the first line begins, a drag makes a paragraph box,
@@ -98,6 +101,8 @@ export interface ShapeDrawing {
 }
 
 export interface CanvasViewProps {
+  // Squared paper over the page; things line up with its lines while moved.
+  grid?: boolean
   doc: EditorDocument
   revision: number
   viewport: Viewport
@@ -240,9 +245,10 @@ interface BoxDragState {
 
 // Dragging what's picked with the Arrange tool, or a box on empty paper that picks what it touches.
 type ArrangeDrag =
-  | ({ kind: 'object'; layer: Layer } & BoxDragState)
+  // `copy`: started with Alt held, so the drag pulls out a copy and the original stays.
+  | ({ kind: 'object'; layer: Layer; copy: boolean } & BoxDragState)
   // `clicked` is the thing pressed on, which a click without dragging picks on its own.
-  | ({ kind: 'frame'; ids: string[]; layers: Layer[]; clicked: Layer | null } & BoxDragState)
+  | ({ kind: 'frame'; ids: string[]; layers: Layer[]; clicked: Layer | null; copy: boolean } & BoxDragState)
   // With Shift (`adding`), the box adds what it touches to what's already picked.
   | { kind: 'marquee'; pointerId: number; start: Point; current: Point; startClient: Point; moved: boolean; locked: Layer | null; adding: boolean }
 
@@ -303,6 +309,22 @@ const PICKER_RING_WIDTH = 12
 // A press that moves less than this many screen pixels is a click, not a drag. Fingers and pens
 // wobble more than a mouse, so a tap never moves anything by accident.
 const CLICK_DISTANCE = 4
+
+// A finger waits this long (or until it moves this far) before it starts painting or moving
+// anything, so a second finger landing a moment later can zoom instead.
+const TOUCH_WAIT_MS = 120
+const TOUCH_WAIT_DISTANCE = 8
+
+interface PendingTouch {
+  event: PointerEvent<HTMLCanvasElement>
+  timer: number
+}
+
+interface Pinch {
+  ids: [number, number]
+  distance: number
+  middle: Point
+}
 
 function clickSlop(event: { pointerType: string }): number {
   return event.pointerType === 'touch' ? 10 : event.pointerType === 'pen' ? 6 : CLICK_DISTANCE
@@ -598,6 +620,31 @@ function drawFlowBoxes(ctx: CanvasRenderingContext2D, doc: EditorDocument, viewp
   ctx.restore()
 }
 
+// The grid: faint lines over the page, under everything else on the overlay. A grid too fine to
+// see at this zoom shows only every few lines.
+function drawGrid(ctx: CanvasRenderingContext2D, doc: EditorDocument, viewport: Viewport) {
+  let step = gridStep(doc.width, doc.height)
+  while (step * viewport.zoom < 8) step *= 5
+  ctx.save()
+  ctx.strokeStyle = 'rgba(16, 24, 40, 0.16)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  const topLeft = toScreen({ x: 0, y: 0 }, viewport)
+  const bottomRight = toScreen({ x: doc.width, y: doc.height }, viewport)
+  for (const x of gridPositions(doc.width, step)) {
+    const at = Math.round(toScreen({ x, y: 0 }, viewport).x) + 0.5
+    ctx.moveTo(at, topLeft.y)
+    ctx.lineTo(at, bottomRight.y)
+  }
+  for (const y of gridPositions(doc.height, step)) {
+    const at = Math.round(toScreen({ x: 0, y }, viewport).y) + 0.5
+    ctx.moveTo(topLeft.x, at)
+    ctx.lineTo(bottomRight.x, at)
+  }
+  ctx.stroke()
+  ctx.restore()
+}
+
 // Margins and columns: faint dashed lines, under everything else on the overlay.
 function drawLayoutLines(ctx: CanvasRenderingContext2D, doc: EditorDocument, viewport: Viewport) {
   const frames = layoutFrames(doc)
@@ -725,6 +772,10 @@ export function CanvasView(props: CanvasViewProps) {
   const propsRef = useRef(props)
   const strokeRef = useRef<{ session: StrokeSession | PushSession; pointerId: number; label: string; grown?: PixelLayer; heal?: string; copyOffset?: Point } | null>(null)
   const panRef = useRef<PanDrag | null>(null)
+  // Fingers on the design: two together zoom and move the view (pinch), like on any phone.
+  const touchesRef = useRef(new Map<number, Point>())
+  const pendingTouchRef = useRef<PendingTouch | null>(null)
+  const pinchRef = useRef<Pinch | null>(null)
   const pickRef = useRef<number | null>(null)
   const moveRef = useRef<MoveDrag | null>(null)
   // A press with Arrange away from the selection: if it ends up a click, the selection is let go.
@@ -800,9 +851,9 @@ export function CanvasView(props: CanvasViewProps) {
     const move = moveRef.current
     if (move) return move.session.preview(move.dx, move.dy)
     const arrange = arrangeRef.current
-    if (arrange?.kind === 'object' && arrange.moved) return { layerId: arrange.layer.id, layer: previewInBox(arrange.layer, arrange.box) }
+    if (arrange?.kind === 'object' && arrange.moved) return { layerId: arrange.layer.id, layer: previewInBox(arrange.layer, arrange.box), copy: arrange.copy }
     if (arrange?.kind === 'frame' && arrange.moved) {
-      return { layers: new Map(arrange.layers.map((layer) => [layer.id, previewInFrame(layer, arrange.startBox, arrange.box)])) }
+      return { layers: new Map(arrange.layers.map((layer) => [layer.id, previewInFrame(layer, arrange.startBox, arrange.box)])), copy: arrange.copy }
     }
     const pen = propsRef.current.pen?.override()
     if (pen) return pen
@@ -906,6 +957,7 @@ export function CanvasView(props: CanvasViewProps) {
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    if (p.grid) drawGrid(ctx, p.doc, p.viewport)
     drawLayoutLines(ctx, p.doc, p.viewport)
     drawFlowBoxes(ctx, p.doc, p.viewport)
     drawSelection(ctx, p)
@@ -1021,7 +1073,7 @@ export function CanvasView(props: CanvasViewProps) {
   const arrangeOff = !props.arrange
   useLayoutEffect(() => {
     drawOverlay()
-  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box, arrangeOff, props.textEditing, props.pen?.version, props.selectionPreview, props.clone?.source, props.clone?.offset])
+  }, [doc, viewport, width, height, tool, spaceHeld, altHeld, brush, color, picking, props.box, arrangeOff, props.textEditing, props.pen?.version, props.selectionPreview, props.clone?.source, props.clone?.offset, props.grid])
 
   // A gap being filled while a part is dragged shows as soon as it's ready.
   useEffect(() => onGapFilled(() => moveRef.current && requestScene()), [])
@@ -1030,6 +1082,7 @@ export function CanvasView(props: CanvasViewProps) {
     () => () => {
       cancelAnimationFrame(sceneFrameRef.current)
       cancelAnimationFrame(overlayFrameRef.current)
+      if (pendingTouchRef.current) window.clearTimeout(pendingTouchRef.current.timer)
     },
     [],
   )
@@ -1146,7 +1199,7 @@ export function CanvasView(props: CanvasViewProps) {
   // The page, and the margins and columns on it, that things line up with.
   function snapPage(): Rect[] {
     const frames = layoutFrames(doc)
-    return [{ x: 0, y: 0, width: doc.width, height: doc.height }, ...(frames ? [frames.inside, ...frames.columns] : [])]
+    return [{ x: 0, y: 0, width: doc.width, height: doc.height }, ...(frames ? [frames.inside, ...frames.columns] : []), ...(props.grid ? gridLines(doc.width, doc.height) : [])]
   }
 
   // Where to put the pointer so a pulled handle lands on a line of the page or another thing, or
@@ -1187,7 +1240,8 @@ export function CanvasView(props: CanvasViewProps) {
     if (!frame) return
     const ids = layers.map((l) => l.id)
     const snap = handle !== 'rotate' ? snapTargets(frame, ids, layers.some((l) => l.kind === 'raster')) : null
-    arrangeRef.current = { kind: 'frame', pointerId: event.pointerId, ids, layers, clicked, handle, start: point, startBox: frame, box: frame, startClient, moved: false, snap, lined: null }
+    const copy = handle === 'move' && event.altKey
+    arrangeRef.current = { kind: 'frame', pointerId: event.pointerId, ids, layers, clicked, copy, handle, start: point, startBox: frame, box: frame, startClient, moved: false, snap, lined: null }
     requestOverlay()
   }
 
@@ -1195,7 +1249,8 @@ export function CanvasView(props: CanvasViewProps) {
     const startBox = arrangeBox(layer)
     if (!startBox) return
     const snap = handle !== 'rotate' ? snapTargets(startBox, [layer.id], layer.kind === 'raster') : null
-    arrangeRef.current = { kind: 'object', pointerId: event.pointerId, layer, handle, start: point, startBox, box: startBox, startClient, moved: false, snap, lined: null }
+    const copy = handle === 'move' && event.altKey
+    arrangeRef.current = { kind: 'object', pointerId: event.pointerId, layer, copy, handle, start: point, startBox, box: startBox, startClient, moved: false, snap, lined: null }
     requestOverlay()
   }
 
@@ -1203,10 +1258,11 @@ export function CanvasView(props: CanvasViewProps) {
     const drag = arrangeRef.current
     arrangeRef.current = null
     const p = propsRef.current
-    if (drag?.kind === 'object' && drag.moved && !isIdentity(drag.box, drag.startBox)) {
+    if ((drag?.kind === 'object' || drag?.kind === 'frame') && drag.copy && drag.moved && !isIdentity(drag.box, drag.startBox)) {
+      p.arrange?.onCopy(drag.kind === 'object' ? [drag.layer.id] : drag.ids, drag.startBox, drag.box)
+    } else if (drag?.kind === 'object' && drag.moved && !isIdentity(drag.box, drag.startBox)) {
       p.arrange?.onPlace(drag.layer.id, drag.box, describeChange(drag.box, drag.startBox))
-    }
-    if (drag?.kind === 'frame' && drag.moved && !isIdentity(drag.box, drag.startBox)) {
+    } else if (drag?.kind === 'frame' && drag.moved && !isIdentity(drag.box, drag.startBox)) {
       p.arrange?.onPlaceMany(drag.ids, drag.startBox, drag.box, describeChange(drag.box, drag.startBox))
     }
     // A click (without dragging) on one of several picked things picks just it, or what it's
@@ -1581,6 +1637,102 @@ export function CanvasView(props: CanvasViewProps) {
   }
 
   function handlePointerDown(event: PointerEvent<HTMLCanvasElement>) {
+    if (event.pointerType === 'touch') {
+      const touches = touchesRef.current
+      touches.set(event.pointerId, localPoint(event.clientX, event.clientY))
+      if (pinchRef.current) return
+      const pending = pendingTouchRef.current
+      if (touches.size === 2 && pending) {
+        // A second finger: zoom and move the view instead of starting what the first one would.
+        window.clearTimeout(pending.timer)
+        pendingTouchRef.current = null
+        startPinch()
+        return
+      }
+      const stroke = strokeRef.current
+      if (touches.size === 2 && stroke && touches.has(stroke.pointerId)) {
+        // The second finger came a little late and the first had started painting: that paint is
+        // let go of (it was never put on the layer), and the fingers move the view instead.
+        strokeRef.current = null
+        drawScene()
+        propsRef.current.onStrokeActiveChange(false)
+        propsRef.current.onStrokeCancelled()
+        startPinch()
+        return
+      }
+      const arranging = arrangeRef.current
+      if (touches.size === 2 && arranging && touches.has(arranging.pointerId)) {
+        // The same for a late finger while the first had started moving or turning a thing: it
+        // goes back where it was, and the fingers move the view.
+        arrangeRef.current = null
+        finishArrange()
+        startPinch()
+        return
+      }
+      if (touches.size === 1 && !busy()) {
+        // Kept until it's clear this is one finger (see TOUCH_WAIT_MS). The event is copied, since
+        // React lets go of the element it came from once this handler returns.
+        const canvas = event.currentTarget
+        const copy = {
+          clientX: event.clientX,
+          clientY: event.clientY,
+          pointerId: event.pointerId,
+          pointerType: event.pointerType,
+          pressure: event.pressure,
+          button: event.button,
+          altKey: event.altKey,
+          shiftKey: event.shiftKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          nativeEvent: event.nativeEvent,
+          preventDefault: () => {},
+          currentTarget: {
+            setPointerCapture: (id: number) => {
+              // The finger may already have been lifted (a quick tap).
+              try {
+                canvas.setPointerCapture(id)
+              } catch {
+                // Nothing to hold on to.
+              }
+            },
+          },
+        } as unknown as PointerEvent<HTMLCanvasElement>
+        pendingTouchRef.current = { event: copy, timer: window.setTimeout(startPendingTouch, TOUCH_WAIT_MS) }
+        return
+      }
+    }
+    startPress(event)
+  }
+
+  function startPendingTouch() {
+    const pending = pendingTouchRef.current
+    if (!pending) return
+    window.clearTimeout(pending.timer)
+    pendingTouchRef.current = null
+    startPress(pending.event)
+  }
+
+  function startPinch() {
+    const [a, b] = [...touchesRef.current.entries()]
+    pinchRef.current = { ids: [a[0], b[0]], distance: Math.hypot(a[1].x - b[1].x, a[1].y - b[1].y), middle: { x: (a[1].x + b[1].x) / 2, y: (a[1].y + b[1].y) / 2 } }
+  }
+
+  function movePinch() {
+    const pinch = pinchRef.current
+    const a = pinch && touchesRef.current.get(pinch.ids[0])
+    const b = pinch && touchesRef.current.get(pinch.ids[1])
+    if (!pinch || !a || !b) return
+    const distance = Math.hypot(a.x - b.x, a.y - b.y)
+    const middle = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+    const factor = pinch.distance > 0 && distance > 0 ? distance / pinch.distance : 1
+    const dx = middle.x - pinch.middle.x
+    const dy = middle.y - pinch.middle.y
+    pinch.distance = distance
+    pinch.middle = middle
+    props.onViewportChange((v) => panBy(zoomAtPoint(v, v.zoom * factor, middle.x - dx, middle.y - dy), dx, dy))
+  }
+
+  function startPress(event: PointerEvent<HTMLCanvasElement>) {
     hoverRef.current = localPoint(event.clientX, event.clientY)
     // Ignore a second finger or button while something is already happening.
     if (busy()) return
@@ -1661,6 +1813,18 @@ export function CanvasView(props: CanvasViewProps) {
   }
 
   function handlePointerMove(event: PointerEvent<HTMLCanvasElement>) {
+    if (event.pointerType === 'touch' && touchesRef.current.has(event.pointerId)) {
+      touchesRef.current.set(event.pointerId, localPoint(event.clientX, event.clientY))
+      if (pinchRef.current) {
+        movePinch()
+        return
+      }
+      const pending = pendingTouchRef.current
+      if (pending && pending.event.pointerId === event.pointerId) {
+        if (Math.hypot(event.clientX - pending.event.clientX, event.clientY - pending.event.clientY) < TOUCH_WAIT_DISTANCE) return
+        startPendingTouch()
+      }
+    }
     hoverRef.current = localPoint(event.clientX, event.clientY)
     const point = documentPoint(event.clientX, event.clientY)
     props.onCursorChange(point)
@@ -1704,12 +1868,12 @@ export function CanvasView(props: CanvasViewProps) {
       }
       if (!arrange.moved) return
       if (arrange.handle === 'move') {
-        // Moves line up with the page and other things when close (Alt moves freely), and go by
-        // whole pixels otherwise, so nothing ends up blurry.
+        // Moves line up with the page and other things when close (Ctrl or Cmd moves freely), and go
+        // by whole pixels otherwise, so nothing ends up blurry. Alt drags out a copy instead.
         let dx = Math.round(point.x - arrange.start.x)
         let dy = Math.round(point.y - arrange.start.y)
         arrange.lined = null
-        if (arrange.snap && !event.altKey) {
+        if (arrange.snap && !event.ctrlKey && !event.metaKey && !(event.altKey && !arrange.copy)) {
           const lined = snapMove(arrange.snap.moving, point.x - arrange.start.x, point.y - arrange.start.y, arrange.snap.others, snapPage(), SNAP_DISTANCE / viewport.zoom, arrange.snap.whole)
           dx = lined.dx
           dy = lined.dy
@@ -1865,6 +2029,23 @@ export function CanvasView(props: CanvasViewProps) {
   }
 
   function endPointer(event: PointerEvent<HTMLCanvasElement>, cancelled: boolean) {
+    if (event.pointerType === 'touch') {
+      touchesRef.current.delete(event.pointerId)
+      const pinch = pinchRef.current
+      if (pinch) {
+        // The view stays where the fingers left it; nothing else happens until all are lifted.
+        if (touchesRef.current.size === 0) pinchRef.current = null
+        return
+      }
+      const pending = pendingTouchRef.current
+      if (pending && pending.event.pointerId === event.pointerId) {
+        window.clearTimeout(pending.timer)
+        pendingTouchRef.current = null
+        // A quick tap: it picks or clicks just like a longer press would.
+        if (cancelled) return
+        startPress(pending.event)
+      }
+    }
     if (panRef.current?.pointerId === event.pointerId) {
       panRef.current = null
       setDragging(false)

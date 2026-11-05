@@ -113,6 +113,8 @@ export const PRO_NAMES: Record<string, string> = {
   Shadow: 'Drop Shadow',
   Glow: 'Outer Glow',
   // Arranging
+  'Copy the look': 'Copy Style, Eyedropper, Copy Layer Style',
+  'Paste the look': 'Paste Style, Paste Layer Style',
   'Line up': 'Align',
   'Tidy up': 'Distribute',
   'Make copies': 'Repeat, Step and Repeat',
@@ -130,6 +132,10 @@ export const PRO_NAMES: Record<string, string> = {
   Angle: 'Rotation',
   // Text
   Boldness: 'Font weight',
+  'Line under': 'Underline',
+  'Line through': 'Strikethrough',
+  Raise: 'Superscript',
+  Lower: 'Subscript',
   'Letter spacing': 'Tracking',
   'Line spacing': 'Leading',
   'Even edges': 'Justify',
@@ -157,6 +163,12 @@ export const PRO_NAMES: Record<string, string> = {
   'Extra edge for cutting': 'Bleed',
   'Cut lines': 'Crop marks',
   Download: 'Export',
+  'Earlier versions': 'Version History, History panel, Revert',
+  'Show the grid': 'Grid, Snap to Grid',
+  'Show the rulers': 'Rulers',
+  'Make a copy': 'Duplicate',
+  'To front': 'Bring to Front',
+  'Quick choices for what is picked': 'Contextual task bar',
   // The app itself
   'Your panels': 'Workspace, Window menu',
 }

@@ -4,7 +4,10 @@ import type { SpanStyle, TextSpan, TextStyle } from '../editor/types.ts'
 // only the letters that differ and how. They're worked on letter by letter (texts are short), and
 // always kept tidy: in order, never overlapping, never empty, and saying only what really differs.
 
-const KEYS = ['font', 'weight', 'italic', 'color'] as const
+const KEYS = ['font', 'weight', 'italic', 'color', 'underline', 'strike', 'raise'] as const
+
+// Raised and lowered letters are this much of the text's size.
+export const RAISE_SIZE = 0.62
 
 // Each letter's own differences from the main style, one entry per letter.
 function perLetter(spans: TextSpan[] | undefined, length: number): SpanStyle[] {
@@ -21,7 +24,7 @@ function differences(style: SpanStyle, base: TextStyle): SpanStyle {
   for (const key of KEYS) {
     const value = style[key]
     if (value === undefined) continue
-    const same = key === 'color' ? String(value).toLowerCase() === base.color.toLowerCase() : value === base[key]
+    const same = key === 'color' ? String(value).toLowerCase() === base.color.toLowerCase() : (value || false) === (base[key] || false)
     if (!same) (kept as Record<string, unknown>)[key] = value
   }
   return kept
@@ -76,7 +79,7 @@ export function editSpans(spans: TextSpan[] | undefined, base: TextStyle, before
 
 // The full look of one letter.
 export function styleAt(spans: TextSpan[] | undefined, base: TextStyle, index: number): TextStyle {
-  for (const span of spans ?? []) if (index >= span.start && index < span.end) return { ...base, ...span.style }
+  for (const span of spans ?? []) if (index >= span.start && index < span.end) return withRaise({ ...base, ...span.style }, base)
   return base
 }
 
@@ -90,11 +93,21 @@ export function styledPieces(spans: TextSpan[] | undefined, base: TextStyle, fro
     if (span.start >= to) break
     if (span.start > at) pieces.push({ start: at, end: span.start, style: base })
     const end = Math.min(to, span.end)
-    pieces.push({ start: Math.max(at, span.start), end, style: { ...base, ...span.style } })
+    pieces.push({ start: Math.max(at, span.start), end, style: withRaise({ ...base, ...span.style }, base) })
     at = end
   }
   if (at < to) pieces.push({ start: at, end: to, style: base })
   return pieces
+}
+
+// Raised and lowered letters are smaller.
+function withRaise(style: TextStyle, base: TextStyle): TextStyle {
+  return style.raise ? { ...style, size: base.size * RAISE_SIZE } : style
+}
+
+// How far raised or lowered letters sit from the line, in design pixels (up is negative).
+export function raiseShift(style: TextStyle, baseSize: number): number {
+  return style.raise === 'up' ? -baseSize * 0.36 : style.raise === 'down' ? baseSize * 0.14 : 0
 }
 
 // The look shared by every letter from `start` to `end`: each setting is the letters' common value,
