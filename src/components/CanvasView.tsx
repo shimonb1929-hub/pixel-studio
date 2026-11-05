@@ -41,6 +41,7 @@ import {
 import type { EditorDocument, Layer, LayerHide, PhotoFill, PixelLayer, Point, ShapeLayer, ToolId, Viewport } from '../editor/types.ts'
 import { nextZoomLevel, panBy, screenToDocument, zoomAtPoint } from '../editor/viewport.ts'
 import { useFontsVersion } from '../hooks/useFontsVersion.ts'
+import { useSharpVersion } from '../hooks/useSharpVersion.ts'
 import { hasRtlLetters } from '../text/layout.ts'
 import { straightBox, textIndexAt } from '../text/textLayer.ts'
 import { isCurved } from '../text/textCurve.ts'
@@ -980,9 +981,11 @@ export function CanvasView(props: CanvasViewProps) {
 
   // Text is drawn again once its font arrives.
   const fontsVersion = useFontsVersion()
+  // Pictures shown bigger are drawn again once their sharp copy is ready.
+  const sharpVersion = useSharpVersion()
   useLayoutEffect(() => {
     drawScene()
-  }, [doc, revision, viewport, width, height, props.override, fontsVersion])
+  }, [doc, revision, viewport, width, height, props.override, fontsVersion, sharpVersion])
 
   // Handles disappear at once while something else (like moving a photo's corners) takes over.
   const arrangeOff = !props.arrange

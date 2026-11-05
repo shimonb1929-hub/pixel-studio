@@ -274,6 +274,14 @@ export const GOALS: Goal[] = [
     keywords: ['resize', 'rotate', 'scale', 'bigger', 'smaller', 'flip', 'mirror'],
   },
   {
+    id: 'enlarge',
+    goal: msg('Make a small photo bigger without it going blurry'),
+    how: msg('With Arrange, click the photo and pull a corner. Pixel Studio enlarges it from its own pixels and keeps the edges crisp, all by itself.'),
+    tool: 'move',
+    pro: 'Preserve Details, Upscale, Resample',
+    keywords: ['enlarge', 'upscale', 'blurry', 'pixelated', 'faded', 'low quality', 'sharp', 'zoom in'],
+  },
+  {
     id: 'design-size',
     goal: msg('Change the size of the whole design'),
     how: msg('Use Resize design in the menu and type the new size, in pixels, inches or centimeters.'),

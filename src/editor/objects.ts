@@ -8,6 +8,7 @@ import { canvasGradient } from './gradient.ts'
 import { photoPlacement } from './photoFill.ts'
 import { endDirection, mapPath, segmentCount, trimForArrow, tracePath, type ShapePath } from './path.ts'
 import { layerVersion } from './pixelVersion.ts'
+import { drawSharp, sharpMisses } from './sharp.ts'
 import { applyAffine, boxCorners, boxMatrix, invertAffine, multiplyAffine, type Affine, type TransformBox } from './transform.ts'
 import type { EditorDocument, Layer, LayerHide, PixelLayer, Point, ShapeGeometry, ShapeLayer, ShapeOutline, TextLayer } from './types.ts'
 
@@ -157,7 +158,7 @@ export function drawShape(ctx: CanvasRenderingContext2D, layer: ShapeLayer): voi
       const place = photoPlacement(fill, w, h)
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
-      ctx.drawImage(fill.canvas, place.x, place.y, place.width, place.height)
+      drawSharp(ctx, fill.canvas, place.x, place.y, place.width, place.height)
       ctx.restore()
     }
   }
@@ -320,7 +321,8 @@ export function drawOwnContent(ctx: CanvasRenderingContext2D, layer: Layer): voi
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
   }
-  ctx.drawImage(layer.canvas, 0, 0)
+  // Shown bigger than its own pixels, it's drawn from a sharp bigger copy of them.
+  drawSharp(ctx, layer.canvas, 0, 0, layer.canvas.width, layer.canvas.height)
   ctx.restore()
 }
 
@@ -397,9 +399,11 @@ export function layerPixels(layer: Layer): PixelLayer {
   const version = layerVersion(layer)
   const cached = pixelCopies.get(layer)
   if (cached && cached.version === version) return cached.copy
+  const misses = sharpMisses()
   const { canvas, x, y } = toPixels(layer)
   const copy: PixelLayer = { id: layer.id, kind: 'raster', name: layer.name, visible: layer.visible, opacity: layer.opacity, locked: layer.locked, adjust: layer.adjust, canvas, x, y, box: null }
-  pixelCopies.set(layer, { version, copy })
+  // Drawn for the screen before its sharp copy was ready: good for now, but not kept.
+  if (sharpMisses() === misses) pixelCopies.set(layer, { version, copy })
   return copy
 }
 

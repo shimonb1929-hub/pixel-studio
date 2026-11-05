@@ -4,6 +4,7 @@ import { drawWithEffects } from './effects.ts'
 import { polygonBounds, unionRect, type Rect } from './geometry.ts'
 import { drawHidden, drawLayerContent, layerBounds, layerPixels } from './objects.ts'
 import { layerVersion } from './pixelVersion.ts'
+import { drawingScreen, sharpVersion } from './sharp.ts'
 import { applyAffine, type Affine } from './transform.ts'
 import type { EditorDocument, Layer, Viewport } from './types.ts'
 import { paintPage } from './gradient.ts'
@@ -77,7 +78,7 @@ const adjustedParts = new WeakMap<Layer, { key: string; parts: RenderPart[] }>()
 
 function adjustedOnScreen(doc: EditorDocument, layer: Layer, screenScale: number): RenderPart[] | null {
   if (!layer.adjust || isNeutral(layer.adjust)) return null
-  const key = `${doc.width}x${doc.height}:${screenScale.toFixed(3)}:${layerVersion(layer)}`
+  const key = `${doc.width}x${doc.height}:${screenScale.toFixed(3)}:${layerVersion(layer)}:${sharpVersion()}`
   const cached = adjustedParts.get(layer)
   if (cached && cached.key === key) return cached.parts
   const parts = previewParts({ ...doc, selection: null }, layerPixels(layer), layer.adjust, screenScale)
@@ -208,21 +209,26 @@ export function renderScene(
   target.imageSmoothingEnabled = width < doc.width
   target.imageSmoothingQuality = 'high'
   const screenScale = width / doc.width
-  for (const layer of shownLayers(doc.layers, override)) {
-    if (override && 'parts' in override && override.layerId === layer.id) {
-      if (layer.visible && layer.opacity > 0) {
-        target.globalAlpha = layer.opacity
-        const parts = override.parts
-        drawWithEffects(target, layer.effects, layer.blend, partsBounds(parts), (c) => drawHidden(c, layer, partsBounds(parts), (h) => drawParts(h, parts)), parts, 0)
+  // Pictures shown bigger get their sharp copies in the background (see sharp.ts).
+  drawingScreen(() => {
+    for (const layer of shownLayers(doc.layers, override)) {
+      if (override && 'parts' in override && override.layerId === layer.id) {
+        if (layer.visible && layer.opacity > 0) {
+          target.globalAlpha = layer.opacity
+          const parts = override.parts
+          drawWithEffects(target, layer.effects, layer.blend, partsBounds(parts), (c) => drawHidden(c, layer, partsBounds(parts), (h) => drawParts(h, parts)), parts, 0)
+        }
+        continue
       }
-      continue
+      if (!layer.visible || layer.opacity <= 0) continue
+      target.globalAlpha = layer.opacity
+      const adjusted = adjustedOnScreen(doc, layer, screenScale)
+      if (adjusted) drawWithEffects(target, layer.effects, layer.blend, partsBounds(adjusted), (c) => drawParts(c, adjusted), adjusted, 0)
+      // Effects are worked out again once a sharp copy is ready. (The screen's count never matches
+      // a download's, so a download never reuses what the screen drew before the copy was ready.)
+      else drawWithEffects(target, layer.effects, layer.blend, layerBounds(layer), (c) => drawLayerContent(c, layer), layer, layerVersion(layer) + (sharpVersion() + 1) * 1e6)
     }
-    if (!layer.visible || layer.opacity <= 0) continue
-    target.globalAlpha = layer.opacity
-    const adjusted = adjustedOnScreen(doc, layer, screenScale)
-    if (adjusted) drawWithEffects(target, layer.effects, layer.blend, partsBounds(adjusted), (c) => drawParts(c, adjusted), adjusted, 0)
-    else drawWithEffects(target, layer.effects, layer.blend, layerBounds(layer), (c) => drawLayerContent(c, layer), layer, layerVersion(layer))
-  }
+  })
   target.restore()
   if (page) ctx.drawImage(page, left, top)
 
