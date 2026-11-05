@@ -54,6 +54,11 @@ function swapEffects(effects: LayerEffects, from: string, to: string): LayerEffe
 function swapFill(fill: ShapeFill, from: string, to: string): ShapeFill {
   if (fill.kind === 'color') return { ...fill, color: swap(fill.color, from, to) }
   if (fill.kind === 'gradient') return { ...fill, gradient: swapGradient(fill.gradient, from, to) }
+  if (fill.kind === 'pattern') {
+    const { color, background } = fill.pattern
+    if (!same(color, from) && !(background && same(background, from))) return fill
+    return { ...fill, pattern: { ...fill.pattern, color: swap(color, from, to), background: background && swap(background, from, to) } }
+  }
   return fill
 }
 
@@ -122,6 +127,10 @@ export function colorUses(doc: EditorDocument, hex: string): number {
       if (layer.kind === 'shape') {
         if (layer.fill.kind === 'color') check(layer.fill.color)
         if (layer.fill.kind === 'gradient') checkGradient(layer.fill.gradient)
+        if (layer.fill.kind === 'pattern') {
+          check(layer.fill.pattern.color)
+          check(layer.fill.pattern.background)
+        }
         check(layer.outline?.color)
       } else if (layer.kind === 'text') {
         if (layer.style.gradient) checkGradient(layer.style.gradient)

@@ -262,6 +262,10 @@ function shapeArea(layer: Layer): number {
 function recolorFill(fill: ShapeFill, map: Map<string, string>): ShapeFill {
   if (fill.kind === 'color') return { kind: 'color', color: map.get(fill.color) ?? fill.color }
   if (fill.kind === 'gradient') return { kind: 'gradient', gradient: { ...fill.gradient, stops: fill.gradient.stops.map((s) => ({ ...s, color: map.get(s.color) ?? s.color })) } }
+  if (fill.kind === 'pattern') {
+    const { color, background } = fill.pattern
+    return { kind: 'pattern', pattern: { ...fill.pattern, color: map.get(color) ?? color, background: background && (map.get(background) ?? background) } }
+  }
   return fill
 }
 
@@ -284,6 +288,7 @@ export function matchDesignToPalette(
     if (layer.kind !== 'shape') continue
     if (layer.fill.kind === 'color') colors.push(layer.fill.color)
     if (layer.fill.kind === 'gradient') colors.push(...layer.fill.gradient.stops.map((s) => s.color))
+    if (layer.fill.kind === 'pattern') colors.push(layer.fill.pattern.color, ...(layer.fill.pattern.background ? [layer.fill.pattern.background] : []))
     if (layer.outline) colors.push(layer.outline.color)
   }
   const map = shapeColorMap(colors, palette)
@@ -313,7 +318,8 @@ export function matchDesignToPalette(
 function colorsOf(layer: Layer): string[] {
   if (layer.kind === 'text') return [layer.style.color, ...(layer.spans ?? []).map((s) => s.style.color ?? '')]
   if (layer.kind !== 'shape') return []
-  const fill = layer.fill.kind === 'color' ? [layer.fill.color] : layer.fill.kind === 'gradient' ? layer.fill.gradient.stops.map((s) => s.color) : []
+  const fill =
+    layer.fill.kind === 'color' ? [layer.fill.color] : layer.fill.kind === 'gradient' ? layer.fill.gradient.stops.map((s) => s.color) : layer.fill.kind === 'pattern' ? [layer.fill.pattern.color, layer.fill.pattern.background ?? ''] : []
   return [...fill, layer.outline?.color ?? '']
 }
 

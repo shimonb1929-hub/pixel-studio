@@ -162,6 +162,14 @@ export const GOALS: Goal[] = [
     keywords: ['repeat', 'duplicate', 'pattern', 'border', 'flower', 'wreath', 'symmetry', 'mirror', 'tiles'],
   },
   {
+    id: 'pattern',
+    goal: msg('Fill a shape with dots, stripes or checks'),
+    how: msg('Pick the shape with Arrange. In the Shape panel choose Pattern, then click the one you like. The Color panel colors the little shapes or what is behind them.'),
+    tool: 'move',
+    pro: 'Pattern fill, Pattern swatches',
+    keywords: ['pattern', 'polka', 'dots', 'stripes', 'checks', 'checkerboard', 'texture', 'tile', 'repeat', 'background'],
+  },
+  {
     id: 'words',
     goal: msg('Add a title or some words'),
     how: msg('Choose Text and click where the words should start, or drag a box for a paragraph. Then type.'),
