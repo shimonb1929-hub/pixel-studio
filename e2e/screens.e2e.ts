@@ -100,3 +100,20 @@ test.describe('on a laptop', () => {
     expect(await kept()).toBeNull()
   })
 })
+
+test.describe('on a short window', () => {
+  test.use({ viewport: { width: 1280, height: 560 } })
+
+  test('every tool fits beside the design, with no scrolling', async ({ page }) => {
+    await startDesign(page)
+    const tools = page.getByRole('navigation', { name: 'Tools' })
+    await tools.getByRole('button', { name: 'More tools' }).click()
+    await expect(tools.getByRole('button', { name: 'Fewer tools' })).toBeVisible()
+    expect(await tools.evaluate((nav) => nav.scrollHeight <= nav.clientHeight + 1)).toBe(true)
+    const box = (await tools.boundingBox())!
+    for (const button of await tools.getByRole('button').all()) {
+      const b = (await button.boundingBox())!
+      expect(b.y + b.height).toBeLessThanOrEqual(box.y + box.height)
+    }
+  })
+})
