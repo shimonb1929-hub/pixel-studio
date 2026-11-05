@@ -58,6 +58,7 @@ test('the grid shows squared paper, and things click onto its lines', async ({ p
   expectColor(await designPixel(page, size, 81, 140), BLUE)
 
   // It is still on next time, and Ctrl+' takes it away.
+  await expect(page.locator('header').getByText(/^(Saving…|Saved|Not saved)$/)).toHaveText('Saved')
   await page.reload()
   await page.getByRole('region', { name: 'Your designs' }).getByRole('button', { name: 'Open My design 1' }).click()
   await expect.poll(async () => (await overlayPixel(page, size, 100, 150))[3]).toBeGreaterThan(0)
