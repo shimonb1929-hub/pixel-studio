@@ -1,4 +1,4 @@
-import { Aperture, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus } from 'lucide-react'
+import { Aperture, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus, Copy } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -627,6 +627,8 @@ export interface ArrangeBarControls {
   tidyUp: () => void
   lineUp: (edge: LineUpEdge) => void
   spreadOut: (axis: 'x' | 'y') => void
+  // Copies of what is picked in a row, a grid, around a circle or mirrored (pro: Repeat).
+  makeCopies: () => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
   // Set when one photo is picked over a shape or words: puts it inside them, right where it is.
@@ -1386,6 +1388,16 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
           onClick={controls.center}
         />
         {!part && target.kind !== 'many' && <LineUpMenu several={false} onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
+        {!part && (
+          <BarButton
+            icon={Copy}
+            roomy
+            label={t('Copies')}
+            title={t('Make copies')}
+            description={several ? t('Make copies of them in a row, a grid or around a circle, or a mirror image beside them. You see them before you keep them.') : t('Make copies of it in a row, a grid or around a circle, or a mirror image beside it. You see them before you keep them.')}
+            onClick={controls.makeCopies}
+          />
+        )}
         {controls.textWrap && <TextWrapMenu controls={controls.textWrap} />}
         {(controls.straighten || controls.moveCorners || controls.removeBackground || controls.blurBackground || controls.turnIntoShapes || controls.upscale || controls.findWords) && (
           <PhotoToolsMenu
@@ -1678,7 +1690,7 @@ export function ToolOptions(props: ToolOptionsProps) {
     <div
       aria-label={t('{tool} settings', { tool: info.name })}
       role="toolbar"
-      className="mx-3 mb-3 flex h-[62px] shrink-0 items-center gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap rounded-card [&>*]:shrink-0 border border-line bg-surface px-3 shadow-card xl:gap-4"
+      className="mx-2 mb-2 flex h-[62px] shrink-0 md:mx-3 md:mb-3 items-center gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap [&>*]:shrink-0 rounded-card border border-line bg-surface px-3 shadow-card xl:gap-4"
     >
       <div className="flex shrink-0 items-center gap-2 pe-1">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-accent">

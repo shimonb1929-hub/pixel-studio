@@ -134,3 +134,79 @@ test('right-click a thing or a layer for a short menu of what you can do with it
   await page.keyboard.press('Escape')
   await expect(menu).toBeHidden()
 })
+
+// Sends a finger press, slide and lift, the way a phone or tablet does.
+async function fingerDrag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
+  await page.evaluate(
+    async ([fx, fy, tx, ty]) => {
+      const send = (type: string, x: number, y: number) => {
+        const target = type === 'pointerdown' ? document.elementFromPoint(x, y)! : window
+        const event = new PointerEvent(type, { bubbles: true, cancelable: true, pointerType: 'touch', pointerId: 7, isPrimary: true, button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: x, clientY: y })
+        target.dispatchEvent(event)
+      }
+      send('pointerdown', fx, fy)
+      for (let i = 1; i <= 6; i++) {
+        send('pointermove', fx + ((tx - fx) * i) / 6, fy + ((ty - fy) * i) / 6)
+        await new Promise(requestAnimationFrame)
+      }
+      send('pointerup', tx, ty)
+    },
+    [from.x, from.y, to.x, to.y],
+  )
+}
+
+test('a finger drags a layer by its handle, and sliding on the rest of the row does not', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawRectangle(page, size, [40, 40], [80, 80])
+  await drawRectangle(page, size, [120, 60], [160, 100])
+  expect(await layerNames(page)).toEqual(['Rectangle 2', 'Rectangle 1'])
+  const row = (name: string) => layerList(page).getByRole('listitem').filter({ has: page.getByRole('button', { name: `Layer: ${name}`, exact: true }) })
+
+  // Sliding a finger on the name is left for scrolling the list.
+  const name = (await layerButton(page, 'Rectangle 2').boundingBox())!
+  const below = (await layerButton(page, 'Rectangle 1').boundingBox())!
+  await fingerDrag(page, { x: name.x + 60, y: name.y + name.height / 2 }, { x: below.x + 60, y: below.y + below.height - 3 })
+  expect(await layerNames(page)).toEqual(['Rectangle 2', 'Rectangle 1'])
+
+  // The handle at the start of the row drags it.
+  const grip = (await row('Rectangle 2').locator('[data-grip]').boundingBox())!
+  await fingerDrag(page, { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 }, { x: below.x + 60, y: below.y + below.height - 3 })
+  expect(await layerNames(page)).toEqual(['Rectangle 1', 'Rectangle 2'])
+})
+
+test('each row has its own trash can, and Pick several picks layers with a tap each', async ({ page }) => {
+  const size = await newDesign(page)
+  await drawRectangle(page, size, [40, 40], [80, 80])
+  await drawRectangle(page, size, [120, 60], [160, 100])
+  await drawRectangle(page, size, [250, 200], [290, 240])
+  await page.getByRole('button', { name: 'Arrange tool' }).click()
+
+  // The trash can on a row removes just that row.
+  await layerButton(page, 'Rectangle 2').hover()
+  await layerList(page).getByRole('button', { name: 'Delete Rectangle 2' }).click()
+  expect(await layerNames(page)).toEqual(['Rectangle 3', 'Rectangle 1'])
+
+  // Pick several: the picked layer stays picked, and each tap adds another, with no key to hold.
+  await layerButton(page, 'Rectangle 3').click()
+  await page.getByRole('button', { name: 'Pick several' }).click()
+  await layerButton(page, 'Rectangle 1').click()
+  await expect(layerButton(page, 'Rectangle 3')).toHaveAttribute('aria-pressed', 'true')
+  await expect(layerButton(page, 'Rectangle 1')).toHaveAttribute('aria-pressed', 'true')
+  // A tap again takes one away, and adds it back.
+  await layerButton(page, 'Rectangle 1').click()
+  await expect(layerButton(page, 'Rectangle 1')).toHaveAttribute('aria-pressed', 'false')
+  await layerButton(page, 'Rectangle 1').click()
+
+  // The trash can on a picked row removes everything picked, in one step to undo.
+  await layerList(page).getByRole('button', { name: 'Delete Rectangle 3' }).click()
+  expect(await layerNames(page)).toEqual([])
+  await page.keyboard.press('Control+z')
+  expect(await layerNames(page)).toEqual(['Rectangle 3', 'Rectangle 1'])
+
+  // Done goes back to one at a time; Ctrl+click still adds one.
+  await page.getByRole('button', { name: 'Done' }).click()
+  await layerButton(page, 'Rectangle 3').click()
+  await layerButton(page, 'Rectangle 1').click({ modifiers: ['Control'] })
+  await expect(layerButton(page, 'Rectangle 3')).toHaveAttribute('aria-pressed', 'true')
+  await expect(layerButton(page, 'Rectangle 1')).toHaveAttribute('aria-pressed', 'true')
+})

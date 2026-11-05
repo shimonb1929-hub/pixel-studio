@@ -13,13 +13,14 @@ import { unitShort } from './unitWords.ts'
 const PILL = 'absolute z-10 items-center border border-line bg-surface/95 shadow-card backdrop-blur'
 
 // Always says what the current tool will do, right where you're looking. `below` sits just under
-// it (the bar that says something is selected).
-export function ToolHint({ tool, extra, below }: { tool: ToolId; extra?: string; below?: ReactNode }) {
+// it (the bar that says something is selected). On a narrow screen it sits `lower`, under the
+// buttons that open the panels.
+export function ToolHint({ tool, extra, below, lower }: { tool: ToolId; extra?: string; below?: ReactNode; lower?: boolean }) {
   const info = TOOLS.find((t) => t.id === tool)!
   const Icon = info.icon
   // Centered with auto margins rather than left: 50%, which would limit it to half the width.
   return (
-    <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-col items-center gap-2">
+    <div className={`pointer-events-none absolute inset-x-3 z-10 flex flex-col items-center gap-2 ${lower ? 'top-[60px]' : 'top-3'}`}>
       <div
         role="status"
         className="flex w-fit max-w-full items-center gap-2 rounded-2xl border border-line bg-surface/95 px-3.5 py-1.5 text-xs leading-[18px] shadow-card backdrop-blur"
@@ -160,7 +161,8 @@ interface ZoomControlsProps {
 
 export function ZoomControls({ zoom, onZoomIn, onZoomOut, onActualSize, onFit }: ZoomControlsProps) {
   return (
-    <div className={`${PILL} bottom-3 left-1/2 flex -translate-x-1/2 gap-0.5 rounded-xl p-1`}>
+    // On a phone it sits at the start side, leaving room for the pages at the other end.
+    <div className={`${PILL} bottom-3 start-3 flex gap-0.5 rounded-xl p-1 sm:start-auto sm:left-1/2 sm:-translate-x-1/2`}>
       <PillButton
         onClick={onZoomOut}
         className="w-8 text-ink-2"
@@ -205,7 +207,7 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut, onActualSize, onFit }:
         }}
       >
         <Maximize2 size={14} />
-        {t('Fit')}
+        <span className="hidden sm:inline">{t('Fit')}</span>
       </PillButton>
     </div>
   )

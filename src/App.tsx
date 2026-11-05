@@ -32,7 +32,9 @@ import { Toast, type Notice } from './components/Toast.tsx'
 import { ToolDock } from './components/ToolDock.tsx'
 import { ToolOptions, type ArrangeBarControls, type CropShape, type TextWrapControls } from './components/ToolOptions.tsx'
 import { canWrapText, defaultTextWrap, wrapTextOn } from './text/wrapAround.ts'
-import { ScrollRegion } from './components/ui.tsx'
+import { Eclipse, File, Palette, Shapes, SlidersHorizontal, Table2, Type, type LucideIcon } from 'lucide-react'
+import { PanelButtons, SidePanels, type OpenPanel } from './components/SidePanels.tsx'
+import { PHONE_SCREEN, useMediaQuery, WIDE_SCREEN } from './hooks/useMediaQuery.ts'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { InstallDialog } from './components/InstallDialog.tsx'
@@ -117,6 +119,10 @@ import { useAutosave } from './hooks/useAutosave.ts'
 import { useEditor } from './hooks/useEditor.ts'
 import { useStraighten } from './hooks/useStraighten.ts'
 import { StraightenPanel } from './components/StraightenPanel.tsx'
+import { RepeatPanel } from './components/RepeatPanel.tsx'
+import { FindDialog } from './components/FindDialog.tsx'
+import { replaceEverywhere } from './editor/findReplace.ts'
+import { useRepeat } from './hooks/useRepeat.ts'
 import { useCorners } from './hooks/useCorners.ts'
 import { CornerHandles, CornersPanel } from './components/CornersPanel.tsx'
 import { photoOnMainThing, smartCropFrame } from './editor/smartPhoto.ts'
@@ -138,7 +144,7 @@ import { TOOLS } from './tools.ts'
 import { useTurnIntoShapes } from './hooks/useTurnIntoShapes.tsx'
 import { isRtl, live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts' | 'install'
+type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts' | 'install' | 'find'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -405,6 +411,10 @@ export default function App() {
   const [tool, setToolState] = useState<ToolId>('move')
   const [cursor, setCursor] = useState<Point | null>(null)
   const [dialog, setDialog] = useState<DialogId | null>(null)
+  // Wide screens keep the panels beside the design; narrower ones open one over it when asked.
+  const wide = useMediaQuery(WIDE_SCREEN)
+  const phone = useMediaQuery(PHONE_SCREEN)
+  const [openPanel, setOpenPanel] = useState<OpenPanel | null>(null)
   // Which kind of ready layout the layouts dialog shows first.
   const [layoutsKind, setLayoutsKind] = useState<'all' | LayoutKind>('all')
   const [layoutsStart, setLayoutsStart] = useState<string | undefined>(undefined)
@@ -517,6 +527,8 @@ export default function App() {
   const straightenPhoto = useStraighten(editor, problem)
   // Move the corners of a photo: fit it to a place, or make a slanted page face front.
   const corners = useCorners(editor, problem)
+  // Make copies: copies of what is picked in a row, a grid or around a circle, shown before they're kept.
+  const repeat = useRepeat(editor, problem)
   // Commands read the design through this, so they see changes made earlier in the same click.
   const current = () => editor.getDoc()
 
@@ -1566,6 +1578,13 @@ export default function App() {
 
   // Unfinished resizing or cropping is applied before doing anything else, so nothing gets mixed up.
   // Returns false if a resize couldn't be applied (it would be too big), which has been explained.
+  // Keeps the copies being shown, and picks them all, kept together with the original.
+  function applyRepeat() {
+    if (!repeat.apply()) return
+    const d = current()
+    if (d) pickMany(pickedWith(d, d.activeLayerId))
+  }
+
   function settle(): boolean {
     finishText()
     pen.finish()
@@ -1574,6 +1593,7 @@ export default function App() {
     if (adjustChanged) applyAdjust()
     if (straightenPhoto.pending) straightenPhoto.apply()
     if (corners.pending) corners.apply()
+    if (repeat.pending) applyRepeat()
     return true
   }
 
@@ -1581,6 +1601,7 @@ export default function App() {
     finishText()
     if (straightenPhoto.pending) straightenPhoto.apply()
     if (corners.pending) corners.apply()
+    if (repeat.pending) applyRepeat()
     if (next !== tool) {
       if (tool === 'move') {
         if (!applyTransform()) return
@@ -2417,10 +2438,10 @@ export default function App() {
       editor.change(ids.length > 1 ? t('Duplicate') : t('Duplicate layer'), (doc) => duplicateLayers(doc, ids, copy, (g) => ({ id: createId('group'), name: t('{name} copy', { name: g.name }) })), { bytes })
       if (copies.length > 1) pickMany(copies)
     },
-    remove: () => {
+    remove: (only?: string[]) => {
       settle()
       const d = current()
-      const ids = targets()
+      const ids = only ?? targets()
       if (!d || ids.length === 0) return
       const bytes = d.layers.reduce((sum, l) => (ids.includes(l.id) ? sum + layerBytes(l) : sum), 0)
       editor.change(ids.length > 1 ? t('Delete') : t('Delete layer'), (doc) => removeLayers(doc, ids), { bytes })
@@ -2599,11 +2620,12 @@ export default function App() {
       if (adjustChanged) return cancelAdjust()
       if (straightenPhoto.pending) return straightenPhoto.cancel()
       if (corners.pending) return corners.cancel()
+      if (repeat.pending) return repeat.cancel()
       editor.undo()
     },
     redo: () => {
       if (pen.drawing) return
-      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending || corners.pending) return
+      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending || corners.pending || repeat.pending) return
       finishText()
       editor.redo()
     },
@@ -2762,6 +2784,7 @@ export default function App() {
       if (blurBackground.apply()) return true
       if (straightenPhoto.pending) return straightenPhoto.apply(), true
       if (corners.pending) return corners.apply(), true
+      if (repeat.pending) return applyRepeat(), true
       if (edgeShown) return applyEdge(), true
       return false
     },
@@ -2776,6 +2799,7 @@ export default function App() {
       if (blurBackground.cancel()) return true
       if (straightenPhoto.pending) return straightenPhoto.cancel(), true
       if (corners.pending) return corners.cancel(), true
+      if (repeat.pending) return repeat.cancel(), true
       if (edgeShown) return setEdgeEdit(null), true
       return false
     },
@@ -2861,7 +2885,7 @@ export default function App() {
     layerToBack: () => layers.toEnd('back'),
     layerJoin: layers.join,
     layerToggle: () => activeNow && layers.toggleVisibility(activeNow.id),
-    layerDelete: layers.remove,
+    layerDelete: () => layers.remove(),
     keepTogether: organize.keepTogether,
     wordsAlongShape,
     takeApart: organize.takeApart,
@@ -2927,6 +2951,16 @@ export default function App() {
     upscale: () => {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') setPictureHelper({ kind: 'upscale', layerId: layer.id })
+    },
+    makeCopies: () => {
+      const ids = targets()
+      settle()
+      if (tool !== 'move') setTool('move')
+      repeat.start(ids)
+    },
+    findAndChange: () => {
+      settle()
+      if (current()) setDialog('find')
     },
     findWords: () => {
       const layer = current() && activeLayer(current()!)
@@ -3045,6 +3079,7 @@ export default function App() {
       else if (mod && code === 'KeyX' && hasDoc) action = c.cut
       else if (mod && code === 'KeyJ' && hasDoc) action = c.toNewLayer
       else if (mod && !event.shiftKey && code === 'KeyE' && hasDoc) action = c.layerJoin
+      else if (mod && !event.shiftKey && code === 'KeyF' && hasDoc) action = c.findAndChange
       else if (mod && code === 'KeyG' && hasDoc) action = event.shiftKey ? c.takeApart : c.keepTogether
       else if (event.altKey && !mod && code === 'Backspace' && hasDoc) action = c.fill
       else if (plain && (code === 'Delete' || code === 'Backspace') && hasDoc && currentTool === 'pen') action = c.penDelete
@@ -3244,6 +3279,7 @@ export default function App() {
       onFillGap: setFillGap,
       ppi: doc ? documentPpi(doc) : DEFAULT_PPI,
       blurSession: blurBackground.controls,
+      makeCopies: commands.makeCopies,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
     // Its size and top-left corner before turning, as shown in the boxes.
@@ -3391,6 +3427,15 @@ export default function App() {
   const textGradient = textPanelOn && !pickedWords ? ((textShown ?? textDefaults).gradient ?? null) : null
   const textColor = textPanelOn ? (textGradient ? textGradient.stops[Math.min(gradientStop, textGradient.stops.length - 1)].color : (textShown?.color ?? textDefaults.color)) : null
   const pageColorOn = !!doc && !activeNow && tool === 'move' && !textEdit
+  // What the panels are for right now, in one word: names the button that opens them on a narrow screen.
+  const [settingsName, settingsIcon]: [string, LucideIcon] =
+    adjustOn ? [t('Adjust'), SlidersHorizontal]
+    : tableTarget ? [t('Table'), Table2]
+    : textPanelOn ? [t('Text'), Type]
+    : pageColorOn ? [t('Page'), File]
+    : shapeShown ? [t('Shape'), Shapes]
+    : tool === 'fade' ? [t('Fade'), Eclipse]
+    : [t('Color'), Palette]
   const effectColorShown = effectTarget ? (effectsLayer?.effects?.[effectTarget]?.color ?? null) : null
   // With several things picked, the Shape and Text panels change all the shapes or texts among them.
   const pickedShapes = picked && doc ? doc.layers.filter((l) => picked.includes(l.id) && l.kind === 'shape').length : 0
@@ -3587,20 +3632,21 @@ export default function App() {
         }}
       />}
 
-      <div className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
+      {/* On a phone the tools sit in a row under the design; on wider screens, in a column beside it. */}
+      <div className="flex min-h-0 flex-1 flex-col-reverse gap-2 px-2 pb-2 md:flex-row md:gap-3 md:px-3 md:pb-3">
         {doc && <ToolDock tool={tool} onToolChange={setTool} onAddPhoto={commands.addPhoto} />}
 
         <main
           ref={workspaceRef}
           onContextMenu={openDesignMenu}
           // The start screen sits on the bright room itself; the table with its dots appears with a design.
-          className={`relative min-w-0 flex-1 overflow-hidden ${doc ? 'rounded-card border border-line bg-workspace shadow-card' : ''}`}
+          className={`relative min-h-0 min-w-0 flex-1 overflow-hidden ${doc ? 'rounded-card border border-line bg-workspace shadow-card' : ''}`}
           style={doc ? DOT_BACKGROUND : undefined}
         >
           {doc ? (
             <>
               <CanvasView
-                doc={smart.shown ?? shownDoc ?? doc}
+                doc={smart.shown ?? repeat.shown ?? shownDoc ?? doc}
                 revision={editor.revision}
                 viewport={viewport}
                 onViewportChange={setViewport}
@@ -3671,6 +3717,7 @@ export default function App() {
               />
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
               {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
+              {repeat.panel && <RepeatPanel state={{ ...repeat.panel, apply: applyRepeat }} />}
               {corners.dots && <CornerHandles state={corners.dots} viewport={viewport} />}
               {corners.panel && <CornersPanel state={corners.panel} />}
               {doc.layers.length === 0 && tool === 'move' && !textEdit ? (
@@ -3689,6 +3736,7 @@ export default function App() {
                     <ToolHint
                       tool={hintTool}
                       extra={hintExtra}
+                      lower={!wide}
                       below={
                         // While the edge is being tried out, its own Apply and Cancel are the way out.
                         doc.selection && !edgeShown ? (
@@ -3710,6 +3758,7 @@ export default function App() {
                   )
                 )
               )}
+              {!wide && !openPanel && <PanelButtons settingsName={settingsName} settingsIcon={settingsIcon} onOpen={setOpenPanel} />}
               <ZoomControls
                 zoom={viewport.zoom}
                 onZoomIn={commands.zoomIn}
@@ -3761,185 +3810,195 @@ export default function App() {
           )}
         </main>
 
-        <div className={`hidden w-[288px] shrink-0 flex-col gap-3 ${doc ? 'md:flex' : ''}`}>
-          {/* The panels for what is picked take the room they need, up to about two thirds of the
-              column (then they scroll); the Layers panel always keeps the rest, so it never slips
-              off a short screen. */}
-          <ScrollRegion className="max-h-[64%] shrink-0 gap-3 [@media(max-height:820px)]:max-h-[56%]">
-            {tableTarget && !adjustOn && (
-              <TablePanel
-                table={tableTarget}
-                cell={textEdit?.cell ? { row: textEdit.cell.row, column: textEdit.cell.column } : null}
-                colorPart={tablePartShown}
-                onColorPart={(part) => {
-                  setEffectColor(null)
-                  setTablePart(part)
-                }}
-                onAddRow={() => changeTable(t('Add a row'), (table, cell) => addRow(table, cell ? cell.row + 1 : table.cells.length))}
-                onRemoveRow={() => changeTable(t('Remove a row'), (table, cell) => removeRow(table, cell ? cell.row : table.cells.length - 1))}
-                onAddColumn={() => changeTable(t('Add a column'), (table, cell) => addColumn(table, cell ? cell.column + 1 : table.columnWidths.length))}
-                onRemoveColumn={() => changeTable(t('Remove a column'), (table, cell) => removeColumn(table, cell ? cell.column : table.columnWidths.length - 1))}
-                onHeading={(on) => changeTable(t('Heading row'), (table) => fitTable({ ...table, header: on ? TABLE_HEADING : null }))}
-                onStripes={(on) => changeTable(t('Stripes'), (table) => ({ ...table, stripes: on ? TABLE_STRIPES : null }))}
-                onLines={(kind) => changeTable(t('Lines'), (table) => ({ ...table, lines: { ...table.lines, kind } }))}
-                onLineWidth={(width) => changeTable(t('Line thickness'), (table) => ({ ...table, lines: { ...table.lines, width } }), 'table-lines')}
-                onPadding={(padding) => changeTable(t('Space in cells'), (table) => fitTable({ ...table, padding }), 'table-padding')}
-                onRtl={(rtl) => changeTable(t('Right to left'), (table) => fitTable({ ...table, rtl }))}
-                onNoBackground={() => changeTable(t('No background color'), (table) => ({ ...table, background: null }))}
+        {doc && (
+          <SidePanels
+            wide={wide}
+            phone={phone}
+            open={openPanel}
+            onOpen={setOpenPanel}
+            settingsName={settingsName}
+            settingsIcon={settingsIcon}
+            settings={
+              <>
+                {tableTarget && !adjustOn && (
+                  <TablePanel
+                    table={tableTarget}
+                    cell={textEdit?.cell ? { row: textEdit.cell.row, column: textEdit.cell.column } : null}
+                    colorPart={tablePartShown}
+                    onColorPart={(part) => {
+                      setEffectColor(null)
+                      setTablePart(part)
+                    }}
+                    onAddRow={() => changeTable(t('Add a row'), (table, cell) => addRow(table, cell ? cell.row + 1 : table.cells.length))}
+                    onRemoveRow={() => changeTable(t('Remove a row'), (table, cell) => removeRow(table, cell ? cell.row : table.cells.length - 1))}
+                    onAddColumn={() => changeTable(t('Add a column'), (table, cell) => addColumn(table, cell ? cell.column + 1 : table.columnWidths.length))}
+                    onRemoveColumn={() => changeTable(t('Remove a column'), (table, cell) => removeColumn(table, cell ? cell.column : table.columnWidths.length - 1))}
+                    onHeading={(on) => changeTable(t('Heading row'), (table) => fitTable({ ...table, header: on ? TABLE_HEADING : null }))}
+                    onStripes={(on) => changeTable(t('Stripes'), (table) => ({ ...table, stripes: on ? TABLE_STRIPES : null }))}
+                    onLines={(kind) => changeTable(t('Lines'), (table) => ({ ...table, lines: { ...table.lines, kind } }))}
+                    onLineWidth={(width) => changeTable(t('Line thickness'), (table) => ({ ...table, lines: { ...table.lines, width } }), 'table-lines')}
+                    onPadding={(padding) => changeTable(t('Space in cells'), (table) => fitTable({ ...table, padding }), 'table-padding')}
+                    onRtl={(rtl) => changeTable(t('Right to left'), (table) => fitTable({ ...table, rtl }))}
+                    onNoBackground={() => changeTable(t('No background color'), (table) => ({ ...table, background: null }))}
+                  />
+                )}
+                {textPanelOn && !adjustOn && doc && (
+                  <TextPanel
+                    table={!!tableTarget}
+                    title={tableTarget ? t('Words in the table') : pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
+                    style={textShown ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
+                    scope={textEdit ? (pickedWords ? 'words' : 'all') : null}
+                    wrap={textTarget?.wrap ?? false}
+                    hasRtl={tableTarget ? hasRtlLetters(tableTarget.cells.flat().join('')) : !!textTarget && hasRtlLetters(textTarget.text)}
+                    sample={fontSample(textTarget?.text ?? '')}
+                    resolvedAlign={textTarget ? resolveAlign(textTarget.style.align, textLayout(textTarget).direction) : 'left'}
+                    onFont={(id) => void changeFont(id)}
+                    onPreviewFont={previewFont}
+                    onStyle={changeTextStyle}
+                    onWrap={changeWrap}
+                    onFillKind={changeTextFillKind}
+                    onChoosePhoto={pickedText && pickedTexts <= 1 && !pickedText.pageNumber ? () => pickFile({ into: pickedText.id }) : undefined}
+                    photo={textEdit ? null : photoControls(pickedText)}
+                    onGradient={changeTextGradient}
+                    gradientStop={gradientStop}
+                    onGradientStop={setGradientStop}
+                    flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
+                    onContinue={!tableTarget && pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 && !pickedText.along && !pickedText.style.bend ? continueInAnotherBox : undefined}
+                    along={textTarget?.along ? { at: textTarget.along.at, flip: textTarget.along.flip } : null}
+                    onAlong={changeAlong}
+                    onStraighten={textTarget && pickedTexts <= 1 ? straightenText : undefined}
+                    onAlongShape={alongPair(doc) ? wordsAlongShape : undefined}
+                    styles={textStyleControls}
+                    note={smart.readable && pickedTexts <= 1 && <ReadableNote {...smart.readable} onFix={smart.applyFix} onHover={smart.hoverFix} />}
+                  />
+                )}
+                {pageColorOn && !adjustOn && doc && (
+                  <PagePanel
+                    gradient={pageGradient}
+                    onFillKind={changePageFillKind}
+                    onGradient={changePageGradient}
+                    gradientStop={gradientStop}
+                    onGradientStop={setGradientStop}
+                  />
+                )}
+                {shapeShown && !adjustOn && (
+                  <ShapePanel
+                    title={pickedShapes > 1 ? t('{count} shapes', { count: pickedShapes }) : editingShape ? editingShape.name : t('New shapes')}
+                    editing={editingShape !== null}
+                    geometry={shapeShown.geometry}
+                    fill={shapeShown.fill}
+                    outline={shapeShown.outline}
+                    colorTarget={shapeTarget}
+                    onColorTarget={(target) => {
+                      setEffectColor(null)
+                      setColorTarget(target)
+                    }}
+                    onGeometry={changeGeometry}
+                    onNoFill={() => changeShape(t('No fill'), () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
+                    onNoOutline={() => changeShape(t('No outline'), () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
+                    onOutlineWidth={changeOutlineWidth}
+                  onOutlineDash={changeOutlineDash}
+                    onFillKind={changeFillKind}
+                    onGradient={changeGradient}
+                    gradientStop={gradientStop}
+                    onGradientStop={(index) => {
+                      setEffectColor(null)
+                      setColorTarget('fill')
+                      setGradientStop(index)
+                    }}
+                    onEditPoints={editingShape && pickedShapes < 2 && !editingShape.geometry.parts && !(tool === 'pen' && editingShape.geometry.type === 'path') ? () => editPoints(editingShape.id) : undefined}
+                    onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ into: editingShape.id }) : undefined}
+                    photo={photoControls(editingShape)}
+                  />
+                )}
+                {tool === 'fade' && doc && !adjustOn && (
+                  <FadePanel
+                    name={fadeLayer ? fadeLayer.name : null}
+                    faded={!!fadeLayer?.hide}
+                    onFade={fadeSide}
+                    onPreview={setFadePreview}
+                    onShowAll={() => fadeLayer && changeHide(fadeLayer.id, null, t('Show all of it again'))}
+                  />
+                )}
+                {/* The picked thing's own settings come first; the Color panel colors it from below. */}
+                {adjustOn && doc ? (
+                  <AdjustPanel
+                    settings={adjustments}
+                    thumbnails={lookPictures}
+                    histogram={adjustHistogram}
+                    blocked={adjustBlocked}
+                    onChange={setAdjustments}
+                    onAutoLight={() => autoAdjust(autoLight)}
+                    onAutoColor={() => autoAdjust(autoColor)}
+                    match={matchPart}
+                    focus={adjustFocus}
+                  />
+                ) : tool === 'fade' && doc ? null : (
+                  <ColorPanel
+                    color={recolorOn ? recolorOn.now : (panelColor ?? color)}
+                    recent={recentColors}
+                    onChange={recolorOn ? recolorTo : onPanelColor}
+                    onPickFromDesign={() => setTool('picker')}
+                    design={designColorsShown}
+                    photoColors={<PhotoColors colors={smart.palette} fromPicked={smart.paletteFromPicked} current={panelColor ?? color} onPick={onPanelColor} onMatch={smart.matchDesign} />}
+                  />
+                )}
+                {effectsLayer && (
+                  <EffectsPanel
+                    title={effectsLayer.name}
+                    open={effectsOpen}
+                    onOpen={(open) => {
+                      if (!open) setEffectColor(null)
+                      setEffectsOpen(open)
+                    }}
+                    effects={effectsLayer.effects ?? null}
+                    blend={effectsLayer.blend ?? 'normal'}
+                    unit={unit}
+                    thumbnails={effectPictures}
+                    colorTarget={effectTarget}
+                    onColorTarget={(kind) => setEffectColor(kind && { layerId: effectsLayer.id, kind })}
+                    onLook={(look) => {
+                      setEffectColor(null)
+                      const effects = look.effects(unit)
+                      changeEffects(effects, effectsLabel(effects, unit))
+                    }}
+                    onChange={changeEffects}
+                    onBlend={changeBlend}
+                  />
+                )}
+              </>
+            }
+            layers={
+              <LayersPanel
+                doc={doc}
+                revision={editor.revision}
+                picked={picked}
+                onSelect={layers.select}
+                onToggle={togglePicked}
+                onPickGroup={layers.pickGroup}
+                onToggleGroupVisibility={layers.toggleGroupVisibility}
+                onRenameGroup={layers.renameGroup}
+                onToggleVisibility={layers.toggleVisibility}
+                onToggleLock={layers.toggleLock}
+                onEditAdjust={layers.editAdjust}
+                onEditFade={layers.editFade}
+                onOnlyThisPage={(id) => editor.change(t('Only on this page'), (d) => setOnEveryPage(d, [id], false))}
+                onRename={layers.rename}
+                onOpacity={layers.opacity}
+                onAdd={layers.add}
+                onDuplicate={layers.duplicate}
+                onMove={layers.move}
+                onDragTo={layers.dragTo}
+                onRowMenu={openRowMenu}
+                onJoin={layers.join}
+                onDelete={() => layers.remove()}
+                onDeleteRow={(ids) => layers.remove(ids)}
+                onPickPage={layers.pickPage}
+                onSeeThrough={layers.seeThrough}
               />
-            )}
-            {textPanelOn && !adjustOn && doc && (
-              <TextPanel
-                table={!!tableTarget}
-                title={tableTarget ? t('Words in the table') : pickedTexts > 1 && !textEdit ? t('{count} texts', { count: pickedTexts }) : textTarget ? textTarget.name || t('Text') : t('New text')}
-                style={textShown ?? { ...textDefaults, size: textDefaults.size ?? textSizeFor(doc.width, doc.height, 0.08) }}
-                scope={textEdit ? (pickedWords ? 'words' : 'all') : null}
-                wrap={textTarget?.wrap ?? false}
-                hasRtl={tableTarget ? hasRtlLetters(tableTarget.cells.flat().join('')) : !!textTarget && hasRtlLetters(textTarget.text)}
-                sample={fontSample(textTarget?.text ?? '')}
-                resolvedAlign={textTarget ? resolveAlign(textTarget.style.align, textLayout(textTarget).direction) : 'left'}
-                onFont={(id) => void changeFont(id)}
-                onPreviewFont={previewFont}
-                onStyle={changeTextStyle}
-                onWrap={changeWrap}
-                onFillKind={changeTextFillKind}
-                onChoosePhoto={pickedText && pickedTexts <= 1 && !pickedText.pageNumber ? () => pickFile({ into: pickedText.id }) : undefined}
-                photo={textEdit ? null : photoControls(pickedText)}
-                onGradient={changeTextGradient}
-                gradientStop={gradientStop}
-                onGradientStop={setGradientStop}
-                flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
-                onContinue={!tableTarget && pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 && !pickedText.along && !pickedText.style.bend ? continueInAnotherBox : undefined}
-                along={textTarget?.along ? { at: textTarget.along.at, flip: textTarget.along.flip } : null}
-                onAlong={changeAlong}
-                onStraighten={textTarget && pickedTexts <= 1 ? straightenText : undefined}
-                onAlongShape={alongPair(doc) ? wordsAlongShape : undefined}
-                styles={textStyleControls}
-                note={smart.readable && pickedTexts <= 1 && <ReadableNote {...smart.readable} onFix={smart.applyFix} onHover={smart.hoverFix} />}
-              />
-            )}
-            {pageColorOn && !adjustOn && doc && (
-              <PagePanel
-                gradient={pageGradient}
-                onFillKind={changePageFillKind}
-                onGradient={changePageGradient}
-                gradientStop={gradientStop}
-                onGradientStop={setGradientStop}
-              />
-            )}
-            {shapeShown && !adjustOn && (
-              <ShapePanel
-                title={pickedShapes > 1 ? t('{count} shapes', { count: pickedShapes }) : editingShape ? editingShape.name : t('New shapes')}
-                editing={editingShape !== null}
-                geometry={shapeShown.geometry}
-                fill={shapeShown.fill}
-                outline={shapeShown.outline}
-                colorTarget={shapeTarget}
-                onColorTarget={(target) => {
-                  setEffectColor(null)
-                  setColorTarget(target)
-                }}
-                onGeometry={changeGeometry}
-                onNoFill={() => changeShape(t('No fill'), () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
-                onNoOutline={() => changeShape(t('No outline'), () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
-                onOutlineWidth={changeOutlineWidth}
-              onOutlineDash={changeOutlineDash}
-                onFillKind={changeFillKind}
-                onGradient={changeGradient}
-                gradientStop={gradientStop}
-                onGradientStop={(index) => {
-                  setEffectColor(null)
-                  setColorTarget('fill')
-                  setGradientStop(index)
-                }}
-                onEditPoints={editingShape && pickedShapes < 2 && !editingShape.geometry.parts && !(tool === 'pen' && editingShape.geometry.type === 'path') ? () => editPoints(editingShape.id) : undefined}
-                onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ into: editingShape.id }) : undefined}
-                photo={photoControls(editingShape)}
-              />
-            )}
-            {tool === 'fade' && doc && !adjustOn && (
-              <FadePanel
-                name={fadeLayer ? fadeLayer.name : null}
-                faded={!!fadeLayer?.hide}
-                onFade={fadeSide}
-                onPreview={setFadePreview}
-                onShowAll={() => fadeLayer && changeHide(fadeLayer.id, null, t('Show all of it again'))}
-              />
-            )}
-            {/* The picked thing's own settings come first; the Color panel colors it from below. */}
-            {adjustOn && doc ? (
-              <AdjustPanel
-                settings={adjustments}
-                thumbnails={lookPictures}
-                histogram={adjustHistogram}
-                blocked={adjustBlocked}
-                onChange={setAdjustments}
-                onAutoLight={() => autoAdjust(autoLight)}
-                onAutoColor={() => autoAdjust(autoColor)}
-                match={matchPart}
-                focus={adjustFocus}
-              />
-            ) : tool === 'fade' && doc ? null : (
-              <ColorPanel
-                color={recolorOn ? recolorOn.now : (panelColor ?? color)}
-                recent={recentColors}
-                onChange={recolorOn ? recolorTo : onPanelColor}
-                onPickFromDesign={() => setTool('picker')}
-                design={designColorsShown}
-                photoColors={<PhotoColors colors={smart.palette} fromPicked={smart.paletteFromPicked} current={panelColor ?? color} onPick={onPanelColor} onMatch={smart.matchDesign} />}
-              />
-            )}
-            {effectsLayer && (
-              <EffectsPanel
-                title={effectsLayer.name}
-                open={effectsOpen}
-                onOpen={(open) => {
-                  if (!open) setEffectColor(null)
-                  setEffectsOpen(open)
-                }}
-                effects={effectsLayer.effects ?? null}
-                blend={effectsLayer.blend ?? 'normal'}
-                unit={unit}
-                thumbnails={effectPictures}
-                colorTarget={effectTarget}
-                onColorTarget={(kind) => setEffectColor(kind && { layerId: effectsLayer.id, kind })}
-                onLook={(look) => {
-                  setEffectColor(null)
-                  const effects = look.effects(unit)
-                  changeEffects(effects, effectsLabel(effects, unit))
-                }}
-                onChange={changeEffects}
-                onBlend={changeBlend}
-              />
-            )}
-          </ScrollRegion>
-          <LayersPanel
-            doc={doc}
-            revision={editor.revision}
-            picked={picked}
-            onSelect={layers.select}
-            onToggle={togglePicked}
-            onPickGroup={layers.pickGroup}
-            onToggleGroupVisibility={layers.toggleGroupVisibility}
-            onRenameGroup={layers.renameGroup}
-            onToggleVisibility={layers.toggleVisibility}
-            onToggleLock={layers.toggleLock}
-            onEditAdjust={layers.editAdjust}
-            onEditFade={layers.editFade}
-            onOnlyThisPage={(id) => editor.change(t('Only on this page'), (d) => setOnEveryPage(d, [id], false))}
-            onRename={layers.rename}
-            onOpacity={layers.opacity}
-            onAdd={layers.add}
-            onDuplicate={layers.duplicate}
-            onMove={layers.move}
-            onDragTo={layers.dragTo}
-            onRowMenu={openRowMenu}
-            onJoin={layers.join}
-            onDelete={layers.remove}
-            onPickPage={layers.pickPage}
-            onSeeThrough={layers.seeThrough}
+            }
           />
-        </div>
+        )}
       </div>
 
       <input
@@ -3992,6 +4051,22 @@ export default function App() {
         />
       )}
       {dialog === 'help' && <HelpGuide actions={actions} hasDocument={!!doc} onPickTool={setTool} onClose={() => setDialog(null)} />}
+      {dialog === 'find' && doc && (
+        <FindDialog
+          doc={doc}
+          onClose={() => setDialog(null)}
+          onChange={(find, replacement, options) => {
+            setDialog(null)
+            let count = 0
+            editor.change(t('Change words'), (d) => {
+              const result = replaceEverywhere(d, find, replacement, options)
+              count = result.count
+              return result.doc
+            })
+            inform(count === 1 ? t('Changed in 1 place.') : t('Changed in {count} places.', { count }))
+          }}
+        />
+      )}
       {dialog === 'layout' && doc && (
         <PageLayoutDialog
           doc={doc}

@@ -98,6 +98,8 @@ export const PRO_NAMES: Record<string, string> = {
   // Arranging
   'Line up': 'Align',
   'Tidy up': 'Distribute',
+  'Make copies': 'Repeat, Step and Repeat',
+  'Turn with the circle': 'Rotate copies (radial repeat)',
   'Space evenly across': 'Distribute horizontally',
   'Space evenly down': 'Distribute vertically',
   'Flip left to right': 'Flip Horizontal',
@@ -122,6 +124,9 @@ export const PRO_NAMES: Record<string, string> = {
   'Words along a shape': 'Type on a Path',
   'Slide along': 'Path type start point',
   'Other side': 'Flip (type on a path)',
+  'Find and change words': 'Find/Change, Find and Replace',
+  'Whole words only': 'Whole word',
+  'Same capital letters': 'Match case, Case sensitive',
   // Pages and printing
   'Color the page': 'Background color',
   'Page fill': 'Background color',
