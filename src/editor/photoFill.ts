@@ -1,4 +1,5 @@
 import type { Rect } from './geometry.ts'
+import { sharpPatternSource } from './sharp.ts'
 import type { Layer, PhotoFill, Point, ShapeLayer, TextLayer } from './types.ts'
 
 // A photo inside a shape or inside letters: where it sits, and how it's painted.
@@ -15,10 +16,12 @@ export function photoPlacement(fill: PhotoFill, w: number, h: number): Rect {
 
 // The photo as something to paint letters with, for a w × h box whose middle is at cx, cy.
 export function photoPattern(ctx: CanvasRenderingContext2D, fill: PhotoFill, w: number, h: number, cx: number, cy: number, then?: DOMMatrix): CanvasPattern | string {
-  const pattern = ctx.createPattern(fill.canvas, 'no-repeat')
-  if (!pattern) return '#000000'
   const place = photoPlacement(fill, w, h)
-  const at = new DOMMatrix([place.width / fill.canvas.width, 0, 0, place.height / fill.canvas.height, cx + place.x, cy + place.y])
+  // A photo shown bigger than its own pixels paints from a sharp bigger copy of it.
+  const source = sharpPatternSource(ctx, fill.canvas, place.width, place.height, then)
+  const pattern = ctx.createPattern(source, 'no-repeat')
+  if (!pattern) return '#000000'
+  const at = new DOMMatrix([place.width / source.width, 0, 0, place.height / source.height, cx + place.x, cy + place.y])
   pattern.setTransform(then ? then.multiply(at) : at)
   return pattern
 }

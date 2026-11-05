@@ -1436,7 +1436,7 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
               controls.upscale && {
                 icon: ImageUpscale,
                 label: t('Bigger and sharper'),
-                description: t('Gives “{name}” more pixels so it prints sharp, especially a small photo printed big. It stays the same size on your design. No AI: nothing is made up. You see it before you keep it.', { name: target.name }),
+                description: t('Gives “{name}” more pixels so it looks and prints sharp, especially a small photo shown big. It stays the same size on your design. Choose AI for the most detail. You see it before you keep it.', { name: target.name }),
                 run: controls.upscale,
               },
               controls.findWords && {

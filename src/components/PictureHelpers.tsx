@@ -9,6 +9,7 @@ import type { EditorDocument, PixelLayer } from '../editor/types.ts'
 import { documentPpi } from '../editor/units.ts'
 import { busiestSpot, printDetail, upscalePart, upscalePlan, UPSCALE_FACTORS, withUpscaledPixels, type UpscaleFactor } from '../editor/upscale.ts'
 import { canvasPixels, pixelsCanvas, upscaleCanvas } from '../editor/upscaleRun.ts'
+import { aiCanEnlarge, enlargeTwice } from '../ai/enlargeAi.ts'
 import type { ChangeOptions } from '../hooks/useEditor.ts'
 import { language, t } from '../i18n/i18n.ts'
 import { DEFAULT_FONT, loadFont } from '../text/fonts.ts'
@@ -72,9 +73,11 @@ function detailedSpot(source: HTMLCanvasElement, size: number): { x: number; y: 
 
 // The preview: one spot of the photo, one new pixel to one screen dot. Press and hold to see the
 // same spot as it is now (enlarged the usual way, as it would print without this).
-function UpscalePreview({ source, factor }: { source: HTMLCanvasElement; factor: UpscaleFactor }) {
+function UpscalePreview({ source, factor, ai }: { source: HTMLCanvasElement; factor: UpscaleFactor; ai: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const [comparing, setComparing] = useState(false)
+  // The AI's version of the spot, once it's ready (the plain one shows meanwhile).
+  const [aiAfter, setAiAfter] = useState<{ key: string; canvas: HTMLCanvasElement } | null>(null)
   const dpr = window.devicePixelRatio || 1
   const size = Math.max(4, Math.min(Math.ceil((PREVIEW_SIZE * dpr) / factor), source.width, source.height))
   const spot = useMemo(() => detailedSpot(source, size), [source, size])
@@ -87,6 +90,31 @@ function UpscalePreview({ source, factor }: { source: HTMLCanvasElement; factor:
     const piece = source.getContext('2d', { willReadFrequently: true })!.getImageData(x0, y0, x1 - x0, y1 - y0)
     return pixelsCanvas(upscalePart({ data: piece.data, width: piece.width, height: piece.height }, factor, spot.x - x0, spot.y - y0, size))
   }, [source, factor, spot, size])
+  const aiKey = `${factor}:${spot.x},${spot.y},${size}`
+  const aiReady = ai && aiAfter?.key === aiKey ? aiAfter.canvas : null
+
+  useEffect(() => {
+    if (!ai) return
+    const stop = new AbortController()
+    void (async () => {
+      // The spot with a rim around it, so the AI sees what's next to it, made bigger once or twice.
+      const rim = 8
+      const x0 = Math.max(0, spot.x - rim)
+      const y0 = Math.max(0, spot.y - rim)
+      const piece = document.createElement('canvas')
+      piece.width = Math.min(source.width, spot.x + size + rim) - x0
+      piece.height = Math.min(source.height, spot.y + size + rim) - y0
+      piece.getContext('2d')!.drawImage(source, -x0, -y0)
+      let big = await enlargeTwice(piece, () => {}, stop.signal)
+      if (factor === 4) big = await enlargeTwice(big, () => {}, stop.signal)
+      const canvas = document.createElement('canvas')
+      canvas.width = size * factor
+      canvas.height = size * factor
+      canvas.getContext('2d')!.drawImage(big, -(spot.x - x0) * factor, -(spot.y - y0) * factor)
+      setAiAfter({ key: aiKey, canvas })
+    })().catch(() => {})
+    return () => stop.abort()
+  }, [ai, aiKey, factor, size, source, spot])
 
   useEffect(() => {
     const canvas = ref.current
@@ -100,9 +128,9 @@ function UpscalePreview({ source, factor }: { source: HTMLCanvasElement; factor:
       ctx.imageSmoothingQuality = 'high'
       ctx.drawImage(source, spot.x, spot.y, size, size, 0, 0, size * factor, size * factor)
     } else {
-      ctx.drawImage(after, 0, 0)
+      ctx.drawImage(aiReady ?? after, 0, 0)
     }
-  }, [after, comparing, factor, size, source, spot])
+  }, [after, aiReady, comparing, factor, size, source, spot])
 
   const stop = () => setComparing(false)
   return (
@@ -126,14 +154,27 @@ function UpscalePreview({ source, factor }: { source: HTMLCanvasElement; factor:
       </Tooltip>
       <p className="flex items-center justify-center gap-1.5 text-xs text-ink-2">
         <Eye size={14} aria-hidden />
-        {comparing ? t('Before: the photo as it is now, enlarged.') : t('After: press and hold the picture to compare.')}
+        {comparing ? t('Before: the photo as it is now, enlarged.') : ai && !aiReady ? t('The AI is working on this spot…') : t('After: press and hold the picture to compare.')}
       </p>
     </div>
   )
 }
 
+// Two or four times as big with the AI. Four times is twice, twice; a photo too big for the AI's
+// second time is finished the plain way.
+async function enlargeWithAi(source: HTMLCanvasElement, factor: UpscaleFactor, onProgress: (share: number) => void, signal: AbortSignal): Promise<HTMLCanvasElement> {
+  if (factor === 2) return enlargeTwice(source, onProgress, signal)
+  const twice = await enlargeTwice(source, (share) => onProgress(share * 0.2), signal)
+  if (!aiCanEnlarge(twice.width, twice.height)) return upscaleCanvas(twice, 2, (share) => onProgress(0.2 + share * 0.8), signal)
+  return enlargeTwice(twice, (share) => onProgress(0.2 + share * 0.8), signal)
+}
+
 function UpscaleDialog({ doc, layer, change, inform, problem, onClose }: PictureHelperProps) {
   const [factor, setFactor] = useState<UpscaleFactor>(2)
+  // Most detail (AI) to start with, for photos small enough for it.
+  const aiFits = aiCanEnlarge(layer.canvas.width, layer.canvas.height)
+  const [way, setWay] = useState<'ai' | 'plain'>(aiFits ? 'ai' : 'plain')
+  const ai = way === 'ai' && aiFits
   const [share, setShare] = useState<number | null>(null)
   const stopRef = useRef<AbortController | null>(null)
   const source = layer.canvas
@@ -152,7 +193,7 @@ function UpscaleDialog({ doc, layer, change, inform, problem, onClose }: Picture
     stopRef.current = stop
     setShare(0)
     try {
-      const canvas = await upscaleCanvas(source, factor, setShare, stop.signal)
+      const canvas = ai ? await enlargeWithAi(source, factor, setShare, stop.signal) : await upscaleCanvas(source, factor, setShare, stop.signal)
       change(
         t('Bigger and sharper'),
         (d) => {
@@ -184,18 +225,35 @@ function UpscaleDialog({ doc, layer, change, inform, problem, onClose }: Picture
   return (
     <Dialog
       title={t('Bigger and sharper')}
-      subtitle={t('Gives “{name}” more pixels, so it prints sharp. It stays the same size on your design. No AI: nothing is made up, the photo’s own detail is kept crisp.', { name: layer.name })}
+      subtitle={t('Gives “{name}” more pixels, so it shows and prints sharp when it’s big. It stays the same size on your design. You see it before you keep it.', { name: layer.name })}
       submitLabel={share === null ? t('Apply') : t('Working…')}
       submitDisabled={plan.verdict === 'too-big' || share !== null}
       onSubmit={() => void apply()}
       onClose={onClose}
     >
+      <Field label={t('How')} help={t('Most detail uses AI to bring back fine detail, for the clearest result. True to the photo uses plain math: nothing is added.')}>
+        <ChoiceGroup
+          name={t('How')}
+          value={ai ? 'ai' : 'plain'}
+          options={[
+            {
+              value: 'ai',
+              label: t('Most detail (AI)'),
+              description: aiFits
+                ? t('AI brings back the fine detail a small photo is missing, so it looks as clear as it can. Takes a little longer.')
+                : t('This photo already has lots of pixels, too many for the AI. True to the photo works well for it.'),
+            },
+            { value: 'plain', label: t('True to the photo'), description: t('Plain math on the photo’s own pixels keeps its edges crisp. Nothing is added. Quick.') },
+          ]}
+          onChange={(value) => aiFits && setWay(value as 'ai' | 'plain')}
+        />
+      </Field>
       <Field label={t('How much bigger')} help={t('How many more pixels the photo gets. More pixels print sharper but make your design heavier.')}>
         <ChoiceGroup name={t('How much bigger')} value={String(factor) as `${UpscaleFactor}`} options={options} onChange={(value) => setFactor(Number(value) as UpscaleFactor)} />
       </Field>
       {share === null ? (
         <>
-          <UpscalePreview source={source} factor={factor} />
+          <UpscalePreview source={source} factor={factor} ai={ai} />
           <p className="text-xs leading-relaxed text-ink-2">
             {t('Printed at its size on your design: now {now} dots per inch, after {after}. Sharp prints need about 300.', { now, after })}
           </p>
@@ -203,7 +261,7 @@ function UpscaleDialog({ doc, layer, change, inform, problem, onClose }: Picture
           {plan.verdict === 'too-big' && <Warning>{t('Too big: this would make a {megapixels}-megapixel photo, more than a browser can safely hold. Choose 2 times, or crop the photo first.', { megapixels })}</Warning>}
         </>
       ) : (
-        <Progress share={share} label={t('Making it bigger and sharper… {percent}%', { percent: Math.round(share * 100) })} />
+        <Progress share={share} label={ai ? t('The AI is making it bigger and sharper… {percent}%', { percent: Math.round(share * 100) }) : t('Making it bigger and sharper… {percent}%', { percent: Math.round(share * 100) })} />
       )}
     </Dialog>
   )

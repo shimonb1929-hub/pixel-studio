@@ -975,7 +975,7 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       id: 'upscale',
       group: 'Photo',
       title: t('Bigger and sharper…'),
-      description: t('Give the picked photo two or four times as many pixels, so a small photo prints sharp. It stays the same size on your design. Plain math, no AI: nothing is made up. You see it first. (pro: Super Resolution, Preserve Details upscale)'),
+      description: t('Give the picked photo two or four times as many pixels, so a small photo looks and prints sharp. It stays the same size on your design. Choose AI for the most detail, or plain math that adds nothing. You see it first. (pro: Super Resolution, Preserve Details upscale)'),
       keywords: ['upscale', 'super resolution', 'preserve details', 'enlarge', 'enhance', 'bigger', 'sharper', 'sharpen', 'resolution', 'more pixels', 'blurry', 'pixelated', 'print', 'dpi', 'ppi', 'hd', 'high resolution', 'quality'],
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
