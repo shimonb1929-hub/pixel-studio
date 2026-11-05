@@ -112,11 +112,18 @@ export function Slider({ label, help, value, display, note, onChange, className 
 export function ScrollRegion({ className = '', style, children }: { className?: string; style?: CSSProperties; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   const [moreBelow, setMoreBelow] = useState(false)
+  const shown = useRef(moreBelow)
 
   useEffect(() => {
     const element = ref.current
     if (!element) return
-    const check = () => setMoreBelow(element.scrollHeight - element.scrollTop - element.clientHeight > 2)
+    // Only a change is passed on, so checking after every change on screen costs no extra drawing.
+    const check = () => {
+      const more = element.scrollHeight - element.scrollTop - element.clientHeight > 2
+      if (more === shown.current) return
+      shown.current = more
+      setMoreBelow(more)
+    }
     check()
     const observer = new ResizeObserver(check)
     observer.observe(element)

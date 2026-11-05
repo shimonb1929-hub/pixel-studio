@@ -1222,7 +1222,12 @@ export default function App() {
   const smart = useSmartDesign(editor, { pickedId: activeNow?.id, pickedText, notify: inform })
 
   function setTextPick(next: { start: number; end: number } | null) {
+    const before = textPickRef.current
     textPickRef.current = next
+    // Only picked words show anywhere; the typing point moving on with each letter changes nothing on
+    // screen, so it doesn't draw the app again.
+    const words = (pick: { start: number; end: number } | null) => !!pick && pick.end > pick.start
+    if (!words(before) && !words(next) && !!before === !!next) return
     setTextPickState(next)
   }
 
