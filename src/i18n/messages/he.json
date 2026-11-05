@@ -2380,5 +2380,13 @@
  "The contents list is up to date.": "תוכן העניינים מעודכן.",
  "Update the contents list": "עדכון תוכן העניינים",
  "Check my spelling": "לבדוק איות",
- "Just type. A word spelled wrong gets a wavy red line; right-click it to pick the right word. It works in English, Hebrew and Yiddish when your computer knows the language.": "פשוט הקלידו. מילה עם שגיאת כתיב מקבלת קו אדום גלי; לחצו עליה בלחצן הימני כדי לבחור את המילה הנכונה. זה עובד באנגלית, בעברית וביידיש כשהמחשב שלכם מכיר את השפה."
+ "Just type. A word spelled wrong gets a wavy red line; right-click it to pick the right word. It works in English, Hebrew and Yiddish when your computer knows the language.": "פשוט הקלידו. מילה עם שגיאת כתיב מקבלת קו אדום גלי; לחצו עליה בלחצן הימני כדי לבחור את המילה הנכונה. זה עובד באנגלית, בעברית וביידיש כשהמחשב שלכם מכיר את השפה.",
+ "Black ink": "דיו שחור",
+ "Cyan ink": "דיו ציאן",
+ "Magenta ink": "דיו מג׳נטה",
+ "Print inks": "צבעי הדפסה",
+ "The color as the four inks a printer uses, from 0 to 100. Print shops ask for these. Very bright screen colors look a little duller on paper.": "הצבע כארבעת צבעי הדיו של המדפסת, מ-0 עד 100. בתי דפוס מבקשים אותם. צבעים בהירים מאוד במסך נראים קצת דהויים יותר על נייר.",
+ "Yellow ink": "דיו צהוב",
+ "Use exact print colors": "להשתמש בצבעי הדפסה מדויקים",
+ "In the Color panel, open Print inks under the color code and type the numbers your print shop gave you.": "בחלונית צבע, פתחו את צבעי הדפסה מתחת לקוד הצבע והקלידו את המספרים שבית הדפוס נתן לכם."
 }

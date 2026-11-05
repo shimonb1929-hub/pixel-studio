@@ -218,6 +218,14 @@ export const GOALS: Goal[] = [
     keywords: ['spell check', 'spelling', 'spellcheck', 'typo', 'mistake', 'dictionary'],
   },
   {
+    id: 'print-inks',
+    goal: msg('Use exact print colors'),
+    how: msg('In the Color panel, open Print inks under the color code and type the numbers your print shop gave you.'),
+    tool: 'brush',
+    pro: 'CMYK',
+    keywords: ['cmyk', 'print colors', 'process color', 'ink', 'print shop', 'printer', 'cyan', 'magenta'],
+  },
+  {
     id: 'linked',
     goal: msg('Use the same thing many times and change them all at once'),
     how: msg('Pick it and choose Linked copy in Search, or tick Change together in Make copies. Change the color, shape or words of one, and every linked copy changes. The link button in Layers lets one change on its own.'),

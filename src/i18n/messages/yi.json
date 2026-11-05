@@ -2380,5 +2380,13 @@
  "The contents list is up to date.": "דער אינהאלט איז דערהיינטיגט.",
  "Update the contents list": "דערהיינטיג דעם אינהאלט",
  "Check my spelling": "קאנטראלירן מיין אויסלייג",
- "Just type. A word spelled wrong gets a wavy red line; right-click it to pick the right word. It works in English, Hebrew and Yiddish when your computer knows the language.": "שרייבט נאר. א ווארט וואס איז פאלש געשריבן באקומט א כוואליעדיקע רויטע ליניע; קליקט אויף אים מיטן רעכטן קנעפל כדי אויסצוקלייבן דאס ריכטיגע ווארט. עס ארבעט אין ענגליש, העברעאיש און אידיש ווען אייער קאמפיוטער קען די שפראך."
+ "Just type. A word spelled wrong gets a wavy red line; right-click it to pick the right word. It works in English, Hebrew and Yiddish when your computer knows the language.": "שרייבט נאר. א ווארט וואס איז פאלש געשריבן באקומט א כוואליעדיקע רויטע ליניע; קליקט אויף אים מיטן רעכטן קנעפל כדי אויסצוקלייבן דאס ריכטיגע ווארט. עס ארבעט אין ענגליש, העברעאיש און אידיש ווען אייער קאמפיוטער קען די שפראך.",
+ "Black ink": "שווארצע טינט",
+ "Cyan ink": "ציאן טינט",
+ "Magenta ink": "מאדזשענטע טינט",
+ "Print inks": "דרוק טינטן",
+ "The color as the four inks a printer uses, from 0 to 100. Print shops ask for these. Very bright screen colors look a little duller on paper.": "דער קאליר ווי די פיר טינטן וואס א דרוקער ניצט, פון 0 ביז 100. דרוקערייען בעטן די. זייער העלע קאלירן אויפן עקראן זעען אויס א ביסל בלאסער אויף פאפיר.",
+ "Yellow ink": "געלע טינט",
+ "Use exact print colors": "ניצן גענויע דרוק קאלירן",
+ "In the Color panel, open Print inks under the color code and type the numbers your print shop gave you.": "אינעם קאליר פאנעל, עפנט דרוק טינטן אונטער דעם קאליר קאד און שרייבט אריין די נומערן וואס די דרוקעריי האט אייך געגעבן."
 }

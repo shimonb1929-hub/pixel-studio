@@ -2380,5 +2380,13 @@
  "The contents list is up to date.": "El índice está al día.",
  "Update the contents list": "Poner al día el índice",
  "Check my spelling": "Revisar mi ortografía",
- "Just type. A word spelled wrong gets a wavy red line; right-click it to pick the right word. It works in English, Hebrew and Yiddish when your computer knows the language.": "Solo escribe. Una palabra mal escrita recibe una línea roja ondulada; haz clic derecho en ella para elegir la palabra correcta. Funciona en inglés, hebreo y yidis cuando tu computadora conoce el idioma."
+ "Just type. A word spelled wrong gets a wavy red line; right-click it to pick the right word. It works in English, Hebrew and Yiddish when your computer knows the language.": "Solo escribe. Una palabra mal escrita recibe una línea roja ondulada; haz clic derecho en ella para elegir la palabra correcta. Funciona en inglés, hebreo y yidis cuando tu computadora conoce el idioma.",
+ "Black ink": "Tinta negra",
+ "Cyan ink": "Tinta cian",
+ "Magenta ink": "Tinta magenta",
+ "Print inks": "Tintas de impresión",
+ "The color as the four inks a printer uses, from 0 to 100. Print shops ask for these. Very bright screen colors look a little duller on paper.": "El color como las cuatro tintas que usa una impresora, de 0 a 100. Las imprentas las piden. Los colores muy brillantes en pantalla se ven un poco más apagados en papel.",
+ "Yellow ink": "Tinta amarilla",
+ "Use exact print colors": "Usar colores de impresión exactos",
+ "In the Color panel, open Print inks under the color code and type the numbers your print shop gave you.": "En el panel Color, abre Tintas de impresión debajo del código de color y escribe los números que te dio la imprenta."
 }
