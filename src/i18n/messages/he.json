@@ -2099,5 +2099,20 @@
  "Tap Install app, or Add to Home screen.": "הקישו על Install app, או על Add to Home screen.",
  "Tap Install.": "הקישו על Install.",
  "Tap the Share button: a square with an arrow pointing up.": "הקישו על כפתור השיתוף: ריבוע עם חץ שמצביע למעלה.",
- "Tap the menu button: three dots at the top right.": "הקישו על כפתור התפריט: שלוש נקודות למעלה בצד."
+ "Tap the menu button: three dots at the top right.": "הקישו על כפתור התפריט: שלוש נקודות למעלה בצד.",
+ "“{name}” is saved as your layout. Find it in Ready layouts, under Mine.": "“{name}” נשמר כפריסה שלך. אפשר למצוא אותו בפריסות מוכנות, תחת שלי.",
+ "Save as my layout": "שמירה כפריסה שלי",
+ "Keeps the design you have open as a layout, so you can start new designs from it. Find it in Ready layouts, under Mine.": "שומר את העיצוב הפתוח כפריסה, כדי שתוכלו להתחיל ממנו עיצובים חדשים. אפשר למצוא אותו בפריסות מוכנות, תחת שלי.",
+ "Mine": "שלי",
+ "Your own designs, kept as layouts to start new designs from.": "העיצובים שלך, שנשמרו כפריסות כדי להתחיל מהם עיצובים חדשים.",
+ "Your own layouts show here. Make a design you like, then save it as a layout to start new designs from it.": "הפריסות שלך יופיעו כאן. עשו עיצוב שאתם אוהבים, ואז שמרו אותו כפריסה כדי להתחיל ממנו עיצובים חדשים.",
+ "My layouts": "הפריסות שלי",
+ "Starts a new design that looks just like this one. The layout itself stays as it is.": "מתחיל עיצוב חדש שנראה בדיוק כמו זה. הפריסה עצמה נשארת כמו שהיא.",
+ "Keeps the design you have open as a layout, so you can start new designs from it.": "שומר את העיצוב הפתוח כפריסה, כדי שתוכלו להתחיל ממנו עיצובים חדשים.",
+ "Save my design as a layout": "שמירת העיצוב שלי כפריסה",
+ "Yes, remove it": "כן, להסיר",
+ "Remove this layout": "הסרת הפריסה הזאת",
+ "Takes it off your layouts. Designs you already made from it stay as they are.": "מוריד אותה מהפריסות שלך. עיצובים שכבר עשיתם ממנה נשארים כמו שהם.",
+ "Use my design again as a starting point": "להשתמש שוב בעיצוב שלי כנקודת התחלה",
+ "Open the Menu and choose Save as my layout. Next time, open Ready layouts, choose Mine, and start a new design from it.": "פתחו את התפריט ובחרו שמירה כפריסה שלי. בפעם הבאה, פתחו פריסות מוכנות, בחרו שלי, והתחילו ממנה עיצוב חדש."
 }

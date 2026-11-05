@@ -8,6 +8,9 @@ import { englishOf } from './i18n/i18n.ts'
 // things in different places (Size, Softness, Strength) are left out here and given right where
 // they are used, through the tip's `pro`.
 export const PRO_NAMES: Record<string, string> = {
+  // Starting designs
+  'Ready layouts': 'Templates',
+  'Save as my layout': 'Save as Template',
   // Photos and colors
   Adjust: 'Adjustments, Filters',
   Looks: 'Presets, Filters',

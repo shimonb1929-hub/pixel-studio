@@ -14,6 +14,8 @@ import { inSentence, msg, t } from './i18n/i18n.ts'
 export interface AppCommands {
   newDesign: () => void
   readyLayouts: () => void
+  // Keeps the open design as one of the user's own layouts (a template).
+  saveAsLayout: () => void
   open: () => void
   addPhoto: () => void
   addText: (kind: TextKind) => void
@@ -149,6 +151,15 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       description: t('Start from a ready-made invitation, flyer or poster, made of shapes, words and colors you can change.'),
       keywords: ['template', 'templates', 'layout', 'invitation', 'invite', 'flyer', 'poster', 'card', 'ready', 'design', 'example', 'start'],
       run: c.readyLayouts,
+    },
+    {
+      id: 'save-as-layout',
+      group: 'Design',
+      title: t('Save as my layout'),
+      description: t('Keeps the design you have open as a layout, so you can start new designs from it. Find it in Ready layouts, under Mine.'),
+      keywords: ['template', 'save template', 'save as template', 'my templates', 'layout', 'reuse', 'start from', 'copy', 'again', 'same design'],
+      needsDocument: true,
+      run: c.saveAsLayout,
     },
     {
       id: 'open',

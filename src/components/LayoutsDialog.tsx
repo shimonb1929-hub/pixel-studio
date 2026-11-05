@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { drawLayer } from '../editor/compose.ts'
+import { deleteMyLayout, listMyLayouts, type SavedDesign } from '../editor/library.ts'
 import { paintPage } from '../editor/gradient.ts'
 import type { EditorDocument } from '../editor/types.ts'
 import { useFontsVersion } from '../hooks/useFontsVersion.ts'
@@ -38,7 +39,18 @@ export function DesignPreview({ doc, maxWidth, maxHeight, label }: { doc: Editor
   return <canvas ref={ref} role="img" data-preview aria-label={label} className="rounded-md shadow-card" style={{ width, height }} />
 }
 
-type KindChoice = 'all' | LayoutKind
+export type KindChoice = 'all' | LayoutKind | 'mine'
+
+// The user's own design, kept as a layout: its preview is their own work, never a picture we add.
+function MinePreview({ layout, className }: { layout: SavedDesign; className: string }) {
+  const ref = useRef<HTMLImageElement>(null)
+  useEffect(() => {
+    const url = URL.createObjectURL(layout.thumbnail)
+    if (ref.current) ref.current.src = url
+    return () => URL.revokeObjectURL(url)
+  }, [layout.thumbnail])
+  return <img ref={ref} alt={t('Preview of {name}', { name: layout.name })} className={`rounded-md object-contain shadow-card ${className}`} />
+}
 
 interface LayoutsDialogProps {
   // Which kind to show first.
@@ -46,17 +58,39 @@ interface LayoutsDialogProps {
   // The layout picked first.
   layoutId?: string
   onUse: (layout: LayoutInfo, colors: string) => void
+  // Starts a new design from one of the user's own layouts.
+  onUseMine: (layout: SavedDesign) => void
+  // Keeps the open design as one of the user's layouts. Left out when no design is open.
+  onSaveCurrent?: () => Promise<void>
   onClose: () => void
 }
 
 // Ready-made layouts to start from: pick one, try its colors, then start with it. Everything in a
 // layout is a shape or a text, so all of it can be changed afterwards.
-export function LayoutsDialog({ kind: startKind = 'all', layoutId, onUse, onClose }: LayoutsDialogProps) {
+export function LayoutsDialog({ kind: startKind = 'all', layoutId, onUse, onUseMine, onSaveCurrent, onClose }: LayoutsDialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const pressedBackdropRef = useRef(false)
   const titleId = useId()
   const [kind, setKind] = useState<KindChoice>(startKind)
   const [picked, setPicked] = useState<LayoutInfo>(() => LAYOUTS.find((l) => l.id === layoutId) ?? LAYOUTS.find((l) => startKind === 'all' || l.kind === startKind) ?? LAYOUTS[0])
+  // The user's own layouts, newest first, and the one picked among them.
+  const [mine, setMine] = useState<SavedDesign[]>([])
+  const [pickedMine, setPickedMine] = useState<string | null>(null)
+  const [removing, setRemoving] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const refreshMine = useCallback(
+    () =>
+      listMyLayouts().then(
+        (list) => {
+          setMine(list)
+          setPickedMine((id) => (list.some((l) => l.id === id) ? id : (list[0]?.id ?? null)))
+        },
+        () => setMine([]),
+      ),
+    [],
+  )
+  useEffect(() => void refreshMine(), [refreshMine])
+  const mineShown = mine.find((l) => l.id === pickedMine) ?? null
   // Colors chosen for every layout, or null for each layout's own.
   const [colors, setColors] = useState<string | null>(null)
   const fonts = useFontsVersion()
@@ -68,7 +102,7 @@ export function LayoutsDialog({ kind: startKind = 'all', layoutId, onUse, onClos
     for (const layout of LAYOUTS) void loadLayoutFonts(layout)
   }, [])
 
-  const shown = LAYOUTS.filter((l) => kind === 'all' || l.kind === kind)
+  const shown = kind === 'mine' ? [] : LAYOUTS.filter((l) => kind === 'all' || l.kind === kind)
   // Each preview is the layout itself, drawn again whenever a font arrives.
   const previews = useMemo(
     () => new Map(LAYOUTS.map((layout) => [layout.id, buildLayout(layout, colors ?? layout.colors)])),
@@ -107,7 +141,11 @@ export function LayoutsDialog({ kind: startKind = 'all', layoutId, onUse, onClos
         </div>
 
         <div role="tablist" aria-label={t('Kind of layout')} className="flex gap-1 px-6 pb-3">
-          {[{ value: 'all' as const, label: t('All'), description: t('Every ready layout.') }, ...LAYOUT_KINDS].map((choice) => (
+          {[
+            { value: 'all' as const, label: t('All'), description: t('Every ready layout.') },
+            ...LAYOUT_KINDS,
+            { value: 'mine' as const, label: t('Mine'), description: t('Your own designs, kept as layouts to start new designs from.') },
+          ].map((choice) => (
             <Tooltip key={choice.value} title={choice.label} description={choice.description}>
               <button
                 type="button"
@@ -122,67 +160,165 @@ export function LayoutsDialog({ kind: startKind = 'all', layoutId, onUse, onClos
           ))}
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 pb-6 md:flex-row">
-          <div role="listbox" aria-label={t('Layouts')} className="grid flex-1 grid-cols-2 content-start gap-3 sm:grid-cols-3">
-            {shown.map((layout) => (
-              <Tooltip key={layout.id} title={layout.name} description={layout.use} className="flex">
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={layout.id === picked.id}
-                  aria-label={layout.name}
-                  onClick={() => setPicked(layout)}
-                  onDoubleClick={() => onUse(layout, colors ?? layout.colors)}
-                  className={`flex w-full flex-col items-center gap-2 rounded-card border p-3 transition ${
-                    layout.id === picked.id ? 'border-accent bg-accent-soft/60 ring-2 ring-accent/25' : 'border-line bg-surface hover:border-accent/35 hover:shadow-card'
-                  }`}
+        {kind === 'mine' ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 pb-6 md:flex-row">
+            <div className="flex flex-1 flex-col gap-3">
+              {mine.length === 0 ? (
+                <p className="rounded-card border border-dashed border-line px-5 py-10 text-center text-[13px] text-ink-2">
+                  {t('Your own layouts show here. Make a design you like, then save it as a layout to start new designs from it.')}
+                </p>
+              ) : (
+                <div role="listbox" aria-label={t('My layouts')} className="grid grid-cols-2 content-start gap-3 sm:grid-cols-3">
+                  {mine.map((layout) => (
+                    <Tooltip key={layout.id} title={layout.name} description={t('Starts a new design that looks just like this one. The layout itself stays as it is.')} className="flex">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={layout.id === pickedMine}
+                        aria-label={layout.name}
+                        onClick={() => {
+                          setPickedMine(layout.id)
+                          setRemoving(false)
+                        }}
+                        onDoubleClick={() => onUseMine(layout)}
+                        className={`flex w-full flex-col items-center gap-2 rounded-card border p-3 transition ${
+                          layout.id === pickedMine ? 'border-accent bg-accent-soft/60 ring-2 ring-accent/25' : 'border-line bg-surface hover:border-accent/35 hover:shadow-card'
+                        }`}
+                      >
+                        <div className="flex h-[150px] items-center justify-center">
+                          <MinePreview layout={layout} className="max-h-[150px] max-w-[140px]" />
+                        </div>
+                        <span dir="auto" className="max-w-full truncate text-[13px] font-medium text-ink">{layout.name}</span>
+                      </button>
+                    </Tooltip>
+                  ))}
+                </div>
+              )}
+              {onSaveCurrent && (
+                <Button
+                  className="h-9 self-start px-4"
+                  disabled={saving}
+                  onClick={async () => {
+                    setSaving(true)
+                    try {
+                      await onSaveCurrent()
+                      await refreshMine()
+                    } finally {
+                      setSaving(false)
+                    }
+                  }}
+                  tip={{ title: t('Save as my layout'), description: t('Keeps the design you have open as a layout, so you can start new designs from it.') }}
                 >
-                  <div className="flex h-[150px] items-center justify-center">
-                    <DesignPreview doc={previews.get(layout.id)!} maxWidth={140} maxHeight={150} label={t('Preview of {name}', { name: layout.name })} />
+                  {t('Save my design as a layout')}
+                </Button>
+              )}
+            </div>
+            {mineShown && (
+              <div className="flex shrink-0 flex-col items-center gap-3 md:w-[300px]">
+                <div className="flex h-[340px] items-center justify-center">
+                  <MinePreview layout={mineShown} className="max-h-[340px] max-w-[280px]" />
+                </div>
+                <p dir="auto" className="w-full text-center text-[14px] font-semibold text-ink">{mineShown.name}</p>
+                <Button
+                  variant="primary"
+                  className="h-10 w-full px-5"
+                  onClick={() => onUseMine(mineShown)}
+                  tip={{ title: t('Use this layout'), description: t('Starts a new design that looks just like this one. The layout itself stays as it is.') }}
+                >
+                  {t('Use this layout')}
+                </Button>
+                {removing ? (
+                  <div className="flex w-full gap-2">
+                    <Button className="h-9 flex-1" onClick={() => setRemoving(false)}>
+                      {t('Keep it')}
+                    </Button>
+                    <Button
+                      variant="primary"
+                      className="h-9 flex-1"
+                      onClick={() => {
+                        setRemoving(false)
+                        void deleteMyLayout(mineShown.id).then(refreshMine, refreshMine)
+                      }}
+                    >
+                      {t('Yes, remove it')}
+                    </Button>
                   </div>
-                  <span className="text-[13px] font-medium text-ink">{layout.name}</span>
-                </button>
-              </Tooltip>
-            ))}
+                ) : (
+                  <Button
+                    variant="ghost"
+                    className="h-9 w-full text-ink-2"
+                    onClick={() => setRemoving(true)}
+                    tip={{ title: t('Remove this layout'), description: t('Takes it off your layouts. Designs you already made from it stay as they are.') }}
+                  >
+                    {t('Remove this layout')}
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
-
-          <div className="flex shrink-0 flex-col items-center gap-3 md:w-[300px]">
-            <div className="flex h-[340px] items-center justify-center">
-              <DesignPreview doc={previews.get(picked.id)!} maxWidth={280} maxHeight={340} label={t('Larger preview of {name}', { name: picked.name })} />
-            </div>
-            <div className="w-full text-center">
-              <p className="text-[14px] font-semibold text-ink">{picked.name}</p>
-              <p className="mt-0.5 text-[12px] text-ink-2">{picked.use}</p>
-            </div>
-            <div role="radiogroup" aria-label={t('Colors')} className="flex flex-wrap justify-center gap-1.5">
-              {LAYOUT_COLORS.map((set) => (
-                <Tooltip key={set.id} title={set.name} description={t('Try these colors on the layouts. You can change any color later too.')}>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 pb-6 md:flex-row">
+            <div role="listbox" aria-label={t('Layouts')} className="grid flex-1 grid-cols-2 content-start gap-3 sm:grid-cols-3">
+              {shown.map((layout) => (
+                <Tooltip key={layout.id} title={layout.name} description={layout.use} className="flex">
                   <button
                     type="button"
-                    role="radio"
-                    aria-checked={pickedColors === set.id}
-                    aria-label={set.name}
-                    onClick={() => setColors(set.id)}
-                    className={`flex h-8 w-9 overflow-hidden rounded-lg border transition ${pickedColors === set.id ? 'border-accent ring-2 ring-accent/30' : 'border-line hover:scale-105'}`}
+                    role="option"
+                    aria-selected={layout.id === picked.id}
+                    aria-label={layout.name}
+                    onClick={() => setPicked(layout)}
+                    onDoubleClick={() => onUse(layout, colors ?? layout.colors)}
+                    className={`flex w-full flex-col items-center gap-2 rounded-card border p-3 transition ${
+                      layout.id === picked.id ? 'border-accent bg-accent-soft/60 ring-2 ring-accent/25' : 'border-line bg-surface hover:border-accent/35 hover:shadow-card'
+                    }`}
                   >
-                    {[set.page, set.main, set.accent].map((color, i) => (
-                      <span key={i} className="h-full flex-1" style={{ background: color }} />
-                    ))}
+                    <div className="flex h-[150px] items-center justify-center">
+                      <DesignPreview doc={previews.get(layout.id)!} maxWidth={140} maxHeight={150} label={t('Preview of {name}', { name: layout.name })} />
+                    </div>
+                    <span className="text-[13px] font-medium text-ink">{layout.name}</span>
                   </button>
                 </Tooltip>
               ))}
             </div>
-            <p className="text-center text-[12px] text-ink-3">{t('Colors: {name}', { name: layoutColors(pickedColors).name })}</p>
-            <Button
-              variant="primary"
-              className="h-10 w-full px-5"
-              onClick={() => onUse(picked, pickedColors)}
-              tip={{ title: t('Use this layout'), description: t('Starts a new design with this layout. Click any word to change it, and drag anything to move it.') }}
-            >
-              {t('Use this layout')}
-            </Button>
+
+            <div className="flex shrink-0 flex-col items-center gap-3 md:w-[300px]">
+              <div className="flex h-[340px] items-center justify-center">
+                <DesignPreview doc={previews.get(picked.id)!} maxWidth={280} maxHeight={340} label={t('Larger preview of {name}', { name: picked.name })} />
+              </div>
+              <div className="w-full text-center">
+                <p className="text-[14px] font-semibold text-ink">{picked.name}</p>
+                <p className="mt-0.5 text-[12px] text-ink-2">{picked.use}</p>
+              </div>
+              <div role="radiogroup" aria-label={t('Colors')} className="flex flex-wrap justify-center gap-1.5">
+                {LAYOUT_COLORS.map((set) => (
+                  <Tooltip key={set.id} title={set.name} description={t('Try these colors on the layouts. You can change any color later too.')}>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={pickedColors === set.id}
+                      aria-label={set.name}
+                      onClick={() => setColors(set.id)}
+                      className={`flex h-8 w-9 overflow-hidden rounded-lg border transition ${pickedColors === set.id ? 'border-accent ring-2 ring-accent/30' : 'border-line hover:scale-105'}`}
+                    >
+                      {[set.page, set.main, set.accent].map((color, i) => (
+                        <span key={i} className="h-full flex-1" style={{ background: color }} />
+                      ))}
+                    </button>
+                  </Tooltip>
+                ))}
+              </div>
+              <p className="text-center text-[12px] text-ink-3">{t('Colors: {name}', { name: layoutColors(pickedColors).name })}</p>
+              <Button
+                variant="primary"
+                className="h-10 w-full px-5"
+                onClick={() => onUse(picked, pickedColors)}
+                tip={{ title: t('Use this layout'), description: t('Starts a new design with this layout. Click any word to change it, and drag anything to move it.') }}
+              >
+                {t('Use this layout')}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </dialog>
   )

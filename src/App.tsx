@@ -8,8 +8,8 @@ import { CanvasView, type ArrangeControls, type BoxEditing, type ShapeDrawing, t
 import { ColorPanel, type DesignColors } from './components/ColorPanel.tsx'
 import { applyTextStyle, colorUses, designColors, findTextStyle, forgetColor, keepColor, lookPatch, matchesStyle, newStyleId, nextStyleName, recolorEverywhere, removeTextStyle, renameTextStyle, saveTextStyle, textStyles, updateTextStyle } from './editor/designStyles.ts'
 import type { TextStylesProps } from './components/TextStyles.tsx'
-import { LayoutsDialog } from './components/LayoutsDialog.tsx'
-import { buildLayout, loadLayoutFonts, type LayoutInfo, type LayoutKind } from './layouts/layouts.ts'
+import { LayoutsDialog, type KindChoice } from './components/LayoutsDialog.tsx'
+import { buildLayout, loadLayoutFonts, type LayoutInfo } from './layouts/layouts.ts'
 import { CommandPalette } from './components/CommandPalette.tsx'
 import { HelpGuide } from './components/HelpGuide.tsx'
 import { Dialog } from './components/Dialog.tsx'
@@ -52,6 +52,7 @@ import { BRUSH_PRESETS, COPY_BRUSH, ERASER_PRESETS, stepBrushSize, type BrushSet
 import { getClipboard, ownCopyCheck, setClipboard } from './editor/clipboard.ts'
 import {
   createBlankDocument,
+  createDesignId,
   createCanvas,
   createDocumentFromImage,
   createId,
@@ -84,7 +85,7 @@ import {
   updateLayer,
   updateShape,
 } from './editor/layers.ts'
-import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
+import { listDesigns, loadDesign, loadMyLayout, saveMyLayout, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
 import { canFill, hitsLayer, isLineShape, layerAt, layerBounds, layerPixels, polygonPoints } from './editor/objects.ts'
 import { layerPhoto, photoWhereItWas, withPhoto } from './editor/photoFill.ts'
@@ -103,7 +104,7 @@ import { PictureHelper, type PictureHelperKind } from './components/PictureHelpe
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
-import { decodeProject } from './editor/project.ts'
+import { decodeProject, designThumbnail, encodeProject } from './editor/project.ts'
 import type { LayerOverride } from './editor/render.ts'
 import { invertSelection, refineSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
 import { colorMaskAt } from './editor/colorSelect.ts'
@@ -406,7 +407,7 @@ export default function App() {
   const [cursor, setCursor] = useState<Point | null>(null)
   const [dialog, setDialog] = useState<DialogId | null>(null)
   // Which kind of ready layout the layouts dialog shows first.
-  const [layoutsKind, setLayoutsKind] = useState<'all' | LayoutKind>('all')
+  const [layoutsKind, setLayoutsKind] = useState<KindChoice>('all')
   const [layoutsStart, setLayoutsStart] = useState<string | undefined>(undefined)
   // Bigger and sharper, or Words from a picture, open for a photo.
   const [pictureHelper, setPictureHelper] = useState<{ kind: PictureHelperKind; layerId: string } | null>(null)
@@ -1871,6 +1872,37 @@ export default function App() {
     }
   }
 
+  // My layouts: the open design is kept as a layout (pro programs call it a template), so new
+  // designs can start from it. It's a copy: changing the design later leaves the layout as it is.
+  async function saveAsMyLayout() {
+    const d = current()
+    if (!d) return
+    try {
+      const [project, thumbnail] = await Promise.all([encodeProject(d), designThumbnail(d)])
+      await saveMyLayout({ id: createDesignId(), name: d.name, width: d.width, height: d.height, updatedAt: Date.now(), thumbnail }, project)
+      inform(t('“{name}” is saved as your layout. Find it in Ready layouts, under Mine.', { name: d.name }))
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
+  // A new design that starts as a copy of one of the user's own layouts.
+  async function startFromMyLayout(layout: SavedDesign) {
+    try {
+      const file = await loadMyLayout(layout.id)
+      if (!file) throw new Error(t("“{name}” isn't in this browser anymore. It may have been deleted in another tab.", { name: layout.name }))
+      const next = await decodeProject(file)
+      next.name = uniqueName(layout.name, await savedNames())
+      setDialog(null)
+      void leaveDesign(() => {
+        setTool('move')
+        showDocument(next)
+      })
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
   async function download({ format, quality, fileName, pdf }: ExportOptions) {
     const d = current()
     if (!d) return
@@ -2472,6 +2504,7 @@ export default function App() {
       setDialog('new')
       void savedNames().then((names) => setNewDesignName(nextNumberedName(t('My design'), names, designCount)))
     },
+    saveAsLayout: () => void saveAsMyLayout(),
     readyLayouts: () => {
       settle()
       setLayoutsKind('all')
@@ -3883,7 +3916,16 @@ export default function App() {
           onClose={() => setDialog(null)}
         />
       )}
-      {dialog === 'layouts' && <LayoutsDialog kind={layoutsKind} layoutId={layoutsStart} onUse={(layout, colors) => void startFromLayout(layout, colors)} onClose={() => setDialog(null)} />}
+      {dialog === 'layouts' && (
+        <LayoutsDialog
+          kind={layoutsKind}
+          layoutId={layoutsStart}
+          onUse={(layout, colors) => void startFromLayout(layout, colors)}
+          onUseMine={(layout) => void startFromMyLayout(layout)}
+          onSaveCurrent={doc ? saveAsMyLayout : undefined}
+          onClose={() => setDialog(null)}
+        />
+      )}
       {dialog === 'export' && doc && (
         <ExportDialog doc={doc} initialFormat={exportFormat} onExport={download} onClose={() => setDialog(null)} />
       )}

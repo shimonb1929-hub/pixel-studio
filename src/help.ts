@@ -353,4 +353,12 @@ export const GOALS: Goal[] = [
     pro: 'Undo, History',
     keywords: ['undo', 'mistake', 'oops', 'back', 'history'],
   },
+  {
+    id: 'my-layout',
+    goal: msg('Use my design again as a starting point'),
+    how: msg('Open the Menu and choose Save as my layout. Next time, open Ready layouts, choose Mine, and start a new design from it.'),
+    action: 'save-as-layout',
+    pro: 'Save as Template',
+    keywords: ['template', 'templates', 'reuse', 'again', 'same', 'start from', 'copy', 'my layout'],
+  },
 ]

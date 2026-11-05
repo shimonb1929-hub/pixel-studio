@@ -2099,5 +2099,20 @@
  "Tap Install app, or Add to Home screen.": "Touchez Installer l’appli, ou Ajouter à l’écran d’accueil.",
  "Tap Install.": "Touchez Installer.",
  "Tap the Share button: a square with an arrow pointing up.": "Touchez le bouton Partager : un carré avec une flèche vers le haut.",
- "Tap the menu button: three dots at the top right.": "Touchez le bouton de menu : trois points en haut à droite."
+ "Tap the menu button: three dots at the top right.": "Touchez le bouton de menu : trois points en haut à droite.",
+ "“{name}” is saved as your layout. Find it in Ready layouts, under Mine.": "« {name} » est enregistré comme votre mise en page. Retrouvez-le dans Mises en page prêtes, sous Les miennes.",
+ "Save as my layout": "Enregistrer comme ma mise en page",
+ "Keeps the design you have open as a layout, so you can start new designs from it. Find it in Ready layouts, under Mine.": "Garde la création ouverte comme mise en page, pour commencer de nouvelles créations à partir d’elle. Retrouvez-la dans Mises en page prêtes, sous Les miennes.",
+ "Mine": "Les miennes",
+ "Your own designs, kept as layouts to start new designs from.": "Vos propres créations, gardées comme mises en page pour en commencer de nouvelles.",
+ "Your own layouts show here. Make a design you like, then save it as a layout to start new designs from it.": "Vos propres mises en page s’affichent ici. Faites une création qui vous plaît, puis enregistrez-la comme mise en page pour en commencer de nouvelles.",
+ "My layouts": "Mes mises en page",
+ "Starts a new design that looks just like this one. The layout itself stays as it is.": "Commence une nouvelle création identique à celle-ci. La mise en page elle-même reste telle quelle.",
+ "Keeps the design you have open as a layout, so you can start new designs from it.": "Garde la création ouverte comme mise en page, pour commencer de nouvelles créations à partir d’elle.",
+ "Save my design as a layout": "Enregistrer ma création comme mise en page",
+ "Yes, remove it": "Oui, la retirer",
+ "Remove this layout": "Retirer cette mise en page",
+ "Takes it off your layouts. Designs you already made from it stay as they are.": "La retire de vos mises en page. Les créations déjà faites à partir d’elle restent telles quelles.",
+ "Use my design again as a starting point": "Réutiliser ma création comme point de départ",
+ "Open the Menu and choose Save as my layout. Next time, open Ready layouts, choose Mine, and start a new design from it.": "Ouvrez le Menu et choisissez Enregistrer comme ma mise en page. La prochaine fois, ouvrez Mises en page prêtes, choisissez Les miennes et commencez une nouvelle création à partir d’elle."
 }

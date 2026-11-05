@@ -14,6 +14,9 @@ export interface SavedDesign {
 }
 
 const DB_NAME = 'pixel-studio'
+// "My layouts": designs kept to start new ones from (pro programs call these templates). They
+// live in a database of their own, so they never mix with the designs being worked on.
+const LAYOUTS_DB = 'pixel-studio-my-layouts'
 const DB_VERSION = 1
 const SUMMARIES = 'designs'
 const PROJECTS = 'projects'
@@ -21,7 +24,7 @@ const PROJECTS = 'projects'
 // Says in plain words why the browser wouldn't keep a design.
 export class StorageError extends Error {}
 
-let opening: Promise<IDBDatabase> | null = null
+const opening = new Map<string, Promise<IDBDatabase>>()
 
 function request<T>(req: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -46,11 +49,12 @@ function describe(error: unknown): StorageError {
   return new StorageError(t("This browser isn't letting Pixel Studio keep designs (it may be a private window)."))
 }
 
-function database(): Promise<IDBDatabase> {
-  if (!opening) {
-    opening = new Promise<IDBDatabase>((resolve, reject) => {
+function database(name = DB_NAME): Promise<IDBDatabase> {
+  let open = opening.get(name)
+  if (!open) {
+    open = new Promise<IDBDatabase>((resolve, reject) => {
       if (typeof indexedDB === 'undefined') throw new StorageError(t("This browser can't keep designs."))
-      const req = indexedDB.open(DB_NAME, DB_VERSION)
+      const req = indexedDB.open(name, DB_VERSION)
       req.onupgradeneeded = () => {
         const db = req.result
         if (!db.objectStoreNames.contains(SUMMARIES)) db.createObjectStore(SUMMARIES, { keyPath: 'id' })
@@ -61,7 +65,7 @@ function database(): Promise<IDBDatabase> {
         // Another tab with a newer Pixel Studio needs the database; step aside and reopen later.
         db.onversionchange = () => {
           db.close()
-          opening = null
+          opening.delete(name)
         }
         resolve(db)
       }
@@ -69,23 +73,24 @@ function database(): Promise<IDBDatabase> {
       req.onblocked = () => reject(new StorageError(t('Pixel Studio is open in another tab that needs to be reloaded first.')))
     }).catch((error: unknown) => {
       // Try again next time; the problem may go away (say, after freeing up space).
-      opening = null
+      opening.delete(name)
       throw describe(error)
     })
+    opening.set(name, open)
   }
-  return opening
+  return open
 }
 
 // Newest first.
-export async function listDesigns(): Promise<SavedDesign[]> {
-  const db = await database()
+export async function listDesigns(name = DB_NAME): Promise<SavedDesign[]> {
+  const db = await database(name)
   const designs = await request(db.transaction(SUMMARIES).objectStore(SUMMARIES).getAll() as IDBRequest<SavedDesign[]>)
   return designs.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
-export async function saveDesign(summary: SavedDesign, project: Blob): Promise<void> {
+export async function saveDesign(summary: SavedDesign, project: Blob, name = DB_NAME): Promise<void> {
   try {
-    const db = await database()
+    const db = await database(name)
     const tx = db.transaction([SUMMARIES, PROJECTS], 'readwrite')
     tx.objectStore(SUMMARIES).put(summary)
     tx.objectStore(PROJECTS).put(project, summary.id)
@@ -95,16 +100,22 @@ export async function saveDesign(summary: SavedDesign, project: Blob): Promise<v
   }
 }
 
-export async function loadDesign(id: string): Promise<Blob | null> {
-  const db = await database()
+export async function loadDesign(id: string, name = DB_NAME): Promise<Blob | null> {
+  const db = await database(name)
   const project = await request(db.transaction(PROJECTS).objectStore(PROJECTS).get(id) as IDBRequest<Blob | undefined>)
   return project ?? null
 }
 
-export async function deleteDesign(id: string): Promise<void> {
-  const db = await database()
+export async function deleteDesign(id: string, name = DB_NAME): Promise<void> {
+  const db = await database(name)
   const tx = db.transaction([SUMMARIES, PROJECTS], 'readwrite')
   tx.objectStore(SUMMARIES).delete(id)
   tx.objectStore(PROJECTS).delete(id)
   await done(tx)
 }
+
+// My layouts: kept the same way as designs, in their own place.
+export const listMyLayouts = () => listDesigns(LAYOUTS_DB)
+export const saveMyLayout = (summary: SavedDesign, project: Blob) => saveDesign(summary, project, LAYOUTS_DB)
+export const loadMyLayout = (id: string) => loadDesign(id, LAYOUTS_DB)
+export const deleteMyLayout = (id: string) => deleteDesign(id, LAYOUTS_DB)
