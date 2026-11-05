@@ -3,7 +3,7 @@ import { clickAt, designPixel, drag, expectColor, newDesign, WHITE, type Size } 
 import { expect, test } from './setup.ts'
 
 const BLUE: [number, number, number] = [59, 91, 253]
-const bar = (page: Page) => page.getByRole('toolbar', { name: 'Quick choices for what is picked' })
+const bar = (page: Page) => page.getByRole('group', { name: 'Quick choices for what is picked' })
 const layerButtons = (page: Page) => page.getByRole('list', { name: 'Layer list' }).getByRole('button', { name: /^Layer: / })
 
 async function rectangle(page: Page, size: Size) {

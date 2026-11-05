@@ -35,7 +35,7 @@ export function QuickBar({ around, width, height, actions, onMore }: QuickBarPro
   const items = ITEMS.map((item) => ({ ...item, action: actions.find((a) => a.id === item.id) })).filter((item) => item.action && !item.action.disabledReason)
   return (
     <div
-      role="toolbar"
+      role="group"
       aria-label={t('Quick choices for what is picked')}
       data-quickbar
       onPointerDown={(event) => event.stopPropagation()}
@@ -48,10 +48,10 @@ export function QuickBar({ around, width, height, actions, onMore }: QuickBarPro
             type="button"
             aria-label={label()}
             onClick={() => action!.run()}
-            className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle ${danger ? 'hover:text-danger' : 'hover:text-ink'}`}
+            className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-[12px] w-8 justify-center font-medium text-ink-2 transition-colors hover:bg-subtle ${danger ? 'hover:text-danger' : 'hover:text-ink'}`}
           >
             <Icon size={15} />
-            <span className="hidden whitespace-nowrap md:inline">{label()}</span>
+            <span className="sr-only">{label()}</span>
           </button>
         </Tooltip>
       ))}
@@ -63,10 +63,10 @@ export function QuickBar({ around, width, height, actions, onMore }: QuickBarPro
             const box = event.currentTarget.getBoundingClientRect()
             onMore(box.left, box.bottom + 4)
           }}
-          className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+          className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[12px] w-8 justify-center font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
         >
           <Ellipsis size={15} />
-          <span className="hidden whitespace-nowrap md:inline">{t('More')}</span>
+          <span className="sr-only">{t('More')}</span>
         </button>
       </Tooltip>
     </div>
