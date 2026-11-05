@@ -61,6 +61,9 @@ test('Bigger and sharper gives a photo more pixels and keeps it in its place', a
   await page.mouse.up()
   await expect(preview).toHaveAttribute('aria-label', 'After')
 
+  // Most detail (AI) is picked to start with; plain math keeps it exactly as it looks.
+  await expect(dialog.getByRole('radio', { name: 'Most detail (AI)' })).toHaveAttribute('aria-checked', 'true')
+  await dialog.getByRole('radio', { name: 'True to the photo' }).click()
   await dialog.getByRole('button', { name: 'Apply' }).click()
   await expect(dialog).toBeHidden()
   await expect(page.getByText('“small” now has 320 × 240 pixels', { exact: false })).toBeVisible()
@@ -93,4 +96,25 @@ test('Bigger and sharper warns about very big results and refuses too big ones',
   await expect(dialog).toBeHidden()
   await page.getByRole('button', { name: 'Undo' }).hover()
   await expect(page.getByRole('tooltip')).not.toContainText('bigger and sharper')
+})
+
+test('Most detail (AI) makes a small photo twice as big with the AI, from our own site', async ({ page }) => {
+  const outside: string[] = []
+  page.on('request', (request) => {
+    if (!request.url().startsWith('http://localhost') && !request.url().startsWith('data:') && !request.url().startsWith('blob:')) outside.push(request.url())
+  })
+  const size = await newDesign(page, 400, 300)
+  await addPhoto(page, 48, 36)
+  const dialog = await openUpscale(page, size)
+  await expect(dialog.getByRole('radio', { name: 'Most detail (AI)' })).toHaveAttribute('aria-checked', 'true')
+  // The preview shows the AI's version once it's ready.
+  await expect(dialog.getByText('After: press and hold the picture to compare.')).toBeVisible({ timeout: 60_000 })
+  await dialog.getByRole('button', { name: 'Apply' }).click()
+  await expect(page.getByText('“small” now has 96 × 72 pixels', { exact: false })).toBeVisible({ timeout: 60_000 })
+  await expectPickedSize(page, 48, 36)
+  // Still the same picture in the same place: the red square on the right, light on the left.
+  const red = await designPixel(page, size, 200 - 24 + 36, 150)
+  expect(red[0]).toBeGreaterThan(150)
+  expect(red[1]).toBeLessThan(90)
+  expect(outside).toEqual([])
 })

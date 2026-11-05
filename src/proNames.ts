@@ -36,6 +36,8 @@ export const PRO_NAMES: Record<string, string> = {
   Blur: 'Gaussian Blur',
   Sharpen: 'Sharpen, Unsharp Mask',
   'Fix spots': 'Spot Healing Brush',
+  'Most detail (AI)': 'Super Resolution, AI upscale',
+  'True to the photo': 'Preserve Details (enlargement)',
   'Fill the gap': 'Content-Aware Fill',
   'Move and fill the gap': 'Content-Aware Move',
   'Remove background': 'Remove Background',
@@ -149,6 +151,8 @@ export const PRO_NAMES: Record<string, string> = {
   'Extra edge for cutting': 'Bleed',
   'Cut lines': 'Crop marks',
   Download: 'Export',
+  // The app itself
+  'Your panels': 'Workspace, Window menu',
 }
 
 // The pro word for a word on screen, in any language, or undefined when it has none or it is the

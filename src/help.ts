@@ -322,6 +322,14 @@ export const GOALS: Goal[] = [
     keywords: ['resize', 'rotate', 'scale', 'bigger', 'smaller', 'flip', 'mirror'],
   },
   {
+    id: 'enlarge',
+    goal: msg('Make a small photo bigger without it going blurry'),
+    how: msg('With Arrange, click the photo and pull a corner: it stays crisp by itself. For the clearest result, choose Bigger and sharper in Photo tools and pick Most detail (AI).'),
+    tool: 'move',
+    pro: 'Preserve Details, Upscale, Resample',
+    keywords: ['enlarge', 'upscale', 'blurry', 'pixelated', 'faded', 'low quality', 'sharp', 'zoom in'],
+  },
+  {
     id: 'design-size',
     goal: msg('Change the size of the whole design'),
     how: msg('Use Resize design in the menu and type the new size, in pixels, inches or centimeters.'),
@@ -400,6 +408,14 @@ export const GOALS: Goal[] = [
     action: 'undo',
     pro: 'Undo, History',
     keywords: ['undo', 'mistake', 'oops', 'back', 'history'],
+  },
+  {
+    id: 'panels',
+    goal: msg('Choose the panels beside my design'),
+    how: msg('Press Your panels under the panels. Tick the ones you want, move them up or down, and pick how wide they are. Drag the edge next to your design to make them wider. Put back how it was brings the usual panels back.'),
+    action: 'panels',
+    pro: 'Workspace, Window menu, panel layout',
+    keywords: ['panels', 'workspace', 'sidebar', 'hide', 'show', 'wider', 'bigger', 'smaller', 'move', 'order', 'customize', 'layout'],
   },
   {
     id: 'my-layout',

@@ -1,0 +1,10 @@
+Swin2SR, 2x (Conde, Choi, Burchi, Timofte: "Swin2SR: SwinV2 Transformer for Compressed Image
+Super-Resolution and Restoration", 2022). Apache License 2.0.
+
+Used by Most detail (AI) in Bigger and sharper (src/ai/enlargeAiWorker.ts).
+
+This copy (8-bit numbers, ONNX Runtime format) is the file models/Swin2SR/swin2SR_uint8.ort from the
+npm package upscalejs 2.1.0 (https://github.com/gqgs/upscalejs):
+  npm pack upscalejs@2.1.0, then package/dist/models/Swin2SR/swin2SR_uint8.ort
+sha256 of swin2sr-x2.ort: a50015b63539997baaef51aea3565a7df6d6d33c93961471d8e3fae59c78cbd5
+Input "pixel_values" [1, 3, h, w] with colors 0 to 1; output "reconstruction" twice as big.
