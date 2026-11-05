@@ -207,7 +207,7 @@ export function LayoutsDialog({ kind: startKind = 'all', layoutId, onUse, onUseM
                       setSaving(false)
                     }
                   }}
-                  tip={{ title: t('Save as my layout'), description: t('Keeps the design you have open as a layout, so you can start new designs from it.') }}
+                  tip={{ title: t('Keep as my layout'), description: t('Keeps the design you have open as a layout, so you can start new designs from it.') }}
                 >
                   {t('Save my design as a layout')}
                 </Button>

@@ -10,7 +10,7 @@ import { englishOf } from './i18n/i18n.ts'
 export const PRO_NAMES: Record<string, string> = {
   // Starting designs
   'Ready layouts': 'Templates',
-  'Save as my layout': 'Save as Template',
+  'Keep as my layout': 'Save as Template',
   // Photos and colors
   Adjust: 'Adjustments, Filters',
   Looks: 'Presets, Filters',

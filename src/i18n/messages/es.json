@@ -2101,7 +2101,7 @@
  "Tap the Share button: a square with an arrow pointing up.": "Toca el botón Compartir: un cuadrado con una flecha hacia arriba.",
  "Tap the menu button: three dots at the top right.": "Toca el botón de menú: tres puntos arriba a la derecha.",
  "“{name}” is saved as your layout. Find it in Ready layouts, under Mine.": "“{name}” se guardó como tu diseño. Lo encuentras en Diseños listos, en Míos.",
- "Save as my layout": "Guardar como mi diseño",
+ "Keep as my layout": "Guardar como mi diseño",
  "Keeps the design you have open as a layout, so you can start new designs from it. Find it in Ready layouts, under Mine.": "Guarda el diseño abierto como un diseño propio, para empezar nuevos diseños a partir de él. Lo encuentras en Diseños listos, en Míos.",
  "Mine": "Míos",
  "Your own designs, kept as layouts to start new designs from.": "Tus propios diseños, guardados para empezar nuevos diseños a partir de ellos.",
@@ -2114,5 +2114,5 @@
  "Remove this layout": "Quitar este diseño",
  "Takes it off your layouts. Designs you already made from it stay as they are.": "Lo quita de tus diseños guardados. Los diseños que ya hiciste a partir de él se quedan como están.",
  "Use my design again as a starting point": "Usar mi diseño otra vez como punto de partida",
- "Open the Menu and choose Save as my layout. Next time, open Ready layouts, choose Mine, and start a new design from it.": "Abre el Menú y elige Guardar como mi diseño. La próxima vez, abre Diseños listos, elige Míos y empieza un diseño nuevo a partir de él."
+ "Open the Menu and choose Keep as my layout. Next time, open Ready layouts, choose Mine, and start a new design from it.": "Abre el Menú y elige Guardar como mi diseño. La próxima vez, abre Diseños listos, elige Míos y empieza un diseño nuevo a partir de él."
 }

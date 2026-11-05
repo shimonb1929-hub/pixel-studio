@@ -153,15 +153,6 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       run: c.readyLayouts,
     },
     {
-      id: 'save-as-layout',
-      group: 'Design',
-      title: t('Save as my layout'),
-      description: t('Keeps the design you have open as a layout, so you can start new designs from it. Find it in Ready layouts, under Mine.'),
-      keywords: ['template', 'save template', 'save as template', 'my templates', 'layout', 'reuse', 'start from', 'copy', 'again', 'same design'],
-      needsDocument: true,
-      run: c.saveAsLayout,
-    },
-    {
       id: 'open',
       group: 'Design',
       title: t('Open…'),
@@ -247,6 +238,15 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       keywords: ['save project', 'project', 'layers', 'backup', 'keep editing', 'later', 'another computer', 'move', 'file'],
       needsDocument: true,
       run: c.downloadProject,
+    },
+    {
+      id: 'save-as-layout',
+      group: 'Design',
+      title: t('Keep as my layout'),
+      description: t('Keeps the design you have open as a layout, so you can start new designs from it. Find it in Ready layouts, under Mine.'),
+      keywords: ['template', 'save template', 'save as template', 'my templates', 'layout', 'reuse', 'start from', 'copy', 'again', 'same design'],
+      needsDocument: true,
+      run: c.saveAsLayout,
     },
     {
       id: 'rename',

@@ -103,7 +103,7 @@ test('my own design can be saved as a layout and used to start new designs', asy
   await startFromLayout(page, 'Big news')
   const before = await layerNames(page)
   await page.getByRole('button', { name: 'Menu' }).click()
-  await page.getByRole('menuitem', { name: 'Save as my layout' }).click()
+  await page.getByRole('menuitem', { name: 'Keep as my layout' }).click()
   await expect(page.getByText(/is saved as your layout/)).toBeVisible()
 
   // Back on the start screen, Ready layouts shows it under Mine.
