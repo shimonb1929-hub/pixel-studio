@@ -394,6 +394,14 @@ export const GOALS: Goal[] = [
     keywords: ['undo', 'mistake', 'oops', 'back', 'history'],
   },
   {
+    id: 'panels',
+    goal: msg('Choose the panels beside my design'),
+    how: msg('Press Your panels under the panels. Tick the ones you want, move them up or down, and pick how wide they are. Drag the edge next to your design to make them wider. Put back how it was brings the usual panels back.'),
+    action: 'panels',
+    pro: 'Workspace, Window menu, panel layout',
+    keywords: ['panels', 'workspace', 'sidebar', 'hide', 'show', 'wider', 'bigger', 'smaller', 'move', 'order', 'customize', 'layout'],
+  },
+  {
     id: 'my-layout',
     goal: msg('Use my design again as a starting point'),
     how: msg('Open the Menu and choose Keep as my layout. Next time, open Ready layouts, choose Mine, and start a new design from it.'),

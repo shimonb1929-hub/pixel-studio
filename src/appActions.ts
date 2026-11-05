@@ -74,6 +74,8 @@ export interface AppCommands {
   spreadOut: (axis: 'x' | 'y') => void
   zoomIn: () => void
   zoomOut: () => void
+  // Opens "Your panels": which panels show beside the design, their order and width.
+  choosePanels: () => void
   fit: () => void
   actualSize: () => void
   search: () => void
@@ -841,6 +843,15 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       shortcut: shortcut('mod', 'alt', '0'),
       needsDocument: true,
       run: c.actualSize,
+    },
+    {
+      id: 'panels',
+      group: 'View',
+      title: t('Your panels'),
+      description: t('Choose which panels you see beside your design, their order, and how wide they are.'),
+      keywords: ['panels', 'workspace', 'sidebar', 'hide', 'show', 'wider', 'narrower', 'bigger', 'smaller', 'order', 'customize', 'layout', 'window'],
+      needsDocument: true,
+      run: c.choosePanels,
     },
     {
       id: 'brush-bigger',
