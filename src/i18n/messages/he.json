@@ -2208,5 +2208,13 @@
  "Turns the pattern inside the shape, for slanted stripes or a tilted grid. The shape itself stays as it is.": "מסובב את הדוגמה בתוך הצורה, לפסים אלכסוניים או רשת מוטה. הצורה עצמה נשארת כמו שהיא.",
  "Waves": "גלים",
  "Wide stripes, like a deck chair or candy.": "פסים רחבים, כמו כיסא נוח או סוכריה.",
- "Zigzag": "זיגזג"
+ "Zigzag": "זיגזג",
+ "Brush over a photo to make that part darker and deeper, like a sky or the edges. Brush again for more. The photo itself never changes.": "העבר מכחול על תמונה כדי להכהות ולהעמיק את החלק הזה, כמו שמיים או השוליים. העבר שוב בשביל עוד. התמונה עצמה אף פעם לא משתנה.",
+ "Brush over a photo to make that part lighter, like a face in shadow or dark eyes. Brush again for more. The photo itself never changes.": "העבר מכחול על תמונה כדי להבהיר את החלק הזה, כמו פנים בצל או עיניים כהות. העבר שוב בשביל עוד. התמונה עצמה אף פעם לא משתנה.",
+ "Choose Brush, open the brushes and pick Lighten or Darken. Brush over the part to change, again for more. The eraser takes it back.": "בחר מכחול, פתח את המכחולים ובחר הבהרה או הכהיה. העבר על החלק שרוצים לשנות, ושוב בשביל עוד. המחק מחזיר את זה.",
+ "Darken": "הכהיה",
+ "Light and shade": "אור וצל",
+ "Light and shade on photos": "אור וצל בתמונות",
+ "Lighten": "הבהרה",
+ "Lighten or darken just part of a photo": "להבהיר או להכהות רק חלק מתמונה"
 }

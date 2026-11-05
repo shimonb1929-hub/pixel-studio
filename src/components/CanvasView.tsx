@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type PointerEvent, type SetStateAction } from 'react'
 import { arrangeBox, frameOf, previewInBox, previewInFrame } from '../editor/arrange.ts'
-import type { BrushSettings } from '../editor/brushes.ts'
+import { lightColor, type BrushSettings } from '../editor/brushes.ts'
 import { coverRect } from '../editor/document.ts'
 import { ellipsePolygon, polygonBounds, rectFromCorners, rectPolygon, squareFromCorners, type Rect } from '../editor/geometry.ts'
 import { activeLayer, pickedWith } from '../editor/layers.ts'
@@ -115,7 +115,8 @@ export interface CanvasViewProps {
   // With Fix spots: the area brushed over on a picture, to be filled in from around it.
   onHeal: (layerId: string, marks: { canvas: HTMLCanvasElement; x: number; y: number }) => void
   // Makes a new drawing for a brush stroke when what's picked can't be painted on.
-  onNewDrawing: () => PixelLayer | null
+  // `light`: for Lighten and Darken, a drawing that softly mixes with what's below.
+  onNewDrawing: (light?: boolean) => PixelLayer | null
   // A stroke that ended without painting anything.
   onStrokeCancelled: () => void
   onStrokeActiveChange: (active: boolean) => void
@@ -1313,7 +1314,10 @@ export function CanvasView(props: CanvasViewProps) {
   function startStroke(event: PointerEvent<HTMLCanvasElement>) {
     const erasing = tool === 'eraser'
     const picked = activeLayer(doc)
-    let layer: PixelLayer | null = picked?.kind === 'raster' && !picked.locked ? picked : null
+    // Lighten and Darken paint white or black on a light-and-shade drawing over the photo: the one
+    // picked, or a new one.
+    const shade = erasing ? null : lightColor(brush)
+    let layer: PixelLayer | null = picked?.kind === 'raster' && !picked.locked && (!shade || picked.blend === 'soft-light') ? picked : null
     if (layer && !layer.visible) {
       props.onBlocked(
         erasing
@@ -1331,7 +1335,7 @@ export function CanvasView(props: CanvasViewProps) {
       return
     }
     // The page, shapes, text and locked pictures aren't painted on: the stroke makes a new drawing.
-    if (!layer) layer = props.onNewDrawing()
+    if (!layer) layer = props.onNewDrawing(!!shade)
     if (!layer) return
     event.currentTarget.setPointerCapture(event.pointerId)
     // A moved, pasted or resized layer may not cover the whole design yet; paint on a settled,
@@ -1339,10 +1343,10 @@ export function CanvasView(props: CanvasViewProps) {
     const target = coverRect(settleLayer(layer), { x: 0, y: 0, width: doc.width, height: doc.height })
     const mask = doc.selection ? { canvas: selectionInfo(doc.selection, doc.width, doc.height).mask, x: 0, y: 0 } : null
     const mode = tool === 'eraser' ? 'erase' : 'paint'
-    const session = new StrokeSession(target, brush, color, mode, mask)
+    const session = new StrokeSession(target, brush, shade ?? color, mode, mask)
     const point = { ...documentPoint(event.clientX, event.clientY), pressure: pressureOf(event.nativeEvent) }
     const last = lastEndRef.current
-    let label = mode === 'erase' ? t('Erase') : t('Brush stroke')
+    let label = mode === 'erase' ? t('Erase') : brush.light === 'lighten' ? t('Lighten') : brush.light === 'darken' ? t('Darken') : t('Brush stroke')
     if (event.shiftKey && last && last.docId === doc.id) {
       session.begin(last.point)
       session.lineTo(point)

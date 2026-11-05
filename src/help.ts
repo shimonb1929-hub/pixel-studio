@@ -170,6 +170,14 @@ export const GOALS: Goal[] = [
     keywords: ['pattern', 'polka', 'dots', 'stripes', 'checks', 'checkerboard', 'texture', 'tile', 'repeat', 'background'],
   },
   {
+    id: 'light-shade',
+    goal: msg('Lighten or darken just part of a photo'),
+    how: msg('Choose Brush, open the brushes and pick Lighten or Darken. Brush over the part to change, again for more. The eraser takes it back.'),
+    tool: 'brush',
+    pro: 'Dodge tool, Burn tool',
+    keywords: ['dodge', 'burn', 'brighten', 'shadow', 'face', 'eyes', 'darker', 'lighter', 'shade'],
+  },
+  {
     id: 'words',
     goal: msg('Add a title or some words'),
     how: msg('Choose Text and click where the words should start, or drag a box for a paragraph. Then type.'),

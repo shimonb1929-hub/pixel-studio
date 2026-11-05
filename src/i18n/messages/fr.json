@@ -2208,5 +2208,13 @@
  "Turns the pattern inside the shape, for slanted stripes or a tilted grid. The shape itself stays as it is.": "Tourne le motif dans la forme, pour des rayures en biais ou une grille penchée. La forme elle-même ne bouge pas.",
  "Waves": "Vagues",
  "Wide stripes, like a deck chair or candy.": "De larges rayures, comme un transat ou un bonbon.",
- "Zigzag": "Zigzag"
+ "Zigzag": "Zigzag",
+ "Brush over a photo to make that part darker and deeper, like a sky or the edges. Brush again for more. The photo itself never changes.": "Passez le pinceau sur une photo pour rendre cette partie plus sombre et plus profonde, comme un ciel ou les bords. Repassez pour plus. La photo elle-même ne change jamais.",
+ "Brush over a photo to make that part lighter, like a face in shadow or dark eyes. Brush again for more. The photo itself never changes.": "Passez le pinceau sur une photo pour éclaircir cette partie, comme un visage dans l’ombre ou des yeux sombres. Repassez pour plus. La photo elle-même ne change jamais.",
+ "Choose Brush, open the brushes and pick Lighten or Darken. Brush over the part to change, again for more. The eraser takes it back.": "Choisissez Pinceau, ouvrez les pinceaux et prenez Éclaircir ou Assombrir. Passez sur la partie à changer, encore pour plus. La gomme l’enlève.",
+ "Darken": "Assombrir",
+ "Light and shade": "Lumière et ombre",
+ "Light and shade on photos": "Lumière et ombre sur les photos",
+ "Lighten": "Éclaircir",
+ "Lighten or darken just part of a photo": "Éclaircir ou assombrir une partie d’une photo"
 }

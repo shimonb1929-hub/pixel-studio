@@ -2208,5 +2208,13 @@
  "Turns the pattern inside the shape, for slanted stripes or a tilted grid. The shape itself stays as it is.": "דרייט דעם מוסטער אינעווייניק אין דער פארעם, פאר שיפע פאסן אדער אן איינגעבויגענעם נעץ. די פארעם אליין בלייבט ווי זי איז.",
  "Waves": "כוואליעס",
  "Wide stripes, like a deck chair or candy.": "ברייטע פאסן, ווי א ליגשטול אדער א צוקערל.",
- "Zigzag": "זיגזאג"
+ "Zigzag": "זיגזאג",
+ "Brush over a photo to make that part darker and deeper, like a sky or the edges. Brush again for more. The photo itself never changes.": "פארט איבער א פאטאגראפיע כדי צו מאכן יענעם טייל טונקעלער און טיפער, ווי א הימל אדער די ראנדן. פארט נאכאמאל פאר מער. די פאטאגראפיע אליין טוישט זיך קיינמאל נישט.",
+ "Brush over a photo to make that part lighter, like a face in shadow or dark eyes. Brush again for more. The photo itself never changes.": "פארט איבער א פאטאגראפיע כדי צו מאכן יענעם טייל העלער, ווי א פנים אין שאטן אדער טונקעלע אויגן. פארט נאכאמאל פאר מער. די פאטאגראפיע אליין טוישט זיך קיינמאל נישט.",
+ "Choose Brush, open the brushes and pick Lighten or Darken. Brush over the part to change, again for more. The eraser takes it back.": "קלויבט בארשט, עפנט די בארשטן און קלויבט העלער מאכן אדער טונקעלער מאכן. פארט איבער דעם טייל צו טוישן, נאכאמאל פאר מער. דער מעקער נעמט עס צוריק.",
+ "Darken": "טונקעלער מאכן",
+ "Light and shade": "ליכט און שאטן",
+ "Light and shade on photos": "ליכט און שאטן אויף פאטאגראפיעס",
+ "Lighten": "העלער מאכן",
+ "Lighten or darken just part of a photo": "מאכן העלער אדער טונקעלער נאר א טייל פון א פאטאגראפיע"
 }

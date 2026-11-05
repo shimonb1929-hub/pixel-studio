@@ -1967,10 +1967,12 @@ export default function App() {
 
   // A brush stroke where nothing can be painted on (the page, a shape, text, a locked picture) goes
   // on a new drawing right above what's picked.
-  function newDrawingForStroke(): PixelLayer | null {
+  // Lighten and Darken get a drawing of light and shade, which softly mixes with what's below it.
+  function newDrawingForStroke(light = false): PixelLayer | null {
     const d = current()
     if (!d) return null
-    const layer = createLayer(nextLayerName(d.layers), d.width, d.height)
+    const plain = createLayer(light ? t('Light and shade') : nextLayerName(d.layers), d.width, d.height)
+    const layer: PixelLayer = light ? { ...plain, blend: 'soft-light' } : plain
     editor.startDrawing(layer)
     return layer
   }
