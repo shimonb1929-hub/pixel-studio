@@ -1,3 +1,5 @@
+import { BendEditor } from './BendEditor.tsx'
+import type { Warp } from '../editor/warp.ts'
 import { ArrowRight, Blend, CircleHelp, Grid2x2, Focus, ImagePlus, Move, PenTool, Square, X } from 'lucide-react'
 import { cssGradient, type Gradient } from '../editor/gradient.ts'
 import { GradientEditor } from './GradientEditor.tsx'
@@ -53,6 +55,8 @@ interface ShapePanelProps {
   colorTarget: ColorTarget
   onColorTarget: (target: ColorTarget) => void
   onGeometry: (patch: Partial<ShapeGeometry>) => void
+  // Bends the shape, or makes it straight again (null).
+  onWarp: (warp: Warp | null, mergeKey?: string) => void
   onNoFill: () => void
   onNoOutline: () => void
   onOutlineWidth: (width: number) => void
@@ -242,6 +246,12 @@ export function ShapePanel(props: ShapePanelProps) {
           </Tooltip>
         )}
       </div>
+
+      {props.editing && !line && (
+        <div className="mt-4 border-t border-line pt-3">
+          <BendEditor geometry={geometry} onChange={(warp, mergeKey) => props.onWarp(warp, mergeKey)} />
+        </div>
+      )}
 
       {props.onEditPoints && (
         <Button

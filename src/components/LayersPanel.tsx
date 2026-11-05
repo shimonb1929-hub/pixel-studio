@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, CircleHelp, Copy, Eclipse, Eye, EyeOff, Files, GripVertical, Grid2x2, Lock, LockOpen, Merge, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, CircleHelp, Copy, Eclipse, Eye, EyeOff, Files, GripVertical, Grid2x2, Link2, Lock, LockOpen, Merge, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { adjustmentName, isNeutral } from '../editor/adjust.ts'
 import { drawLayer } from '../editor/compose.ts'
@@ -146,6 +146,8 @@ interface LayersPanelProps {
   onEditFade: (layerId: string) => void
   // Takes a thing that's on every page off the other pages.
   onOnlyThisPage: (layerId: string) => void
+  // Lets a linked copy change on its own again.
+  onUnlink: (layerId: string) => void
   onRename: (layerId: string, name: string) => void
   onOpacity: (layerId: string, opacity: number) => void
   onAdd: () => void
@@ -545,6 +547,21 @@ export function LayersPanel(props: LayersPanelProps) {
                       className="flex h-8 w-7 items-center justify-center rounded-lg text-accent transition-colors hover:bg-surface"
                     >
                       <Files size={14} />
+                    </button>
+                  </Tooltip>
+                )}
+                {layer.linked && (
+                  <Tooltip
+                    title={t('Change together')}
+                    description={t('This changes together with its linked copies: change how one looks and they all change. Click to let this one change on its own.')}
+                  >
+                    <button
+                      type="button"
+                      aria-label={t('Let {name} change on its own', { name: layer.name })}
+                      onClick={() => props.onUnlink(layer.id)}
+                      className="flex h-8 w-7 items-center justify-center rounded-lg text-accent transition-colors hover:bg-surface"
+                    >
+                      <Link2 size={14} />
                     </button>
                   </Tooltip>
                 )}

@@ -33,7 +33,7 @@ import { ToolDock } from './components/ToolDock.tsx'
 import { ToolOptions, type ArrangeBarControls, type CropShape, type TextWrapControls } from './components/ToolOptions.tsx'
 import { canWrapText, defaultTextWrap, wrapTextOn } from './text/wrapAround.ts'
 import { Eclipse, File, Palette, Shapes, SlidersHorizontal, Table2, Type, type LucideIcon } from 'lucide-react'
-import { PanelButtons, SidePanels, type OpenPanel } from './components/SidePanels.tsx'
+import { OPEN_YOUR_PANELS, PanelButtons, SidePanels, type OpenPanel } from './components/SidePanels.tsx'
 import { PHONE_SCREEN, useMediaQuery, WIDE_SCREEN } from './hooks/useMediaQuery.ts'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
@@ -130,10 +130,13 @@ import { useEditor } from './hooks/useEditor.ts'
 import { useStraighten } from './hooks/useStraighten.ts'
 import { StraightenPanel } from './components/StraightenPanel.tsx'
 import { RepeatPanel } from './components/RepeatPanel.tsx'
+import { StepsPanel } from './components/StepsPanel.tsx'
 import { FindDialog } from './components/FindDialog.tsx'
 import { softTint, startingPattern, type Pattern } from './editor/pattern.ts'
 import { replaceEverywhere } from './editor/findReplace.ts'
 import { useRepeat } from './hooks/useRepeat.ts'
+import { useSteps } from './hooks/useSteps.ts'
+import { stepPair } from './editor/blend.ts'
 import { useCorners } from './hooks/useCorners.ts'
 import { CornerHandles, CornersPanel } from './components/CornersPanel.tsx'
 import { photoOnMainThing, smartCropFrame } from './editor/smartPhoto.ts'
@@ -147,6 +150,12 @@ import { hasRtlLetters, resolveAlign } from './text/layout.ts'
 import { DEFAULT_TEXT_STYLE, TEXT_KINDS, textSizeFor, type TextKind } from './text/presets.ts'
 import { useFontsVersion } from './hooks/useFontsVersion.ts'
 import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
+import { canLink, linkCopies, unlink } from './editor/linked.ts'
+import { isWarped, warpedPaths, type Warp } from './editor/warp.ts'
+import { DEFAULT_PUSH, type PushSettings } from './editor/push.ts'
+import { brushShapeFrom } from './editor/brushPicture.ts'
+import { shapePreset } from './editor/brushShapes.ts'
+import { canBeShapes, placeWordShapes, traceWords, wordPictures, wordShapes } from './editor/wordShapes.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
 import { changeText, fitText, keepOnPage, newTextBox, textIndexAt, textLayout, textName } from './text/textLayer.ts'
 import { straighten, textAlongShape } from './text/textAlong.ts'
@@ -495,6 +504,7 @@ export default function App() {
   const closeContextMenu = useCallback(() => setContextMenu(null), [])
   const [fillTolerance, setFillTolerance] = useState(0.15)
   const [healSize, setHealSize] = useState(40)
+  const [pushSettings, setPushSettings] = useState<PushSettings>(DEFAULT_PUSH)
   // Fade: the brush that softly hides parts, whether it hides or brings back, and the ready-made
   // fade being pointed at (shown on the design before it's chosen).
   const [fadeBrush, setFadeBrush] = useState<HideBrush>(DEFAULT_HIDE_BRUSH)
@@ -561,6 +571,7 @@ export default function App() {
   const corners = useCorners(editor, problem)
   // Make copies: copies of what is picked in a row, a grid or around a circle, shown before they're kept.
   const repeat = useRepeat(editor, problem)
+  const steps = useSteps(editor, problem)
   // Commands read the design through this, so they see changes made earlier in the same click.
   const current = () => editor.getDoc()
 
@@ -823,7 +834,14 @@ export default function App() {
     const d = current()
     const layer = d?.layers.find((l) => l.id === layerId)
     if (layer?.kind !== 'shape') return
-    if (layer.geometry.type !== 'path') {
+    if (isWarped(layer.geometry)) {
+      // A bent shape keeps its bend as real points, so they can be moved one by one.
+      const w = Math.max(Math.abs(layer.box.width), 1e-6)
+      const h = Math.max(Math.abs(layer.box.height), 1e-6)
+      const [path, ...parts] = warpedPaths(layer.geometry, w, h, polygonPoints(layer.geometry, w, h))
+      const { warp: _, ...straight } = layer.geometry
+      editor.change(t('Edit points'), (doc) => updateShape(doc, layer.id, { geometry: { ...straight, type: 'path', path, ...(parts.length ? { parts } : {}) } }))
+    } else if (layer.geometry.type !== 'path') {
       const w = Math.abs(layer.box.width)
       const h = Math.abs(layer.box.height)
       const path = geometryToPath(layer.geometry, Math.max(w, 1e-6), Math.max(h, 1e-6), polygonPoints(layer.geometry, w, h))
@@ -963,6 +981,19 @@ export default function App() {
   function changeGeometry(patch: Partial<ShapeGeometry>) {
     const label = 'corners' in patch ? t('Round corners') : 'sides' in patch ? t('Change sides') : 'arrow' in patch ? t('Arrow head') : t('Change shape')
     changeShape(label, (s) => ({ geometry: { ...s.geometry, ...patch } }), (d) => ({ ...d, geometry: { ...d.geometry, ...patch } }), `shape-${Object.keys(patch)[0]}`)
+  }
+
+  // Bends the picked shapes, or makes them straight again. New shapes always start straight.
+  function changeWarp(warp: Warp | null, mergeKey?: string) {
+    changeShape(
+      warp ? t('Bend shape') : t('Straight again'),
+      (s) => {
+        const { warp: _, ...geometry } = s.geometry
+        return { geometry: warp ? { ...geometry, warp } : geometry }
+      },
+      (d) => d,
+      mergeKey,
+    )
   }
 
   function changeOutlineWidth(width: number) {
@@ -1575,6 +1606,43 @@ export default function App() {
   }
 
   // An empty box after the picked text, for the words to run on into.
+  // Words into shapes (pro: Create Outlines): each color of the picked text becomes a shape over it,
+  // and the text is hidden below, in case the words need changing later.
+  async function wordsIntoShapes() {
+    settle()
+    const d = current()
+    const layer = d && activeLayer(d)
+    if (!layer || layer.kind !== 'text' || !canBeShapes(layer)) return problem(t('Pick some words on your design first.'))
+    inform(t('Turning the words into shapes…'))
+    const pictures = await wordPictures(layer)
+    const results = await traceWords(pictures)
+    const now = editor.getDoc()?.layers.find((l) => l.id === layer.id)
+    if (!results || now !== layer) return
+    const words = layer.text.trim().replace(/\s+/g, ' ')
+    const name = words.length > 24 ? `${words.slice(0, 24)}…` : words
+    const shapes = wordShapes(layer, pictures, results, name)
+    if (shapes.length === 0) return problem(t('These words have no letters to turn into shapes.'))
+    editor.change(t('Words into shapes'), (doc) => placeWordShapes(doc, layer.id, shapes))
+    setTool('move')
+    pickMany(shapes.map((s) => s.id))
+    inform(t('The letters are shapes now: pick one with the Curve tool to drag its points. The words are hidden below them, in case you want to change them.'))
+  }
+
+  // Your own brush shapes (pro: Define Brush Preset): what is picked becomes a brush tip.
+  function makeBrush() {
+    settle()
+    const d = current()
+    const layer = d && activeLayer(d)
+    if (!d || !layer) return problem(t('Pick something on your design first.'))
+    const ids = new Set(manyIn(d) ?? pickedWith(d, layer.id))
+    const shape = brushShapeFrom(d, d.layers.filter((l) => ids.has(l.id) && l.visible))
+    if (!shape) return problem(t('There is nothing to see in what is picked, so it can’t become a brush.'))
+    const preset = shapePreset(shape)
+    setBrush({ settings: preset.settings, presetId: preset.id })
+    setTool('brush')
+    inform(t('“{name}” is ready: paint to leave a trail of it. Find it again under Your brush shapes.', { name: shape.name }))
+  }
+
   function continueInAnotherBox() {
     const d = current()
     if (!d || !pickedText) return
@@ -1649,6 +1717,13 @@ export default function App() {
     if (d) pickMany(pickedWith(d, d.activeLayerId))
   }
 
+  // Keeps the steps between two shapes, and picks them all, kept together with the two.
+  function applySteps() {
+    if (!steps.apply()) return
+    const d = current()
+    if (d) pickMany(pickedWith(d, d.activeLayerId))
+  }
+
   function settle(): boolean {
     finishText()
     pen.finish()
@@ -1658,6 +1733,7 @@ export default function App() {
     if (straightenPhoto.pending) straightenPhoto.apply()
     if (corners.pending) corners.apply()
     if (repeat.pending) applyRepeat()
+    if (steps.pending) applySteps()
     return true
   }
 
@@ -1666,6 +1742,7 @@ export default function App() {
     if (straightenPhoto.pending) straightenPhoto.apply()
     if (corners.pending) corners.apply()
     if (repeat.pending) applyRepeat()
+    if (steps.pending) applySteps()
     if (next !== tool) {
       if (tool === 'move') {
         if (!applyTransform()) return
@@ -2067,10 +2144,12 @@ export default function App() {
 
   // A brush stroke where nothing can be painted on (the page, a shape, text, a locked picture) goes
   // on a new drawing right above what's picked.
-  function newDrawingForStroke(): PixelLayer | null {
+  // Lighten and Darken get a drawing of light and shade, which softly mixes with what's below it.
+  function newDrawingForStroke(light = false): PixelLayer | null {
     const d = current()
     if (!d) return null
-    const layer = createLayer(nextLayerName(d.layers), d.width, d.height)
+    const plain = createLayer(light ? t('Light and shade') : nextLayerName(d.layers), d.width, d.height)
+    const layer: PixelLayer = light ? { ...plain, blend: 'soft-light' } : plain
     editor.startDrawing(layer)
     return layer
   }
@@ -2244,6 +2323,7 @@ export default function App() {
     })
     if (tool === 'eraser') setEraser(update)
     else if (tool === 'heal') setHealSize((size) => stepBrushSize(size, direction))
+    else if (tool === 'push') setPushSettings((p) => ({ ...p, size: stepBrushSize(p.size, direction) }))
     else if (tool === 'fade') setFadeBrush((b) => ({ ...b, size: stepBrushSize(b.size, direction) }))
     else if (tool === 'clone') setCopyBrush((b) => ({ ...b, size: stepBrushSize(b.size, direction) }))
     else setBrush(update)
@@ -2556,6 +2636,29 @@ export default function App() {
       editor.change(ids.length > 1 ? t('Duplicate') : t('Duplicate layer'), (doc) => duplicateLayers(doc, ids, copy, (g) => ({ id: createId('group'), name: t('{name} copy', { name: g.name }) })), { bytes })
       if (copies.length > 1) pickMany(copies)
     },
+    linkedCopy: () => {
+      settle()
+      const d = current()
+      const ids = targets().filter((id) => {
+        const layer = d?.layers.find((l) => l.id === id)
+        return layer && canLink(layer)
+      })
+      if (!d || ids.length === 0) return problem(t('Only shapes and words can change together. Photos and drawings are copied with Duplicate.'))
+      const copiesOf = new Map<string, string[]>()
+      const copy = (layer: Layer) => {
+        const made = duplicateLayer(layer)
+        copiesOf.set(layer.id, [made.id])
+        return made
+      }
+      editor.change(t('Linked copy'), (doc) => linkCopies(duplicateLayers(doc, ids, copy, (g) => ({ id: createId('group'), name: t('{name} copy', { name: g.name }) })), copiesOf))
+      const copies = [...copiesOf.values()].flat()
+      if (copies.length > 1) pickMany(copies)
+      inform(t('Change the color, shape or words of one, and the other changes too.'))
+    },
+    unlinkCopies: () => {
+      settle()
+      editor.change(t('Stop changing together'), (doc) => unlink(doc, targets()))
+    },
     remove: (only?: string[]) => {
       settle()
       const d = current()
@@ -2749,11 +2852,12 @@ export default function App() {
       if (straightenPhoto.pending) return straightenPhoto.cancel()
       if (corners.pending) return corners.cancel()
       if (repeat.pending) return repeat.cancel()
+      if (steps.pending) return steps.cancel()
       editor.undo()
     },
     redo: () => {
       if (pen.drawing) return
-      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending || corners.pending || repeat.pending) return
+      if (strokeActiveRef.current || transformChanged || cropChanged || adjustChanged || straightenPhoto.pending || corners.pending || repeat.pending || steps.pending) return
       finishText()
       editor.redo()
     },
@@ -2932,6 +3036,7 @@ export default function App() {
       if (straightenPhoto.pending) return straightenPhoto.apply(), true
       if (corners.pending) return corners.apply(), true
       if (repeat.pending) return applyRepeat(), true
+      if (steps.pending) return applySteps(), true
       if (edgeShown) return applyEdge(), true
       return false
     },
@@ -2940,6 +3045,7 @@ export default function App() {
       if (tool === 'pen' && pen.finish()) return true
       if (transformChanged) return cancelTransform(), true
       if (photoMoving) return setPhotoMoving(false), true
+      if (steps.pending) return steps.cancel(), true
       if (picked) return pickOne(''), true
       if (tool === 'crop' && cropChanged) return setCropEdit(null), true
       if (adjustChanged) return cancelAdjust(), true
@@ -3026,6 +3132,8 @@ export default function App() {
     },
     layerAdd: layers.add,
     layerDuplicate: layers.duplicate,
+    linkedCopy: layers.linkedCopy,
+    unlinkCopies: layers.unlinkCopies,
     layerUp: () => layers.move(1),
     layerDown: () => layers.move(-1),
     layerToFront: () => layers.toEnd('front'),
@@ -3039,6 +3147,8 @@ export default function App() {
     tidyUp: organize.tidyUp,
     lineUp: organize.lineUp,
     spreadOut: organize.spreadOut,
+    // Beside the design on a wide screen; a narrow screen has no column, so its panels open instead.
+    choosePanels: () => (wide ? window.dispatchEvent(new Event(OPEN_YOUR_PANELS)) : setOpenPanel('settings')),
     zoomIn: () => doc && zoomBy(1),
     zoomOut: () => doc && zoomBy(-1),
     fit: () => doc && setViewport(fitted(doc)),
@@ -3098,6 +3208,14 @@ export default function App() {
     upscale: () => {
       const layer = current() && activeLayer(current()!)
       if (layer?.kind === 'raster') setPictureHelper({ kind: 'upscale', layerId: layer.id })
+    },
+    wordsIntoShapes: () => void wordsIntoShapes(),
+    makeBrush: () => makeBrush(),
+    stepsBetween: () => {
+      const ids = targets()
+      settle()
+      if (tool !== 'move') setTool('move')
+      steps.start(ids)
     },
     makeCopies: () => {
       const ids = targets()
@@ -3358,6 +3476,8 @@ export default function App() {
       ? eraser.settings
       : tool === 'heal'
         ? { ...brush.settings, size: healSize }
+        : tool === 'push'
+        ? { ...brush.settings, size: pushSettings.size }
         : tool === 'clone'
           ? { ...COPY_BRUSH, ...copyBrush }
           : tool === 'fade'
@@ -3440,6 +3560,7 @@ export default function App() {
       ppi: doc ? documentPpi(doc) : DEFAULT_PPI,
       blurSession: blurBackground.controls,
       makeCopies: commands.makeCopies,
+      stepsBetween: doc && picked && stepPair(doc, picked) ? commands.stepsBetween : undefined,
     }
     const degrees = (box: TransformBox) => Math.round((normalizeAngle(box.rotation) * 180) / Math.PI)
     // Its size and top-left corner before turning, as shown in the boxes.
@@ -3766,6 +3887,9 @@ export default function App() {
         onFillToleranceChange={setFillTolerance}
         healSize={healSize}
         onHealSizeChange={setHealSize}
+        push={pushSettings}
+        onPushChange={setPushSettings}
+        onMakeBrush={doc && activeLayer(doc) ? makeBrush : undefined}
         fade={{ brush: fadeBrush, mode: fadeMode, onBrush: setFadeBrush, onMode: setFadeMode }}
         copy={{
           brush: copyBrush,
@@ -3809,7 +3933,7 @@ export default function App() {
             <>
               <CanvasView
                 grid={showGrid}
-                doc={smart.shown ?? repeat.shown ?? shownDoc ?? doc}
+                doc={smart.shown ?? repeat.shown ?? steps.shown ?? shownDoc ?? doc}
                 revision={editor.revision}
                 viewport={viewport}
                 onViewportChange={setViewport}
@@ -3845,6 +3969,7 @@ export default function App() {
                 onColorSelect={colorSelect}
                 onPaintSelect={paintSelect}
                 selectionPreview={edgePreview}
+                push={pushSettings}
                 clone={
                   tool === 'clone'
                     ? {
@@ -3885,6 +4010,7 @@ export default function App() {
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
               {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
               {repeat.panel && <RepeatPanel state={{ ...repeat.panel, apply: applyRepeat }} />}
+              {steps.panel && <StepsPanel state={{ ...steps.panel, apply: applySteps }} />}
               {corners.dots && <CornerHandles state={corners.dots} viewport={viewport} />}
               {corners.panel && <CornersPanel state={corners.panel} />}
               {doc.layers.length === 0 && tool === 'move' && !textEdit ? (
@@ -3985,8 +4111,9 @@ export default function App() {
             onOpen={setOpenPanel}
             settingsName={settingsName}
             settingsIcon={settingsIcon}
-            settings={
-              <>
+            panels={{
+              settings: (
+                <>
                 {tableTarget && !adjustOn && (
                   <TablePanel
                     table={tableTarget}
@@ -4030,6 +4157,7 @@ export default function App() {
                     gradientStop={gradientStop}
                     onGradientStop={setGradientStop}
                     flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
+                    onIntoShapes={pickedText && pickedTexts <= 1 && canBeShapes(pickedText) && !tableTarget ? () => void wordsIntoShapes() : undefined}
                     onContinue={!tableTarget && pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 && !pickedText.along && !pickedText.style.bend ? continueInAnotherBox : undefined}
                     along={textTarget?.along ? { at: textTarget.along.at, flip: textTarget.along.flip } : null}
                     onAlong={changeAlong}
@@ -4061,6 +4189,7 @@ export default function App() {
                       setColorTarget(target)
                     }}
                     onGeometry={changeGeometry}
+                    onWarp={changeWarp}
                     onNoFill={() => changeShape(t('No fill'), () => ({ fill: { kind: 'none' } }), (d) => ({ ...d, fill: null, gradient: null }))}
                     onNoOutline={() => changeShape(t('No outline'), () => ({ outline: null }), (d) => ({ ...d, outline: null }))}
                     onOutlineWidth={changeOutlineWidth}
@@ -4075,7 +4204,7 @@ export default function App() {
                       setColorTarget('fill')
                       setGradientStop(index)
                     }}
-                    onEditPoints={editingShape && pickedShapes < 2 && !editingShape.geometry.parts && !(tool === 'pen' && editingShape.geometry.type === 'path') ? () => editPoints(editingShape.id) : undefined}
+                    onEditPoints={editingShape && pickedShapes < 2 && !editingShape.geometry.parts && !(tool === 'pen' && editingShape.geometry.type === 'path' && !isWarped(editingShape.geometry)) ? () => editPoints(editingShape.id) : undefined}
                     onChoosePhoto={editingShape && pickedShapes < 2 ? () => pickFile({ into: editingShape.id }) : undefined}
                     photo={photoControls(editingShape)}
                   />
@@ -4089,8 +4218,8 @@ export default function App() {
                     onShowAll={() => fadeLayer && changeHide(fadeLayer.id, null, t('Show all of it again'))}
                   />
                 )}
-                {/* The picked thing's own settings come first; the Color panel colors it from below. */}
-                {adjustOn && doc ? (
+                {/* Adjusting a photo takes the Color panel's place. */}
+                {adjustOn && doc && (
                   <AdjustPanel
                     settings={adjustments}
                     thumbnails={lookPictures}
@@ -4102,7 +4231,10 @@ export default function App() {
                     match={matchPart}
                     focus={adjustFocus}
                   />
-                ) : tool === 'fade' && doc ? null : (
+                )}
+                </>
+              ),
+              color: !adjustOn && !(tool === 'fade' && doc) && (
                   <ColorPanel
                     color={recolorOn ? recolorOn.now : (panelColor ?? color)}
                     recent={recentColors}
@@ -4111,8 +4243,8 @@ export default function App() {
                     design={designColorsShown}
                     photoColors={<PhotoColors colors={smart.palette} fromPicked={smart.paletteFromPicked} current={panelColor ?? color} onPick={onPanelColor} onMatch={smart.matchDesign} />}
                   />
-                )}
-                {effectsLayer && (
+              ),
+              effects: effectsLayer && (
                   <EffectsPanel
                     title={effectsLayer.name}
                     open={effectsOpen}
@@ -4134,9 +4266,8 @@ export default function App() {
                     onChange={changeEffects}
                     onBlend={changeBlend}
                   />
-                )}
-              </>
-            }
+              ),
+            }}
             layers={
               <LayersPanel
                 doc={doc}
@@ -4152,6 +4283,7 @@ export default function App() {
                 onEditAdjust={layers.editAdjust}
                 onEditFade={layers.editFade}
                 onOnlyThisPage={(id) => editor.change(t('Only on this page'), (d) => setOnEveryPage(d, [id], false))}
+                onUnlink={(id) => editor.change(t('Stop changing together'), (d) => unlink(d, [id]))}
                 onRename={layers.rename}
                 onOpacity={layers.opacity}
                 onAdd={layers.add}

@@ -106,6 +106,15 @@ export function RepeatPanel({ state }: { state: RepeatPanelState }) {
           </label>
         </>
       )}
+      <Tooltip title={t('Change together')} description={t('Change the color, shape or words of one, and all the copies change with it. Each keeps its own place and size.')} className="flex">
+        <label className="flex cursor-pointer items-start gap-2.5 text-[13px]">
+          <input type="checkbox" checked={!!s.linked} onChange={(e) => set({ linked: e.target.checked })} className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            <span className="font-medium text-ink">{t('Change together')}</span>
+            <span className="block text-ink-2">{t('Change one, and they all change.')}</span>
+          </span>
+        </label>
+      </Tooltip>
       <p role="status" className="text-[13px] leading-snug text-ink-2">
         {s.kind === 'mirror' ? t('One copy, flipped. Nothing changes until you press Apply.') : t('{count} in all. Nothing changes until you press Apply.', { count: total })}
       </p>

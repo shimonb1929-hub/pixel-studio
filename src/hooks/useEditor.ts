@@ -9,6 +9,7 @@ import { markPixelsChanged } from '../editor/pixelVersion.ts'
 import { copyRegion, restoreRegion, type StrokeResult } from '../editor/stroke.ts'
 import type { EditorDocument, PixelLayer } from '../editor/types.ts'
 import { syncEveryPage } from '../editor/everyPage.ts'
+import { syncLinked } from '../editor/linked.ts'
 import { settleText } from '../text/wrapAround.ts'
 
 // Everything about a design except its pixels, which change in place and are kept separately.
@@ -156,7 +157,7 @@ export function useEditor(): Editor {
       // Text running on from box to box is split over its boxes again after every change, text
       // flows around pictures and shapes again, and things on every page are made the same on all
       // of them (and text on the other pages flows around them too).
-      const next = settleText(syncEveryPage(settleText(update(current))))
+      const next = settleText(syncEveryPage(settleText(syncLinked(current, update(current)))))
       if (next === current) return
       history.push({
         label,

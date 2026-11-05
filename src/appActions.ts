@@ -1,3 +1,6 @@
+import { canLink } from './editor/linked.ts'
+import { stepPair } from './editor/blend.ts'
+import { canBeShapes } from './editor/wordShapes.ts'
 import type { Action } from './actions.ts'
 import { LOOKS } from './editor/adjust.ts'
 import { activeLayer, layersToJoin } from './editor/layers.ts'
@@ -82,6 +85,8 @@ export interface AppCommands {
   spreadOut: (axis: 'x' | 'y') => void
   zoomIn: () => void
   zoomOut: () => void
+  // Opens "Your panels": which panels show beside the design, their order and width.
+  choosePanels: () => void
   fit: () => void
   actualSize: () => void
   search: () => void
@@ -115,6 +120,15 @@ export interface AppCommands {
   makeCopies: () => void
   // Find words in every text and table and change them.
   findAndChange: () => void
+  // A copy that changes together with the picked thing, and letting linked copies change on their own.
+  linkedCopy: () => void
+  unlinkCopies: () => void
+  // The letters of the picked text become shapes.
+  wordsIntoShapes: () => void
+  // Shapes in between the two picked shapes, shown first.
+  stepsBetween: () => void
+  // What is picked becomes a brush tip.
+  makeBrush: () => void
 }
 
 interface ActionState {
@@ -611,6 +625,46 @@ export function buildActions({ doc, undoLabel, redoLabel, organize, view }: Acti
       run: c.makeCopies,
     },
     {
+      id: 'make-brush',
+      group: 'Brush',
+      title: t('Make a brush'),
+      description: t('Turns what is picked on your design (a star, a leaf you drew, a word) into a brush that paints a trail of it.'),
+      keywords: ['define brush', 'brush preset', 'custom brush', 'brush shape', 'stamp', 'own brush', 'my brush', 'brush tip', 'pattern brush', 'scatter brush'],
+      needsDocument: true,
+      disabledReason: noLayerPicked,
+      run: c.makeBrush,
+    },
+    {
+      id: 'steps-between',
+      group: 'Layers',
+      title: t('Steps between…'),
+      description: t('Shapes in between the two picked ones, slowly turning one into the other: place, size, color and even shape. Good for color ramps, rainbows and 3D letters. You see them before you keep them.'),
+      keywords: ['blend', 'blend tool', 'make blend', 'morph', 'tween', 'in between', 'steps', 'transition', 'ramp', 'rainbow', '3d', 'extrude', 'shape blend'],
+      needsDocument: true,
+      disabledReason: doc && !stepPair(doc, organize.picked ?? (active ? [active.id] : [])) ? t('Pick two shapes first: hold Shift and click both.') : undefined,
+      run: c.stepsBetween,
+    },
+    {
+      id: 'linked-copy',
+      group: 'Layers',
+      title: t('Linked copy'),
+      description: t('A copy that changes together with the picked thing: change the color, shape or words of one, and the other changes too. Each keeps its own place and size.'),
+      keywords: ['symbol', 'symbols', 'instance', 'linked', 'link', 'component', 'smart object', 'clone', 'copy', 'duplicate', 'change together', 'same'],
+      needsDocument: true,
+      disabledReason: noLayerPicked ?? (active && !canLink(active) ? t('Only shapes and words can change together. Photos and drawings are copied with Duplicate.') : undefined),
+      run: c.linkedCopy,
+    },
+    {
+      id: 'unlink-copies',
+      group: 'Layers',
+      title: t('Stop changing together'),
+      description: t('The picked thing changes on its own again, and the copies it was linked with no longer follow it.'),
+      keywords: ['unlink', 'break link', 'detach', 'expand symbol', 'own', 'separate', 'symbol', 'instance'],
+      needsDocument: true,
+      disabledReason: noLayerPicked ?? (active && !active.linked ? t('The picked thing is not a linked copy.') : undefined),
+      run: c.unlinkCopies,
+    },
+    {
       id: 'keep-together',
       group: 'Layers',
       title: t('Keep together'),
@@ -916,6 +970,15 @@ export function buildActions({ doc, undoLabel, redoLabel, organize, view }: Acti
       run: c.actualSize,
     },
     {
+      id: 'panels',
+      group: 'View',
+      title: t('Your panels'),
+      description: t('Choose which panels you see beside your design, their order, and how wide they are.'),
+      keywords: ['panels', 'workspace', 'sidebar', 'hide', 'show', 'wider', 'narrower', 'bigger', 'smaller', 'order', 'customize', 'layout', 'window'],
+      needsDocument: true,
+      run: c.choosePanels,
+    },
+    {
       id: 'brush-bigger',
       group: 'Brush',
       title: t('Bigger brush'),
@@ -991,6 +1054,16 @@ export function buildActions({ doc, undoLabel, redoLabel, organize, view }: Acti
       needsDocument: true,
       disabledReason: doc && active?.kind !== 'raster' ? t('Pick a photo or a drawing first: click it on your design.') : undefined,
       run: c.blurBackground,
+    },
+    {
+      id: 'words-into-shapes',
+      group: 'Layers',
+      title: t('Words into shapes'),
+      description: t('Turns the letters of the picked words into shapes, so you can bend and pull each letter, fill it with a pattern, and the design looks the same on any computer. The words stay hidden below.'),
+      keywords: ['create outlines', 'outlines', 'convert to outlines', 'convert to shapes', 'text to shapes', 'text to path', 'letters', 'logo', 'vector', 'expand'],
+      needsDocument: true,
+      disabledReason: doc && (active?.kind !== 'text' || !canBeShapes(active)) ? t('Pick some words on your design first.') : undefined,
+      run: c.wordsIntoShapes,
     },
     {
       id: 'turn-into-shapes',

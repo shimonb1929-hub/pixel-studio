@@ -1,3 +1,4 @@
+import { WARP_KINDS, type WarpKind } from './warp.ts'
 import { COLOR_RANGES, CURVE_CHANNELS, NO_ADJUSTMENTS, SLIDER_KEYS, tidyAdjustments, type Adjustments, type CurvePoint } from './adjust.ts'
 import { drawLayer } from './compose.ts'
 import { BLEND_MODES, hasEffects, type BlendMode, type LayerEffects } from './effects.ts'
@@ -45,10 +46,11 @@ import { MAX_DESIGN_COLORS, MAX_TEXT_STYLES } from './designStyles.ts'
 // Version 17 added the design's own colors and text styles (colors, textStyles, a text's styleId).
 // Version 18 added photos inside text (photo) and softly hidden parts (hide), each with its own
 // picture after the layer's other pictures.
-// Version 19 added pattern fills for shapes (a fill of kind 'pattern').
+// Version 19 added pattern fills for shapes (a fill of kind 'pattern'). Version 20 added linked
+// copies (linked) and bent shapes (geometry.warp).
 // Older files still open.
 
-export const PROJECT_VERSION = 19
+export const PROJECT_VERSION = 20
 
 const MAGIC = 'PXSTUDIO'
 const HEADER_BYTES = MAGIC.length + 4
@@ -70,6 +72,7 @@ interface ProjectLayerBase {
   effects?: LayerEffects | null
   blend?: BlendMode
   everyPage?: string
+  linked?: string
   textWrap?: TextWrap
   // The hidden parts' picture comes after the layer's other pictures.
   hide?: { rect: LayerHide['rect']; width: number; height: number; bytes: number }
@@ -387,6 +390,11 @@ function readGeometry(value: unknown): ShapeGeometry {
     if (!Array.isArray(value.parts) || value.parts.length > MAX_PATH_NODES) damaged()
     geometry.parts = value.parts.map(readPath)
   }
+  if (value.warp !== undefined && value.warp !== null) {
+    const warp = value.warp
+    if (!isRecord(warp) || !WARP_KINDS.includes(warp.kind as WarpKind) || !isBetween(warp.amount, -1, 1)) damaged()
+    geometry.warp = { kind: warp.kind as WarpKind, amount: warp.amount }
+  }
   return geometry
 }
 
@@ -603,6 +611,10 @@ function readLayer(layer: unknown): ProjectLayer {
     if (typeof layer.everyPage !== 'string' || !layer.everyPage || layer.everyPage.length > 100) damaged()
     base.everyPage = layer.everyPage
   }
+  if (layer.linked !== undefined) {
+    if (typeof layer.linked !== 'string' || !layer.linked || layer.linked.length > 100) damaged()
+    base.linked = layer.linked
+  }
   if (layer.hide !== undefined && layer.hide !== null) base.hide = readHide(layer.hide)
   if (layer.textWrap !== undefined && layer.textWrap !== null) {
     const wrap = layer.textWrap
@@ -786,6 +798,7 @@ function describeLayer(layer: Layer, sizes: number[]): ProjectLayer {
     effects: hasEffects(layer.effects) ? layer.effects : null,
     blend: layer.blend && layer.blend !== 'normal' ? layer.blend : undefined,
     ...(layer.everyPage ? { everyPage: layer.everyPage } : {}),
+    ...(layer.linked ? { linked: layer.linked } : {}),
     ...(layer.hide ? { hide: { rect: layer.hide.rect, width: layer.hide.canvas.width, height: layer.hide.canvas.height, bytes: sizes[sizes.length - 1] } } : {}),
     ...(layer.textWrap && layer.kind !== 'text' ? { textWrap: layer.textWrap } : {}),
   }
@@ -881,8 +894,9 @@ async function decodeLayer(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
 
 async function decodeLayerKind(info: ProjectLayer, pngs: Blob[]): Promise<Layer> {
   const { name, visible, opacity, locked, adjust } = info
-  const extras: Pick<Layer, 'effects' | 'blend' | 'everyPage' | 'textWrap'> = {}
+  const extras: Pick<Layer, 'effects' | 'blend' | 'everyPage' | 'linked' | 'textWrap'> = {}
   if (info.everyPage) extras.everyPage = info.everyPage
+  if (info.linked) extras.linked = info.linked
   if (info.textWrap && info.kind !== 'text') extras.textWrap = info.textWrap
   if (info.effects) extras.effects = info.effects
   if (info.blend) extras.blend = info.blend

@@ -1,3 +1,4 @@
+import type { Warp } from './warp.ts'
 import type { ListKind, TextAlign, TextDirection } from '../text/layout.ts'
 import type { Adjustments } from './adjust.ts'
 import type { BlendMode, LayerEffects } from './effects.ts'
@@ -40,6 +41,9 @@ interface LayerBase {
   blend?: BlendMode
   // Set when it's on every page: each page has a copy with the same `everyPage`, kept the same.
   everyPage?: string
+  // Set on linked copies: things with the same `linked` look the same. Change how one looks and
+  // the others change too; each keeps its own place, size and turn.
+  linked?: string
   // Parts of the layer that are softly hidden. Like adjustments, hiding never changes what's on the
   // layer, so hidden parts can be brought back at any time. Missing means nothing is hidden.
   hide?: LayerHide | null
@@ -108,6 +112,8 @@ export interface ShapeGeometry {
   // More closed outlines of the same shape, from joining or cutting shapes: holes cut into it, and
   // pieces apart from it. With them, a spot is inside when an odd number of outlines go around it.
   parts?: ShapePath[]
+  // Bent into an arch, a bulge, a wave, a flag or a twist. Missing means straight.
+  warp?: Warp
 }
 
 export type ShapeFill =
@@ -341,4 +347,4 @@ export interface Viewport {
   panY: number
 }
 
-export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'pen' | 'text' | 'brush' | 'eraser' | 'fade' | 'fill' | 'picker' | 'adjust' | 'heal' | 'clone' | 'hand' | 'zoom'
+export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'pen' | 'text' | 'brush' | 'eraser' | 'fade' | 'fill' | 'picker' | 'adjust' | 'heal' | 'clone' | 'push' | 'hand' | 'zoom'

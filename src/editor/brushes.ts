@@ -3,7 +3,7 @@ export type BrushBlend = 'normal' | 'multiply'
 
 // The shape of the brush's tip. A round tip paints a plain line; the others paint with texture:
 // streaks of bristles, flicked drops, or paint that runs down.
-export type BrushTip = 'round' | 'oil' | 'splatter' | 'drips'
+export type BrushTip = 'round' | 'oil' | 'splatter' | 'drips' | 'stamp'
 
 export interface BrushSettings {
   // Diameter in design pixels.
@@ -20,6 +20,12 @@ export interface BrushSettings {
   pressure: boolean
   blend: BrushBlend
   tip: BrushTip
+  // Lightens or darkens what is under it instead of painting a color (pro: Dodge and Burn). It
+  // paints white or black on a drawing of its own that softly mixes with what's below, so the
+  // photo itself never changes and the eraser takes it back.
+  light?: 'lighten' | 'darken'
+  // With the 'stamp' tip: which of your own brush shapes it paints (see brushShapes.ts).
+  stamp?: string
 }
 
 export interface BrushPreset {
@@ -27,7 +33,7 @@ export interface BrushPreset {
   name: string
   description: string
   // Brushes are shown in groups: plain ones for drawing, and ones that paint with texture.
-  kind?: 'draw' | 'paint'
+  kind?: 'draw' | 'paint' | 'light' | 'own'
   settings: BrushSettings
 }
 
@@ -86,7 +92,26 @@ export const BRUSH_PRESETS: BrushPreset[] = live([
     description: msg('Wet paint that runs down in drips, each ending in a round drop.'),
     settings: { size: 24, softness: 0, opacity: 1, flow: 1, smoothing: 0.35, pressure: false, blend: 'normal', tip: 'drips' },
   },
+  {
+    id: 'lighten',
+    name: msg('Lighten'),
+    kind: 'light',
+    description: msg('Brush over a photo to make that part lighter, like a face in shadow or dark eyes. Brush again for more. The photo itself never changes.'),
+    settings: { size: 80, softness: 1, opacity: 0.8, flow: 0.2, smoothing: 0.3, pressure: true, blend: 'normal', tip: 'round', light: 'lighten' },
+  },
+  {
+    id: 'darken',
+    name: msg('Darken'),
+    kind: 'light',
+    description: msg('Brush over a photo to make that part darker and deeper, like a sky or the edges. Brush again for more. The photo itself never changes.'),
+    settings: { size: 80, softness: 1, opacity: 0.8, flow: 0.2, smoothing: 0.3, pressure: true, blend: 'normal', tip: 'round', light: 'darken' },
+  },
 ])
+
+// What a light-and-shade brush paints with: white to lighten, black to darken. Null for other brushes.
+export function lightColor(settings: BrushSettings): string | null {
+  return settings.light === 'lighten' ? '#ffffff' : settings.light === 'darken' ? '#000000' : null
+}
 
 export const ERASER_PRESETS: BrushPreset[] = live([
   {

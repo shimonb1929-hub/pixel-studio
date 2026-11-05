@@ -1,5 +1,7 @@
-import { Aperture, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus, Copy } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { brushShapes, removeBrushShape, shapePreset, subscribeBrushShapes } from '../editor/brushShapes.ts'
+import type { PushMode, PushSettings } from '../editor/push.ts'
+import { Aperture, Layers, X, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   BRUSH_PRESETS,
@@ -35,6 +37,7 @@ import type { BlurBackgroundControls } from '../ai/useBlurBackground.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button, Slider } from './ui.tsx'
 import { live, msg, t } from '../i18n/i18n.ts'
+import { useScrollRow } from '../hooks/useScrollRow.ts'
 
 interface PaintOptionsProps {
   erasing: boolean
@@ -42,10 +45,19 @@ interface PaintOptionsProps {
   presetId: string | null
   color: string
   onChange: (settings: BrushSettings, presetId: string | null) => void
+  // Makes a brush shape from what is picked. Missing when nothing is picked.
+  onMakeBrush?: () => void
 }
 
-function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOptionsProps) {
-  const presets = erasing ? ERASER_PRESETS : BRUSH_PRESETS
+// Your own brush shapes as brushes, kept up to date.
+function useOwnBrushes(): BrushPreset[] {
+  const shapes = useSyncExternalStore(subscribeBrushShapes, brushShapes)
+  return useMemo(() => shapes.map(shapePreset), [shapes])
+}
+
+function PaintOptions({ erasing, settings, presetId, color, onChange, onMakeBrush }: PaintOptionsProps) {
+  const own = useOwnBrushes()
+  const presets = erasing ? ERASER_PRESETS : [...BRUSH_PRESETS, ...own]
   const preset = presets.find((p) => p.id === presetId)
   const changed = preset !== undefined && !sameSettings(preset.settings, settings)
   const mode = erasing ? 'erase' : 'paint'
@@ -60,7 +72,7 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
           ))}
         </div>
       ) : (
-        <BrushPicker presetId={presetId} color={color} onChoose={(p) => onChange(p.settings, p.id)} />
+        <BrushPicker presetId={presetId} color={color} onChoose={(p) => onChange(p.settings, p.id)} onMakeBrush={onMakeBrush} />
       )}
 
       <div className="h-9 w-px shrink-0 bg-line" />
@@ -70,7 +82,7 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
         description={t("A sample of how it works right now. It changes as you move the sliders.")}
       >
         <div className="hidden h-[42px] w-[104px] shrink-0 items-center justify-center rounded-lg border border-line bg-white xl:flex">
-          <StrokePreview settings={settings} color={color} mode={mode} width={96} height={36} maxSize={26} />
+          <StrokePreview settings={settings} color={sampleColor(settings, color)} mode={mode} width={96} height={36} maxSize={26} />
         </div>
       </Tooltip>
 
@@ -128,6 +140,11 @@ function PaintOptions({ erasing, settings, presetId, color, onChange }: PaintOpt
   )
 }
 
+// Light-and-shade brushes don't paint the chosen color, so their samples show light or shade instead.
+function sampleColor(settings: BrushSettings, color: string): string {
+  return settings.light === 'lighten' ? '#fcd34d' : settings.light === 'darken' ? '#344054' : color
+}
+
 function PresetTile({ preset, chosen, color, mode, big, onChoose }: { preset: BrushPreset; chosen: boolean; color: string; mode: 'paint' | 'erase'; big?: boolean; onChoose: () => void }) {
   return (
     <Tooltip title={preset.name} description={preset.description}>
@@ -141,7 +158,7 @@ function PresetTile({ preset, chosen, color, mode, big, onChoose }: { preset: Br
           chosen ? 'bg-accent-soft text-accent ring-1 ring-accent/30' : 'text-ink-2 hover:bg-subtle hover:text-ink'
         }`}
       >
-        <StrokePreview settings={preset.settings} color={color} mode={mode} width={big ? 92 : 58} height={big ? 38 : 24} maxSize={big ? 22 : 14} />
+        <StrokePreview settings={preset.settings} color={sampleColor(preset.settings, color)} mode={mode} width={big ? 92 : 58} height={big ? 38 : 24} maxSize={big ? 22 : 14} />
         <span className={`font-medium ${big ? 'text-[12px]' : 'text-[11px]'}`}>{preset.name}</span>
       </button>
     </Tooltip>
@@ -150,12 +167,15 @@ function PresetTile({ preset, chosen, color, mode, big, onChoose }: { preset: Br
 
 // All the ready-made brushes, in a panel that opens from one button, so the bar stays short as
 // more brushes are added.
-function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; color: string; onChoose: (preset: BrushPreset) => void }) {
+function BrushPicker({ presetId, color, onChoose, onMakeBrush }: { presetId: string | null; color: string; onChoose: (preset: BrushPreset) => void; onMakeBrush?: () => void }) {
   const { open, setOpen, position, setPosition, buttonRef, menuRef } = useFloatingMenu('[role="radio"][aria-checked="true"]', '[role="radio"]')
-  const current = BRUSH_PRESETS.find((p) => p.id === presetId)
+  const own = useOwnBrushes()
+  const current = [...BRUSH_PRESETS, ...own].find((p) => p.id === presetId)
   const groups = [
-    { title: t('For drawing'), presets: BRUSH_PRESETS.filter((p) => p.kind !== 'paint') },
+    { title: t('For drawing'), presets: BRUSH_PRESETS.filter((p) => !p.kind || p.kind === 'draw') },
     { title: t('Paint and effects'), presets: BRUSH_PRESETS.filter((p) => p.kind === 'paint') },
+    { title: t('Light and shade on photos'), presets: BRUSH_PRESETS.filter((p) => p.kind === 'light') },
+    { title: t('Your brush shapes'), presets: own, own: true },
   ]
   return (
     <>
@@ -173,7 +193,7 @@ function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; c
           className={`flex h-[50px] shrink-0 items-center gap-1.5 rounded-lg px-2 transition-colors ${open ? 'bg-subtle text-ink' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
         >
           <span className="flex flex-col items-center gap-0.5">
-            {current ? <StrokePreview settings={current.settings} color={color} mode="paint" width={58} height={24} maxSize={14} /> : <span className="h-6" />}
+            {current ? <StrokePreview settings={current.settings} color={sampleColor(current.settings, color)} mode="paint" width={58} height={24} maxSize={14} /> : <span className="h-6" />}
             <span className="text-[11px] font-medium">{current?.name ?? t('Your brush')}</span>
           </span>
           <ChevronDown size={14} />
@@ -204,22 +224,54 @@ function BrushPicker({ presetId, color, onChoose }: { presetId: string | null; c
                   <p className="px-1 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{group.title}</p>
                   <div className="grid grid-cols-5 gap-1.5 pb-1.5">
                     {group.presets.map((p) => (
-                      <PresetTile
-                        key={p.id}
-                        preset={p}
-                        chosen={p.id === presetId}
-                        color={color}
-                        mode="paint"
-                        big
-                        onChoose={() => {
-                          setOpen(false)
-                          setPosition(null)
-                          onChoose(p)
-                          buttonRef.current?.focus()
-                        }}
-                      />
+                      <div key={p.id} className="relative">
+                        <PresetTile
+                          preset={p}
+                          chosen={p.id === presetId}
+                          color={color}
+                          mode="paint"
+                          big
+                          onChoose={() => {
+                            setOpen(false)
+                            setPosition(null)
+                            onChoose(p)
+                            buttonRef.current?.focus()
+                          }}
+                        />
+                        {group.own && (
+                          <Tooltip title={t('Remove brush')} description={t('Takes this brush shape away. Nothing you painted with it changes.')} className="absolute end-0.5 top-0.5 flex">
+                            <button
+                              type="button"
+                              aria-label={t('Remove {name}', { name: p.name })}
+                              onClick={() => p.settings.stamp && removeBrushShape(p.settings.stamp)}
+                              className="flex h-5 w-5 items-center justify-center rounded-md text-ink-3 hover:bg-surface hover:text-ink"
+                            >
+                              <X size={12} />
+                            </button>
+                          </Tooltip>
+                        )}
+                      </div>
                     ))}
+                    {group.own && onMakeBrush && (
+                      <Tooltip title={t('Make a brush')} description={t('Turns what is picked on your design (a star, a leaf you drew, a word) into a brush that paints a trail of it.')}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpen(false)
+                            setPosition(null)
+                            onMakeBrush()
+                          }}
+                          className="flex h-[66px] w-[104px] flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-line text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+                        >
+                          <Plus size={16} />
+                          {t('Make a brush')}
+                        </button>
+                      </Tooltip>
+                    )}
                   </div>
+                  {group.own && own.length === 0 && !onMakeBrush && (
+                    <p className="max-w-[540px] px-1 pb-2 text-[12px] text-ink-2">{t('Pick something on your design with Arrange, then come back here to make a brush from it.')}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -629,6 +681,8 @@ export interface ArrangeBarControls {
   spreadOut: (axis: 'x' | 'y') => void
   // Copies of what is picked in a row, a grid, around a circle or mirrored (pro: Repeat).
   makeCopies: () => void
+  // Set when exactly two shapes are picked: shapes in between them.
+  stepsBetween?: () => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
   // Set when one photo is picked over a shape or words: puts it inside them, right where it is.
@@ -1398,6 +1452,16 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
             onClick={controls.makeCopies}
           />
         )}
+        {!part && controls.stepsBetween && (
+          <BarButton
+            icon={Layers}
+            roomy
+            label={t('Steps')}
+            title={t('Steps between')}
+            description={t('Shapes in between the two picked ones, slowly turning one into the other: place, size, color and shape. You see them before you keep them.')}
+            onClick={controls.stepsBetween}
+          />
+        )}
         {controls.textWrap && <TextWrapMenu controls={controls.textWrap} />}
         {(controls.straighten || controls.moveCorners || controls.removeBackground || controls.blurBackground || controls.turnIntoShapes || controls.upscale || controls.findWords) && (
           <PhotoToolsMenu
@@ -1669,6 +1733,10 @@ interface ToolOptionsProps {
   onFillToleranceChange: (tolerance: number) => void
   healSize: number
   onHealSizeChange: (size: number) => void
+  push: PushSettings
+  // Makes a brush shape from what is picked. Missing when nothing is picked.
+  onMakeBrush?: () => void
+  onPushChange: (settings: PushSettings) => void
   fade: { brush: HideBrush; mode: HideMode; onBrush: (brush: HideBrush) => void; onMode: (mode: HideMode) => void }
   copy: CopyBarControls
   colorSelect: ColorSelectControls
@@ -1686,21 +1754,33 @@ interface ToolOptionsProps {
 export function ToolOptions(props: ToolOptionsProps) {
   const info = toolInfo(props.tool)
   const Icon = info.icon
+  const rowRef = useRef<HTMLDivElement>(null)
+  const row = useScrollRow(rowRef, props.tool)
+  // Where more settings are hidden off the edge, the row fades out there and a round arrow brings
+  // them in, so nothing is cut off without a way to reach it.
+  const fade = (before: boolean, after: boolean) => {
+    if (!before && !after) return undefined
+    const start = before ? 'transparent 0, #000 56px' : '#000 0'
+    const end = after ? '#000 calc(100% - 56px), transparent 100%' : '#000 100%'
+    const mask = `linear-gradient(to var(--row-end), ${start}, ${end})`
+    return { maskImage: mask, WebkitMaskImage: mask }
+  }
   return (
     <div
       aria-label={t('{tool} settings', { tool: info.name })}
       role="toolbar"
-      className="mx-2 mb-2 flex h-[62px] shrink-0 md:mx-3 md:mb-3 items-center gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap [&>*]:shrink-0 rounded-card border border-line bg-surface px-3 shadow-card xl:gap-4"
+      className="relative mx-2 mb-2 h-[62px] shrink-0 overflow-hidden rounded-card border border-line bg-surface shadow-card [--row-end:right] rtl:[--row-end:left] md:mx-3 md:mb-3"
     >
+      <div ref={rowRef} style={fade(row.moreBefore, row.moreAfter)} className="flex h-full items-center gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap px-3 [&>*]:shrink-0 [scrollbar-width:none] xl:gap-4 [&::-webkit-scrollbar]:hidden">
       <div className="flex shrink-0 items-center gap-2 pe-1">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-accent">
           <Icon size={17} strokeWidth={1.9} />
         </span>
-        <span className="text-[14px] font-semibold leading-tight text-ink">{info.name}</span>
+        <span className="hidden text-[14px] font-semibold leading-tight text-ink lg:inline">{info.name}</span>
       </div>
       <div className="h-9 w-px shrink-0 bg-line" />
       {props.tool === 'brush' ? (
-        <PaintOptions erasing={false} settings={props.brush} presetId={props.brushPresetId} color={props.color} onChange={props.onBrushChange} />
+        <PaintOptions erasing={false} settings={props.brush} presetId={props.brushPresetId} color={props.color} onChange={props.onBrushChange} onMakeBrush={props.onMakeBrush} />
       ) : props.tool === 'eraser' ? (
         <PaintOptions erasing settings={props.eraser} presetId={props.eraserPresetId} color={props.color} onChange={props.onEraserChange} />
       ) : props.tool === 'select' ? (
@@ -1768,6 +1848,8 @@ export function ToolOptions(props: ToolOptionsProps) {
         <FadeBar brush={props.fade.brush} mode={props.fade.mode} onBrush={props.fade.onBrush} onMode={props.fade.onMode} />
       ) : props.tool === 'clone' ? (
         <CopyOptions controls={props.copy} />
+      ) : props.tool === 'push' ? (
+        <PushOptions settings={props.push} onChange={props.onPushChange} />
       ) : props.tool === 'heal' ? (
         <>
           <Slider
@@ -1782,6 +1864,80 @@ export function ToolOptions(props: ToolOptionsProps) {
       ) : (
         <Hint>{info.description}</Hint>
       )}
+      </div>
+      {row.moreBefore && <MoreArrow side="start" onClick={() => row.step(-1)} />}
+      {row.moreAfter && <MoreArrow side="end" onClick={() => row.step(1)} />}
     </div>
+  )
+}
+
+const PUSH_MODES: { value: PushMode; label: () => string; description: () => string }[] = [
+  { value: 'push', label: () => t('Push'), description: () => t('Drag to push the pixels along, like smudging wet paint.') },
+  { value: 'bigger', label: () => t('Bigger'), description: () => t('Brush over a part to swell it, a little more each time.') },
+  { value: 'smaller', label: () => t('Smaller'), description: () => t('Brush over a part to shrink it, a little more each time.') },
+]
+
+// Push and pull: what the brush does, how big it is and how strongly the pixels follow.
+function PushOptions({ settings, onChange }: { settings: PushSettings; onChange: (settings: PushSettings) => void }) {
+  return (
+    <>
+      <div role="radiogroup" aria-label={t('What the brush does')} className="flex shrink-0 gap-1 rounded-[10px] border border-line bg-subtle p-1">
+        {PUSH_MODES.map((m) => (
+          <Tooltip key={m.value} title={m.label()} description={m.description()} className="flex">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={settings.mode === m.value}
+              onClick={() => onChange({ ...settings, mode: m.value })}
+              className={`h-7 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
+                settings.mode === m.value ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
+              }`}
+            >
+              {m.label()}
+            </button>
+          </Tooltip>
+        ))}
+      </div>
+      <Slider
+        className="w-40 shrink-0"
+        label={t('Size')}
+        help={t('How wide the brush is. Bigger moves more of the picture at once, more smoothly.')}
+        value={sizeToSlider(settings.size)}
+        display={`${settings.size} px`}
+        onChange={(position) => onChange({ ...settings, size: sliderToSize(position) })}
+      />
+      <Slider
+        className="w-40 shrink-0"
+        label={t('Strength')}
+        help={t('How closely the picture follows the brush.')}
+        value={settings.strength}
+        display={`${Math.round(settings.strength * 100)}%`}
+        pro="Brush Pressure (Liquify)"
+        onChange={(position) => onChange({ ...settings, strength: Math.max(0.05, Math.round(position * 100) / 100) })}
+      />
+    </>
+  )
+}
+
+// The round arrow at the edge of the settings bar when some settings don't fit on the screen.
+function MoreArrow({ side, onClick }: { side: 'start' | 'end'; onClick: () => void }) {
+  const label = side === 'end' ? t('More settings') : t('Earlier settings')
+  return (
+    <Tooltip
+      className={`absolute top-1/2 flex -translate-y-1/2 ${side === 'end' ? 'end-1.5' : 'start-1.5'}`}
+      title={label}
+      description={t("Some settings don't fit on this screen. Click to see them, or slide the bar sideways.")}
+    >
+      <button
+        type="button"
+        aria-label={label}
+        // Sits over the faded edge of the row on purpose (the layout check leaves it alone).
+        data-fit-ok
+        onClick={onClick}
+        className="flex h-8 w-8 items-center justify-center rounded-full border border-line bg-surface text-ink-2 shadow-card hover:bg-subtle hover:text-ink"
+      >
+        {side === 'end' ? <ChevronRight size={16} className="rtl:-scale-x-100" /> : <ChevronLeft size={16} className="rtl:-scale-x-100" />}
+      </button>
+    </Tooltip>
   )
 }

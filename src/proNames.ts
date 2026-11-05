@@ -55,6 +55,9 @@ export const PRO_NAMES: Record<string, string> = {
   'Copy to new layer': 'Layer via Copy',
   'Similar colors': 'Tolerance',
   'Steady hand': 'Smoothing',
+  Lighten: 'Dodge tool',
+  Darken: 'Burn tool',
+  'Light and shade': 'Dodge and Burn layer (soft light)',
   'Brushes': 'Brush presets',
   'Ready-made brushes': 'Brush presets',
   'Pick from design': 'Eyedropper',
@@ -86,6 +89,13 @@ export const PRO_NAMES: Record<string, string> = {
   'Outline style': 'Stroke style, Dashes',
   Pattern: 'Pattern fill, Pattern swatches',
   'Pattern size': 'Pattern scale',
+  'Change together': 'Symbols, linked copies',
+  'Bend shape': 'Envelope Distort, Warp',
+  'Push and pull': 'Liquify',
+  'Make a brush': 'Define Brush Preset',
+  'Steps between': 'Blend tool, Make Blend',
+  'Linked copy': 'Symbol instance',
+  'Stop changing together': 'Break link to symbol',
   'Straight gradient': 'Linear gradient',
   'Round gradient': 'Radial gradient',
   'Edit points': 'Direct Selection',
@@ -157,6 +167,8 @@ export const PRO_NAMES: Record<string, string> = {
   'Make a copy': 'Duplicate',
   'To front': 'Bring to Front',
   'Quick choices for what is picked': 'Contextual task bar',
+  // The app itself
+  'Your panels': 'Workspace, Window menu',
 }
 
 // The pro word for a word on screen, in any language, or undefined when it has none or it is the
