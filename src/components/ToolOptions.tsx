@@ -624,6 +624,8 @@ export interface ArrangeBarControls {
   tidyUp: () => void
   lineUp: (edge: LineUpEdge) => void
   spreadOut: (axis: 'x' | 'y') => void
+  // Copies of what is picked in a row, a grid, around a circle or mirrored (pro: Repeat).
+  makeCopies: () => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
   // Set when one photo is picked over a shape or words: puts it inside them, right where it is.
@@ -1383,6 +1385,16 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
           onClick={controls.center}
         />
         {!part && target.kind !== 'many' && <LineUpMenu several={false} onLineUp={controls.lineUp} onSpread={controls.spreadOut} />}
+        {!part && (
+          <BarButton
+            icon={Copy}
+            roomy
+            label={t('Copies')}
+            title={t('Make copies')}
+            description={several ? t('Make copies of them in a row, a grid or around a circle, or a mirror image beside them. You see them before you keep them.') : t('Make copies of it in a row, a grid or around a circle, or a mirror image beside it. You see them before you keep them.')}
+            onClick={controls.makeCopies}
+          />
+        )}
         {controls.textWrap && <TextWrapMenu controls={controls.textWrap} />}
         {(controls.straighten || controls.moveCorners || controls.removeBackground || controls.blurBackground || controls.turnIntoShapes || controls.upscale || controls.findWords) && (
           <PhotoToolsMenu
