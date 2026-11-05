@@ -2369,5 +2369,16 @@
  "There is nothing to see in what is picked, so it can’t become a brush.": "No hay nada visible en lo elegido, así que no puede ser un pincel.",
  "Turns what is picked on your design (a star, a leaf you drew, a word) into a brush that paints a trail of it.": "Convierte lo elegido en tu diseño (una estrella, una hoja que dibujaste, una palabra) en un pincel que pinta un rastro de ello.",
  "Your brush shapes": "Tus formas de pincel",
- "“{name}” is ready: paint to leave a trail of it. Find it again under Your brush shapes.": "“{name}” está listo: pinta para dejar un rastro. Lo encontrarás de nuevo en Tus formas de pincel."
+ "“{name}” is ready: paint to leave a trail of it. Find it again under Your brush shapes.": "“{name}” está listo: pinta para dejar un rastro. Lo encontrarás de nuevo en Tus formas de pincel.",
+ "A list of the headings in your design, each with the number of its page. Headings are the words bigger than the rest. Make it again any time to bring it up to date.": "Una lista de los títulos de tu diseño, cada uno con el número de su página. Los títulos son las palabras más grandes que el resto. Hazla de nuevo cuando quieras para ponerla al día.",
+ "Add a contents list": "Añadir un índice",
+ "Contents list": "Índice",
+ "Give each page a heading bigger than the other words. Then open Page options at the bottom and choose Add a contents list. Choose it again after changing pages to update it.": "Dale a cada página un título más grande que las otras palabras. Luego abre Opciones de página abajo y elige Añadir un índice. Elígelo de nuevo después de cambiar páginas para ponerlo al día.",
+ "Here is the list of your headings and their pages. Add or change pages, then make it again to bring it up to date.": "Aquí está la lista de tus títulos y sus páginas. Añade o cambia páginas y luego hazla de nuevo para ponerla al día.",
+ "Make a contents list for a book or booklet": "Hacer un índice para un libro o folleto",
+ "No headings found yet. Make the titles of your pages bigger than the other words, then try again.": "Aún no hay títulos. Haz los títulos de tus páginas más grandes que las otras palabras y vuelve a intentarlo.",
+ "The contents list is up to date.": "El índice está al día.",
+ "Update the contents list": "Poner al día el índice",
+ "Check my spelling": "Revisar mi ortografía",
+ "Just type. A word spelled wrong gets a wavy red line; right-click it to pick the right word. It works in English, Hebrew and Yiddish when your computer knows the language.": "Solo escribe. Una palabra mal escrita recibe una línea roja ondulada; haz clic derecho en ella para elegir la palabra correcta. Funciona en inglés, hebreo y yidis cuando tu computadora conoce el idioma."
 }

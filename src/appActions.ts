@@ -57,6 +57,7 @@ export interface AppCommands {
   copyPage: () => void
   everyPage: () => void
   pageNumbers: () => void
+  contentsList: () => void
   deletePage: () => void
   movePage: (direction: 1 | -1) => void
   goToPage: (direction: 1 | -1) => void
@@ -769,6 +770,15 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       needsDocument: true,
       disabledReason: doc && hasPageNumbers(doc) ? t('This design already has page numbers. To take them off, pick one and delete it.') : undefined,
       run: c.pageNumbers,
+    },
+    {
+      id: 'contents-list',
+      group: 'Pages',
+      title: t('Contents list'),
+      description: t('A list of the headings in your design, each with the number of its page. Headings are the words bigger than the rest. Make it again any time to bring it up to date.'),
+      keywords: ['table of contents', 'toc', 'contents', 'index', 'chapters', 'headings', 'book', 'magazine', 'booklet'],
+      needsDocument: true,
+      run: c.contentsList,
     },
     {
       id: 'copy-page',
