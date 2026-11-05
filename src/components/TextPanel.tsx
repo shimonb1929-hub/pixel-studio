@@ -1,4 +1,4 @@
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, FlipVertical2, Italic, LayoutGrid, List, ListOrdered, Minus, Plus, Search, Spline, WrapText, X, type LucideIcon } from 'lucide-react'
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CircleHelp, Columns2, FlipVertical2, Italic, LayoutGrid, List, ListOrdered, Minus, Plus, Search, Shapes, Spline, WrapText, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { Gradient } from '../editor/gradient.ts'
 import type { TextStyle } from '../editor/types.ts'
@@ -582,6 +582,8 @@ export interface TextPanelProps {
   flow?: { box: number; boxes: number } | null
   // Adds a box for the text to continue in. Missing while typing or with several things picked.
   onContinue?: () => void
+  // Turns the letters into shapes. Missing while typing or with several things picked.
+  onIntoShapes?: () => void
   // The design's text styles.
   styles?: TextStylesProps | null
   // A note when the words are hard to read where they are, with fixes.
@@ -841,6 +843,23 @@ export function TextPanel(props: TextPanelProps) {
               >
                 <Columns2 size={15} />
                 {t('Continue in another box')}
+              </button>
+            </Tooltip>
+          )}
+          {props.onIntoShapes && (
+            <Tooltip
+              title={t('Words into shapes')}
+              description={t('Turns the letters into shapes, so you can bend and pull each letter, fill it with a pattern, and the design looks the same on any computer. The words stay hidden below.')}
+              className="flex"
+            >
+              <button
+                type="button"
+                aria-label={t('Words into shapes')}
+                onClick={props.onIntoShapes}
+                className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+              >
+                <Shapes size={15} />
+                {t('Words into shapes')}
               </button>
             </Tooltip>
           )}

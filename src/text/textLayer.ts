@@ -94,7 +94,7 @@ function textWidth(layer: TextLayer): RangeWidth {
 }
 
 // Each look's font, so every letter is drawn with a font that has it.
-function eachFont(layer: TextLayer): { style: TextStyle; text: string }[] {
+export function eachFont(layer: TextLayer): { style: TextStyle; text: string }[] {
   const fonts = [{ style: layer.style, text: layer.text }, ...(layer.spans ?? []).map((span) => ({ style: { ...layer.style, ...span.style }, text: layer.text.slice(span.start, span.end) }))]
   // A list's markers are letters too.
   if (layer.style.list) fonts.push({ style: layer.style, text: LIST_LETTERS[layer.style.list] })

@@ -170,6 +170,14 @@ export const GOALS: Goal[] = [
     keywords: ['repeat', 'duplicate', 'pattern', 'border', 'flower', 'wreath', 'symmetry', 'mirror', 'tiles'],
   },
   {
+    id: 'linked',
+    goal: msg('Use the same thing many times and change them all at once'),
+    how: msg('Pick it and choose Linked copy in Search, or tick Change together in Make copies. Change the color, shape or words of one, and every linked copy changes. The link button in Layers lets one change on its own.'),
+    action: 'linked-copy',
+    pro: 'Symbols, Symbol instances, Linked copies',
+    keywords: ['symbol', 'instance', 'linked', 'component', 'smart object', 'same', 'all at once', 'logo', 'icon'],
+  },
+  {
     id: 'pattern',
     goal: msg('Fill a shape with dots, stripes or checks'),
     how: msg('Pick the shape with Arrange. In the Shape panel choose Pattern, then click the one you like. The Color panel colors the little shapes or what is behind them.'),

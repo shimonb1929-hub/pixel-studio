@@ -1,6 +1,7 @@
 import { frameOf, layerInFrame } from './arrange.ts'
 import { createId, duplicateLayer } from './document.ts'
 import { groupMembers, keepTogether } from './layers.ts'
+import { linkCopies } from './linked.ts'
 import type { TransformBox } from './transform.ts'
 import type { EditorDocument, Layer, LayerGroup } from './types.ts'
 
@@ -23,6 +24,9 @@ export interface RepeatSettings {
   radius: number
   // A circle: each copy turns to face the middle, like petals or the spokes of a wheel.
   turn: boolean
+  // The copies stay linked to the original: change how one looks and they all change (pro: Symbols).
+  // Shapes and words only; photos and drawings are copied as usual.
+  linked?: boolean
 }
 
 export const MAX_COPIES = 100
@@ -90,9 +94,12 @@ export function makeCopies(doc: EditorDocument, ids: string[], settings: RepeatS
   // together as one new thing.
   const firstGroup = chosen[0].group?.id
   const inside = firstGroup !== undefined && chosen.every((l) => l.group?.id === firstGroup) && !groupMembers(doc, firstGroup).every((m) => ids.includes(m.id))
+  const copiesOf = new Map<string, string[]>(chosen.map((l) => [l.id, []]))
   const copies: Layer[] = frames.flatMap((to) =>
     chosen.map((layer) => {
       const made = layerInFrame(duplicateLayer(layer), frame, to)
+      if (!settings.linked) delete made.linked
+      copiesOf.get(layer.id)!.push(made.id)
       // A copy keeps the original's name, so the Layers panel stays easy to read.
       return { ...made, name: layer.name }
     }),
@@ -102,7 +109,8 @@ export function makeCopies(doc: EditorDocument, ids: string[], settings: RepeatS
   while (!inside && block && doc.layers[top + 1]?.group?.id === block) top++
   const layers = [...doc.layers]
   layers.splice(top + 1, 0, ...copies)
-  const placed: EditorDocument = { ...doc, layers, activeLayerId: copies[copies.length - 1].id }
+  const unlinked: EditorDocument = { ...doc, layers, activeLayerId: copies[copies.length - 1].id }
+  const placed = settings.linked ? linkCopies(unlinked, copiesOf) : unlinked
   if (inside) return placed
   const group: LayerGroup = { id: createId('group'), name }
   return keepTogether(placed, [...chosen.map((l) => l.id), ...copies.map((l) => l.id)], group)
