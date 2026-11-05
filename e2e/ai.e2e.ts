@@ -90,3 +90,17 @@ test('Magic select also finds the thing inside a dragged box', async ({ page }) 
   expectColor(await designPixel(page, size, 60, 50), SKY)
   expectColor(await designPixel(page, size, 130, 150), SKY)
 })
+
+test('Main thing selects the ball in one click', async ({ page }) => {
+  test.setTimeout(AI_TIMEOUT + 30_000)
+  const size = await newDesign(page)
+  await addBallPhoto(page)
+
+  await page.keyboard.press('m')
+  await page.getByRole('button', { name: 'Select main thing' }).click()
+  await expect.poll(async () => page.getByRole('button', { name: 'Delete selected area' }).isEnabled(), { timeout: AI_TIMEOUT }).toBe(true)
+  // Swapping and deleting leaves just the ball.
+  await page.getByRole('button', { name: 'Select everything else' }).click()
+  await page.getByRole('button', { name: 'Delete selected area' }).click()
+  await expectBallOnly(page, size, WHITE)
+})

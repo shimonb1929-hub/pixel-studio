@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { isSafari, pointAtOwnSite, type AiSettings } from './aiFiles.ts'
+import { carefulFetch, isSafari, pointAtOwnSite, type AiSettings } from './aiFiles.ts'
 
 // Pixel Studio is used behind NetFree, which blocks or holds outside sites, so nothing may come
 // from another site while the app runs. e2e/netfree.e2e.ts checks the AI tools in a browser with
@@ -87,5 +87,37 @@ describe('the AI files come from our own site', () => {
       expect(bytes.length, name).toBeGreaterThan(100)
       expect(bytes.length, name).toBeLessThan(95 * 1024 * 1024)
     }
+  })
+})
+
+describe('carefulFetch', () => {
+  const html = () => new Response('<html>blocked</html>', { status: 200, headers: { 'content-type': 'text/html' } })
+  const file = () => new Response('bytes', { status: 200, headers: { 'content-type': 'application/octet-stream' } })
+  const noWait = async () => {}
+
+  it('tries again when the connection drops', async () => {
+    let calls = 0
+    const get = carefulFetch(async () => (++calls < 2 ? Promise.reject(new Error('reset')) : file()), async () => {}, noWait)
+    expect(await (await get('/models/a.onnx')).text()).toBe('bytes')
+    expect(calls).toBe(2)
+  })
+
+  it('throws away a filter page and fetches the file fresh', async () => {
+    const forgotten: string[] = []
+    const asked: (RequestInit | undefined)[] = []
+    let calls = 0
+    const get = carefulFetch(
+      async (_url, init) => (asked.push(init), ++calls === 1 ? html() : file()),
+      async (url) => void forgotten.push(url),
+      noWait,
+    )
+    expect(await (await get('/models/a.onnx')).text()).toBe('bytes')
+    expect(forgotten).toEqual(['/models/a.onnx'])
+    expect(asked[1]?.cache).toBe('reload')
+  })
+
+  it('says plainly when a filter keeps blocking the file', async () => {
+    const get = carefulFetch(async () => html(), async () => {}, noWait)
+    await expect(get('/models/vision_encoder.onnx')).rejects.toMatchObject({ blocked: true, message: expect.stringContaining('vision_encoder.onnx') })
   })
 })

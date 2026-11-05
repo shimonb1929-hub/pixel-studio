@@ -64,7 +64,7 @@ export const TOOLS: ToolInfo[] = [
     key: 'M',
     icon: SquareDashed,
     get description() {
-      return t('Choose part of your design to work on. Painting, erasing, deleting and moving then only affect that part. Draw a rectangle, an oval, or any shape by hand.')
+      return t('Choose part of your design to work on. Painting, erasing, deleting and moving then only affect that part. Draw a rectangle, an oval or any shape by hand, or let it find things for you: the main thing, a thing you click, one color, or what you paint over.')
     },
     get hint() {
       return t('Drag over the part you want; it turns light blue. Hold Shift to add more, {alt} to take away. Click outside it or press Esc to let go.', { alt: ALT_LABEL })
@@ -72,8 +72,8 @@ export const TOOLS: ToolInfo[] = [
     get when() {
       return t('Use it when only part of a picture should change, like brightening just the sky or cutting one thing out of a photo.')
     },
-    pro: 'Marquee, Lasso, Magic Wand, Select Subject',
-    keywords: ['select', 'selection', 'marquee', 'lasso', 'choose area', 'cut out', 'rectangle', 'oval', 'circle', 'magic', 'magic wand', 'quick select', 'select subject', 'object', 'ai'],
+    pro: 'Marquee, Lasso, Magic Wand, Quick Selection, Object Selection, Select Subject',
+    keywords: ['select', 'selection', 'marquee', 'lasso', 'choose area', 'cut out', 'rectangle', 'oval', 'circle', 'magic', 'magic wand', 'quick select', 'quick selection', 'select subject', 'object', 'object selection', 'paint', 'smart', 'main thing', 'ai'],
     group: 'arrange',
   },
   {

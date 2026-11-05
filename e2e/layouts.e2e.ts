@@ -98,3 +98,37 @@ test('a text style gives texts the same look, and changing it changes them all',
   await expect(sizeBox).toHaveValue('30')
   await expect(styles.getByRole('button', { name: 'Style 1' })).toHaveAttribute('aria-pressed', 'true')
 })
+
+test('my own design can be saved as a layout and used to start new designs', async ({ page }) => {
+  await startFromLayout(page, 'Big news')
+  const before = await layerNames(page)
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: 'Keep as my layout' }).click()
+  await expect(page.getByText(/is saved as your layout/)).toBeVisible()
+
+  // Back on the start screen, Ready layouts shows it under Mine.
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: 'Close design' }).click()
+  await page.getByRole('button', { name: /All layouts/ }).click()
+  const dialog = page.getByRole('dialog', { name: 'Ready layouts' })
+  await dialog.getByRole('tab', { name: 'Mine' }).click()
+  const mine = dialog.getByRole('listbox', { name: 'My layouts' }).getByRole('option')
+  await expect(mine).toHaveCount(1)
+  await expect(mine).toHaveAccessibleName(/Big news/)
+  // Nothing is open, so there is nothing to save from here.
+  await expect(dialog.getByRole('button', { name: 'Save my design as a layout' })).toHaveCount(0)
+  await dialog.getByRole('button', { name: 'Use this layout' }).click()
+  await expect(dialog).toHaveCount(0)
+  await expectDesignSize(page, 2480, 3508)
+  expect(await layerNames(page)).toEqual(before)
+
+  // The new design can save itself from the dialog too, and a layout can be removed.
+  await page.getByRole('button', { name: 'Menu' }).click()
+  await page.getByRole('menuitem', { name: 'Ready layouts…' }).click()
+  await dialog.getByRole('tab', { name: 'Mine' }).click()
+  await dialog.getByRole('button', { name: 'Save my design as a layout' }).click()
+  await expect(mine).toHaveCount(2)
+  await dialog.getByRole('button', { name: 'Remove this layout' }).click()
+  await dialog.getByRole('button', { name: 'Yes, remove it' }).click()
+  await expect(mine).toHaveCount(1)
+})
