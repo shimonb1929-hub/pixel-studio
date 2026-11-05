@@ -223,7 +223,7 @@ export function TopBar({
   return (
     // On a phone the bar keeps only what fits: the name of the app and the word on each button step
     // aside, and every button keeps its picture.
-    <header className="grid h-14 shrink-0 grid-cols-[auto_minmax(2.25rem,1fr)_auto] items-center gap-1.5 px-2 sm:gap-3 sm:px-3 xl:grid-cols-[1fr_minmax(0,28rem)_1fr]">
+    <header className="grid h-14 shrink-0 grid-cols-[auto_minmax(2.25rem,1fr)_auto] items-center gap-1.5 px-2 sm:gap-3 sm:px-3 xl:grid-cols-[1fr_minmax(0,28rem)_minmax(max-content,1fr)]">
       <div className="flex min-w-0 items-center gap-1 sm:gap-2">
         <span className="hidden whitespace-nowrap px-2 text-[15px] font-semibold tracking-tight text-ink sm:inline">Pixel Studio</span>
         <MainMenu actions={actions} hasDocument={hasDocument} />
@@ -304,7 +304,7 @@ export function TopBar({
               type="button"
               aria-label={t('Design name: {name}. Click to rename', { name: documentName })}
               onClick={onRename}
-              className="truncate rounded-md px-1.5 py-1 text-[13px] text-ink-2 transition-colors hover:bg-surface hover:text-ink"
+              className="max-w-[14rem] truncate rounded-md px-1.5 py-1 text-[13px] text-ink-2 transition-colors hover:bg-surface hover:text-ink"
             >
               {documentName}
             </button>

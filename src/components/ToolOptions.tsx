@@ -1,6 +1,6 @@
 import { brushShapes, removeBrushShape, shapePreset, subscribeBrushShapes } from '../editor/brushShapes.ts'
 import type { PushMode, PushSettings } from '../editor/push.ts'
-import { Aperture, Layers, X, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus, Copy } from 'lucide-react'
+import { Aperture, Layers, X, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -37,6 +37,7 @@ import type { BlurBackgroundControls } from '../ai/useBlurBackground.ts'
 import { Tooltip } from './Tooltip.tsx'
 import { Button, Slider } from './ui.tsx'
 import { live, msg, t } from '../i18n/i18n.ts'
+import { useScrollRow } from '../hooks/useScrollRow.ts'
 
 interface PaintOptionsProps {
   erasing: boolean
@@ -1753,17 +1754,29 @@ interface ToolOptionsProps {
 export function ToolOptions(props: ToolOptionsProps) {
   const info = toolInfo(props.tool)
   const Icon = info.icon
+  const rowRef = useRef<HTMLDivElement>(null)
+  const row = useScrollRow(rowRef, props.tool)
+  // Where more settings are hidden off the edge, the row fades out there and a round arrow brings
+  // them in, so nothing is cut off without a way to reach it.
+  const fade = (before: boolean, after: boolean) => {
+    if (!before && !after) return undefined
+    const start = before ? 'transparent 0, #000 56px' : '#000 0'
+    const end = after ? '#000 calc(100% - 56px), transparent 100%' : '#000 100%'
+    const mask = `linear-gradient(to var(--row-end), ${start}, ${end})`
+    return { maskImage: mask, WebkitMaskImage: mask }
+  }
   return (
     <div
       aria-label={t('{tool} settings', { tool: info.name })}
       role="toolbar"
-      className="mx-2 mb-2 flex h-[62px] shrink-0 md:mx-3 md:mb-3 items-center gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap [&>*]:shrink-0 rounded-card border border-line bg-surface px-3 shadow-card xl:gap-4"
+      className="relative mx-2 mb-2 h-[62px] shrink-0 overflow-hidden rounded-card border border-line bg-surface shadow-card [--row-end:right] rtl:[--row-end:left] md:mx-3 md:mb-3"
     >
+      <div ref={rowRef} style={fade(row.moreBefore, row.moreAfter)} className="flex h-full items-center gap-3 overflow-x-auto overflow-y-hidden whitespace-nowrap px-3 [&>*]:shrink-0 [scrollbar-width:none] xl:gap-4 [&::-webkit-scrollbar]:hidden">
       <div className="flex shrink-0 items-center gap-2 pe-1">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-accent">
           <Icon size={17} strokeWidth={1.9} />
         </span>
-        <span className="text-[14px] font-semibold leading-tight text-ink">{info.name}</span>
+        <span className="hidden text-[14px] font-semibold leading-tight text-ink lg:inline">{info.name}</span>
       </div>
       <div className="h-9 w-px shrink-0 bg-line" />
       {props.tool === 'brush' ? (
@@ -1851,6 +1864,9 @@ export function ToolOptions(props: ToolOptionsProps) {
       ) : (
         <Hint>{info.description}</Hint>
       )}
+      </div>
+      {row.moreBefore && <MoreArrow side="start" onClick={() => row.step(-1)} />}
+      {row.moreAfter && <MoreArrow side="end" onClick={() => row.step(1)} />}
     </div>
   )
 }
@@ -1900,5 +1916,28 @@ function PushOptions({ settings, onChange }: { settings: PushSettings; onChange:
         onChange={(position) => onChange({ ...settings, strength: Math.max(0.05, Math.round(position * 100) / 100) })}
       />
     </>
+  )
+}
+
+// The round arrow at the edge of the settings bar when some settings don't fit on the screen.
+function MoreArrow({ side, onClick }: { side: 'start' | 'end'; onClick: () => void }) {
+  const label = side === 'end' ? t('More settings') : t('Earlier settings')
+  return (
+    <Tooltip
+      className={`absolute top-1/2 flex -translate-y-1/2 ${side === 'end' ? 'end-1.5' : 'start-1.5'}`}
+      title={label}
+      description={t("Some settings don't fit on this screen. Click to see them, or slide the bar sideways.")}
+    >
+      <button
+        type="button"
+        aria-label={label}
+        // Sits over the faded edge of the row on purpose (the layout check leaves it alone).
+        data-fit-ok
+        onClick={onClick}
+        className="flex h-8 w-8 items-center justify-center rounded-full border border-line bg-surface text-ink-2 shadow-card hover:bg-subtle hover:text-ink"
+      >
+        {side === 'end' ? <ChevronRight size={16} className="rtl:-scale-x-100" /> : <ChevronLeft size={16} className="rtl:-scale-x-100" />}
+      </button>
+    </Tooltip>
   )
 }
