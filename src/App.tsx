@@ -1989,11 +1989,12 @@ export default function App() {
     const d = editor.getDoc()
     if (!d || d.id !== version.designId) return
     try {
+      // Read first: keeping how it is now may make room by letting go of the oldest version.
+      const earlier = await loadVersion(version.key)
+      if (!earlier) throw new Error(t("That version isn't in this browser anymore."))
       if (!(await autosave.flush())) throw new Error(t("Your latest changes couldn't be kept in this browser."))
       const [project, thumbnail] = await Promise.all([encodeProject(d), designThumbnail(d)])
       await saveDesign({ id: d.id, name: d.name, width: d.width, height: d.height, updatedAt: Date.now(), thumbnail }, project, undefined, 'keep')
-      const earlier = await loadVersion(version.key)
-      if (!earlier) throw new Error(t("That version isn't in this browser anymore."))
       const next = await decodeProject(earlier, d.id)
       await saveDesign({ id: d.id, name: next.name, width: next.width, height: next.height, updatedAt: Date.now(), thumbnail: version.thumbnail }, earlier, undefined, 'none')
       showDocument(next, true)

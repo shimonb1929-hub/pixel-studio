@@ -38,3 +38,20 @@ describe('reading SVG path data', () => {
     expect(outline.curves[1][0].y).toBeCloseTo(-10)
   })
 })
+
+describe('fitting the view box', () => {
+  const at = (m: { a: number; b: number; c: number; d: number; e: number; f: number }, x: number, y: number) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]
+  it('scales evenly and centers by default, as browsers do', async () => {
+    const { viewBoxMatrix } = await import('./svgImport.ts')
+    const m = viewBoxMatrix([0, 0, 100, 100], 200, 100, null)
+    expect(at(m, 0, 0)).toEqual([50, 0])
+    expect(at(m, 100, 100)).toEqual([150, 100])
+  })
+  it('stretches with none, lines up with Min and Max, and fills with slice', async () => {
+    const { viewBoxMatrix } = await import('./svgImport.ts')
+    expect(at(viewBoxMatrix([0, 0, 100, 100], 200, 100, 'none'), 100, 100)).toEqual([200, 100])
+    expect(at(viewBoxMatrix([0, 0, 100, 100], 200, 100, 'xMaxYMid meet'), 0, 0)).toEqual([100, 0])
+    expect(at(viewBoxMatrix([10, 10, 100, 100], 200, 100, 'xMinYMin slice'), 10, 10)).toEqual([0, 0])
+    expect(at(viewBoxMatrix([10, 10, 100, 100], 200, 100, 'xMinYMin slice'), 110, 110)).toEqual([200, 200])
+  })
+})

@@ -49,3 +49,19 @@ test('an SVG opens as shapes that stay sharp, kept together, with the picture hi
   // Its outline is there too, and the page stays see-through like the SVG.
   await expect(page.getByRole('button', { name: 'Layer: Original picture' })).toBeAttached()
 })
+
+test('an SVG keeps its shape when its size and view box differ, and never loads anything from outside', async ({ page }) => {
+  const outside: string[] = []
+  page.on('request', (request) => !request.url().startsWith('http://localhost') && !request.url().startsWith('data:') && !request.url().startsWith('blob:') && outside.push(request.url()))
+  const square = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 100 100" style="background-image:url(https://example.com/tracker.png)">
+  <rect width="100" height="100" fill="#0000ff" style="filter:url(https://example.com/f.svg#x)"/>
+</svg>`
+  await page.locator('input[type=file]').setInputFiles({ name: 'square.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(square) })
+  await expectDesignSize(page, 1000, 500)
+  const size = { width: 1000, height: 500 }
+  // A square in the middle, as browsers show it, not stretched to the full width.
+  expectColor(await shown(page, size, 500, 250), [0, 0, 255])
+  expectColor(await shown(page, size, 270, 250), [0, 0, 255])
+  expect((await shown(page, size, 150, 250))[0]).toBeGreaterThan(150)
+  expect(outside).toEqual([])
+})

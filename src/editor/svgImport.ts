@@ -30,6 +30,22 @@ function number(value: string | null, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback
 }
 
+const OUTSIDE_URL = /url\(\s*["']?(?!#)/i
+const withoutOutsideUrls = (css: string) => css.replace(/url\(\s*["']?(?!#)[^)]*\)/gi, 'none').replace(/@import[^;]*;?/gi, '')
+
+// From the SVG's view box to its own size, the way the browser fits one into the other
+// (preserveAspectRatio): stretched with "none", otherwise scaled evenly and lined up.
+export function viewBoxMatrix(viewBox: [number, number, number, number], width: number, height: number, fit: string | null): { a: number; b: number; c: number; d: number; e: number; f: number } {
+  const [vx, vy, vw, vh] = viewBox
+  const [align = 'xMidYMid', meetOrSlice = 'meet'] = (fit ?? '').trim().split(/\s+/).filter(Boolean)
+  if (align === 'none') return { a: width / vw, b: 0, c: 0, d: height / vh, e: (-vx * width) / vw, f: (-vy * height) / vh }
+  const scale = meetOrSlice === 'slice' ? Math.max(width / vw, height / vh) : Math.min(width / vw, height / vh)
+  const spare = (room: number, used: number, where: string) => (where === 'Min' ? 0 : where === 'Max' ? room - used : (room - used) / 2)
+  const x = spare(width, vw * scale, align.slice(1, 4))
+  const y = spare(height, vh * scale, align.slice(5, 8))
+  return { a: scale, b: 0, c: 0, d: scale, e: x - vx * scale, f: y - vy * scale }
+}
+
 // The size the SVG says it is, in pixels.
 function svgSize(svg: SVGSVGElement): { width: number; height: number; viewBox: [number, number, number, number] } {
   const box = (svg.getAttribute('viewBox') ?? '').trim().split(/[\s,]+/).map(Number)
@@ -350,10 +366,15 @@ export async function svgToShapes(text: string, group: LayerGroup): Promise<SvgS
     for (const attr of [...el.attributes]) {
       const name = attr.name.toLowerCase()
       if (name.startsWith('on') || ((name === 'href' || name === 'xlink:href') && !attr.value.startsWith('#'))) el.removeAttribute(attr.name)
+      // Inline styles and paints may name things inside the SVG (url(#shine)), never load anything.
+      else if (OUTSIDE_URL.test(attr.value)) {
+        if (name === 'style') attr.value = withoutOutsideUrls(attr.value)
+        else el.removeAttribute(attr.name)
+      }
     }
   }
   // Styles may only name things inside the SVG, never load anything.
-  for (const style of [...source.querySelectorAll('style')]) style.textContent = (style.textContent ?? '').replace(/@import[^;]*;?/gi, '').replace(/url\(\s*["']?(?!#)[^)]*\)/gi, 'none')
+  for (const style of [...source.querySelectorAll('style')]) style.textContent = withoutOutsideUrls((style.textContent ?? '').replace(/@import[^;]*;?/gi, ''))
 
   const svg = document.importNode(source, true) as unknown as SVGSVGElement
   const size = svgSize(svg)
@@ -372,6 +393,8 @@ export async function svgToShapes(text: string, group: LayerGroup): Promise<SvgS
     const drawn = [...svg.querySelectorAll(DRAWN)].filter((el) => !el.closest('defs, clipPath, mask, marker, pattern, symbol'))
     if (drawn.length === 0 || drawn.length > MAX_SHAPES) return null
     const root = svg.getScreenCTM()
+    const fit = viewBoxMatrix(size.viewBox, width, height, svg.getAttribute('preserveAspectRatio'))
+    const fitted = new DOMMatrix([fit.a, fit.b, fit.c, fit.d, fit.e, fit.f])
     const shapes: ShapeLayer[] = []
     for (const el of drawn as SVGGraphicsElement[]) {
       const style = getComputedStyle(el)
@@ -379,8 +402,7 @@ export async function svgToShapes(text: string, group: LayerGroup): Promise<SvgS
       const screen = el.getScreenCTM()
       if (!screen || !root) continue
       // From the part's own units to the SVG's view box, and from there to the design's pixels.
-      const [vx, vy, vw, vh] = size.viewBox
-      const m = new DOMMatrix().scale(width / vw, height / vh).translate(-vx, -vy).multiply(root.inverse().multiply(screen))
+      const m = fitted.multiply(root.inverse().multiply(screen))
       const place = (p: Point) => ({ x: m.a * p.x + m.c * p.y + m.e, y: m.b * p.x + m.d * p.y + m.f })
       const outlines = outlinesOf(el)
       if (outlines.length === 0) continue

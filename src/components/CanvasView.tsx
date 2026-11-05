@@ -1660,6 +1660,15 @@ export function CanvasView(props: CanvasViewProps) {
         startPinch()
         return
       }
+      const arranging = arrangeRef.current
+      if (touches.size === 2 && arranging && touches.has(arranging.pointerId)) {
+        // The same for a late finger while the first had started moving or turning a thing: it
+        // goes back where it was, and the fingers move the view.
+        arrangeRef.current = null
+        finishArrange()
+        startPinch()
+        return
+      }
       if (touches.size === 1 && !busy()) {
         // Kept until it's clear this is one finger (see TOUCH_WAIT_MS). The event is copied, since
         // React lets go of the element it came from once this handler returns.
