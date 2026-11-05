@@ -36,6 +36,7 @@ import { ScrollRegion } from './components/ui.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { InstallDialog } from './components/InstallDialog.tsx'
+import { VersionsDialog } from './components/VersionsDialog.tsx'
 import { DesignInfo, SelectionBar, StartHere, ToolHint, ZoomControls } from './components/WorkspaceOverlays.tsx'
 import { PagePanel } from './components/PagePanel.tsx'
 import { GradientHandles } from './components/GradientHandles.tsx'
@@ -88,7 +89,7 @@ import {
   updateLayer,
   updateShape,
 } from './editor/layers.ts'
-import { listDesigns, loadDesign, type SavedDesign } from './editor/library.ts'
+import { listDesigns, loadDesign, loadVersion, saveDesign, type DesignVersion, type SavedDesign } from './editor/library.ts'
 import { startMove, type MoveSession } from './editor/move.ts'
 import { canFill, hitsLayer, isLineShape, layerAt, layerBounds, layerPixels, polygonPoints } from './editor/objects.ts'
 import { layerPhoto, photoWhereItWas, withPhoto } from './editor/photoFill.ts'
@@ -107,7 +108,8 @@ import { PictureHelper, type PictureHelperKind } from './components/PictureHelpe
 import { centerTogether, lineUp, moveTogether, spreadOut, thingCount, tidyUp, type LineUpEdge } from './editor/organize.ts'
 import { sampleColor } from './editor/sample.ts'
 import { clearSelected, copySelected, editArea, fillArea, fillSelected, isBlank, type Piece } from './editor/pixels.ts'
-import { decodeProject } from './editor/project.ts'
+import { decodeProject, designThumbnail, encodeProject } from './editor/project.ts'
+import { describeVersion } from './editor/time.ts'
 import type { LayerOverride } from './editor/render.ts'
 import { invertSelection, refineSelection, selectAll, selectionInfo, type Selection, type SelectionMode, type SelectionShape } from './editor/selection.ts'
 import { colorMaskAt } from './editor/colorSelect.ts'
@@ -142,7 +144,7 @@ import { TOOLS } from './tools.ts'
 import { useTurnIntoShapes } from './hooks/useTurnIntoShapes.tsx'
 import { isRtl, live, msg, t, useLanguage } from './i18n/i18n.ts'
 
-type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts' | 'install'
+type DialogId = 'new' | 'export' | 'search' | 'help' | 'discard' | 'resize' | 'rename' | 'layout' | 'sizes' | 'layouts' | 'install' | 'versions'
 
 // Room left around a fitted design for the floating hint and zoom controls.
 const FIT_PADDING = 64
@@ -1846,6 +1848,27 @@ export default function App() {
     }
   }
 
+  // Goes back to an earlier version of the open design. How it is now is kept as a version first,
+  // so going back can itself be undone from Earlier versions.
+  async function restoreVersion(version: DesignVersion) {
+    setDialog(null)
+    const d = editor.getDoc()
+    if (!d || d.id !== version.designId) return
+    try {
+      if (!(await autosave.flush())) throw new Error(t("Your latest changes couldn't be kept in this browser."))
+      const [project, thumbnail] = await Promise.all([encodeProject(d), designThumbnail(d)])
+      await saveDesign({ id: d.id, name: d.name, width: d.width, height: d.height, updatedAt: Date.now(), thumbnail }, project, 'keep')
+      const earlier = await loadVersion(version.key)
+      if (!earlier) throw new Error(t("That version isn't in this browser anymore."))
+      const next = await decodeProject(earlier, d.id)
+      await saveDesign({ id: d.id, name: next.name, width: next.width, height: next.height, updatedAt: Date.now(), thumbnail: version.thumbnail }, earlier, 'none')
+      showDocument(next, true)
+      inform(t('Back to the earlier version ({when}). How it was a moment ago is in Earlier versions too.', { when: describeVersion(version.savedAt) }))
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
   async function openSaved(design: SavedDesign) {
     try {
       const file = await loadDesign(design.id)
@@ -2553,6 +2576,7 @@ export default function App() {
       if (current()) setDialog('rename')
     },
     installApp: () => setDialog('install'),
+    earlierVersions: () => setDialog('versions'),
     close: () =>
       void leaveDesign(() => {
         editor.close()
@@ -3956,6 +3980,7 @@ export default function App() {
       )}
       {dialog === 'search' && <CommandPalette actions={actions} hasDocument={!!doc} onClose={() => setDialog(null)} />}
       {traceShapes.dialog}
+      {dialog === 'versions' && doc && <VersionsDialog designId={doc.id} onRestore={(version) => void restoreVersion(version)} onClose={() => setDialog(null)} />}
       {dialog === 'install' && (
         <InstallDialog
           installed={app.installed}

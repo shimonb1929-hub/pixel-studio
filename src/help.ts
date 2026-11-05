@@ -282,6 +282,14 @@ export const GOALS: Goal[] = [
     keywords: ['svg', 'pdf', 'logo', 'vector', 'import', 'flyer', 'menu', 'form', 'open pdf', 'edit pdf'],
   },
   {
+    id: 'earlier-versions',
+    goal: msg('Go back to how my design looked earlier'),
+    how: msg('Menu › Earlier versions… shows how the design looked along the way, kept every ten minutes of work. Pick one to see it, then Go back to this. How it is now is kept too, so nothing is lost.'),
+    action: 'earlier-versions',
+    pro: 'Version History, History panel, Revert',
+    keywords: ['version', 'history', 'earlier', 'restore', 'revert', 'go back', 'older', 'lost my work', 'yesterday', 'backup'],
+  },
+  {
     id: 'copy-drag',
     goal: msg('Make a copy of something'),
     how: msg('With Arrange, hold Alt (Option on a Mac) and drag it: a copy comes out and the original stays. Or press Ctrl+J (Cmd+J) for a copy right on top of it.'),

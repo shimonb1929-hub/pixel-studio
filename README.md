@@ -55,6 +55,9 @@ Pixel Studio should feel obvious to a 15-year-old and still produce professional
 - **Phone photos open.** iPhone and other phone photos (HEIC) open in every browser, not only
   Safari: they are read by libheif, which comes from Pixel Studio's own site the first time it is
   needed.
+- **Earlier versions.** Menu › Earlier versions… shows how the design looked along the way (the
+  last of every ten minutes of work, up to twenty), and goes back to any of them. How it is now
+  is kept first, so going back can be taken back too.
 - **Logos and PDFs open.** An SVG logo opens as real shapes, kept together, that stay sharp and
   can be recolored and reshaped (the picture it makes is kept, hidden, below them). Each page of a
   PDF becomes a page of the design, drawn at print detail; pdf.js reads it, again loaded only when

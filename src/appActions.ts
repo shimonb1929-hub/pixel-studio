@@ -26,6 +26,7 @@ export interface AppCommands {
   downloadSvg: () => void
   renameDesign: () => void
   installApp: () => void
+  earlierVersions: () => void
   close: () => void
   undo: () => void
   redo: () => void
@@ -269,6 +270,15 @@ export function buildActions({ doc, undoLabel, redoLabel, organize }: ActionStat
       keywords: ['help', 'how', 'how to', 'tutorial', 'learn', 'guide', 'explain', 'which tool', 'what does', 'manual', 'question', 'photoshop', 'illustrator', 'indesign'],
       shortcut: 'F1',
       run: c.help,
+    },
+    {
+      id: 'earlier-versions',
+      group: 'Design',
+      title: t('Earlier versions…'),
+      description: t('See how this design looked earlier today or on other days, and go back to any of them. How it is now is kept too.'),
+      keywords: ['version', 'versions', 'history', 'earlier', 'restore', 'go back', 'older', 'backup', 'revert', 'lost', 'recover', 'yesterday'],
+      needsDocument: true,
+      run: c.earlierVersions,
     },
     {
       id: 'install',
