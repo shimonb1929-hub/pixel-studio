@@ -1,4 +1,4 @@
-import { Bandage, Brush, Stamp, Crop, Eclipse, Eraser, Hand, MousePointer2, PaintBucket, Spline, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
+import { Bandage, Brush, Waves, Stamp, Crop, Eclipse, Eraser, Hand, MousePointer2, PaintBucket, Spline, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
 import type { ToolId } from './editor/types.ts'
 import { t } from './i18n/i18n.ts'
 import { ALT_LABEL } from './keys.ts'
@@ -395,6 +395,30 @@ export const TOOLS: ToolInfo[] = [
     },
     pro: 'Clone Stamp tool',
     keywords: ['clone', 'clone stamp', 'stamp', 'copy', 'copy paint', 'duplicate', 'repeat', 'cover', 'retouch', 'remove object', 'patch', 'repair', 'paint over'],
+    group: 'adjust',
+    extra: true,
+  },
+  {
+    id: 'push',
+    get name() {
+      return t('Push and pull')
+    },
+    get label() {
+      return t('Push')
+    },
+    key: 'W',
+    icon: Waves,
+    get description() {
+      return t('Brush over a photo to push its pixels along, like smudging wet paint, or to make a part a little bigger or smaller: a taller tree, a rounder cloud, a wavier river.')
+    },
+    get hint() {
+      return t('Pick a photo, then drag over it to push that part along. Choose Bigger or Smaller to swell or shrink what is under the brush.')
+    },
+    get when() {
+      return t('Use it to gently reshape part of a photo or drawing without painting on it.')
+    },
+    pro: 'Liquify, Forward Warp, Bloat, Pucker',
+    keywords: ['liquify', 'warp', 'push', 'pull', 'smudge', 'bloat', 'pucker', 'reshape', 'slim', 'bigger', 'smaller', 'distort', 'forward warp'],
     group: 'adjust',
     extra: true,
   },

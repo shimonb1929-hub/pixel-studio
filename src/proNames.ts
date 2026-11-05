@@ -91,6 +91,7 @@ export const PRO_NAMES: Record<string, string> = {
   'Pattern size': 'Pattern scale',
   'Change together': 'Symbols, linked copies',
   'Bend shape': 'Envelope Distort, Warp',
+  'Push and pull': 'Liquify',
   'Steps between': 'Blend tool, Make Blend',
   'Linked copy': 'Symbol instance',
   'Stop changing together': 'Break link to symbol',

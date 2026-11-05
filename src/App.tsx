@@ -143,6 +143,7 @@ import { useFontsVersion } from './hooks/useFontsVersion.ts'
 import { canBeOnEveryPage, hasPageNumbers, setOnEveryPage } from './editor/everyPage.ts'
 import { canLink, linkCopies, unlink } from './editor/linked.ts'
 import { isWarped, warpedPaths, type Warp } from './editor/warp.ts'
+import { DEFAULT_PUSH, type PushSettings } from './editor/push.ts'
 import { canBeShapes, placeWordShapes, traceWords, wordPictures, wordShapes } from './editor/wordShapes.ts'
 import { continueText, editFlowPart, storyBoxes } from './text/textFlow.ts'
 import { changeText, fitText, keepOnPage, newTextBox, textIndexAt, textLayout, textName } from './text/textLayer.ts'
@@ -473,6 +474,7 @@ export default function App() {
   const closeContextMenu = useCallback(() => setContextMenu(null), [])
   const [fillTolerance, setFillTolerance] = useState(0.15)
   const [healSize, setHealSize] = useState(40)
+  const [pushSettings, setPushSettings] = useState<PushSettings>(DEFAULT_PUSH)
   // Fade: the brush that softly hides parts, whether it hides or brings back, and the ready-made
   // fade being pointed at (shown on the design before it's chosen).
   const [fadeBrush, setFadeBrush] = useState<HideBrush>(DEFAULT_HIDE_BRUSH)
@@ -2236,6 +2238,7 @@ export default function App() {
     })
     if (tool === 'eraser') setEraser(update)
     else if (tool === 'heal') setHealSize((size) => stepBrushSize(size, direction))
+    else if (tool === 'push') setPushSettings((p) => ({ ...p, size: stepBrushSize(p.size, direction) }))
     else if (tool === 'fade') setFadeBrush((b) => ({ ...b, size: stepBrushSize(b.size, direction) }))
     else if (tool === 'clone') setCopyBrush((b) => ({ ...b, size: stepBrushSize(b.size, direction) }))
     else setBrush(update)
@@ -3346,6 +3349,8 @@ export default function App() {
       ? eraser.settings
       : tool === 'heal'
         ? { ...brush.settings, size: healSize }
+        : tool === 'push'
+        ? { ...brush.settings, size: pushSettings.size }
         : tool === 'clone'
           ? { ...COPY_BRUSH, ...copyBrush }
           : tool === 'fade'
@@ -3754,6 +3759,8 @@ export default function App() {
         onFillToleranceChange={setFillTolerance}
         healSize={healSize}
         onHealSizeChange={setHealSize}
+        push={pushSettings}
+        onPushChange={setPushSettings}
         fade={{ brush: fadeBrush, mode: fadeMode, onBrush: setFadeBrush, onMode: setFadeMode }}
         copy={{
           brush: copyBrush,
@@ -3831,6 +3838,7 @@ export default function App() {
                 onColorSelect={colorSelect}
                 onPaintSelect={paintSelect}
                 selectionPreview={edgePreview}
+                push={pushSettings}
                 clone={
                   tool === 'clone'
                     ? {

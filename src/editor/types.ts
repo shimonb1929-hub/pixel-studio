@@ -339,4 +339,4 @@ export interface Viewport {
   panY: number
 }
 
-export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'pen' | 'text' | 'brush' | 'eraser' | 'fade' | 'fill' | 'picker' | 'adjust' | 'heal' | 'clone' | 'hand' | 'zoom'
+export type ToolId = 'move' | 'select' | 'crop' | 'shape' | 'pen' | 'text' | 'brush' | 'eraser' | 'fade' | 'fill' | 'picker' | 'adjust' | 'heal' | 'clone' | 'push' | 'hand' | 'zoom'

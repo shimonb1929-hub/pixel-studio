@@ -1,3 +1,4 @@
+import type { PushMode, PushSettings } from '../editor/push.ts'
 import { Aperture, Layers, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus, Copy } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -1687,6 +1688,8 @@ interface ToolOptionsProps {
   onFillToleranceChange: (tolerance: number) => void
   healSize: number
   onHealSizeChange: (size: number) => void
+  push: PushSettings
+  onPushChange: (settings: PushSettings) => void
   fade: { brush: HideBrush; mode: HideMode; onBrush: (brush: HideBrush) => void; onMode: (mode: HideMode) => void }
   copy: CopyBarControls
   colorSelect: ColorSelectControls
@@ -1786,6 +1789,8 @@ export function ToolOptions(props: ToolOptionsProps) {
         <FadeBar brush={props.fade.brush} mode={props.fade.mode} onBrush={props.fade.onBrush} onMode={props.fade.onMode} />
       ) : props.tool === 'clone' ? (
         <CopyOptions controls={props.copy} />
+      ) : props.tool === 'push' ? (
+        <PushOptions settings={props.push} onChange={props.onPushChange} />
       ) : props.tool === 'heal' ? (
         <>
           <Slider
@@ -1801,5 +1806,53 @@ export function ToolOptions(props: ToolOptionsProps) {
         <Hint>{info.description}</Hint>
       )}
     </div>
+  )
+}
+
+const PUSH_MODES: { value: PushMode; label: () => string; description: () => string }[] = [
+  { value: 'push', label: () => t('Push'), description: () => t('Drag to push the pixels along, like smudging wet paint.') },
+  { value: 'bigger', label: () => t('Bigger'), description: () => t('Brush over a part to swell it, a little more each time.') },
+  { value: 'smaller', label: () => t('Smaller'), description: () => t('Brush over a part to shrink it, a little more each time.') },
+]
+
+// Push and pull: what the brush does, how big it is and how strongly the pixels follow.
+function PushOptions({ settings, onChange }: { settings: PushSettings; onChange: (settings: PushSettings) => void }) {
+  return (
+    <>
+      <div role="radiogroup" aria-label={t('What the brush does')} className="flex shrink-0 gap-1 rounded-[10px] border border-line bg-subtle p-1">
+        {PUSH_MODES.map((m) => (
+          <Tooltip key={m.value} title={m.label()} description={m.description()} className="flex">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={settings.mode === m.value}
+              onClick={() => onChange({ ...settings, mode: m.value })}
+              className={`h-7 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${
+                settings.mode === m.value ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
+              }`}
+            >
+              {m.label()}
+            </button>
+          </Tooltip>
+        ))}
+      </div>
+      <Slider
+        className="w-40 shrink-0"
+        label={t('Size')}
+        help={t('How wide the brush is. Bigger moves more of the picture at once, more smoothly.')}
+        value={sizeToSlider(settings.size)}
+        display={`${settings.size} px`}
+        onChange={(position) => onChange({ ...settings, size: sliderToSize(position) })}
+      />
+      <Slider
+        className="w-40 shrink-0"
+        label={t('Strength')}
+        help={t('How closely the picture follows the brush.')}
+        value={settings.strength}
+        display={`${Math.round(settings.strength * 100)}%`}
+        pro="Brush Pressure (Liquify)"
+        onChange={(position) => onChange({ ...settings, strength: Math.max(0.05, Math.round(position * 100) / 100) })}
+      />
+    </>
   )
 }

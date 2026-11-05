@@ -24,6 +24,7 @@ import {
   type SelectionShape,
 } from '../editor/selection.ts'
 import { StrokeSession, type InputPoint, type StrokeResult } from '../editor/stroke.ts'
+import { PushSession, type PushSettings } from '../editor/push.ts'
 import {
   boxCorners,
   boxPoint,
@@ -130,6 +131,8 @@ export interface CanvasViewProps {
   onMagicSelect: (target: { point: Point } | { box: Rect }, mode: SelectionMode) => void
   // Copy paint: where it copies from.
   clone: CloneControls | null
+  // Push and pull: how the pixels follow the brush.
+  push?: PushSettings
   // With "Same color": a click picks everything of a similar color.
   onColorSelect: (point: Point, mode: SelectionMode) => void
   // With "Paint over": the brush's path and half-width, in pixels of the design.
@@ -720,7 +723,7 @@ export function CanvasView(props: CanvasViewProps) {
   const sceneRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const propsRef = useRef(props)
-  const strokeRef = useRef<{ session: StrokeSession; pointerId: number; label: string; grown?: PixelLayer; heal?: string; copyOffset?: Point } | null>(null)
+  const strokeRef = useRef<{ session: StrokeSession | PushSession; pointerId: number; label: string; grown?: PixelLayer; heal?: string; copyOffset?: Point } | null>(null)
   const panRef = useRef<PanDrag | null>(null)
   const pickRef = useRef<number | null>(null)
   const moveRef = useRef<MoveDrag | null>(null)
@@ -958,7 +961,7 @@ export function CanvasView(props: CanvasViewProps) {
     if (pickRef.current !== null || p.tool === 'picker' || (p.tool === 'brush' && p.altHeld)) {
       const point = screenToDocument(p.viewport, hover.x, hover.y)
       drawPickerRing(ctx, hover.x, hover.y, sampleColor(p.doc, point.x, point.y), p.color)
-    } else if (p.tool === 'brush' || p.tool === 'eraser' || p.tool === 'heal' || p.tool === 'fade') {
+    } else if (p.tool === 'brush' || p.tool === 'eraser' || p.tool === 'heal' || p.tool === 'fade' || p.tool === 'push') {
       const radius = (p.brush.size / 2) * p.viewport.zoom
       if (radius >= MIN_OUTLINE_RADIUS) drawBrushOutline(ctx, hover.x, hover.y, radius)
     } else if (p.tool === 'clone' && p.clone) {
@@ -1307,6 +1310,34 @@ export function CanvasView(props: CanvasViewProps) {
     requestScene()
   }
 
+  // Push and pull: the topmost photo or drawing under the brush has its pixels moved along.
+  function startPushStroke(event: PointerEvent<HTMLCanvasElement>, settings: PushSettings) {
+    const point = documentPoint(event.clientX, event.clientY)
+    // The picked photo or drawing, or else the topmost one under the brush.
+    const picked = activeLayer(doc)
+    const layer =
+      picked?.kind === 'raster' && picked.visible
+        ? picked
+        : [...doc.layers].reverse().find((l): l is PixelLayer => l.kind === 'raster' && l.visible && l.opacity > 0 && hitsLayer(l, point))
+    if (!layer) {
+      props.onBlocked(t('Push and pull works on photos and drawings. Drag over a picture.'))
+      return
+    }
+    if (layer.locked) {
+      props.onBlocked(t("“{name}” is locked, so it can't be changed by accident. Click its lock in the Layers panel to unlock it.", { name: layer.name }))
+      return
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const target = settleLayer(layer)
+    const session = new PushSession(target, settings)
+    session.begin({ ...point, pressure: 1 })
+    const label = settings.mode === 'bigger' ? t('Make bigger') : settings.mode === 'smaller' ? t('Make smaller') : t('Push and pull')
+    strokeRef.current = { session, pointerId: event.pointerId, label, grown: target === layer ? undefined : target }
+    props.onStrokeActiveChange(true)
+    session.flush()
+    requestScene()
+  }
+
   // Copy paint: a click (or {alt} + click) picks the spot to copy on the topmost picture there; then
   // painting copies from that picture onto itself.
   function startCopyStroke(event: PointerEvent<HTMLCanvasElement>, clone: CloneControls) {
@@ -1393,7 +1424,7 @@ export function CanvasView(props: CanvasViewProps) {
     const stroke = strokeRef.current
     if (!stroke) return
     strokeRef.current = null
-    if (stroke.heal) {
+    if (stroke.heal && stroke.session instanceof StrokeSession) {
       const marks = stroke.session.finishMarks()
       drawScene()
       propsRef.current.onStrokeActiveChange(false)
@@ -1586,6 +1617,8 @@ export function CanvasView(props: CanvasViewProps) {
       startFade(event)
     } else if (tool === 'clone' && props.clone) {
       startCopyStroke(event, props.clone)
+    } else if (tool === 'push' && props.push) {
+      startPushStroke(event, props.push)
     } else if (tool === 'move' && props.arrange && !doc.selection) {
       startArrange(event, props.arrange)
     } else if (tool === 'move') {
@@ -1902,7 +1935,7 @@ export function CanvasView(props: CanvasViewProps) {
   const pickMode = picking || tool === 'picker' || (tool === 'brush' && altHeld)
   // Copy paint picks the spot to copy with a cross; after that it paints.
   const copyPicking = tool === 'clone' && (!props.clone?.source || altHeld)
-  const painting = tool === 'brush' || tool === 'eraser' || tool === 'heal' || tool === 'fade' || (tool === 'clone' && !copyPicking)
+  const painting = tool === 'brush' || tool === 'eraser' || tool === 'heal' || tool === 'fade' || tool === 'push' || (tool === 'clone' && !copyPicking)
   const outlineVisible = painting && (brush.size / 2) * viewport.zoom >= MIN_OUTLINE_RADIUS
   // The pointer's shape tells you what will happen when you press.
   function pickCursor(): string {

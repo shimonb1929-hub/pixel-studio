@@ -170,6 +170,14 @@ export const GOALS: Goal[] = [
     keywords: ['repeat', 'duplicate', 'pattern', 'border', 'flower', 'wreath', 'symmetry', 'mirror', 'tiles'],
   },
   {
+    id: 'push-pull',
+    goal: msg('Gently reshape part of a photo'),
+    how: msg('Choose Push and pull under More tools. Drag over the photo to push that part along, or choose Bigger or Smaller and brush over a part to swell or shrink it.'),
+    tool: 'push',
+    pro: 'Liquify',
+    keywords: ['liquify', 'warp', 'smudge', 'bloat', 'pucker', 'reshape', 'push', 'pull'],
+  },
+  {
     id: 'bend-shape',
     goal: msg('Bend a shape into an arch, a wave or a twist'),
     how: msg('Pick the shape and look under Shape: choose Arch, Bulge, Wave, Flag or Twist, then How much bend. No bend takes it off again. For words, use Words into shapes first.'),
