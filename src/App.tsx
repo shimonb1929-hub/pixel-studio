@@ -121,6 +121,7 @@ import { useStraighten } from './hooks/useStraighten.ts'
 import { StraightenPanel } from './components/StraightenPanel.tsx'
 import { RepeatPanel } from './components/RepeatPanel.tsx'
 import { FindDialog } from './components/FindDialog.tsx'
+import { softTint, startingPattern, type Pattern } from './editor/pattern.ts'
 import { replaceEverywhere } from './editor/findReplace.ts'
 import { useRepeat } from './hooks/useRepeat.ts'
 import { useCorners } from './hooks/useCorners.ts'
@@ -842,7 +843,11 @@ export default function App() {
         ? shapeShown.fill.color
         : shapeShown.fill.kind === 'gradient'
           ? shapeShown.fill.gradient.stops[Math.min(gradientStop, shapeShown.fill.gradient.stops.length - 1)].color
-          : color
+          : shapeShown.fill.kind === 'pattern'
+            ? gradientStop === 1
+              ? (shapeShown.fill.pattern.background ?? '#ffffff')
+              : shapeShown.fill.pattern.color
+            : color
 
   // A gradient for the picked shapes, or for new shapes when none is picked.
   function changeGradient(gradient: Gradient, label: string, mergeKey?: string) {
@@ -865,14 +870,23 @@ export default function App() {
     }
   }
 
-  function changeFillKind(kind: 'color' | 'gradient') {
+  // A pattern for the picked shapes. New shapes start plain, so nothing is kept for them.
+  function changePattern(pattern: Pattern, label: string, mergeKey?: string) {
+    changeShape(label, () => ({ fill: { kind: 'pattern', pattern } }), (d) => d, mergeKey ?? `shape-pattern-${label}`)
+  }
+
+  function changeFillKind(kind: 'color' | 'gradient' | 'pattern') {
     if (!shapeShown || shapeShown.fill.kind === kind) return
     const fill = shapeShown.fill
-    if (kind === 'gradient') {
+    if (kind === 'pattern') {
+      setGradientStop(0)
+      const main = fill.kind === 'color' ? fill.color : fill.kind === 'gradient' ? fill.gradient.stops[0].color : color
+      changePattern(startingPattern(main, softTint(main), shapeShown.box.width, shapeShown.box.height), t('Pattern fill'))
+    } else if (kind === 'gradient') {
       setGradientStop(0)
       changeGradient(gradientFrom(fill.kind === 'color' ? fill.color : color), t('Gradient fill'))
     } else {
-      const hex = fill.kind === 'gradient' ? fill.gradient.stops[0].color : (shapeDefaults.fill ?? DEFAULT_SHAPES.fill!)
+      const hex = fill.kind === 'gradient' ? fill.gradient.stops[0].color : fill.kind === 'pattern' ? fill.pattern.color : (shapeDefaults.fill ?? DEFAULT_SHAPES.fill!)
       changeShape(t('Fill color'), () => ({ fill: { kind: 'color', color: hex } }), (d) => ({ ...d, fill: hex, gradient: null }))
     }
   }
@@ -890,6 +904,10 @@ export default function App() {
       const gradient = shapeShown.fill.gradient
       const index = Math.min(gradientStop, gradient.stops.length - 1)
       changeGradient({ ...gradient, stops: gradient.stops.map((s, i) => (i === index ? { ...s, color: hex } : s)) }, t('Gradient color'), `shape-gradient-color-${index}`)
+    } else if (shapeShown?.fill.kind === 'pattern') {
+      const pattern = shapeShown.fill.pattern
+      if (gradientStop === 1) changePattern({ ...pattern, background: hex }, t('Pattern background'), 'shape-pattern-background')
+      else changePattern({ ...pattern, color: hex }, t('Pattern color'), 'shape-pattern-color')
     } else {
       changeShape(t('Fill color'), () => ({ fill: { kind: 'color', color: hex } }), (d) => ({ ...d, fill: hex, gradient: null }), 'shape-fill-color')
     }
@@ -3819,6 +3837,8 @@ export default function App() {
                   onOutlineDash={changeOutlineDash}
                     onFillKind={changeFillKind}
                     onGradient={changeGradient}
+                    onPattern={changePattern}
+                    side={Math.max(Math.abs(shapeShown.box.width), Math.abs(shapeShown.box.height))}
                     gradientStop={gradientStop}
                     onGradientStop={(index) => {
                       setEffectColor(null)
