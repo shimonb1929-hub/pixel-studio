@@ -26,3 +26,6 @@ dist-ssr
 # Playwright
 test-results
 playwright-report
+
+# Layout audit reports (AUDIT=1 npx playwright test e2e/audit.e2e.ts)
+audit

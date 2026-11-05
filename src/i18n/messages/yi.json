@@ -2178,5 +2178,8 @@
  "Whole words only": "נאר גאנצע ווערטער",
  "{count} in all. Nothing changes until you press Apply.": "{count} בסך הכל. גארנישט טוישט זיך ביז איר דריקט באשטעטיגן.",
  "“Rose” finds “Rose”, but not “rose”.": "“Rose” געפינט “Rose”, אבער נישט “rose”. (נאר פאר ענגלישע אותיות.)",
- "“art” finds “art”, but not the “art” inside “party”.": "“בוך” געפינט “בוך”, אבער נישט דאס “בוך” אין “ביכער־בוכהאנדלונג”."
+ "“art” finds “art”, but not the “art” inside “party”.": "“בוך” געפינט “בוך”, אבער נישט דאס “בוך” אין “ביכער־בוכהאנדלונג”.",
+ "More settings": "נאך איינשטעלונגען",
+ "Earlier settings": "פריערדיקע איינשטעלונגען",
+ "Some settings don't fit on this screen. Click to see them, or slide the bar sideways.": "טייל איינשטעלונגען פאסן נישט אריין אויף דעם עקראן. דריקט צו זען זיי, אדער רוקט דעם שטאנג אויף דער זייט."
 }

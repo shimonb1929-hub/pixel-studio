@@ -96,7 +96,9 @@ export function Tooltip({
   return (
     <span
       ref={anchorRef}
-      className={className ?? 'inline-flex'}
+      // Keeps the size of what it wraps: in a crowded row it must never squash its button so that
+      // the words spill onto the next one.
+      className={className ?? 'inline-flex shrink-0'}
       onPointerEnter={show}
       onPointerLeave={() => {
         suppressedRef.current = false

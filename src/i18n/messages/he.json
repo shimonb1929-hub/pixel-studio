@@ -2178,5 +2178,8 @@
  "Whole words only": "מילים שלמות בלבד",
  "{count} in all. Nothing changes until you press Apply.": "{count} בסך הכול. שום דבר לא משתנה עד שלוחצים על החלה.",
  "“Rose” finds “Rose”, but not “rose”.": "“Rose” מוצא את “Rose”, אבל לא את “rose”. (חשוב רק לאותיות לועזיות.)",
- "“art” finds “art”, but not the “art” inside “party”.": "“ספר” מוצא את “ספר”, אבל לא את “ספר” שבתוך “ספרים”."
+ "“art” finds “art”, but not the “art” inside “party”.": "“ספר” מוצא את “ספר”, אבל לא את “ספר” שבתוך “ספרים”.",
+ "More settings": "עוד הגדרות",
+ "Earlier settings": "הגדרות קודמות",
+ "Some settings don't fit on this screen. Click to see them, or slide the bar sideways.": "חלק מההגדרות לא נכנסות במסך הזה. לחצו כדי לראות אותן, או החליקו את הסרגל הצידה."
 }

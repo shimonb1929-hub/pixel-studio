@@ -2178,5 +2178,8 @@
  "Whole words only": "Mots entiers seulement",
  "{count} in all. Nothing changes until you press Apply.": "{count} en tout. Rien ne change tant que vous n’appuyez pas sur Appliquer.",
  "“Rose” finds “Rose”, but not “rose”.": "« Rose » trouve « Rose », mais pas « rose ».",
- "“art” finds “art”, but not the “art” inside “party”.": "« art » trouve « art », mais pas le « art » dans « partir »."
+ "“art” finds “art”, but not the “art” inside “party”.": "« art » trouve « art », mais pas le « art » dans « partir ».",
+ "More settings": "Plus de réglages",
+ "Earlier settings": "Réglages précédents",
+ "Some settings don't fit on this screen. Click to see them, or slide the bar sideways.": "Certains réglages ne tiennent pas sur cet écran. Cliquez pour les voir, ou faites glisser la barre sur le côté."
 }
