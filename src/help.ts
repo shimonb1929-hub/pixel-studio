@@ -170,6 +170,22 @@ export const GOALS: Goal[] = [
     keywords: ['repeat', 'duplicate', 'pattern', 'border', 'flower', 'wreath', 'symmetry', 'mirror', 'tiles'],
   },
   {
+    id: 'bend-shape',
+    goal: msg('Bend a shape into an arch, a wave or a twist'),
+    how: msg('Pick the shape and look under Shape: choose Arch, Bulge, Wave, Flag or Twist, then How much bend. No bend takes it off again. For words, use Words into shapes first.'),
+    tool: 'shape',
+    pro: 'Envelope Distort, Warp',
+    keywords: ['warp', 'envelope', 'distort', 'arch', 'arc', 'bulge', 'wave', 'flag', 'twist', 'bend', 'curve shape'],
+  },
+  {
+    id: 'steps',
+    goal: msg('Make shapes slowly turn from one into another'),
+    how: msg('Draw two shapes, hold Shift and click both, then press Steps in the bar at the top. Choose how many steps and press Apply.'),
+    action: 'steps-between',
+    pro: 'Blend tool, Make Blend',
+    keywords: ['blend', 'morph', 'tween', 'in between', 'color ramp', 'rainbow', '3d letters', 'transition'],
+  },
+  {
     id: 'linked',
     goal: msg('Use the same thing many times and change them all at once'),
     how: msg('Pick it and choose Linked copy in Search, or tick Change together in Make copies. Change the color, shape or words of one, and every linked copy changes. The link button in Layers lets one change on its own.'),

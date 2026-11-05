@@ -1,4 +1,4 @@
-import { Aperture, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus, Copy } from 'lucide-react'
+import { Aperture, Layers, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, Circle, Contrast, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus, Copy } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -635,6 +635,8 @@ export interface ArrangeBarControls {
   spreadOut: (axis: 'x' | 'y') => void
   // Copies of what is picked in a row, a grid, around a circle or mirrored (pro: Repeat).
   makeCopies: () => void
+  // Set when exactly two shapes are picked: shapes in between them.
+  stepsBetween?: () => void
   // Set when one photo or drawing is picked: AI makes everything around the main thing see-through.
   removeBackground?: () => void
   // Set when one photo is picked over a shape or words: puts it inside them, right where it is.
@@ -1402,6 +1404,16 @@ function ArrangeOptions({ controls }: { controls: ArrangeBarControls }) {
             title={t('Make copies')}
             description={several ? t('Make copies of them in a row, a grid or around a circle, or a mirror image beside them. You see them before you keep them.') : t('Make copies of it in a row, a grid or around a circle, or a mirror image beside it. You see them before you keep them.')}
             onClick={controls.makeCopies}
+          />
+        )}
+        {!part && controls.stepsBetween && (
+          <BarButton
+            icon={Layers}
+            roomy
+            label={t('Steps')}
+            title={t('Steps between')}
+            description={t('Shapes in between the two picked ones, slowly turning one into the other: place, size, color and shape. You see them before you keep them.')}
+            onClick={controls.stepsBetween}
           />
         )}
         {controls.textWrap && <TextWrapMenu controls={controls.textWrap} />}
