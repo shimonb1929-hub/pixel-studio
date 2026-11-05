@@ -55,6 +55,20 @@ test.describe('fingers on a touch screen', () => {
     expect(await screenColor(page, spot)).not.toEqual([255, 255, 255])
   })
 
+  test('a second finger that comes late still moves the view, and the paint it began goes away', async ({ page }) => {
+    const size = await newDesign(page)
+    const cdp = await page.context().newCDPSession(page)
+    const [a, b] = await fingers(page, size, [[150, 150], [250, 150]])
+    await touch(cdp, 'touchStart', [a])
+    await touch(cdp, 'touchMove', [{ x: a.x + 20, y: a.y }])
+    await page.waitForTimeout(400)
+    await touch(cdp, 'touchStart', [{ x: a.x + 20, y: a.y }, b])
+    for (let step = 1; step <= 5; step++) await touch(cdp, 'touchMove', [{ x: a.x + 20 + step * 10, y: a.y }, { x: b.x + step * 10, y: b.y }])
+    await touch(cdp, 'touchEnd', [])
+    await expect(page.getByRole('button', { name: 'Undo', exact: true })).toHaveAttribute('aria-disabled', 'true')
+    expect(await paintedIn(page, size, { x: 0, y: 0, width: 400, height: 300 })).toBe(0)
+  })
+
   test('one finger still paints', async ({ page }) => {
     const size = await newDesign(page)
     const cdp = await page.context().newCDPSession(page)

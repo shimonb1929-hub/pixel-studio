@@ -1551,6 +1551,17 @@ export function CanvasView(props: CanvasViewProps) {
         startPinch()
         return
       }
+      const stroke = strokeRef.current
+      if (touches.size === 2 && stroke && touches.has(stroke.pointerId)) {
+        // The second finger came a little late and the first had started painting: that paint is
+        // let go of (it was never put on the layer), and the fingers move the view instead.
+        strokeRef.current = null
+        drawScene()
+        propsRef.current.onStrokeActiveChange(false)
+        propsRef.current.onStrokeCancelled()
+        startPinch()
+        return
+      }
       if (touches.size === 1 && !busy()) {
         // Kept until it's clear this is one finger (see TOUCH_WAIT_MS). The event is copied, since
         // React lets go of the element it came from once this handler returns.
