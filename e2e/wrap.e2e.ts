@@ -29,7 +29,7 @@ const ENGLISH =
 
 test('text flows around a circle, exactly as shown while typing, and follows it when it moves', async ({ page }) => {
   const size = await newDesign(page, 500, 500)
-  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; } [data-typing-handles] { display: none; }' })
   await drawShape(page, size, 'Oval', [300, 60], [440, 200])
   await wrapAround(page, 'Its shape')
   expect(await undoLabel(page)).toContain('Undo text around it')
@@ -81,7 +81,7 @@ test('text flows around a circle, exactly as shown while typing, and follows it 
 
 test('Hebrew flows around a box, and can stop above and go on below', async ({ page }) => {
   const size = await newDesign(page, 500, 500)
-  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; } [data-typing-handles] { display: none; }' })
   await drawShape(page, size, 'Rectangle', [50, 90], [180, 170])
   await wrapAround(page, 'Its box')
   await page.keyboard.press('t')
@@ -117,7 +117,7 @@ test('Hebrew flows around a box, and can stop above and go on below', async ({ p
 
 test('a numbered list flows around a shape too, exactly as shown while typing', async ({ page }) => {
   const size = await newDesign(page, 500, 500)
-  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; } [data-typing-handles] { display: none; }' })
   await drawShape(page, size, 'Rectangle', [40, 90], [170, 170])
   await wrapAround(page, 'Its box')
   await page.keyboard.press('t')

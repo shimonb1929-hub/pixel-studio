@@ -149,7 +149,7 @@ async function compareShots(page: Page, a: string, b: string) {
 
 test('what you see while typing is exactly what you get: Hebrew, Yiddish, English, numbers and punctuation', async ({ page }) => {
   const size = await newDesign(page, 500, 400)
-  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; } [data-typing-handles] { display: none; }' })
   await page.keyboard.press('t')
   // A paragraph box that wraps its lines.
   await drag(page, size, [
@@ -183,7 +183,7 @@ test('what you see while typing is exactly what you get: Hebrew, Yiddish, Englis
 
 test('even edges stretch a line with numbers and English in it exactly as shown while typing', async ({ page }) => {
   const size = await newDesign(page, 500, 400)
-  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; } [data-typing-handles] { display: none; }' })
   await page.keyboard.press('t')
   await drag(page, size, [
     [40, 40],
@@ -485,7 +485,7 @@ async function redPixels(page: Page, size: Size, x: number, y: number, width: nu
 
 test('picked words get their own font, boldness and color, exactly as shown while typing', async ({ page }) => {
   const size = await newDesign(page, 500, 300)
-  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; } [data-typing-handles] { display: none; }' })
   await page.keyboard.press('t')
   await clickAt(page, size, 30, 100)
   const box = typingBox(page)
@@ -553,7 +553,7 @@ test('picked words get their own font, boldness and color, exactly as shown whil
 
 test('a list in Hebrew counts א ב ג on the right, exactly as shown while typing', async ({ page }) => {
   const size = await newDesign(page, 500, 400)
-  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; } [data-typing-handles] { display: none; }' })
   await page.keyboard.press('t')
   await drag(page, size, [
     [40, 40],
@@ -697,7 +697,7 @@ test('See all fonts big: every font writes your words side by side, and a click 
 
 test('raised and lowered letters (m², H₂O) look exactly as shown while typing; whole text gets a line under', async ({ page }) => {
   const size = await newDesign(page, 500, 300)
-  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; } [data-typing-handles] { display: none; }' })
   await page.keyboard.press('t')
   await clickAt(page, size, 30, 100)
   const box = typingBox(page)

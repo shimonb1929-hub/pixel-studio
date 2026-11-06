@@ -57,7 +57,7 @@ async function typedMatchesKept(page: Page, size: Size, area: { x: number; y: nu
 
 test('a price list: type cell by cell with Tab, it looks the same once kept, and undo takes it back', async ({ page }) => {
   const size = await newDesign(page, 600, 500)
-  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; } [data-typing-handles] { display: none; }' })
   await addTable(page)
   await expect(tablePanel(page)).toContainText('4 rows')
   await expect(tablePanel(page)).toContainText('3 columns')
@@ -101,7 +101,7 @@ test('a price list: type cell by cell with Tab, it looks the same once kept, and
 
 test('a Hebrew menu reads from the right, with numbers kept whole, exactly as typed', async ({ page }) => {
   const size = await newDesign(page, 600, 500)
-  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; }' })
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; } [data-typing-handles] { display: none; }' })
   await addTable(page)
   // Right to left: the first column is on the right.
   await tablePanel(page).getByRole('button', { name: 'Right to left' }).click()
