@@ -3723,6 +3723,7 @@ export default function App() {
         onSelect: (start, end) => setTextPick({ start, end }),
         onDone: finishText,
         onTab: textEdit.cell ? (back) => nextCell(back ? -1 : 1) : undefined,
+        onPlace: textEdit.cell ? undefined : (layer) => updateTextEdit(() => layer),
       }
     : null
   // How the picked words look, for the Text and Color panels (a setting they don't share keeps the

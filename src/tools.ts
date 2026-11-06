@@ -159,7 +159,7 @@ export const TOOLS: ToolInfo[] = [
       return t('Write words on your design, in English, Hebrew or Yiddish. Click where the text should start, or drag a box for a paragraph. Hebrew and Yiddish read right to left by themselves.')
     },
     get hint() {
-      return t('Click where your text starts, or drag a box for a paragraph. Click text to change it. Esc when you are done.')
+      return t('Click where your text starts, or drag a box for a paragraph. Click text to change it: pull a corner to make it bigger or smaller, or drag its edge to move it. Esc when you are done.')
     },
     get when() {
       return t('Use it for titles, words, paragraphs and anything you want people to read.')

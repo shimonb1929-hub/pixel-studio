@@ -748,3 +748,47 @@ test('raised and lowered letters (m², H₂O) look exactly as shown while typing
   }
   expect(widest).toBeGreaterThan((all.right - all.left) * 0.9)
 })
+
+test('while typing, the text has handles: a corner makes it bigger, a side rewraps it, the edge moves it, and typing goes on', async ({ page }) => {
+  const size = await newDesign(page, 600, 400)
+  await page.keyboard.press('t')
+  await clickAt(page, size, 300, 150)
+  await page.keyboard.type('איד שלום')
+  const box = typingBox(page)
+  const fontSize = async () => Number.parseFloat(await box.evaluate((el) => getComputedStyle(el).fontSize))
+  const before = await fontSize()
+  const pull = async (handle: ReturnType<Page['locator']>, dx: number, dy: number) => {
+    const at = (await handle.boundingBox())!
+    await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(at.x + at.width / 2 + dx, at.y + at.height / 2 + dy, { steps: 8 })
+    await page.mouse.up()
+  }
+
+  // A corner makes the letters bigger, and the cursor stays in the text.
+  await pull(page.getByRole('button', { name: 'Pull a corner to make the text bigger or smaller' }).nth(3), -80, 60)
+  expect(await fontSize()).toBeGreaterThan(before * 1.3)
+  await expect(box).toBeFocused()
+
+  // The edge moves it.
+  const beforeMove = (await box.boundingBox())!
+  await pull(page.getByRole('button', { name: 'Drag the edge to move the text' }).nth(1), 0, 80)
+  const afterMove = (await box.boundingBox())!
+  expect(Math.abs(afterMove.y - beforeMove.y - 80)).toBeLessThan(3)
+  expect(Math.abs(afterMove.x - beforeMove.x)).toBeLessThan(3)
+
+  // A side makes the lines shorter, so the words wrap.
+  const bigger = await fontSize()
+  await pull(page.getByRole('button', { name: 'Pull a side to make the lines longer or shorter' }).first(), 120, 0)
+  expect(await fontSize()).toBeCloseTo(bigger, 3)
+  expect((await box.boundingBox())!.height).toBeGreaterThan(afterMove.height * 1.5)
+
+  // Typing goes on, and Esc keeps it all.
+  await page.keyboard.type('!')
+  await expect(box).toHaveText('איד שלום!')
+  await page.keyboard.press('Escape')
+  expect(await layerNames(page)).toEqual(['איד שלום!'])
+  const ink = (await inkBounds(page, size, 0, 0, 600, 400))!
+  expect(ink.bottom - ink.top).toBeGreaterThan(100)
+  expect(ink.top).toBeGreaterThan(150)
+})

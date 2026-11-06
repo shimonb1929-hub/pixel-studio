@@ -259,7 +259,7 @@
  "Click to place the next point, or press and drag to make the line curve.": "Haz clic para poner el siguiente punto, o mantén pulsado y arrastra para curvar la línea.",
  "Click to work on this page. Page Up and Page Down go to the page before or after.": "Haz clic para trabajar en esta página. Re Pág y Av Pág van a la página anterior o siguiente.",
  "Click to zoom in. Hold {alt} and click to zoom out.": "Haz clic para acercar. Mantén {alt} y haz clic para alejar.",
- "Click where your text starts, or drag a box for a paragraph. Click text to change it. Esc when you are done.": "Haz clic donde empieza tu texto, o arrastra un recuadro para un párrafo. Haz clic en un texto para cambiarlo. Pulsa Esc cuando termines.",
+ "Click where your text starts, or drag a box for a paragraph. Click text to change it: pull a corner to make it bigger or smaller, or drag its edge to move it. Esc when you are done.": "Haz clic donde empieza tu texto, o arrastra un recuadro para un párrafo. Haz clic en un texto para cambiarlo: tira de una esquina para hacerlo más grande o más pequeño, o arrastra su borde para moverlo. Pulsa Esc cuando termines.",
  "Close": "Cerrar",
  "Close design": "Cerrar diseño",
  "Close shape": "Cerrar forma",
@@ -2458,5 +2458,11 @@
  "The color as the four inks a printer uses, from 0 to 100. Print shops ask for these. Very bright screen colors look a little duller on paper.": "El color como las cuatro tintas que usa una impresora, de 0 a 100. Las imprentas las piden. Los colores muy brillantes en pantalla se ven un poco más apagados en papel.",
  "Yellow ink": "Tinta amarilla",
  "Use exact print colors": "Usar colores de impresión exactos",
- "In the Color panel, open Print inks under the color code and type the numbers your print shop gave you.": "En el panel Color, abre Tintas de impresión debajo del código de color y escribe los números que te dio la imprenta."
+ "In the Color panel, open Print inks under the color code and type the numbers your print shop gave you.": "En el panel Color, abre Tintas de impresión debajo del código de color y escribe los números que te dio la imprenta.",
+ "Pull a corner to make the text bigger or smaller": "Tira de una esquina para hacer el texto más grande o más pequeño",
+ "Pull a side to make the lines longer or shorter": "Tira de un lado para hacer las líneas más largas o más cortas",
+ "Drag the edge to move the text": "Arrastra el borde para mover el texto",
+ "Drag the round handle to turn the text": "Arrastra el asa redonda para girar el texto",
+ "Make words bigger, smaller or move them": "Hacer las palabras más grandes, más pequeñas o moverlas",
+ "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "Haz clic en las palabras (o doble clic con Organizar). Tira de una esquina para hacerlas más grandes o más pequeñas, de un lado para alargar o acortar las líneas, y arrastra el borde del recuadro para moverlas."
 }

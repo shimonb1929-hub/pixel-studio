@@ -259,7 +259,7 @@
  "Click to place the next point, or press and drag to make the line curve.": "לחץ כדי לשים את הנקודה הבאה, או לחץ וגרור כדי לעקם את הקו.",
  "Click to work on this page. Page Up and Page Down go to the page before or after.": "לחץ כדי לעבוד על העמוד הזה. Page Up ו־Page Down עוברים לעמוד הקודם או הבא.",
  "Click to zoom in. Hold {alt} and click to zoom out.": "לחץ כדי להגדיל את התצוגה. החזק {alt} ולחץ כדי להקטין.",
- "Click where your text starts, or drag a box for a paragraph. Click text to change it. Esc when you are done.": "לחץ איפה שהטקסט מתחיל, או גרור מסגרת בשביל פסקה. לחץ על טקסט כדי לשנות אותו. Esc כשסיימת.",
+ "Click where your text starts, or drag a box for a paragraph. Click text to change it: pull a corner to make it bigger or smaller, or drag its edge to move it. Esc when you are done.": "לחץ איפה שהטקסט מתחיל, או גרור מסגרת בשביל פסקה. לחץ על טקסט כדי לשנות אותו: משוך פינה כדי להגדיל או להקטין, או גרור את השוליים שלו כדי להזיז אותו. Esc כשסיימת.",
  "Close": "סגירה",
  "Close design": "סגירת העיצוב",
  "Close shape": "סגירת הצורה",
@@ -2458,5 +2458,11 @@
  "The color as the four inks a printer uses, from 0 to 100. Print shops ask for these. Very bright screen colors look a little duller on paper.": "הצבע כארבעת צבעי הדיו של המדפסת, מ-0 עד 100. בתי דפוס מבקשים אותם. צבעים בהירים מאוד במסך נראים קצת דהויים יותר על נייר.",
  "Yellow ink": "דיו צהוב",
  "Use exact print colors": "להשתמש בצבעי הדפסה מדויקים",
- "In the Color panel, open Print inks under the color code and type the numbers your print shop gave you.": "בחלונית צבע, פתחו את צבעי הדפסה מתחת לקוד הצבע והקלידו את המספרים שבית הדפוס נתן לכם."
+ "In the Color panel, open Print inks under the color code and type the numbers your print shop gave you.": "בחלונית צבע, פתחו את צבעי הדפסה מתחת לקוד הצבע והקלידו את המספרים שבית הדפוס נתן לכם.",
+ "Pull a corner to make the text bigger or smaller": "משוך פינה כדי להגדיל או להקטין את הטקסט",
+ "Pull a side to make the lines longer or shorter": "משוך צד כדי להאריך או לקצר את השורות",
+ "Drag the edge to move the text": "גרור את השוליים כדי להזיז את הטקסט",
+ "Drag the round handle to turn the text": "גרור את הידית העגולה כדי לסובב את הטקסט",
+ "Make words bigger, smaller or move them": "להגדיל, להקטין או להזיז מילים",
+ "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "לחץ על המילים (או לחץ עליהן פעמיים עם סידור). משוך פינה כדי להגדיל או להקטין אותן, צד כדי להאריך או לקצר את השורות, וגרור את שולי המסגרת כדי להזיז אותן."
 }

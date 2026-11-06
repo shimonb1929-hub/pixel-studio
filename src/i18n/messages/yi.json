@@ -259,7 +259,7 @@
  "Click to place the next point, or press and drag to make the line curve.": "קליקט צו שטעלן דעם קומענדיגן פונקט, אדער דריקט און שלעפט צו בייגן די ליניע.",
  "Click to work on this page. Page Up and Page Down go to the page before or after.": "קליקט צו ארבעטן אויף דעם בלאט. Page Up און Page Down גייען צום בלאט פאר אדער נאך.",
  "Click to zoom in. Hold {alt} and click to zoom out.": "קליקט צו פארגרעסערן. האלט {alt} און קליקט צו פארקלענערן.",
- "Click where your text starts, or drag a box for a paragraph. Click text to change it. Esc when you are done.": "קליקט וואו אייער טעקסט הייבט זיך אן, אדער שלעפט א קעסטל פאר א פאראגראף. קליקט אויף טעקסט עס צו טוישן. Esc ווען איר זענט פארטיג.",
+ "Click where your text starts, or drag a box for a paragraph. Click text to change it: pull a corner to make it bigger or smaller, or drag its edge to move it. Esc when you are done.": "קליקט וואו אייער טעקסט הייבט זיך אן, אדער שלעפט א קעסטל פאר א פאראגראף. קליקט אויף טעקסט עס צו טוישן: ציט א ווינקל עס צו מאכן גרעסער אדער קלענער, אדער שלעפט זיין ראנד עס צו רירן. Esc ווען איר זענט פארטיג.",
  "Close": "פארמאכן",
  "Close design": "פארמאכן דיזיין",
  "Close shape": "פארמאכן פארעם",
@@ -2458,5 +2458,11 @@
  "The color as the four inks a printer uses, from 0 to 100. Print shops ask for these. Very bright screen colors look a little duller on paper.": "דער קאליר ווי די פיר טינטן וואס א דרוקער ניצט, פון 0 ביז 100. דרוקערייען בעטן די. זייער העלע קאלירן אויפן עקראן זעען אויס א ביסל בלאסער אויף פאפיר.",
  "Yellow ink": "געלע טינט",
  "Use exact print colors": "ניצן גענויע דרוק קאלירן",
- "In the Color panel, open Print inks under the color code and type the numbers your print shop gave you.": "אינעם קאליר פאנעל, עפנט דרוק טינטן אונטער דעם קאליר קאד און שרייבט אריין די נומערן וואס די דרוקעריי האט אייך געגעבן."
+ "In the Color panel, open Print inks under the color code and type the numbers your print shop gave you.": "אינעם קאליר פאנעל, עפנט דרוק טינטן אונטער דעם קאליר קאד און שרייבט אריין די נומערן וואס די דרוקעריי האט אייך געגעבן.",
+ "Pull a corner to make the text bigger or smaller": "ציט א ווינקל צו מאכן דעם טעקסט גרעסער אדער קלענער",
+ "Pull a side to make the lines longer or shorter": "ציט א זייט צו מאכן די שורות לענגער אדער קירצער",
+ "Drag the edge to move the text": "שלעפט דעם ראנד צו רירן דעם טעקסט",
+ "Drag the round handle to turn the text": "שלעפט דעם קיילעכדיקן הענטל צו דרייען דעם טעקסט",
+ "Make words bigger, smaller or move them": "מאכן ווערטער גרעסער, קלענער אדער זיי רירן",
+ "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "קליקט אויף די ווערטער (אדער טאפל-קליקט מיט ארדענען). ציט א ווינקל זיי צו מאכן גרעסער אדער קלענער, א זייט צו מאכן די שורות לענגער אדער קירצער, און שלעפט דעם ראנד פון קעסטל זיי צו רירן."
 }

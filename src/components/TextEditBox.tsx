@@ -9,6 +9,7 @@ import { straightBox, textLayout } from '../text/textLayer.ts'
 import { avoidMargins } from '../text/avoid.ts'
 import { isCurved } from '../text/textCurve.ts'
 import { language, t } from '../i18n/i18n.ts'
+import { TypingHandles } from './TypingHandles.tsx'
 
 export interface TextEditing {
   // The text as it is right now. While typing, it shows in this box instead of on the design.
@@ -22,6 +23,9 @@ export interface TextEditing {
   onDone: () => void
   // In a table's cell, Tab goes to the next cell and Shift+Tab to the one before.
   onTab?: (back: boolean) => void
+  // Puts the text in a new place or size while typing goes on (the handles around it). Left out
+  // where the box can't be changed while typing, like a table's cell.
+  onPlace?: (layer: TextLayer) => void
 }
 
 // The box text is typed into, laid exactly over where the text sits on the design: same font, size,
@@ -254,6 +258,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
         }}
       />
     </div>
+    {editing.onPlace && !curved && !layer.flow && layer.text.trim() ? <TypingHandles layer={layer} viewport={viewport} onPlace={editing.onPlace} /> : null}
     </>
   )
 }

@@ -259,7 +259,7 @@
  "Click to place the next point, or press and drag to make the line curve.": "Cliquez pour placer le point suivant, ou appuyez et faites glisser pour courber la ligne.",
  "Click to work on this page. Page Up and Page Down go to the page before or after.": "Cliquez pour travailler sur cette page. Page précédente et Page suivante vont à la page d’avant ou d’après.",
  "Click to zoom in. Hold {alt} and click to zoom out.": "Cliquez pour zoomer. Maintenez {alt} et cliquez pour dézoomer.",
- "Click where your text starts, or drag a box for a paragraph. Click text to change it. Esc when you are done.": "Cliquez là où votre texte commence, ou tracez un cadre pour un paragraphe. Cliquez sur un texte pour le modifier. Esc quand vous avez fini.",
+ "Click where your text starts, or drag a box for a paragraph. Click text to change it: pull a corner to make it bigger or smaller, or drag its edge to move it. Esc when you are done.": "Cliquez là où votre texte commence, ou tracez un cadre pour un paragraphe. Cliquez sur un texte pour le modifier : tirez un coin pour l’agrandir ou le réduire, ou faites glisser son bord pour le déplacer. Esc quand vous avez fini.",
  "Close": "Fermer",
  "Close design": "Fermer la création",
  "Close shape": "Fermer la forme",
@@ -2458,5 +2458,11 @@
  "The color as the four inks a printer uses, from 0 to 100. Print shops ask for these. Very bright screen colors look a little duller on paper.": "La couleur en quatre encres d’imprimante, de 0 à 100. Les imprimeurs les demandent. Les couleurs très vives à l’écran paraissent un peu plus ternes sur papier.",
  "Yellow ink": "Encre jaune",
  "Use exact print colors": "Utiliser des couleurs d’impression exactes",
- "In the Color panel, open Print inks under the color code and type the numbers your print shop gave you.": "Dans le panneau Couleur, ouvre Encres d’impression sous le code couleur et tape les nombres que l’imprimeur t’a donnés."
+ "In the Color panel, open Print inks under the color code and type the numbers your print shop gave you.": "Dans le panneau Couleur, ouvre Encres d’impression sous le code couleur et tape les nombres que l’imprimeur t’a donnés.",
+ "Pull a corner to make the text bigger or smaller": "Tirez un coin pour agrandir ou réduire le texte",
+ "Pull a side to make the lines longer or shorter": "Tirez un côté pour allonger ou raccourcir les lignes",
+ "Drag the edge to move the text": "Faites glisser le bord pour déplacer le texte",
+ "Drag the round handle to turn the text": "Faites glisser la poignée ronde pour tourner le texte",
+ "Make words bigger, smaller or move them": "Agrandir, réduire ou déplacer des mots",
+ "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "Cliquez sur les mots (ou double-cliquez avec Disposer). Tirez un coin pour les agrandir ou les réduire, un côté pour allonger ou raccourcir les lignes, et faites glisser le bord du cadre pour les déplacer."
 }

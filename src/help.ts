@@ -258,6 +258,14 @@ export const GOALS: Goal[] = [
     keywords: ['title', 'heading', 'type', 'write', 'caption'],
   },
   {
+    id: 'text-size',
+    goal: msg('Make words bigger, smaller or move them'),
+    how: msg('Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.'),
+    tool: 'text',
+    pro: 'Type tool, Free Transform',
+    keywords: ['text size', 'font size', 'bigger text', 'smaller text', 'move text', 'resize text', 'stretch', 'handles', 'text box'],
+  },
+  {
     id: 'rtl',
     goal: msg('Write in Hebrew or Yiddish'),
     how: msg('Just type. Hebrew and Yiddish read right to left by themselves, even with English words and numbers inside. Fonts marked אבג have the letters.'),
