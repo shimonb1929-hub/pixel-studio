@@ -9,6 +9,7 @@ import { applyAffine, type Affine } from './transform.ts'
 import type { EditorDocument, Layer, Viewport } from './types.ts'
 import { paintPage } from './gradient.ts'
 import { wrapLayers } from '../text/wrapAround.ts'
+import type { ChangedAreas } from './changedAreas.ts'
 
 export const WORKSPACE_COLOR = '#e7e9ee'
 
@@ -129,6 +130,95 @@ export interface RenderPart {
   y: number
   // When set, places the canvas through this transform instead of at x, y.
   transform?: Affine
+  // Where the canvas changes, for a big picture being painted on: the screen then keeps a copy
+  // at its own size and redraws only the changed parts of it.
+  changes?: ChangedAreas
+}
+
+// Shrinking a big picture to the screen's size with good quality takes a while when it is done for
+// every frame. While it's being painted on, a copy at the screen's size is kept instead, and only
+// the parts that changed are shrunk again.
+let screenCopy: { key: string; changes: ChangedAreas; canvas: HTMLCanvasElement; left: number; top: number } | null = null
+
+let scratch: HTMLCanvasElement | null = null
+function scratchCanvas(width: number, height: number): HTMLCanvasElement {
+  scratch ??= document.createElement('canvas')
+  if (scratch.width < width || scratch.height < height) {
+    scratch.width = Math.max(scratch.width, width)
+    scratch.height = Math.max(scratch.height, height)
+  }
+  return scratch
+}
+
+function drawScreenCopy(ctx: CanvasRenderingContext2D, part: RenderPart): boolean {
+  const m = ctx.getTransform()
+  const { width: w, height: h } = part.canvas
+  if (!part.changes || part.transform || m.b !== 0 || m.c !== 0 || m.a <= 0 || m.d <= 0 || m.a >= 1 || m.d >= 1) return false
+  // Where the picture lands in the screen's pixels.
+  const x = m.a * part.x + m.e
+  const y = m.d * part.y + m.f
+  const left = Math.floor(x)
+  const top = Math.floor(y)
+  const cw = Math.ceil(x - left + m.a * w) + 1
+  const ch = Math.ceil(y - top + m.d * h) + 1
+  const key = [m.a, m.d, x - left, y - top, w, h, ctx.canvas.width, ctx.canvas.height].join('|')
+  let copy = screenCopy
+  const fresh = !copy || copy.key !== key || copy.changes !== part.changes || copy.canvas.width !== cw || copy.canvas.height !== ch
+  if (fresh) {
+    const canvas = copy?.canvas ?? document.createElement('canvas')
+    if (canvas.width !== cw || canvas.height !== ch) {
+      canvas.width = cw
+      canvas.height = ch
+    }
+    copy = screenCopy = { key, changes: part.changes, canvas, left, top }
+  }
+  copy = copy!
+  copy.left = left
+  copy.top = top
+  const c = copy.canvas.getContext('2d')!
+  const changed = part.changes.take()
+  c.imageSmoothingEnabled = true
+  c.imageSmoothingQuality = 'high'
+  if (fresh || changed === 'all') {
+    c.setTransform(1, 0, 0, 1, 0, 0)
+    c.clearRect(0, 0, cw, ch)
+    c.setTransform(m.a, 0, 0, m.d, x - left, y - top)
+    c.drawImage(part.canvas, 0, 0)
+  } else {
+    c.setTransform(1, 0, 0, 1, 0, 0)
+    for (const area of changed) {
+      // The changed area in the copy's pixels, a pixel wider all round for the smoothing.
+      const x0 = Math.max(0, Math.floor(x - left + m.a * area.x) - 1)
+      const y0 = Math.max(0, Math.floor(y - top + m.d * area.y) - 1)
+      const x1 = Math.min(cw, Math.ceil(x - left + m.a * (area.x + area.width)) + 1)
+      const y1 = Math.min(ch, Math.ceil(y - top + m.d * (area.y + area.height)) + 1)
+      if (x1 <= x0 || y1 <= y0) continue
+      c.clearRect(x0, y0, x1 - x0, y1 - y0)
+      // The same part of the picture, kept inside it.
+      const sx0 = Math.max(0, (x0 - (x - left)) / m.a)
+      const sy0 = Math.max(0, (y0 - (y - top)) / m.d)
+      const sx1 = Math.min(w, (x1 - (x - left)) / m.a)
+      const sy1 = Math.min(h, (y1 - (y - top)) / m.d)
+      if (sx1 <= sx0 || sy1 <= sy0) continue
+      // Copied out at full size first: shrinking straight from a big canvas that keeps changing
+      // costs nearly as much as shrinking all of it.
+      const ix0 = Math.floor(sx0)
+      const iy0 = Math.floor(sy0)
+      const iw = Math.ceil(sx1) - ix0
+      const ih = Math.ceil(sy1) - iy0
+      const piece = scratchCanvas(iw, ih)
+      const p = piece.getContext('2d')!
+      p.clearRect(0, 0, iw, ih)
+      p.drawImage(part.canvas, ix0, iy0, iw, ih, 0, 0, iw, ih)
+      c.drawImage(piece, sx0 - ix0, sy0 - iy0, sx1 - sx0, sy1 - sy0, x - left + sx0 * m.a, y - top + sy0 * m.d, (sx1 - sx0) * m.a, (sy1 - sy0) * m.d)
+    }
+  }
+  ctx.save()
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.imageSmoothingEnabled = false
+  ctx.drawImage(copy.canvas, left, top)
+  ctx.restore()
+  return true
 }
 
 // Shown in place of a layer while it's being painted on, moved, resized or adjusted: either
@@ -187,6 +277,7 @@ function pageCanvas(width: number, height: number): HTMLCanvasElement {
 
 function drawParts(ctx: CanvasRenderingContext2D, parts: RenderPart[]) {
   for (const part of parts) {
+    if (parts.length === 1 && drawScreenCopy(ctx, part)) continue
     if (!part.transform) {
       ctx.drawImage(part.canvas, part.x, part.y)
       continue

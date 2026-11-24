@@ -4,6 +4,7 @@ import { createCanvas, getContext2d } from './document.ts'
 import { clampRect, unionRect, type Rect } from './geometry.ts'
 import { shapeTip } from './brushShapes.ts'
 import { pixelVersion } from './pixelVersion.ts'
+import { ChangedAreas } from './changedAreas.ts'
 import type { PixelLayer, Point } from './types.ts'
 
 export interface InputPoint extends Point {
@@ -387,6 +388,8 @@ export interface CopySource {
 export class StrokeSession {
   readonly layerId: string
   readonly preview: HTMLCanvasElement
+  // Where the preview changes, so the screen redraws only those parts of it.
+  readonly changes = new ChangedAreas()
   // Where the preview sits in the design (the same place as the layer).
   readonly x: number
   readonly y: number
@@ -522,6 +525,7 @@ export class StrokeSession {
       this.mode === 'erase' ? 'destination-out' : this.settings.blend === 'multiply' ? 'multiply' : 'source-over'
     ctx.drawImage(source, x, y, width, height, x, y, width, height)
     ctx.restore()
+    this.changes.note(rect)
     return true
   }
 

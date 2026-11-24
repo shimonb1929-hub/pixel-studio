@@ -847,7 +847,7 @@ export function CanvasView(props: CanvasViewProps) {
 
   function sceneOverride(): LayerOverride | null {
     const stroke = strokeRef.current?.session
-    if (stroke) return { layerId: stroke.layerId, parts: [{ canvas: stroke.preview, x: stroke.x, y: stroke.y }] }
+    if (stroke) return { layerId: stroke.layerId, parts: [{ canvas: stroke.preview, x: stroke.x, y: stroke.y, ...('changes' in stroke ? { changes: stroke.changes } : {}) }] }
     const move = moveRef.current
     if (move) return move.session.preview(move.dx, move.dy)
     const arrange = arrangeRef.current

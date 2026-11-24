@@ -140,7 +140,7 @@ export function LayoutsDialog({ kind: startKind = 'all', layoutId, onUse, onUseM
           </button>
         </div>
 
-        <div role="tablist" aria-label={t('Kind of layout')} className="flex gap-1 px-6 pb-3">
+        <div role="tablist" aria-label={t('Kind of layout')} className="flex flex-wrap gap-1 px-6 pb-3">
           {[
             { value: 'all' as const, label: t('All'), description: t('Every ready layout.') },
             ...LAYOUT_KINDS,
