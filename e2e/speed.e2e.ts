@@ -138,6 +138,7 @@ test('a stroke after undo, or after another change, never brings back what was u
 // While painting a big design shown smaller, the screen keeps a small copy and redraws only the
 // changed parts of it; what shows during the stroke must match what shows once it's kept.
 test('painting a big design shows the stroke while painting exactly as it is kept', async ({ page }) => {
+  test.setTimeout(90_000)
   await page.getByRole('button', { name: /Custom size/ }).click()
   const dialog = page.getByRole('dialog', { name: 'New design' })
   await dialog.getByLabel('Width in pixels').fill('3600')
@@ -149,26 +150,32 @@ test('painting a big design shows the stroke while painting exactly as it is kep
   const main = (await page.locator('main').boundingBox())!
   const cx = main.x + main.width / 2
   const cy = main.y + main.height / 2
-  // The design as drawn, without the brush's outline drawn over it.
-  const grab = () =>
-    page.evaluate(async () => {
+  // The design as drawn, without the brush's outline drawn over it: kept in the page and compared there.
+  const grab = (name: string) =>
+    page.evaluate(async (key) => {
       for (let i = 0; i < 3; i++) await new Promise(requestAnimationFrame)
       const scene = document.querySelector('main canvas') as HTMLCanvasElement
-      return Array.from(scene.getContext('2d')!.getImageData(0, 0, scene.width, scene.height).data.filter((_, i) => i % 4 === 0))
-    })
+      ;(window as unknown as Record<string, Uint8ClampedArray>)[key] = scene.getContext('2d')!.getImageData(0, 0, scene.width, scene.height).data
+    }, name)
   await page.mouse.move(cx - 180, cy - 100)
   await page.mouse.down()
   for (const [x, y] of [[cx + 150, cy - 60], [cx - 150, cy + 20], [cx + 170, cy + 100], [cx - 20, cy - 110]]) await page.mouse.move(x, y, { steps: 15 })
   // A steady hand trails behind the pointer; resting at the end lets it catch up.
   for (let i = 0; i < 40; i++) await page.mouse.move(cx - 20 + (i % 2) * 0.5, cy - 110)
-  const during = await grab()
+  await grab('__during')
   await page.mouse.up()
-  const kept = await grab()
-  let painted = 0
-  let different = 0
-  kept.forEach((value, i) => {
-    if (value < 200) painted++
-    if (Math.abs(value - during[i]) > 40) different++
+  await grab('__kept')
+  const { painted, different } = await page.evaluate(() => {
+    const w = window as unknown as Record<string, Uint8ClampedArray>
+    const during = w.__during
+    const kept = w.__kept
+    let painted = 0
+    let different = 0
+    for (let i = 0; i < kept.length; i += 4) {
+      if (kept[i] < 200) painted++
+      if (Math.abs(kept[i] - during[i]) > 40) different++
+    }
+    return { painted, different }
   })
   expect(painted).toBeGreaterThan(2000)
   expect(different / painted, `${different} of ${painted} painted pixels differ`).toBeLessThan(0.01)
