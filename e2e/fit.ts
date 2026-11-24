@@ -53,6 +53,9 @@ export async function findFitProblems(page: Page, within = 'body'): Promise<FitP
     for (const el of root.querySelectorAll<HTMLElement>('*')) {
       if (el instanceof SVGElement || el.tagName === 'CANVAS' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') continue
       if (el.isContentEditable) continue
+      // Words only for screen readers are hidden on purpose.
+      const hiddenStyle = getComputedStyle(el)
+      if (hiddenStyle.clip !== 'auto' || (hiddenStyle.clipPath !== 'none' && hiddenStyle.position === 'absolute')) continue
       const hasText = [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim())
       if (!hasText || !visible(el)) continue
       const s = getComputedStyle(el)

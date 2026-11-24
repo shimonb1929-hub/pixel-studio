@@ -462,7 +462,7 @@ export function LayersPanel(props: LayersPanelProps) {
                       >
                         {pickingSeveral && <PickMark on={selected} />}
                         <LayerThumbnail layers={members} revision={revision} doc={doc} />
-                        <span dir="auto" className="min-w-0 flex-1 truncate text-start font-medium">
+                        <span dir="auto" data-fit-ok className="min-w-0 flex-1 truncate text-start font-medium">
                           {group.name}
                         </span>
                       </button>
@@ -529,7 +529,7 @@ export function LayersPanel(props: LayersPanelProps) {
                     >
                       {pickingSeveral && <PickMark on={selected} />}
                       <LayerThumbnail layers={[layer]} revision={revision} doc={doc} />
-                      <span dir="auto" className="min-w-0 flex-1 truncate text-start">
+                      <span dir="auto" data-fit-ok className="min-w-0 flex-1 truncate text-start">
                         {layer.name}
                       </span>
                     </button>
