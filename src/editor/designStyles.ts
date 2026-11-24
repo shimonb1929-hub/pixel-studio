@@ -187,6 +187,7 @@ export function matchesStyle(style: TextStyle, look: TextStyle): boolean {
     Math.abs(style.letterSpacing - look.letterSpacing) < 1e-6 &&
     Math.abs(style.lineHeight - look.lineHeight) < 1e-6 &&
     Math.abs((style.paragraphSpace ?? 0) - (look.paragraphSpace ?? 0)) < 1e-6 &&
+    (style.dropCap ?? 0) === (look.dropCap ?? 0) &&
     sameGradientLook(style.gradient, look.gradient)
   )
 }

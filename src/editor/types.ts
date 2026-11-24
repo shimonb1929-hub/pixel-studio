@@ -174,6 +174,9 @@ export interface TextStyle {
   lineHeight: number
   // Extra room after each paragraph, as a multiple of the size. Missing or 0 means none.
   paragraphSpace?: number
+  // A big first letter as tall as this many lines (pro: Drop Cap), for text in a box. Missing or 0
+  // means none.
+  dropCap?: number
   // Colors fading across all the letters instead of one color (words with their own color keep
   // it). Missing means one color.
   gradient?: Gradient | null

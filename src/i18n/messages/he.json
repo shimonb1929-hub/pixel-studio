@@ -2464,7 +2464,19 @@
  "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "לחץ על המילים (או לחץ עליהן פעמיים עם סידור). משוך פינה כדי להגדיל או להקטין אותן, צד כדי להאריך או לקצר את השורות, וגרור את שולי המסגרת כדי להזיז אותן.",
  "Space between paragraphs": "רווח בין פסקאות",
  "Extra room after each paragraph, so they stand apart without empty lines.": "עוד מקום אחרי כל פסקה, כדי שהפסקאות ייראו נפרדות בלי שורות ריקות.",
- "Shows the spacing between letters, lines and paragraphs, and the reading direction.": "מציג את הרווח בין אותיות, שורות ופסקאות, ואת כיוון הקריאה.",
  "Change the space between letters, lines or paragraphs": "לשנות את הרווח בין האותיות, השורות או הפסקאות",
- "Click the text, then press More in the Text panel. Letter spacing, Line spacing and Space between paragraphs are there.": "לחץ על הטקסט, ואז לחץ “עוד” בחלונית הטקסט. שם יש “ריווח אותיות”, “ריווח שורות” ו“רווח בין פסקאות”."
+ "Click the text, then press More in the Text panel. Letter spacing, Line spacing and Space between paragraphs are there.": "לחץ על הטקסט, ואז לחץ “עוד” בחלונית הטקסט. שם יש “ריווח אותיות”, “ריווח שורות” ו“רווח בין פסקאות”.",
+ "2 lines tall": "בגובה 2 שורות",
+ "3 lines tall": "בגובה 3 שורות",
+ "4 lines tall": "בגובה 4 שורות",
+ "Big first letter": "אות ראשונה גדולה",
+ "Click the text, press More in the Text panel, and choose how many lines tall under Big first letter. The words wrap beside it.": "לחץ על הטקסט, לחץ “עוד” בחלונית הטקסט, ובחר בכמה שורות גובה תחת “אות ראשונה גדולה”. המילים יגלשו לידה.",
+ "Makes the first letter big, as tall as a few lines, with the words wrapping beside it, like the start of a story in a book.": "מגדיל את האות הראשונה לגובה של כמה שורות, והמילים גולשות לידה, כמו בתחילת סיפור בספר.",
+ "No big letter": "בלי אות גדולה",
+ "Shows the spacing between letters, lines and paragraphs, a big first letter, and the reading direction.": "מציג את הרווח בין אותיות, שורות ופסקאות, אות ראשונה גדולה, ואת כיוון הקריאה.",
+ "Start a story with a big first letter": "לפתוח סיפור באות ראשונה גדולה",
+ "The first letter is as tall as 2 lines, with the words beside it.": "האות הראשונה בגובה 2 שורות, והמילים לידה.",
+ "The first letter is as tall as 3 lines, with the words beside it.": "האות הראשונה בגובה 3 שורות, והמילים לידה.",
+ "The first letter is as tall as 4 lines, with the words beside it.": "האות הראשונה בגובה 4 שורות, והמילים לידה.",
+ "The first letter is the same size as the others.": "האות הראשונה באותו גודל כמו השאר."
 }

@@ -10,7 +10,7 @@ import { tableParts, tableTexts } from './table.ts'
 import type { EditorDocument, Layer, PixelLayer, ShapeLayer, TextLayer } from './types.ts'
 import { cssFont, familyName, fontFormat, fontInfo, fontStack, fontStackIds } from '../text/fonts.ts'
 import { raiseShift, styledPieces } from '../text/spans.ts'
-import { decorationLines, lineShift, textCurve, textLayout } from '../text/textLayer.ts'
+import { decorationLines, dropCapStyle, lineShift, textCurve, textLayout } from '../text/textLayer.ts'
 import type { CurvedText } from '../text/textCurve.ts'
 
 // The design as an SVG file: shapes and text stay sharp at any size and can be changed in other
@@ -210,6 +210,21 @@ function textSvg(layer: TextLayer, ids: Ids, defs: string[]): string {
     fill = `url(#${id})`
   }
   const pieces: string[] = []
+  // The big first letter, in its own look.
+  if (layout.dropCap) {
+    const cap = layout.dropCap
+    const look = dropCapStyle(layer, cap)
+    const attributes = [
+      `x="${n(cap.x)}"`,
+      `y="${n(cap.baseline)}"`,
+      `fill="${look.color !== style.color ? look.color : fill}"`,
+      `font-family="${escape(fontStack(look.font))}"`,
+      `font-size="${n(cap.size)}"`,
+      `font-weight="${look.weight}"`,
+      look.italic ? 'font-style="italic"' : '',
+    ]
+    pieces.push(`<text ${attributes.filter(Boolean).join(' ')}>${escape(cap.text)}</text>`)
+  }
   for (const marker of layout.markers ?? []) {
     const rtl = marker.direction === 'rtl'
     const attributes = [
