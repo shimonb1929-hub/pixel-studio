@@ -21,7 +21,7 @@ export interface Look {
 }
 
 // The parts of a text's style that are its look.
-const TEXT_LOOK = ['font', 'weight', 'italic', 'color', 'gradient', 'letterSpacing', 'lineHeight', 'underline', 'strike'] as const
+const TEXT_LOOK = ['font', 'weight', 'italic', 'color', 'gradient', 'letterSpacing', 'lineHeight', 'paragraphSpace', 'underline', 'strike'] as const
 
 function copy<T>(value: T): T {
   return value === undefined || value === null ? value : structuredClone(value)

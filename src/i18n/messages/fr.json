@@ -202,7 +202,6 @@
  "Change the colors and light of the selected layer, or of the selected part. Try a ready-made look, then fine-tune it with the sliders. Nothing changes for good until you press Apply.": "Modifiez les couleurs et la lumière du calque sélectionné, ou de la partie sélectionnée. Essayez un style tout prêt, puis affinez-le avec les curseurs. Rien n’est définitif tant que vous n’avez pas cliqué sur Appliquer.",
  "Change the light and colors of the selected layer, or just the selected part: one-click fixes, ready-made looks like Black & white, and sliders for light, dark parts, bright parts, color, one color only, a light curve, sharpness, dark corners and grain. Nothing changes for good until you press Apply.": "Change la lumière et les couleurs du calque choisi, ou seulement de la partie sélectionnée : corrections en un clic, styles prêts comme Noir et blanc, et réglages pour la lumière, les parties sombres, les parties claires, la couleur, une seule couleur, une courbe de lumière, la netteté, les coins sombres et le grain. Rien ne change pour de bon avant d’appuyer sur Appliquer.",
  "Change the size of the whole design": "Changer la taille de toute la création",
- "Change the space between letters or lines": "Changer l’espace entre les lettres ou les lignes",
  "Change what is faded on {name}": "Modifier ce qui est estompé sur {name}",
  "Change your design's name. You'll see it under Your designs, and it becomes the file name when you download.": "Changez le nom de votre création. Vous le verrez dans Vos créations, et il devient le nom du fichier quand vous téléchargez.",
  "Changes go to all the text. To change just some words, pick them with the mouse first.": "Les changements s’appliquent à tout le texte. Pour ne changer que quelques mots, choisissez-les d’abord avec la souris.",
@@ -251,7 +250,6 @@
  "Click the photo, choose Adjust, and press Fix light or Fix colors. Then fine-tune it with the sliders if you like.": "Cliquez sur la photo, choisissez Ajuster et appuyez sur Corriger la lumière ou Corriger les couleurs. Ensuite, affinez avec les curseurs si vous le souhaitez.",
  "Click the photo, then press Remove background in the bar at the top. The background becomes see-through.": "Cliquez sur la photo, puis appuyez sur Supprimer l’arrière-plan dans la barre du haut. L’arrière-plan devient transparent.",
  "Click the text, press Wrap in a box, then Continue in another box and draw the next box. The words flow on by themselves.": "Cliquez sur le texte, appuyez sur Texte dans un cadre, puis sur Continuer dans un autre cadre et dessinez le cadre suivant. Les mots passent d’eux-mêmes de l’un à l’autre.",
- "Click the text, then press More in the Text panel. Letter spacing and Line spacing are there.": "Cliquez sur le texte, puis appuyez sur Plus dans le panneau Texte. Espacement des lettres et Interligne s’y trouvent.",
  "Click to add points, or press and drag for a curve. Click the first point to close the shape, or press Enter to finish a line. Drag a point or a line to reshape; double-click a point to make it sharp or smooth.": "Cliquez pour ajouter des points, ou appuyez et faites glisser pour une courbe. Cliquez sur le premier point pour fermer la forme, ou appuyez sur Enter pour terminer une ligne. Faites glisser un point ou une ligne pour remodeler ; double-cliquez sur un point pour le rendre anguleux ou arrondi.",
  "Click to change your design's name. It's used in Your designs and for downloaded files.": "Cliquez pour changer le nom de votre création. Il est utilisé dans Vos créations et pour les fichiers téléchargés.",
  "Click to paint on this layer. Double-click the name to rename it. Hold Shift and click to pick several.": "Cliquez pour peindre sur ce calque. Double-cliquez sur le nom pour le renommer. Maintenez Shift et cliquez pour en choisir plusieurs.",
@@ -1265,7 +1263,6 @@
  "Show your design at its real size: each pixel of your design takes one pixel of your screen.": "Affiche votre création à sa taille réelle : chaque pixel de votre création occupe un pixel de votre écran.",
  "Show your whole design, as big as fits in the window.": "Affiche toute votre création, aussi grande que la fenêtre le permet.",
  "Show {name}": "Afficher {name}",
- "Shows the spacing between letters and lines, and the reading direction.": "Affiche l’espacement entre les lettres et les lignes, et le sens de lecture.",
  "Shrink or grow the design by a set amount, keeping its shape.": "Réduit ou agrandit la création d’une valeur donnée, en gardant ses proportions.",
  "Sides": "Côtés",
  "Similar colors": "Couleurs proches",
@@ -2464,5 +2461,10 @@
  "Drag the edge to move the text": "Faites glisser le bord pour déplacer le texte",
  "Drag the round handle to turn the text": "Faites glisser la poignée ronde pour tourner le texte",
  "Make words bigger, smaller or move them": "Agrandir, réduire ou déplacer des mots",
- "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "Cliquez sur les mots (ou double-cliquez avec Disposer). Tirez un coin pour les agrandir ou les réduire, un côté pour allonger ou raccourcir les lignes, et faites glisser le bord du cadre pour les déplacer."
+ "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "Cliquez sur les mots (ou double-cliquez avec Disposer). Tirez un coin pour les agrandir ou les réduire, un côté pour allonger ou raccourcir les lignes, et faites glisser le bord du cadre pour les déplacer.",
+ "Space between paragraphs": "Espace entre les paragraphes",
+ "Extra room after each paragraph, so they stand apart without empty lines.": "Plus d’espace après chaque paragraphe, pour les séparer sans lignes vides.",
+ "Shows the spacing between letters, lines and paragraphs, and the reading direction.": "Affiche l’espacement entre les lettres, les lignes et les paragraphes, et le sens de lecture.",
+ "Change the space between letters, lines or paragraphs": "Changer l’espace entre les lettres, les lignes ou les paragraphes",
+ "Click the text, then press More in the Text panel. Letter spacing, Line spacing and Space between paragraphs are there.": "Cliquez sur le texte, puis appuyez sur Plus dans le panneau Texte. Espacement des lettres, Interligne et Espace entre les paragraphes s’y trouvent."
 }

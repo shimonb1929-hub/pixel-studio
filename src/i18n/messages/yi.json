@@ -202,7 +202,6 @@
  "Change the colors and light of the selected layer, or of the selected part. Try a ready-made look, then fine-tune it with the sliders. Nothing changes for good until you press Apply.": "טוישט די קאלירן און ליכט פונעם אויסגעקליבענעם לעיער, אדער פונעם אויסגעקליבענעם טייל. פרובירט א פארטיגן אויסזען, און דערנאך פאסט עס צו מיט די סליידערס. גארנישט טוישט זיך אויף שטענדיג ביז איר דריקט באשטעטיגן.",
  "Change the light and colors of the selected layer, or just the selected part: one-click fixes, ready-made looks like Black & white, and sliders for light, dark parts, bright parts, color, one color only, a light curve, sharpness, dark corners and grain. Nothing changes for good until you press Apply.": "טוישן די ליכט און קאלירן פון דעם אויסגעקליבענעם שיכט, אדער נאר פונעם אויסגעקליבענעם טייל: פאררעכטן מיט איין קליק, גרייטע אויסזען ווי שווארץ און ווייס, און רעדלעך פאר ליכט, טונקעלע טיילן, ליכטיקע טיילן, קאליר, נאר איין קאליר, א ליכט־ליניע, שארפקייט, טונקעלע עקן און קערנדלעך. גארנישט טוישט זיך אויף שטענדיג ביז מען דריקט באשטעטיגן.",
  "Change the size of the whole design": "טוישן די גרייס פונעם גאנצן דיזיין",
- "Change the space between letters or lines": "טוישן דעם אפשטאנד צווישן אותיות אדער שורות",
  "Change what is faded on {name}": "טוישן וואס איז פארבלאסט אויף {name}",
  "Change your design's name. You'll see it under Your designs, and it becomes the file name when you download.": "טוישט אייער דיזיין'ס נאמען. איר וועט עס זען אונטער אייערע דיזיינס, און עס ווערט דער פייל נאמען ווען איר לאדט אראפ.",
  "Changes go to all the text. To change just some words, pick them with the mouse first.": "די ענדערונגען גייען אויף דעם גאנצן טעקסט. כדי צו טוישן נאר עטליכע ווערטער, קלויבט זיי קודם אויס מיט דער מויז.",
@@ -251,7 +250,6 @@
  "Click the photo, choose Adjust, and press Fix light or Fix colors. Then fine-tune it with the sliders if you like.": "קליקט אויפן בילד, קלייבט אויס “צופאסן” און דריקט “פאררעכטן ליכט” אדער “פאררעכטן קאלירן”. דערנאך קענט איר עס צופאסן מיט די סליידערס.",
  "Click the photo, then press Remove background in the bar at the top. The background becomes see-through.": "קליקט אויפן פאטא, און דערנאך דריקט אוועקנעמען הינטערגרונט אינעם שטאב אויבן. דער הינטערגרונט ווערט דורכזיכטיג.",
  "Click the text, press Wrap in a box, then Continue in another box and draw the next box. The words flow on by themselves.": "קליקט אויפן טעקסט, דריקט איבערבראכן אין א קעסטל, דערנאך גיי ווייטער אין אן אנדער קעסטל, און צייכנט דאס נעקסטע קעסטל. די ווערטער פליסן ווייטער פון זיך אליין.",
- "Click the text, then press More in the Text panel. Letter spacing and Line spacing are there.": "קליקט אויפן טעקסט, און דערנאך דריקט מער אינעם טעקסט פאנעל. אפשטאנד צווישן אותיות און אפשטאנד צווישן שורות זענען דארט.",
  "Click to add points, or press and drag for a curve. Click the first point to close the shape, or press Enter to finish a line. Drag a point or a line to reshape; double-click a point to make it sharp or smooth.": "קליקט צו צולייגן פונקטן, אדער דריקט און שלעפט פאר א קורווע. קליקט אויפן ערשטן פונקט צו פארמאכן די פארעם, אדער דריקט Enter צו ענדיגן א ליניע. שלעפט א פונקט אדער א ליניע צו טוישן די פארעם; טאפל-קליקט א פונקט עס צו מאכן שארף אדער גלאט.",
  "Click to change your design's name. It's used in Your designs and for downloaded files.": "קליקט צו טוישן אייער דיזיין'ס נאמען. מען ניצט עס אין אייערע דיזיינס און פאר אראפגעלאדענע פיילס.",
  "Click to paint on this layer. Double-click the name to rename it. Hold Shift and click to pick several.": "קליקט צו מאלן אויף דעם לעיער. טאפל-קליקט דעם נאמען עס איבערצונעמען. האלט Shift און קליקט אויסצוקלייבן עטליכע.",
@@ -1265,7 +1263,6 @@
  "Show your design at its real size: each pixel of your design takes one pixel of your screen.": "ווייזט אייער דיזיין אין זיין אמת'ער גרייס: יעדער פיקסל פון אייער דיזיין נעמט איין פיקסל פון אייער סקרין.",
  "Show your whole design, as big as fits in the window.": "ווייזט אייער גאנצן דיזיין, אזוי גרויס ווי עס פאסט אריין אינעם פענסטער.",
  "Show {name}": "ווייזן {name}",
- "Shows the spacing between letters and lines, and the reading direction.": "ווייזט דעם אפשטאנד צווישן אותיות און שורות, און די ליין-ריכטונג.",
  "Shrink or grow the design by a set amount, keeping its shape.": "מאכט דעם דיזיין קלענער אדער גרעסער מיט א געוויסע מאס, און האלט זיין פארעם.",
  "Sides": "זייטן",
  "Similar colors": "ענליכע קאלירן",
@@ -2464,5 +2461,10 @@
  "Drag the edge to move the text": "שלעפט דעם ראנד צו רירן דעם טעקסט",
  "Drag the round handle to turn the text": "שלעפט דעם קיילעכדיקן הענטל צו דרייען דעם טעקסט",
  "Make words bigger, smaller or move them": "מאכן ווערטער גרעסער, קלענער אדער זיי רירן",
- "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "קליקט אויף די ווערטער (אדער טאפל-קליקט מיט ארדענען). ציט א ווינקל זיי צו מאכן גרעסער אדער קלענער, א זייט צו מאכן די שורות לענגער אדער קירצער, און שלעפט דעם ראנד פון קעסטל זיי צו רירן."
+ "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "קליקט אויף די ווערטער (אדער טאפל-קליקט מיט ארדענען). ציט א ווינקל זיי צו מאכן גרעסער אדער קלענער, א זייט צו מאכן די שורות לענגער אדער קירצער, און שלעפט דעם ראנד פון קעסטל זיי צו רירן.",
+ "Space between paragraphs": "אפשטאנד צווישן פאראגראפן",
+ "Extra room after each paragraph, so they stand apart without empty lines.": "מער פלאץ נאך יעדן פאראגראף, אז זיי זאלן שטיין באזונדער אן ליידיקע שורות.",
+ "Shows the spacing between letters, lines and paragraphs, and the reading direction.": "ווייזט דעם אפשטאנד צווישן אותיות, שורות און פאראגראפן, און די ליין-ריכטונג.",
+ "Change the space between letters, lines or paragraphs": "טוישן דעם אפשטאנד צווישן אותיות, שורות אדער פאראגראפן",
+ "Click the text, then press More in the Text panel. Letter spacing, Line spacing and Space between paragraphs are there.": "קליקט אויפן טעקסט, און דערנאך דריקט מער אינעם טעקסט פאנעל. אפשטאנד צווישן אותיות, אפשטאנד צווישן שורות און אפשטאנד צווישן פאראגראפן זענען דארט."
 }

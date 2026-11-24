@@ -202,7 +202,6 @@
  "Change the colors and light of the selected layer, or of the selected part. Try a ready-made look, then fine-tune it with the sliders. Nothing changes for good until you press Apply.": "Cambia los colores y la luz de la capa seleccionada, o de la parte seleccionada. Prueba un estilo ya hecho y luego ajústalo con los controles deslizantes. Nada cambia para siempre hasta que pulses Aplicar.",
  "Change the light and colors of the selected layer, or just the selected part: one-click fixes, ready-made looks like Black & white, and sliders for light, dark parts, bright parts, color, one color only, a light curve, sharpness, dark corners and grain. Nothing changes for good until you press Apply.": "Cambia la luz y los colores de la capa elegida, o solo de la parte seleccionada: arreglos con un clic, estilos listos como Blanco y negro, y controles para la luz, las partes oscuras, las partes claras, el color, un solo color, una curva de luz, la nitidez, las esquinas oscuras y el grano. Nada cambia del todo hasta que pulses Aplicar.",
  "Change the size of the whole design": "Cambia el tamaño de todo el diseño",
- "Change the space between letters or lines": "Cambia el espacio entre letras o líneas",
  "Change what is faded on {name}": "Cambiar lo desvanecido en {name}",
  "Change your design's name. You'll see it under Your designs, and it becomes the file name when you download.": "Cambia el nombre de tu diseño. Lo verás en Tus diseños y será el nombre del archivo cuando lo descargues.",
  "Changes go to all the text. To change just some words, pick them with the mouse first.": "Los cambios van a todo el texto. Para cambiar solo algunas palabras, elígelas primero con el ratón.",
@@ -251,7 +250,6 @@
  "Click the photo, choose Adjust, and press Fix light or Fix colors. Then fine-tune it with the sliders if you like.": "Haz clic en la foto, elige Ajustar y pulsa Arreglar luz o Arreglar colores. Después, si quieres, afínalo con los deslizadores.",
  "Click the photo, then press Remove background in the bar at the top. The background becomes see-through.": "Haz clic en la foto y pulsa Quitar fondo en la barra de arriba. El fondo se vuelve transparente.",
  "Click the text, press Wrap in a box, then Continue in another box and draw the next box. The words flow on by themselves.": "Haz clic en el texto, pulsa Repartir en un cuadro, luego Seguir en otro cuadro y dibuja el siguiente cuadro. Las palabras pasan solas de uno a otro.",
- "Click the text, then press More in the Text panel. Letter spacing and Line spacing are there.": "Haz clic en el texto y pulsa Más en el panel Texto. Ahí están Espacio entre letras y Espacio entre líneas.",
  "Click to add points, or press and drag for a curve. Click the first point to close the shape, or press Enter to finish a line. Drag a point or a line to reshape; double-click a point to make it sharp or smooth.": "Haz clic para añadir puntos, o mantén pulsado y arrastra para hacer una curva. Haz clic en el primer punto para cerrar la forma, o pulsa Enter para terminar una línea. Arrastra un punto o una línea para cambiar la forma; haz doble clic en un punto para hacerlo en pico o redondeado.",
  "Click to change your design's name. It's used in Your designs and for downloaded files.": "Haz clic para cambiar el nombre de tu diseño. Se usa en Tus diseños y en los archivos descargados.",
  "Click to paint on this layer. Double-click the name to rename it. Hold Shift and click to pick several.": "Haz clic para pintar en esta capa. Haz doble clic en el nombre para cambiarlo. Mantén Shift y haz clic para elegir varias.",
@@ -1265,7 +1263,6 @@
  "Show your design at its real size: each pixel of your design takes one pixel of your screen.": "Muestra tu diseño a su tamaño real: cada píxel de tu diseño ocupa un píxel de tu pantalla.",
  "Show your whole design, as big as fits in the window.": "Muestra todo tu diseño, tan grande como quepa en la ventana.",
  "Show {name}": "Mostrar {name}",
- "Shows the spacing between letters and lines, and the reading direction.": "Muestra el espacio entre letras y líneas, y la dirección de lectura.",
  "Shrink or grow the design by a set amount, keeping its shape.": "Encoge o agranda el diseño en una cantidad fija, manteniendo su forma.",
  "Sides": "Lados",
  "Similar colors": "Colores parecidos",
@@ -2464,5 +2461,10 @@
  "Drag the edge to move the text": "Arrastra el borde para mover el texto",
  "Drag the round handle to turn the text": "Arrastra el asa redonda para girar el texto",
  "Make words bigger, smaller or move them": "Hacer las palabras más grandes, más pequeñas o moverlas",
- "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "Haz clic en las palabras (o doble clic con Organizar). Tira de una esquina para hacerlas más grandes o más pequeñas, de un lado para alargar o acortar las líneas, y arrastra el borde del recuadro para moverlas."
+ "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "Haz clic en las palabras (o doble clic con Organizar). Tira de una esquina para hacerlas más grandes o más pequeñas, de un lado para alargar o acortar las líneas, y arrastra el borde del recuadro para moverlas.",
+ "Space between paragraphs": "Espacio entre párrafos",
+ "Extra room after each paragraph, so they stand apart without empty lines.": "Más espacio después de cada párrafo, para separarlos sin líneas vacías.",
+ "Shows the spacing between letters, lines and paragraphs, and the reading direction.": "Muestra el espacio entre letras, líneas y párrafos, y la dirección de lectura.",
+ "Change the space between letters, lines or paragraphs": "Cambia el espacio entre letras, líneas o párrafos",
+ "Click the text, then press More in the Text panel. Letter spacing, Line spacing and Space between paragraphs are there.": "Haz clic en el texto y pulsa Más en el panel Texto. Ahí están Espacio entre letras, Espacio entre líneas y Espacio entre párrafos."
 }

@@ -103,6 +103,26 @@ describe('laying out', () => {
     ])
   })
 
+  it('adds room after each paragraph, empty ones too, and finds clicks below it', () => {
+    const layout = layoutText('a\n\nb', settings({ paragraphSpace: 0.5 }), null, measure)
+    // Lines are 15 high, with 5 after each paragraph.
+    expect(layout.lines.map((l) => l.top)).toEqual([0, 20, 40])
+    expect(layout.height).toBe(55)
+    expect(layout.paragraphGap).toBe(5)
+    expect(layout.lines[2].baseline - layout.lines[0].baseline).toBe(40)
+    expect(indexAt('a\n\nb', layout, 0, 45, measure)).toBe(3)
+    expect(indexAt('a\n\nb', layout, 0, 22, measure)).toBe(2)
+  })
+
+  it('keeps wrapped lines of one paragraph together', () => {
+    const layout = layoutText('aa bb\ncc', settings({ paragraphSpace: 1 }), 25, measure)
+    expect(layout.lines.map((l) => [l.text, l.top])).toEqual([
+      ['aa', 0],
+      ['bb', 15],
+      ['cc', 40],
+    ])
+  })
+
   it('finds where to put the cursor from a click, on either side', () => {
     const ltr = layoutText('abcd', settings(), null, measure)
     expect(indexAt('abcd', ltr, 21, 5, measure)).toBe(2)

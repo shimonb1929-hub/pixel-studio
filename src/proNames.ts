@@ -138,6 +138,7 @@ export const PRO_NAMES: Record<string, string> = {
   Lower: 'Subscript',
   'Letter spacing': 'Tracking',
   'Line spacing': 'Leading',
+  'Space between paragraphs': 'Space After',
   'Even edges': 'Justify',
   'Wrap in a box': 'Area type, Text frame',
   'Continue in another box': 'Threaded text frames',

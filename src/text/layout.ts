@@ -35,6 +35,8 @@ export interface LayoutSettings {
   direction: TextDirection
   // Each paragraph is a point in a list. Missing or null: plain paragraphs.
   list?: ListKind | null
+  // Extra room after each paragraph, as a multiple of the size. Missing: none.
+  paragraphSpace?: number
 }
 
 // Where a list starts, for text that runs on from an earlier box: the number its first point
@@ -73,6 +75,9 @@ export interface LayoutLine {
   // Which row of the box it's in: the lines' rows go up one by one, except where the text flows
   // around something and skips rows with no room.
   row: number
+  // The top of the line, from the top of the text: its row, plus the room after the paragraphs
+  // before it.
+  top: number
   // Left edge of the line and its baseline, from the top-left of the text.
   x: number
   baseline: number
@@ -93,6 +98,8 @@ export interface TextLayout {
   // For a list: the room kept for the markers at the start side of every line, and the markers.
   indent?: number
   markers?: ListMarker[]
+  // The room after each paragraph, in design pixels, when there is any.
+  paragraphGap?: number
 }
 
 // Letters of scripts written right to left.
@@ -425,12 +432,16 @@ export function layoutText(
   if (settings.list) return layoutList(text, settings, wrapWidth, measure, rangeWidth, listStart, rows)
   const direction = mainDirection(text, settings.direction)
   const lineHeight = settings.size * settings.lineHeight
-  const raw: { start: number; full: string; direction: Direction; last: boolean; runs: TextRun[]; row: number; slot: LineSlot | null }[] = []
+  // Room after each paragraph. Text that flows around things keeps even rows, so it has none.
+  const gap = rows ? 0 : Math.max(0, settings.paragraphSpace ?? 0) * settings.size
+  const raw: { start: number; full: string; direction: Direction; last: boolean; runs: TextRun[]; row: number; slot: LineSlot | null; paragraph: number }[] = []
   const fullWidth = wrapWidth === null ? null : { x: 0, width: wrapWidth, narrowed: false }
   const slots: RowSlots | null = wrapWidth === null ? null : (rows ?? (() => fullWidth))
   let offset = 0
   let row = 0
+  let count = 0
   for (const paragraph of text.split('\n')) {
+    const paragraphIndex = count++
     // A paragraph with no letters reads like the text as a whole.
     const paragraphDirection = settings.direction === 'auto' ? (firstStrongDirection(paragraph) ?? direction) : settings.direction
     const levels = readingLevels(paragraph, paragraphDirection)
@@ -445,7 +456,7 @@ export function layoutText(
         const rtl = run.level % 2 === 1
         return { start: offset + run.start, end: offset + run.end, rtl, width: rangeWidth(offset + run.start, offset + run.end, rtl ? 'rtl' : 'ltr') }
       })
-      raw.push({ start: offset + start, full, direction: paragraphDirection, last: i === lines.length - 1, runs, row: line.row, slot: line.slot })
+      raw.push({ start: offset + start, full, direction: paragraphDirection, last: i === lines.length - 1, runs, row: line.row, slot: line.slot, paragraph: paragraphIndex })
       start += full.length
       row = line.row + 1
     })
@@ -466,21 +477,23 @@ export function layoutText(
     const spaces = justify ? countSpaces(line.text) : 0
     const align = justify && spaces > 0 ? 'left' : resolveAlign(settings.align, line.direction)
     const x = room.x + (align === 'right' ? room.width - line.width : align === 'center' ? (room.width - line.width) / 2 : 0)
+    const top = line.row * lineHeight + line.paragraph * gap
     return {
       start: line.start,
       end: line.start + line.text.length,
       text: line.text,
       width: spaces > 0 ? room.width : line.width,
       row: line.row,
+      top,
       x,
-      baseline: line.row * lineHeight + ascentOffset,
+      baseline: top + ascentOffset,
       direction: line.direction,
       wordSpacing: spaces > 0 ? (room.width - line.width) / spaces : 0,
       runs: line.runs,
     }
   })
-  const rowsUsed = lines.length ? lines[lines.length - 1].row + 1 : 1
-  return { width, height: Math.max(lineHeight, rowsUsed * lineHeight), lineHeight, lines, direction }
+  const bottom = lines.length ? lines[lines.length - 1].top + lineHeight : lineHeight
+  return { width, height: Math.max(lineHeight, bottom), lineHeight, lines, direction, ...(gap ? { paragraphGap: gap } : {}) }
 }
 
 // The line in a row of the text, or the nearest one when that row has none.
@@ -493,10 +506,25 @@ export function lineInRow(layout: TextLayout, row: number): LayoutLine | null {
   return best
 }
 
+// The line at a height in the text (from its top), or the nearest one.
+export function lineAt(layout: TextLayout, y: number): LayoutLine | null {
+  let best: LayoutLine | null = null
+  let bestDistance = Infinity
+  for (const line of layout.lines) {
+    const distance = y < line.top ? line.top - y : y < line.top + layout.lineHeight ? 0 : y - (line.top + layout.lineHeight) + 1e-6
+    if (distance < bestDistance) {
+      best = line
+      bestDistance = distance
+    }
+    if (line.top > y) break
+  }
+  return best
+}
+
 // The place in the text nearest a point (from the top-left of the text), for putting the cursor
 // where someone clicked.
 export function indexAt(text: string, layout: TextLayout, x: number, y: number, measure: TextMeasure, rangeWidth = plainWidth(text, measure)): number {
-  const line = lineInRow(layout, Math.floor(y / layout.lineHeight))
+  const line = lineAt(layout, y)
   if (!line) return 0
   let best = line.start
   let bestDistance = Infinity

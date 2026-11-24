@@ -585,6 +585,50 @@ test('a list in Hebrew counts א ב ג on the right, exactly as shown while typi
   expect(different / ink, `${different} of ${ink} ink pixels moved`).toBeLessThan(0.01)
 })
 
+test('room between paragraphs shows while typing exactly as on the design, Hebrew and English', async ({ page }) => {
+  const size = await newDesign(page, 500, 400)
+  await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; } [data-typing-handles] { display: none; }' })
+  await page.keyboard.press('t')
+  await drag(page, size, [
+    [40, 40],
+    [360, 80],
+  ])
+  const box = typingBox(page)
+  await page.keyboard.insertText('שבת שלום, ניפגש ב-10:00')
+  await page.keyboard.press('Enter')
+  await page.keyboard.insertText('English (3 numbers).')
+  const before = (await box.boundingBox())!.height
+  await textPanel(page).getByRole('button', { name: 'More' }).click()
+  await textPanel(page).getByRole('slider', { name: 'Space between paragraphs' }).fill('500')
+  await expect(textPanel(page).getByRole('slider', { name: 'Space between paragraphs' })).toHaveAttribute('aria-valuetext', '1.00×')
+  // New paragraphs and an empty one, typed with the room already there.
+  await box.focus()
+  await page.keyboard.press('Control+End')
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Enter')
+  await page.keyboard.insertText('פסקה אחרונה בסוף')
+  await expect(box).toHaveText(/בסוף$/)
+  // Backspace at the start of a paragraph joins it to the one before, here the empty one.
+  await page.keyboard.press('Home')
+  await page.keyboard.press('Backspace')
+  await expect.poll(() => box.evaluate((el) => el.textContent)).toBe('שבת שלום, ניפגש ב-10:00\nEnglish (3 numbers).\nפסקה אחרונה בסוף')
+  await page.keyboard.insertText('א')
+  await expect.poll(() => box.evaluate((el) => el.textContent)).toBe('שבת שלום, ניפגש ב-10:00\nEnglish (3 numbers).\nאפסקה אחרונה בסוף')
+  const typed = (await box.boundingBox())!
+  const height = Math.round(typed.height)
+  expect(height).toBeGreaterThan(before * 1.5)
+  const whileTyping = await shot(page, size, 44, 44, 312, height - 8)
+
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('b')
+  await page.mouse.move(5, 5)
+  await expect(page.getByRole('toolbar')).toContainText('Brush')
+  const afterwards = await shot(page, size, 44, 44, 312, height - 8)
+  const { ink, different } = await compareShots(page, whileTyping, afterwards)
+  expect(ink).toBeGreaterThan(1000)
+  expect(different / ink, `${different} of ${ink} ink pixels moved`).toBeLessThan(0.01)
+})
+
 test('an English list counts by itself and comes back from a project file', async ({ page }) => {
   const size = await newDesign(page)
   await page.keyboard.press('t')

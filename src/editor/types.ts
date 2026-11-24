@@ -172,6 +172,8 @@ export interface TextStyle {
   letterSpacing: number
   // Distance between lines, as a multiple of the size.
   lineHeight: number
+  // Extra room after each paragraph, as a multiple of the size. Missing or 0 means none.
+  paragraphSpace?: number
   // Colors fading across all the letters instead of one color (words with their own color keep
   // it). Missing means one color.
   gradient?: Gradient | null

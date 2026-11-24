@@ -291,11 +291,11 @@ export const GOALS: Goal[] = [
   },
   {
     id: 'spacing',
-    goal: msg('Change the space between letters or lines'),
-    how: msg('Click the text, then press More in the Text panel. Letter spacing and Line spacing are there.'),
+    goal: msg('Change the space between letters, lines or paragraphs'),
+    how: msg('Click the text, then press More in the Text panel. Letter spacing, Line spacing and Space between paragraphs are there.'),
     tool: 'text',
-    pro: 'Tracking, Kerning, Leading',
-    keywords: ['tracking', 'kerning', 'leading', 'line height', 'spacing'],
+    pro: 'Tracking, Kerning, Leading, Space After',
+    keywords: ['tracking', 'kerning', 'leading', 'line height', 'spacing', 'paragraph spacing', 'space after', 'space before'],
   },
   {
     id: 'flow',
