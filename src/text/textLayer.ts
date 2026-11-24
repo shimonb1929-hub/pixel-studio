@@ -115,7 +115,9 @@ export function textLayout(layer: TextLayer): TextLayout {
   const width = Math.abs(layer.box.width)
   // A paragraph box keeps out of the pictures and shapes it flows around.
   const rows = layer.wrap && !isCurved(layer) && layer.avoid?.length ? avoidSlots(layer.avoid, width, layer.style.size * layer.style.lineHeight, layer.style.size) : undefined
-  const layout = layoutText(layer.text, layer.style, layer.wrap && !isCurved(layer) ? width : null, textMeasure(layer.style), textWidth(layer), listStart, rows)
+  // Text running on across boxes keeps even rows, so each box knows how many lines it holds.
+  const settings = layer.flow && layer.style.paragraphSpace ? { ...layer.style, paragraphSpace: 0 } : layer.style
+  const layout = layoutText(layer.text, settings, layer.wrap && !isCurved(layer) ? width : null, textMeasure(layer.style), textWidth(layer), listStart, rows)
   layouts.set(layer, { version, layout })
   return layout
 }

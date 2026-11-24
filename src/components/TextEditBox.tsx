@@ -44,7 +44,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
   const height = Math.abs(box.height)
   // What the box shows, so a change from outside (a word made bold) draws it again, and typing
   // (which the browser has already shown) doesn't.
-  const shown = useRef<{ text: string; spans: string } | null>(null)
+  const shown = useRef<{ text: string; spans: string; gap: number } | null>(null)
   const latest = useRef(editing)
   latest.current = editing
   const photoUrl = usePhotoAddress(layer.photo?.canvas ?? null)
@@ -54,11 +54,12 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
     const el = ref.current
     if (!el) return
     const spans = JSON.stringify(layer.spans ?? [])
-    if (shown.current && shown.current.text === layer.text && shown.current.spans === spans) return
+    const gap = layout.paragraphGap ?? 0
+    if (shown.current && shown.current.text === layer.text && shown.current.spans === spans && shown.current.gap === gap) return
     const focused = document.activeElement === el
     const keep = focused ? selectedRange(el) : null
-    paint(el, layer.text, layer.spans, style, !!layer.photo)
-    shown.current = { text: layer.text, spans }
+    paint(el, layer.text, layer.spans, style, !!layer.photo, gap)
+    shown.current = { text: layer.text, spans, gap }
     if (keep) selectRange(el, keep.start, keep.end)
   })
 
@@ -102,8 +103,10 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
     const { layer } = latest.current
     if (text === layer.text) return
     const spans = editSpans(layer.spans, layer.style, layer.text, text)
-    // What the browser shows already matches, unless the looks moved (then it's drawn again).
-    shown.current = { text, spans: JSON.stringify(readSpans(el, layer.style) ?? []) }
+    // What the browser shows already matches, unless the looks moved or a paragraph was started
+    // or joined in text with room between paragraphs (then it's drawn again).
+    const keepsParagraphs = !el.querySelector(`[${PARAGRAPH}]`) || paragraphsHold(el)
+    shown.current = keepsParagraphs ? { text, spans: JSON.stringify(readSpans(el, layer.style) ?? []), gap: textLayout(layer).paragraphGap ?? 0 } : null
     latest.current.onChange(text, spans)
   }
 
@@ -164,7 +167,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
             className="absolute whitespace-pre"
             style={{
               left: marker.x,
-              top: layout.lines[marker.line].row * layout.lineHeight,
+              top: layout.lines[marker.line].top,
               fontFamily: fontStack(style.font),
               fontSize: `${style.size}px`,
               fontWeight: style.weight,
@@ -274,38 +277,77 @@ function decorationCss(style: TextStyle): { textDecorationLine: string; textDeco
 // part of the text.
 const END = 'data-end'
 
-// Fills the box with the text, each different look in its own piece.
-function paint(el: HTMLElement, text: string, spans: TextSpan[] | undefined, base: TextStyle, photoInside = false) {
+// Each paragraph of text with room between paragraphs is drawn in a block of its own, ending
+// with its line break, so the room shows while typing exactly as on the design.
+const PARAGRAPH = 'data-paragraph'
+
+// Fills the box with the text, each different look in its own piece. With room between
+// paragraphs (`gap`), each paragraph gets its own block.
+function paint(el: HTMLElement, text: string, spans: TextSpan[] | undefined, base: TextStyle, photoInside = false, gap = 0) {
   el.replaceChildren()
+  let into: HTMLElement = el
+  const paragraph = () => {
+    const block = document.createElement('span')
+    block.setAttribute(PARAGRAPH, '')
+    block.style.display = 'block'
+    // Each paragraph still reads the way its first letter does.
+    block.style.unicodeBidi = 'inherit'
+    el.appendChild(block)
+    into = block
+  }
+  if (gap > 0) paragraph()
   for (const piece of styledPieces(spans, base, 0, text.length)) {
-    const letters = document.createTextNode(text.slice(piece.start, piece.end))
-    if (piece.style === base) {
-      el.appendChild(letters)
-      continue
+    const whole = text.slice(piece.start, piece.end)
+    // Cut at each line break (kept with the paragraph it ends) when paragraphs have blocks.
+    const parts = gap > 0 ? (whole.match(/[^\n]*\n|[^\n]+/g) ?? []) : [whole]
+    for (const part of parts) {
+      into.appendChild(pieceNode(part, piece.style, base, photoInside))
+      if (gap > 0 && part.endsWith('\n')) {
+        into.style.marginBottom = `${gap}px`
+        paragraph()
+      }
     }
-    const look = document.createElement('span')
-    const { font, weight, italic, color, underline, strike, raise } = piece.style
-    look.dataset.look = JSON.stringify({ font, weight, italic, color, underline: !!underline, strike: !!strike, raise: raise ?? null })
-    look.style.fontFamily = fontStack(piece.style.font)
-    look.style.fontWeight = String(piece.style.weight)
-    look.style.fontStyle = piece.style.italic ? 'italic' : 'normal'
-    Object.assign(look.style, decorationCss(piece.style))
-    if (raise) {
-      // Smaller, and moved off the line without making the line taller (as on the design).
-      look.style.fontSize = `${piece.style.size}px`
-      look.style.position = 'relative'
-      look.style.top = `${raiseShift(piece.style, base.size)}px`
-    }
-    // Words without a color of their own let the text's photo or gradient show through.
-    if (piece.style.color !== base.color || (!base.gradient && !photoInside)) look.style.color = piece.style.color
-    look.appendChild(letters)
-    el.appendChild(look)
   }
   if (text.endsWith('\n') || text === '') {
     const end = document.createElement('br')
     end.setAttribute(END, '')
-    el.appendChild(end)
+    into.appendChild(end)
   }
+}
+
+// One piece of text with one look: plain letters, or letters in a piece that shows their look.
+function pieceNode(text: string, style: TextStyle, base: TextStyle, photoInside: boolean): Node {
+  const letters = document.createTextNode(text)
+  if (style === base) return letters
+  const look = document.createElement('span')
+  const { font, weight, italic, color, underline, strike, raise } = style
+  look.dataset.look = JSON.stringify({ font, weight, italic, color, underline: !!underline, strike: !!strike, raise: raise ?? null })
+  look.style.fontFamily = fontStack(style.font)
+  look.style.fontWeight = String(style.weight)
+  look.style.fontStyle = style.italic ? 'italic' : 'normal'
+  Object.assign(look.style, decorationCss(style))
+  if (raise) {
+    // Smaller, and moved off the line without making the line taller (as on the design).
+    look.style.fontSize = `${style.size}px`
+    look.style.position = 'relative'
+    look.style.top = `${raiseShift(style, base.size)}px`
+  }
+  // Words without a color of their own let the text's photo or gradient show through.
+  if (style.color !== base.color || (!base.gradient && !photoInside)) look.style.color = style.color
+  look.appendChild(letters)
+  return look
+}
+
+// Whether every paragraph block still holds one paragraph: each but the last ends with its line
+// break and has no other, and nothing was typed outside them.
+function paragraphsHold(el: HTMLElement): boolean {
+  const blocks = [...el.childNodes]
+  return blocks.every((node, i) => {
+    if (!(node instanceof HTMLElement) || !node.hasAttribute(PARAGRAPH)) return false
+    const text = readText(node)
+    const breaks = text.split('\n').length - 1
+    return i < blocks.length - 1 ? breaks === 1 && text.endsWith('\n') : breaks === 0
+  })
 }
 
 // Every piece of the box in order: text, and line breaks the browser may have put in.
@@ -384,10 +426,13 @@ function selectRange(el: HTMLElement, start: number, end: number) {
     let result: [Node, number] | null = null
     walk(el, (node, length) => {
       if (result) return
-      if (node.nodeType === Node.TEXT_NODE && index <= at + length) result = [node, index - at]
+      // Right after a paragraph's line break is the start of the next paragraph's block.
+      const endsBlock = index === at + length && (node as Text).data?.endsWith('\n') && !!node.parentElement?.closest(`[${PARAGRAPH}]`)
+      if (node.nodeType === Node.TEXT_NODE && index <= at + length && !endsBlock) result = [node, index - at]
       at += length
     })
-    return result ?? [el, el.childNodes.length - (el.lastChild instanceof HTMLElement && el.lastChild.hasAttribute(END) ? 1 : 0)]
+    const last = el.lastChild instanceof HTMLElement && el.lastChild.hasAttribute(PARAGRAPH) ? el.lastChild : el
+    return result ?? [last, last.childNodes.length - (last.lastChild instanceof HTMLElement && last.lastChild.hasAttribute(END) ? 1 : 0)]
   }
   const selection = document.getSelection()
   if (!selection) return

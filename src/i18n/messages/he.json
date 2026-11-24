@@ -202,7 +202,6 @@
  "Change the colors and light of the selected layer, or of the selected part. Try a ready-made look, then fine-tune it with the sliders. Nothing changes for good until you press Apply.": "שנה את הצבעים והאור של השכבה שנבחרה, או של החלק המסומן. נסה מראה מוכן, ואז כוונן אותו עם המחוונים. שום דבר לא משתנה לתמיד עד שתלחץ על החלה.",
  "Change the light and colors of the selected layer, or just the selected part: one-click fixes, ready-made looks like Black & white, and sliders for light, dark parts, bright parts, color, one color only, a light curve, sharpness, dark corners and grain. Nothing changes for good until you press Apply.": "שינוי האור והצבעים של השכבה שנבחרה, או רק של החלק שנבחר: תיקונים בלחיצה אחת, מראות מוכנים כמו שחור-לבן, ומחוונים לאור, לחלקים כהים, לחלקים בהירים, לצבע, לצבע אחד בלבד, עקומת אור, חדות, פינות כהות וגרעיניות. שום דבר לא משתנה סופית עד שתלחץ על החלה.",
  "Change the size of the whole design": "לשנות את הגודל של כל העיצוב",
- "Change the space between letters or lines": "לשנות את הרווח בין האותיות או בין השורות",
  "Change what is faded on {name}": "שינוי מה שמעומעם ב{name}",
  "Change your design's name. You'll see it under Your designs, and it becomes the file name when you download.": "שנה את השם של העיצוב. תראה אותו בעיצובים שלך, והוא יהיה שם הקובץ כשתוריד אותו.",
  "Changes go to all the text. To change just some words, pick them with the mouse first.": "השינויים חלים על כל הטקסט. כדי לשנות רק כמה מילים, בחר אותן קודם עם העכבר.",
@@ -251,7 +250,6 @@
  "Click the photo, choose Adjust, and press Fix light or Fix colors. Then fine-tune it with the sliders if you like.": "לחץ על התמונה, בחר “כוונון” ולחץ “תיקון אור” או “תיקון צבעים”. אחר כך אפשר לדייק עם המחוונים.",
  "Click the photo, then press Remove background in the bar at the top. The background becomes see-through.": "לחץ על התמונה, ואז לחץ “הסרת רקע” בסרגל שלמעלה. הרקע נהיה שקוף.",
  "Click the text, press Wrap in a box, then Continue in another box and draw the next box. The words flow on by themselves.": "לחץ על הטקסט, לחץ “גלישה בתיבה”, ואז “המשך בתיבה נוספת” וצייר את התיבה הבאה. המילים ימשיכו לזרום לבד.",
- "Click the text, then press More in the Text panel. Letter spacing and Line spacing are there.": "לחץ על הטקסט, ואז לחץ “עוד” בחלונית הטקסט. שם יש “ריווח אותיות” ו“ריווח שורות”.",
  "Click to add points, or press and drag for a curve. Click the first point to close the shape, or press Enter to finish a line. Drag a point or a line to reshape; double-click a point to make it sharp or smooth.": "לחץ כדי להוסיף נקודות, או לחץ וגרור כדי ליצור עקומה. לחץ על הנקודה הראשונה כדי לסגור את הצורה, או לחץ Enter כדי לסיים קו. גרור נקודה או קו כדי לשנות צורה; לחץ פעמיים על נקודה כדי להפוך אותה לחדה או לחלקה.",
  "Click to change your design's name. It's used in Your designs and for downloaded files.": "לחץ כדי לשנות את שם העיצוב. הוא מופיע בעיצובים שלך ובקבצים שמורידים.",
  "Click to paint on this layer. Double-click the name to rename it. Hold Shift and click to pick several.": "לחץ כדי לצייר על השכבה הזאת. לחץ פעמיים על השם כדי לשנות אותו. החזק Shift ולחץ כדי לבחור כמה.",
@@ -1265,7 +1263,6 @@
  "Show your design at its real size: each pixel of your design takes one pixel of your screen.": "הצג את העיצוב בגודל האמיתי שלו: כל פיקסל בעיצוב תופס פיקסל אחד במסך.",
  "Show your whole design, as big as fits in the window.": "הצג את כל העיצוב, הכי גדול שנכנס בחלון.",
  "Show {name}": "הצגת {name}",
- "Shows the spacing between letters and lines, and the reading direction.": "מציג את הרווח בין אותיות ושורות, ואת כיוון הקריאה.",
  "Shrink or grow the design by a set amount, keeping its shape.": "הקטן או הגדל את העיצוב בכמות מסוימת, ושמור על הצורה שלו.",
  "Sides": "צלעות",
  "Similar colors": "צבעים דומים",
@@ -2464,5 +2461,10 @@
  "Drag the edge to move the text": "גרור את השוליים כדי להזיז את הטקסט",
  "Drag the round handle to turn the text": "גרור את הידית העגולה כדי לסובב את הטקסט",
  "Make words bigger, smaller or move them": "להגדיל, להקטין או להזיז מילים",
- "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "לחץ על המילים (או לחץ עליהן פעמיים עם סידור). משוך פינה כדי להגדיל או להקטין אותן, צד כדי להאריך או לקצר את השורות, וגרור את שולי המסגרת כדי להזיז אותן."
+ "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "לחץ על המילים (או לחץ עליהן פעמיים עם סידור). משוך פינה כדי להגדיל או להקטין אותן, צד כדי להאריך או לקצר את השורות, וגרור את שולי המסגרת כדי להזיז אותן.",
+ "Space between paragraphs": "רווח בין פסקאות",
+ "Extra room after each paragraph, so they stand apart without empty lines.": "עוד מקום אחרי כל פסקה, כדי שהפסקאות ייראו נפרדות בלי שורות ריקות.",
+ "Shows the spacing between letters, lines and paragraphs, and the reading direction.": "מציג את הרווח בין אותיות, שורות ופסקאות, ואת כיוון הקריאה.",
+ "Change the space between letters, lines or paragraphs": "לשנות את הרווח בין האותיות, השורות או הפסקאות",
+ "Click the text, then press More in the Text panel. Letter spacing, Line spacing and Space between paragraphs are there.": "לחץ על הטקסט, ואז לחץ “עוד” בחלונית הטקסט. שם יש “ריווח אותיות”, “ריווח שורות” ו“רווח בין פסקאות”."
 }

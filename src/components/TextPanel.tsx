@@ -26,6 +26,8 @@ const MIN_SPACING = -0.1
 const MAX_SPACING = 0.5
 const MIN_LINE = 0.7
 const MAX_LINE = 3
+// Room after a paragraph, as a multiple of the size.
+const MAX_PARAGRAPH_SPACE = 2
 
 const WEIGHT_NAMES: Record<number, string> = live({
   100: msg('Thin'),
@@ -928,7 +930,7 @@ export function TextPanel(props: TextPanelProps) {
           )}
         </div>}
 
-        <Tooltip title={t('More')} description={t('Shows the spacing between letters and lines, and the reading direction.')} className="flex self-start">
+        <Tooltip title={t('More')} description={t('Shows the spacing between letters, lines and paragraphs, and the reading direction.')} className="flex self-start">
           <button
             type="button"
             aria-expanded={more}
@@ -958,6 +960,13 @@ export function TextPanel(props: TextPanelProps) {
               value={(style.lineHeight - MIN_LINE) / (MAX_LINE - MIN_LINE)}
               display={`${style.lineHeight.toFixed(2)}×`}
               onChange={(position) => props.onStyle({ lineHeight: Math.round((MIN_LINE + position * (MAX_LINE - MIN_LINE)) * 20) / 20 }, t('Line spacing'), 'text-lines')}
+            />
+            <Slider
+              label={t("Space between paragraphs")}
+              help={t("Extra room after each paragraph, so they stand apart without empty lines.")}
+              value={(style.paragraphSpace ?? 0) / MAX_PARAGRAPH_SPACE}
+              display={style.paragraphSpace ? `${style.paragraphSpace.toFixed(2)}×` : t('None')}
+              onChange={(position) => props.onStyle({ paragraphSpace: Math.round(position * MAX_PARAGRAPH_SPACE * 20) / 20 }, t('Space between paragraphs'), 'text-paragraphs')}
             />
           </div>
         )}
