@@ -2464,7 +2464,19 @@
  "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "Haz clic en las palabras (o doble clic con Organizar). Tira de una esquina para hacerlas más grandes o más pequeñas, de un lado para alargar o acortar las líneas, y arrastra el borde del recuadro para moverlas.",
  "Space between paragraphs": "Espacio entre párrafos",
  "Extra room after each paragraph, so they stand apart without empty lines.": "Más espacio después de cada párrafo, para separarlos sin líneas vacías.",
- "Shows the spacing between letters, lines and paragraphs, and the reading direction.": "Muestra el espacio entre letras, líneas y párrafos, y la dirección de lectura.",
  "Change the space between letters, lines or paragraphs": "Cambia el espacio entre letras, líneas o párrafos",
- "Click the text, then press More in the Text panel. Letter spacing, Line spacing and Space between paragraphs are there.": "Haz clic en el texto y pulsa Más en el panel Texto. Ahí están Espacio entre letras, Espacio entre líneas y Espacio entre párrafos."
+ "Click the text, then press More in the Text panel. Letter spacing, Line spacing and Space between paragraphs are there.": "Haz clic en el texto y pulsa Más en el panel Texto. Ahí están Espacio entre letras, Espacio entre líneas y Espacio entre párrafos.",
+ "2 lines tall": "2 líneas de alto",
+ "3 lines tall": "3 líneas de alto",
+ "4 lines tall": "4 líneas de alto",
+ "Big first letter": "Primera letra grande",
+ "Click the text, press More in the Text panel, and choose how many lines tall under Big first letter. The words wrap beside it.": "Haz clic en el texto, pulsa Más en el panel Texto y elige cuántas líneas de alto en Primera letra grande. Las palabras se acomodan a su lado.",
+ "Makes the first letter big, as tall as a few lines, with the words wrapping beside it, like the start of a story in a book.": "Hace grande la primera letra, tan alta como varias líneas, con las palabras a su lado, como al empezar una historia en un libro.",
+ "No big letter": "Sin letra grande",
+ "Shows the spacing between letters, lines and paragraphs, a big first letter, and the reading direction.": "Muestra el espacio entre letras, líneas y párrafos, una primera letra grande y la dirección de lectura.",
+ "Start a story with a big first letter": "Empezar una historia con una primera letra grande",
+ "The first letter is as tall as 2 lines, with the words beside it.": "La primera letra mide 2 líneas de alto, con las palabras a su lado.",
+ "The first letter is as tall as 3 lines, with the words beside it.": "La primera letra mide 3 líneas de alto, con las palabras a su lado.",
+ "The first letter is as tall as 4 lines, with the words beside it.": "La primera letra mide 4 líneas de alto, con las palabras a su lado.",
+ "The first letter is the same size as the others.": "La primera letra tiene el mismo tamaño que las demás."
 }

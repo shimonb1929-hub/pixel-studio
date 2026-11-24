@@ -265,17 +265,19 @@ export function TopBar({
         title={t("Search")}
         shortcut={shortcut('mod', 'K')}
         description={t("Type what you want to do in your own words, like “save”, “bigger” or “new”, and pick it from the list.")}
-        className="mx-auto flex w-full max-w-[28rem]"
+        className="@container mx-auto flex w-full max-w-[28rem]"
       >
         <button
           type="button"
           onClick={onSearch}
           aria-label={t('What do you want to do?')}
-          className="flex h-9 w-full items-center justify-center gap-2.5 rounded-xl border border-transparent bg-surface px-2.5 text-sm sm:justify-start sm:px-3 text-ink-3 shadow-card transition-colors hover:border-line hover:text-ink-2"
+          className="flex h-9 w-full items-center justify-center gap-2.5 rounded-xl border border-transparent bg-surface px-2.5 text-sm @[8rem]:justify-start @[8rem]:px-3 text-ink-3 shadow-card transition-colors hover:border-line hover:text-ink-2"
         >
           <Search size={16} className="shrink-0" />
-          <span className="hidden flex-1 truncate text-start sm:block">{t('What do you want to do?')}</span>
-          <kbd dir="ltr" className="hidden rounded-md border border-line bg-subtle px-1.5 py-0.5 font-sans text-[11px] text-ink-3 sm:block">
+          {/* The whole question where it fits, else just "Search"; the keys only with room to spare. */}
+          <span className="hidden flex-1 truncate text-start @[14rem]:block">{t('What do you want to do?')}</span>
+          <span className="hidden flex-1 truncate text-start @[8rem]:block @[14rem]:hidden">{t('Search')}</span>
+          <kbd dir="ltr" className="hidden rounded-md border border-line bg-subtle px-1.5 py-0.5 font-sans text-[11px] text-ink-3 @[19rem]:block">
             {shortcut('mod', 'K')}
           </kbd>
         </button>

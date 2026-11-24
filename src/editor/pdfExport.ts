@@ -92,7 +92,7 @@ function pageText(doc: EditorDocument, layout: PdfLayout): PdfTextLine[] {
     for (const line of placed.lines) {
       if (line.glyphs.length === 0) continue
       const m = toPage.multiply(placed.matrix).multiply(new DOMMatrix([1, 0, 0, -1, 0, line.baseline]))
-      lines.push({ matrix: [m.a, m.b, m.c, m.d, m.e, m.f], size: layer.style.size, glyphs: line.glyphs })
+      lines.push({ matrix: [m.a, m.b, m.c, m.d, m.e, m.f], size: line.size ?? layer.style.size, glyphs: line.glyphs })
     }
   }
   return lines

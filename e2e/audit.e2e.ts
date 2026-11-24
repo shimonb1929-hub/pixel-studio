@@ -60,6 +60,33 @@ for (const lang of LANGS) {
         await look(`tool ${key} (${bar})`)
       }
 
+      // Picked things show their panels: text (with More open), a shape, and the right-click menu.
+      const main = await page.locator('main').boundingBox()
+      if (main) {
+        const cx = main.x + main.width / 2
+        const cy = main.y + main.height / 2
+        await page.keyboard.press('t')
+        await page.mouse.click(cx - 60, cy - 40)
+        await page.keyboard.insertText(lang === 'en' ? 'Hello there, 12 words' : 'שלום עליכם, 12 מילים')
+        await page.keyboard.press('Escape')
+        await look('text picked')
+        for (const more of await page.getByRole('button', { name: tr('More'), exact: true }).all()) {
+          if ((await more.getAttribute('aria-expanded')) === 'false') await more.click({ timeout: 2000 }).catch(() => {})
+        }
+        await look('text picked, More open')
+        await page.keyboard.press('Escape')
+        await page.keyboard.press('u')
+        await page.mouse.move(cx - 40, cy + 20)
+        await page.mouse.down()
+        await page.mouse.move(cx + 40, cy + 70, { steps: 4 })
+        await page.mouse.up()
+        await look('shape picked')
+        await page.mouse.click(cx, cy + 45, { button: 'right' })
+        await look('right-click menu')
+        await page.keyboard.press('Escape')
+        await page.keyboard.press('Escape')
+      }
+
       // Every Menu item that opens a window.
       const menu = page.getByRole('button', { name: tr('Menu'), exact: true })
       if (await menu.isVisible()) {

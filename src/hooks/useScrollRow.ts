@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 
 // For a row that scrolls sideways when the screen is too narrow (like a tool's settings bar):
 // says whether more is hidden before or after what shows, in reading order (so it works in
@@ -19,6 +19,9 @@ function measure(el: HTMLElement) {
 
 export function useScrollRow(ref: RefObject<HTMLElement | null>, watch: unknown): ScrollRow {
   const [more, setMore] = useState({ before: false, after: false })
+  // The glide `step` started, so a new row can stop it (the browser's own smooth scrolling can't
+  // be stopped, and would carry the next tool's settings part-way along).
+  const gliding = useRef<number | null>(null)
 
   const update = useCallback(() => {
     const el = ref.current
@@ -30,7 +33,9 @@ export function useScrollRow(ref: RefObject<HTMLElement | null>, watch: unknown)
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    // Each tool's settings start from the beginning.
+    // Each tool's settings start from the beginning, and the last tool's glide stops.
+    if (gliding.current !== null) cancelAnimationFrame(gliding.current)
+    gliding.current = null
     el.scrollLeft = 0
     update()
     const observer = new ResizeObserver(update)
@@ -64,7 +69,18 @@ export function useScrollRow(ref: RefObject<HTMLElement | null>, watch: unknown)
       if (!el) return
       const { rtl } = measure(el)
       const amount = Math.max(120, el.clientWidth * 0.7) * direction
-      el.scrollBy({ left: rtl ? -amount : amount, behavior: 'smooth' })
+      const from = el.scrollLeft
+      const room = el.scrollWidth - el.clientWidth
+      const to = rtl ? Math.min(0, Math.max(-room, from - amount)) : Math.min(room, Math.max(0, from + amount))
+      if (gliding.current !== null) cancelAnimationFrame(gliding.current)
+      // A short, gentle glide that slows down at the end.
+      const start = performance.now()
+      const glide = (now: number) => {
+        const t = Math.min(1, (now - start) / 250)
+        el.scrollLeft = from + (to - from) * (1 - (1 - t) ** 3)
+        gliding.current = t < 1 ? requestAnimationFrame(glide) : null
+      }
+      gliding.current = requestAnimationFrame(glide)
     },
     [ref],
   )

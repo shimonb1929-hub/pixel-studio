@@ -25,6 +25,9 @@ export interface TextMeasure {
   // Where the baseline sits in a line of the given height, if it can be measured exactly (the
   // browser rounds the font's heights its own way); otherwise it's worked out from the heights.
   baseline?: (lineHeight: number) => number
+  // How wide one letter is at a font size, and how far its ink reaches above the baseline, for a
+  // big first letter. Without it, the letter's height is guessed from the size.
+  letter?: (text: string, size: number) => { width: number; ascent: number }
 }
 
 export interface LayoutSettings {
@@ -37,6 +40,25 @@ export interface LayoutSettings {
   list?: ListKind | null
   // Extra room after each paragraph, as a multiple of the size. Missing: none.
   paragraphSpace?: number
+  // A big first letter (pro: Drop Cap) as tall as this many lines, with the first lines wrapping
+  // beside it. Missing or below 2: none. Only for text wrapped in a box.
+  dropCap?: number
+}
+
+// The big first letter of a text and where it sits, from the top-left of the text.
+export interface DropCap {
+  // The letter (with its vowel points), which is text[0, end).
+  text: string
+  end: number
+  // Its left edge and baseline, its font size, and how wide and tall the room beside it is.
+  x: number
+  baseline: number
+  size: number
+  width: number
+  // The room it keeps free beside the lines: its width plus a gap, and how tall.
+  room: number
+  height: number
+  direction: Direction
 }
 
 // Where a list starts, for text that runs on from an earlier box: the number its first point
@@ -100,6 +122,8 @@ export interface TextLayout {
   markers?: ListMarker[]
   // The room after each paragraph, in design pixels, when there is any.
   paragraphGap?: number
+  // The big first letter, when there is one.
+  dropCap?: DropCap
 }
 
 // Letters of scripts written right to left.
@@ -387,7 +411,7 @@ function layoutList(text: string, settings: LayoutSettings, wrapWidth: number | 
           return slot && slot.width > indent ? { x: slot.x, width: slot.width - indent, narrowed: slot.narrowed } : null
         }
       : undefined
-  const inner = layoutText(text, { ...settings, list: null }, innerWidth, measure, rangeWidth, undefined, innerRows)
+  const inner = layoutText(text, { ...settings, list: null, dropCap: 0 }, innerWidth, measure, rangeWidth, undefined, innerRows)
   const markers: ListMarker[] = []
   let number = start.number
   const lines = inner.lines.map((line, i) => {
@@ -437,17 +461,29 @@ export function layoutText(
   const raw: { start: number; full: string; direction: Direction; last: boolean; runs: TextRun[]; row: number; slot: LineSlot | null; paragraph: number }[] = []
   const fullWidth = wrapWidth === null ? null : { x: 0, width: wrapWidth, narrowed: false }
   const slots: RowSlots | null = wrapWidth === null ? null : (rows ?? (() => fullWidth))
+  const ascentOffset = measure.baseline?.(lineHeight) ?? (lineHeight - (measure.ascent + measure.descent)) / 2 + measure.ascent
+  const cap = wrapWidth !== null && !rows ? dropCapFor(text, settings, wrapWidth, lineHeight, ascentOffset, measure) : null
   let offset = 0
   let row = 0
   let count = 0
-  for (const paragraph of text.split('\n')) {
+  for (const whole of text.split('\n')) {
     const paragraphIndex = count++
+    // The big first letter stands beside the first lines, so the first paragraph starts after it.
+    const skip = paragraphIndex === 0 && cap ? cap.end : 0
+    const paragraph = whole.slice(skip)
+    offset += skip
     // A paragraph with no letters reads like the text as a whole.
-    const paragraphDirection = settings.direction === 'auto' ? (firstStrongDirection(paragraph) ?? direction) : settings.direction
+    const paragraphDirection = settings.direction === 'auto' ? (firstStrongDirection(paragraph) ?? (skip ? cap!.direction : direction)) : settings.direction
     const levels = readingLevels(paragraph, paragraphDirection)
     const at = offset
+    // Rows beside the big first letter have less room: those whose top is above its bottom, as
+    // browsers wrap lines beside something floating at their side.
+    const capSlots: RowSlots | null =
+      cap && slots
+        ? (r) => (r * lineHeight + paragraphIndex * gap < cap.height - 0.5 ? { x: cap.direction === 'ltr' ? cap.room : 0, width: wrapWidth! - cap.room, narrowed: true } : slots(r))
+        : slots
     const lines: { text: string; row: number; slot: LineSlot | null }[] =
-      slots === null ? [{ text: paragraph, row, slot: null }] : wrapInRows(paragraph, row, slots, (t, from) => rangeWidth(at + from, at + from + t.length, paragraphDirection))
+      capSlots === null ? [{ text: paragraph, row, slot: null }] : wrapInRows(paragraph, row, capSlots, (t, from) => rangeWidth(at + from, at + from + t.length, paragraphDirection))
     let start = 0
     lines.forEach((line, i) => {
       const full = line.text
@@ -468,7 +504,6 @@ export function layoutText(
     return { ...line, text: drawn, width: line.runs.reduce((sum, run) => sum + run.width, 0) }
   })
   const width = wrapWidth ?? Math.max(1, ...measured.map((line) => line.width))
-  const ascentOffset = measure.baseline?.(lineHeight) ?? (lineHeight - (measure.ascent + measure.descent)) / 2 + measure.ascent
 
   const lines = measured.map((line): LayoutLine => {
     // Each line lines up inside the room its row has.
@@ -492,8 +527,45 @@ export function layoutText(
       runs: line.runs,
     }
   })
-  const bottom = lines.length ? lines[lines.length - 1].top + lineHeight : lineHeight
-  return { width, height: Math.max(lineHeight, bottom), lineHeight, lines, direction, ...(gap ? { paragraphGap: gap } : {}) }
+  const bottom = Math.max(lines.length ? lines[lines.length - 1].top + lineHeight : lineHeight, cap?.height ?? 0)
+  return { width, height: Math.max(lineHeight, bottom), lineHeight, lines, direction, ...(gap ? { paragraphGap: gap } : {}), ...(cap ? { dropCap: cap } : {}) }
+}
+
+// The smallest and largest big first letter, in lines.
+export const DROP_CAP_LINES = { min: 2, max: 5 }
+
+// The big first letter for a text wrapped `wrapWidth` wide, or null when there's none: none
+// chosen, the text starts with a space or a new line, or the box is too narrow for it. Its top
+// lines up with the top of the same letter on the first line and its baseline sits on the last
+// line it's beside.
+function dropCapFor(text: string, settings: LayoutSettings, wrapWidth: number, lineHeight: number, ascentOffset: number, measure: TextMeasure): DropCap | null {
+  const lines = Math.round(settings.dropCap ?? 0)
+  if (lines < DROP_CAP_LINES.min || settings.list) return null
+  const letter = graphemes(text.slice(0, 16))[0]
+  if (!letter || !/[\p{L}\p{N}]/u.test(letter)) return null
+  // It stands on the side its paragraph starts from.
+  const rest = text.split('\n', 1)[0].slice(letter.length)
+  const direction = settings.direction === 'auto' ? (firstStrongDirection(rest) ?? firstStrongDirection(letter) ?? 'ltr') : settings.direction
+  const { size } = settings
+  // How tall the letter's ink is for its size; a guess when it can't be measured.
+  const ink = measure.letter?.(letter, size).ascent ?? size * 0.7
+  const ratio = Math.min(1.2, Math.max(0.3, ink / size))
+  const capSize = size + ((lines - 1) * lineHeight) / ratio
+  const width = measure.letter?.(letter, capSize).width ?? (measure.width(letter, direction) * capSize) / size
+  const room = width + size * 0.3
+  // Too narrow a box keeps the letter small, so the words beside it still fit.
+  if (wrapWidth - room < size * 2) return null
+  return {
+    text: letter,
+    end: letter.length,
+    x: direction === 'ltr' ? 0 : wrapWidth - width,
+    baseline: (lines - 1) * lineHeight + ascentOffset,
+    size: capSize,
+    width,
+    room,
+    height: lines * lineHeight,
+    direction,
+  }
 }
 
 // The line in a row of the text, or the nearest one when that row has none.

@@ -4,7 +4,7 @@ import { mapPath } from '../editor/path.ts'
 import { boxPoint, type TransformBox } from '../editor/transform.ts'
 import type { EditorDocument, Point, TextLayer, TextStyle } from '../editor/types.ts'
 import { cssFont, fontReady, fontStack, fontsVersion, loadFont } from './fonts.ts'
-import { indexAt, layoutText, listStartAt, mainDirection, plainWidth, resolveAlign, type RangeWidth, type TextLayout, type TextMeasure } from './layout.ts'
+import { indexAt, layoutText, type DropCap, listStartAt, mainDirection, plainWidth, resolveAlign, type RangeWidth, type TextLayout, type TextMeasure } from './layout.ts'
 import { raiseShift, styledPieces, tidySpans } from './spans.ts'
 import { avoidSlots } from './avoid.ts'
 import { curvedIndexAt, curvedText, isCurved, type CurvedText } from './textCurve.ts'
@@ -21,6 +21,7 @@ function measuringContext(): CanvasRenderingContext2D {
 }
 
 const widths = new Map<string, number>()
+const letters = new Map<string, { width: number; ascent: number }>()
 const baselines = new Map<string, number>()
 let probe: { box: HTMLDivElement; marker: HTMLSpanElement } | null = null
 
@@ -70,6 +71,21 @@ export function textMeasure(style: TextStyle): TextMeasure {
     ascent,
     descent,
     baseline: (lineHeight) => measuredBaseline(style, lineHeight) ?? (lineHeight - (ascent + descent)) / 2 + ascent,
+    // One letter at any size, without letter spacing, for a big first letter.
+    letter: (text, size) => {
+      const key = `${prefix}letter|${size}|${text}`
+      let found = letters.get(key)
+      if (!found) {
+        ctx.font = cssFont({ ...style, size })
+        ctx.letterSpacing = '0px'
+        ctx.direction = 'ltr'
+        const m = ctx.measureText(text)
+        found = { width: m.width, ascent: m.actualBoundingBoxAscent || size * 0.7 }
+        if (letters.size > 2000) letters.clear()
+        letters.set(key, found)
+      }
+      return found
+    },
     width: (text, direction) => {
       const key = prefix + direction + text
       let width = widths.get(key)
@@ -116,10 +132,26 @@ export function textLayout(layer: TextLayer): TextLayout {
   // A paragraph box keeps out of the pictures and shapes it flows around.
   const rows = layer.wrap && !isCurved(layer) && layer.avoid?.length ? avoidSlots(layer.avoid, width, layer.style.size * layer.style.lineHeight, layer.style.size) : undefined
   // Text running on across boxes keeps even rows, so each box knows how many lines it holds.
-  const settings = layer.flow && layer.style.paragraphSpace ? { ...layer.style, paragraphSpace: 0 } : layer.style
+  // A big first letter only starts a story, never a box it runs on into.
+  const settings = layer.flow && (layer.style.paragraphSpace || (layer.style.dropCap && layer.flow.start > 0)) ? { ...layer.style, paragraphSpace: 0, ...(layer.flow.start > 0 ? { dropCap: 0 } : {}) } : layer.style
   const layout = layoutText(layer.text, settings, layer.wrap && !isCurved(layer) ? width : null, textMeasure(layer.style), textWidth(layer), listStart, rows)
   layouts.set(layer, { version, layout })
   return layout
+}
+
+// The look of a text's big first letter: the first letter's own look, at the big size.
+export function dropCapStyle(layer: TextLayer, cap: DropCap): TextStyle {
+  const [first] = styledPieces(layer.spans, layer.style, 0, cap.end)
+  return { ...(first?.style ?? layer.style), size: cap.size, letterSpacing: 0, raise: null }
+}
+
+// How far the big first letter is moved down in a line as tall as the room it keeps, so its
+// baseline sits where it's drawn: for the typing box, which shows it the same way.
+export function dropCapShift(layer: TextLayer, cap: DropCap): number {
+  const style = dropCapStyle(layer, cap)
+  const measured = measuredBaseline(style, cap.height)
+  if (measured === undefined) return 0
+  return cap.baseline - measured
 }
 
 // The text set on its curve, or null for straight text.
@@ -230,6 +262,18 @@ export function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer): void 
   ctx.fillStyle = fill
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
+  // The big first letter, in its own look.
+  if (layout.dropCap) {
+    const cap = layout.dropCap
+    const look = dropCapStyle(layer, cap)
+    ctx.save()
+    ctx.font = cssFont(look)
+    ctx.letterSpacing = '0px'
+    ctx.direction = 'ltr'
+    if (look.color !== style.color) ctx.fillStyle = look.color
+    ctx.fillText(cap.text, cap.x, cap.baseline)
+    ctx.restore()
+  }
   // A list's dots, numbers or letters, in the text's own look.
   for (const marker of layout.markers ?? []) {
     ctx.direction = marker.direction
@@ -303,6 +347,8 @@ export interface PlacedGlyph {
 
 export interface PlacedLine {
   baseline: number
+  // The letters' size, when it isn't the text's own (a big first letter).
+  size?: number
   // Left to right as they appear, so right-to-left words come last letter first.
   glyphs: PlacedGlyph[]
 }
@@ -359,6 +405,9 @@ export function placeText(layer: TextLayer): { matrix: DOMMatrix; lines: PlacedL
     }
     return { baseline: line.baseline, glyphs }
   })
+  // The big first letter comes first, so copied text starts with it.
+  const cap = layout.dropCap
+  if (cap) lines.unshift({ baseline: cap.baseline, size: cap.size, glyphs: [{ text: cap.text, x: cap.x, width: cap.width }] })
   return { matrix, lines }
 }
 

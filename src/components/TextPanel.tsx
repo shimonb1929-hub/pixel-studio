@@ -535,6 +535,14 @@ const DIRECTIONS: { value: TextDirection; label: string; description: string }[]
   { value: 'ltr', label: msg('Left to right'), description: msg('For English, even when a line starts with a Hebrew word.') },
 ])
 
+// A big first letter as tall as 2, 3 or 4 lines (pro: Drop Cap).
+const DROP_CAPS: { value: string; label: string; shows: string; description: string }[] = live([
+  { value: '0', label: msg('No big letter'), shows: msg('None'), description: msg('The first letter is the same size as the others.') },
+  { value: '2', label: msg('2 lines tall'), shows: '2', description: msg('The first letter is as tall as 2 lines, with the words beside it.') },
+  { value: '3', label: msg('3 lines tall'), shows: '3', description: msg('The first letter is as tall as 3 lines, with the words beside it.') },
+  { value: '4', label: msg('4 lines tall'), shows: '4', description: msg('The first letter is as tall as 4 lines, with the words beside it.') },
+])
+
 type ListChoice = 'none' | ListKind
 
 // Letters show the alphabet the text is written in: א ב ג for Hebrew and Yiddish, a b c for English.
@@ -930,7 +938,7 @@ export function TextPanel(props: TextPanelProps) {
           )}
         </div>}
 
-        <Tooltip title={t('More')} description={t('Shows the spacing between letters, lines and paragraphs, and the reading direction.')} className="flex self-start">
+        <Tooltip title={t('More')} description={t('Shows the spacing between letters, lines and paragraphs, a big first letter, and the reading direction.')} className="flex self-start">
           <button
             type="button"
             aria-expanded={more}
@@ -961,6 +969,23 @@ export function TextPanel(props: TextPanelProps) {
               display={`${style.lineHeight.toFixed(2)}×`}
               onChange={(position) => props.onStyle({ lineHeight: Math.round((MIN_LINE + position * (MAX_LINE - MIN_LINE)) * 20) / 20 }, t('Line spacing'), 'text-lines')}
             />
+            {!props.table && !style.list && !style.bend && !(props.flow && props.flow.box > 0) && (
+              <Tooltip title={t('Big first letter')} description={t('Makes the first letter big, as tall as a few lines, with the words wrapping beside it, like the start of a story in a book.')} className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[12px] font-medium text-ink-2">{t('Big first letter')}</span>
+                  <ChoiceRow
+                    label={t('Big first letter')}
+                    value={String(style.dropCap ?? 0)}
+                    choices={DROP_CAPS}
+                    onChange={(lines) => {
+                      props.onStyle({ dropCap: Number(lines) }, t('Big first letter'))
+                      // It needs lines that wrap, so text on one line goes into a box.
+                      if (Number(lines) && !props.wrap) props.onWrap(true)
+                    }}
+                  />
+                </div>
+              </Tooltip>
+            )}
             <Slider
               label={t("Space between paragraphs")}
               help={t("Extra room after each paragraph, so they stand apart without empty lines.")}

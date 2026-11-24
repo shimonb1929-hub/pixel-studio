@@ -629,6 +629,46 @@ test('room between paragraphs shows while typing exactly as on the design, Hebre
   expect(different / ink, `${different} of ${ink} ink pixels moved`).toBeLessThan(0.01)
 })
 
+for (const [language, words] of [
+  ['English', 'Once upon a time a little letter grew very big, and the words (all 12 of them) wrapped around it.'],
+  ['Hebrew', 'בראשית היה דף ריק, ואז באו 12 מילים (אחת אחרי השנייה) וגלשו מסביב לאות הגדולה.'],
+] as const) {
+  test(`a big first letter in ${language} shows while typing exactly as on the design`, async ({ page }) => {
+    const size = await newDesign(page, 500, 400)
+    await page.addStyleTag({ content: '[aria-label="Type your text"] { caret-color: transparent !important; } [data-typing-handles] { display: none; }' })
+    await page.keyboard.press('t')
+    await drag(page, size, [
+      [40, 40],
+      [340, 80],
+    ])
+    const box = typingBox(page)
+    await page.keyboard.insertText(words)
+    await textPanel(page).getByRole('button', { name: 'More' }).click()
+    await textPanel(page).getByRole('radio', { name: '3 lines tall' }).click()
+    await expect(textPanel(page).getByRole('radio', { name: '3 lines tall' })).toHaveAttribute('aria-checked', 'true')
+    // Typing goes on at the end, and a new first letter becomes the big one.
+    await box.focus()
+    await page.keyboard.press('Control+End')
+    await page.keyboard.insertText(' סוף')
+    await page.keyboard.press('Control+Home')
+    await page.keyboard.insertText(language === 'English' ? 'A' : 'ו')
+    await expect(page.locator('[data-drop-cap]')).toHaveText(language === 'English' ? 'A' : 'ו')
+    await expect.poll(() => box.evaluate((el) => el.textContent)).toBe(`${language === 'English' ? 'A' : 'ו'}${words} סוף`)
+    const typed = (await box.boundingBox())!
+    const height = Math.round(typed.height)
+    const whileTyping = await shot(page, size, 44, 44, 292, height - 8)
+
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('b')
+    await page.mouse.move(5, 5)
+    await expect(page.getByRole('toolbar')).toContainText('Brush')
+    const afterwards = await shot(page, size, 44, 44, 292, height - 8)
+    const { ink, different } = await compareShots(page, whileTyping, afterwards)
+    expect(ink).toBeGreaterThan(1000)
+    expect(different / ink, `${different} of ${ink} ink pixels moved`).toBeLessThan(0.01)
+  })
+}
+
 test('an English list counts by itself and comes back from a project file', async ({ page }) => {
   const size = await newDesign(page)
   await page.keyboard.press('t')

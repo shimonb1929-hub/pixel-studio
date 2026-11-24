@@ -213,3 +213,53 @@ describe('lists', () => {
     expect(layout.markers!.map((m) => [m.text, m.line])).toEqual([['3.', 1]])
   })
 })
+
+describe('a big first letter', () => {
+  // size 10, line height 15; the guessed letter ink is 7 high, so 3 lines make it 10 + 30/0.7 big.
+  const capped = (text: string, patch: Partial<LayoutSettings> = {}) => layoutText(text, settings({ dropCap: 3, ...patch }), 200, measure)
+
+  it('stands at the start of English, the first lines wrapping beside it', () => {
+    const layout = capped('Once upon a time there was a little letter that grew very big and tall and kept on going')
+    const cap = layout.dropCap!
+    expect(cap.text).toBe('O')
+    expect(cap.x).toBe(0)
+    expect(cap.size).toBeCloseTo(10 + 30 / 0.7)
+    expect(cap.height).toBe(45)
+    // Its baseline is the third line's.
+    expect(cap.baseline).toBeCloseTo(layout.lines[2].baseline)
+    // The first three lines start after it and are narrower; the fourth has the whole width.
+    expect(layout.lines[0].start).toBe(1)
+    for (const line of layout.lines.slice(0, 3)) {
+      expect(line.x).toBeCloseTo(cap.room)
+      expect(line.width).toBeLessThanOrEqual(200 - cap.room + 0.01)
+    }
+    expect(layout.lines[3].x).toBe(0)
+    expect(layout.lines.map((line) => line.text).join(' ')).not.toContain('Once')
+  })
+
+  it('stands on the right of Hebrew and Yiddish', () => {
+    const layout = capped('בראשית היה רק דף ריק ואז באו המילים אחת אחרי השנייה עד שהדף התמלא כולו במילים יפות')
+    const cap = layout.dropCap!
+    expect(cap.text).toBe('ב')
+    expect(cap.direction).toBe('rtl')
+    expect(cap.x + cap.width).toBeCloseTo(200)
+    // Lines beside it end before it on the right.
+    expect(layout.lines[0].x + layout.lines[0].width).toBeLessThanOrEqual(200 - cap.room + 0.01)
+    expect(layout.lines[3].x + layout.lines[3].width).toBeCloseTo(200)
+    // A letter with its vowel points stays one letter.
+    expect(capped('אַ גוטן טאָג').dropCap!.text).toBe('אַ')
+  })
+
+  it('keeps the text tall enough for itself, even with one short line', () => {
+    expect(capped('Hi').height).toBe(45)
+  })
+
+  it('is left out where it cannot work', () => {
+    expect(capped(' starts with a space').dropCap).toBeUndefined()
+    expect(capped('\nnew line').dropCap).toBeUndefined()
+    expect(capped('A list', { list: 'bullet' }).dropCap).toBeUndefined()
+    expect(layoutText('Not wrapped', settings({ dropCap: 3 }), null, measure).dropCap).toBeUndefined()
+    // In a box too narrow for the words beside it.
+    expect(layoutText('Narrow', settings({ dropCap: 3 }), 60, measure).dropCap).toBeUndefined()
+  })
+})

@@ -298,6 +298,14 @@ export const GOALS: Goal[] = [
     keywords: ['tracking', 'kerning', 'leading', 'line height', 'spacing', 'paragraph spacing', 'space after', 'space before'],
   },
   {
+    id: 'drop-cap',
+    goal: msg('Start a story with a big first letter'),
+    how: msg('Click the text, press More in the Text panel, and choose how many lines tall under Big first letter. The words wrap beside it.'),
+    tool: 'text',
+    pro: 'Drop Cap',
+    keywords: ['drop cap', 'initial', 'big letter', 'first letter', 'raised cap'],
+  },
+  {
     id: 'flow',
     goal: msg('Let text flow on to another box or page'),
     how: msg('Click the text, press Wrap in a box, then Continue in another box and draw the next box. The words flow on by themselves.'),

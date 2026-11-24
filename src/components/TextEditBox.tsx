@@ -3,9 +3,9 @@ import { cssGradient } from '../editor/gradient.ts'
 import { photoPlacement } from '../editor/photoFill.ts'
 import type { TextLayer, TextSpan, TextStyle, Viewport } from '../editor/types.ts'
 import { fontStack } from '../text/fonts.ts'
-import { hasRtlLetters, resolveAlign } from '../text/layout.ts'
+import { hasRtlLetters, resolveAlign, type DropCap } from '../text/layout.ts'
 import { editSpans, raiseShift, styledPieces, tidySpans } from '../text/spans.ts'
-import { straightBox, textLayout } from '../text/textLayer.ts'
+import { dropCapShift, dropCapStyle, straightBox, textLayout } from '../text/textLayer.ts'
 import { avoidMargins } from '../text/avoid.ts'
 import { isCurved } from '../text/textCurve.ts'
 import { language, t } from '../i18n/i18n.ts'
@@ -44,7 +44,7 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
   const height = Math.abs(box.height)
   // What the box shows, so a change from outside (a word made bold) draws it again, and typing
   // (which the browser has already shown) doesn't.
-  const shown = useRef<{ text: string; spans: string; gap: number } | null>(null)
+  const shown = useRef<{ text: string; spans: string; gap: number; cap: string } | null>(null)
   const latest = useRef(editing)
   latest.current = editing
   const photoUrl = usePhotoAddress(layer.photo?.canvas ?? null)
@@ -55,11 +55,12 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
     if (!el) return
     const spans = JSON.stringify(layer.spans ?? [])
     const gap = layout.paragraphGap ?? 0
-    if (shown.current && shown.current.text === layer.text && shown.current.spans === spans && shown.current.gap === gap) return
+    const cap = capKey(layout.dropCap)
+    if (shown.current && shown.current.text === layer.text && shown.current.spans === spans && shown.current.gap === gap && shown.current.cap === cap) return
     const focused = document.activeElement === el
     const keep = focused ? selectedRange(el) : null
-    paint(el, layer.text, layer.spans, style, !!layer.photo, gap)
-    shown.current = { text: layer.text, spans, gap }
+    paint(el, layer.text, layer.spans, style, !!layer.photo, gap, layout.dropCap && capLook(layer, layout.dropCap))
+    shown.current = { text: layer.text, spans, gap, cap }
     if (keep) selectRange(el, keep.start, keep.end)
   })
 
@@ -106,7 +107,12 @@ export function TextEditBox({ editing, viewport }: { editing: TextEditing; viewp
     // What the browser shows already matches, unless the looks moved or a paragraph was started
     // or joined in text with room between paragraphs (then it's drawn again).
     const keepsParagraphs = !el.querySelector(`[${PARAGRAPH}]`) || paragraphsHold(el)
-    shown.current = keepsParagraphs ? { text, spans: JSON.stringify(readSpans(el, layer.style) ?? []), gap: textLayout(layer).paragraphGap ?? 0 } : null
+    // The big first letter is drawn again when it's a different letter now, or typing went into
+    // its box past the letter.
+    const cap = textLayout({ ...layer, text, spans }).dropCap
+    const shownCap = el.querySelector<HTMLElement>(`[${CAP}]`)
+    const keepsCap = cap ? shownCap?.textContent === cap.text && isFirstLetter(el, shownCap) : !shownCap
+    shown.current = keepsParagraphs && keepsCap ? { text, spans: JSON.stringify(readSpans(el, layer.style) ?? []), gap: textLayout(layer).paragraphGap ?? 0, cap: shown.current?.cap ?? '' } : null
     latest.current.onChange(text, spans)
   }
 
@@ -281,9 +287,55 @@ const END = 'data-end'
 // with its line break, so the room shows while typing exactly as on the design.
 const PARAGRAPH = 'data-paragraph'
 
+// The big first letter, floating at the side its paragraph starts from, exactly as big and as far
+// from the words as on the design, so the first lines wrap beside it the same way.
+const CAP = 'data-drop-cap'
+
+interface CapLook {
+  cap: DropCap
+  style: TextStyle
+  shift: number
+}
+
+function capLook(layer: TextLayer, cap: DropCap): CapLook {
+  return { cap, style: dropCapStyle(layer, cap), shift: dropCapShift(layer, cap) }
+}
+
+function capKey(cap: DropCap | undefined): string {
+  return cap ? JSON.stringify(cap) : ''
+}
+
+// Whether the big letter's box is the very first thing in the box, holding just its letter.
+function isFirstLetter(el: HTMLElement, cap: HTMLElement): boolean {
+  let first: Node | null = el.firstChild
+  while (first instanceof HTMLElement && first.hasAttribute(PARAGRAPH)) first = first.firstChild
+  return first === cap
+}
+
+function capNode(look: CapLook, base: TextStyle, photoInside: boolean): HTMLElement {
+  const { cap, style, shift } = look
+  const box = document.createElement('span')
+  box.setAttribute(CAP, '')
+  box.style.float = cap.direction === 'ltr' ? 'left' : 'right'
+  box.style.width = `${cap.width}px`
+  box.style.height = `${cap.height}px`
+  box.style[cap.direction === 'ltr' ? 'marginRight' : 'marginLeft'] = `${cap.room - cap.width}px`
+  box.style.fontSize = `${cap.size}px`
+  box.style.lineHeight = `${cap.height}px`
+  box.style.letterSpacing = '0px'
+  box.style.textDecorationLine = 'none'
+  box.style.direction = 'ltr'
+  box.style.textAlign = 'left'
+  box.style.position = 'relative'
+  box.style.top = `${shift}px`
+  box.appendChild(pieceNode(cap.text, style.color === base.color && style.font === base.font && style.weight === base.weight && style.italic === base.italic ? base : { ...style, size: base.size, raise: null }, base, photoInside))
+  return box
+}
+
 // Fills the box with the text, each different look in its own piece. With room between
-// paragraphs (`gap`), each paragraph gets its own block.
-function paint(el: HTMLElement, text: string, spans: TextSpan[] | undefined, base: TextStyle, photoInside = false, gap = 0) {
+// paragraphs (`gap`), each paragraph gets its own block. A big first letter goes first, in a box
+// of its own.
+function paint(el: HTMLElement, text: string, spans: TextSpan[] | undefined, base: TextStyle, photoInside = false, gap = 0, cap?: CapLook) {
   el.replaceChildren()
   let into: HTMLElement = el
   const paragraph = () => {
@@ -296,7 +348,8 @@ function paint(el: HTMLElement, text: string, spans: TextSpan[] | undefined, bas
     into = block
   }
   if (gap > 0) paragraph()
-  for (const piece of styledPieces(spans, base, 0, text.length)) {
+  if (cap) into.appendChild(capNode(cap, base, photoInside))
+  for (const piece of styledPieces(spans, base, cap ? cap.cap.end : 0, text.length)) {
     const whole = text.slice(piece.start, piece.end)
     // Cut at each line break (kept with the paragraph it ends) when paragraphs have blocks.
     const parts = gap > 0 ? (whole.match(/[^\n]*\n|[^\n]+/g) ?? []) : [whole]

@@ -484,7 +484,7 @@ function readFlow(value: unknown): TextFlow {
 
 function readTextStyle(value: unknown): TextStyle {
   if (!isRecord(value)) damaged()
-  const { font, size, weight, italic, color, align, direction, letterSpacing, lineHeight, paragraphSpace, gradient, list, bend, underline, strike } = value
+  const { font, size, weight, italic, color, align, direction, letterSpacing, lineHeight, paragraphSpace, dropCap, gradient, list, bend, underline, strike } = value
   if (typeof font !== 'string' || font.length === 0 || font.length > 100) damaged()
   if (!isBetween(size, 0.1, 100000) || !isBetween(weight, 1, 1000) || typeof italic !== 'boolean') damaged()
   if (!TEXT_ALIGNS.includes(align as TextAlign) || !TEXT_DIRECTIONS.includes(direction as TextDirection)) damaged()
@@ -492,6 +492,7 @@ function readTextStyle(value: unknown): TextStyle {
   if (list !== undefined && list !== null && !LIST_KINDS.includes(list as ListKind)) damaged()
   if (bend !== undefined && !isBetween(bend, -1, 1)) damaged()
   if (paragraphSpace !== undefined && !isBetween(paragraphSpace, 0, 10)) damaged()
+  if (dropCap !== undefined && !isBetween(dropCap, 0, 10)) damaged()
   if ((underline !== undefined && typeof underline !== 'boolean') || (strike !== undefined && typeof strike !== 'boolean')) damaged()
   return {
     font,
@@ -504,6 +505,7 @@ function readTextStyle(value: unknown): TextStyle {
     letterSpacing,
     lineHeight,
     ...(paragraphSpace ? { paragraphSpace: paragraphSpace as number } : {}),
+    ...(dropCap ? { dropCap: dropCap as number } : {}),
     ...(gradient === undefined || gradient === null ? {} : { gradient: readGradient(gradient) }),
     ...(list ? { list: list as ListKind } : {}),
     ...(bend ? { bend: bend as number } : {}),

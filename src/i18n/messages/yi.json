@@ -2464,7 +2464,19 @@
  "Click the words (or double-click them with Arrange). Pull a corner to make them bigger or smaller, a side to make the lines longer or shorter, and drag the edge of the box to move them.": "קליקט אויף די ווערטער (אדער טאפל-קליקט מיט ארדענען). ציט א ווינקל זיי צו מאכן גרעסער אדער קלענער, א זייט צו מאכן די שורות לענגער אדער קירצער, און שלעפט דעם ראנד פון קעסטל זיי צו רירן.",
  "Space between paragraphs": "אפשטאנד צווישן פאראגראפן",
  "Extra room after each paragraph, so they stand apart without empty lines.": "מער פלאץ נאך יעדן פאראגראף, אז זיי זאלן שטיין באזונדער אן ליידיקע שורות.",
- "Shows the spacing between letters, lines and paragraphs, and the reading direction.": "ווייזט דעם אפשטאנד צווישן אותיות, שורות און פאראגראפן, און די ליין-ריכטונג.",
  "Change the space between letters, lines or paragraphs": "טוישן דעם אפשטאנד צווישן אותיות, שורות אדער פאראגראפן",
- "Click the text, then press More in the Text panel. Letter spacing, Line spacing and Space between paragraphs are there.": "קליקט אויפן טעקסט, און דערנאך דריקט מער אינעם טעקסט פאנעל. אפשטאנד צווישן אותיות, אפשטאנד צווישן שורות און אפשטאנד צווישן פאראגראפן זענען דארט."
+ "Click the text, then press More in the Text panel. Letter spacing, Line spacing and Space between paragraphs are there.": "קליקט אויפן טעקסט, און דערנאך דריקט מער אינעם טעקסט פאנעל. אפשטאנד צווישן אותיות, אפשטאנד צווישן שורות און אפשטאנד צווישן פאראגראפן זענען דארט.",
+ "2 lines tall": "2 שורות הויך",
+ "3 lines tall": "3 שורות הויך",
+ "4 lines tall": "4 שורות הויך",
+ "Big first letter": "גרויסער ערשטער אות",
+ "Click the text, press More in the Text panel, and choose how many lines tall under Big first letter. The words wrap beside it.": "קליקט אויפן טעקסט, דריקט מער אינעם טעקסט פאנעל, און קלייבט אויס וויפיל שורות הויך אונטער גרויסער ערשטער אות. די ווערטער גייען ארום דערנעבן.",
+ "Makes the first letter big, as tall as a few lines, with the words wrapping beside it, like the start of a story in a book.": "מאכט דעם ערשטן אות גרויס, אזוי הויך ווי עטליכע שורות, מיט די ווערטער דערנעבן, ווי דער אנהייב פון א מעשה אין א ספר.",
+ "No big letter": "קיין גרויסער אות",
+ "Shows the spacing between letters, lines and paragraphs, a big first letter, and the reading direction.": "ווייזט דעם אפשטאנד צווישן אותיות, שורות און פאראגראפן, א גרויסן ערשטן אות, און די ריכטונג פון לייענען.",
+ "Start a story with a big first letter": "אנהייבן א מעשה מיט א גרויסן ערשטן אות",
+ "The first letter is as tall as 2 lines, with the words beside it.": "דער ערשטער אות איז אזוי הויך ווי 2 שורות, מיט די ווערטער דערנעבן.",
+ "The first letter is as tall as 3 lines, with the words beside it.": "דער ערשטער אות איז אזוי הויך ווי 3 שורות, מיט די ווערטער דערנעבן.",
+ "The first letter is as tall as 4 lines, with the words beside it.": "דער ערשטער אות איז אזוי הויך ווי 4 שורות, מיט די ווערטער דערנעבן.",
+ "The first letter is the same size as the others.": "דער ערשטער אות איז די זעלבע גרייס ווי די אנדערע."
 }
