@@ -1,6 +1,6 @@
 import { brushShapes, removeBrushShape, shapePreset, subscribeBrushShapes } from '../editor/brushShapes.ts'
 import type { PushMode, PushSettings } from '../editor/push.ts'
-import { Aperture, Layers, X, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Contrast, Copy, Crosshair, Eye, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, Footprints, MapPin, Brush, Focus } from 'lucide-react'
+import { Aperture, Layers, X, ImageUpscale, Ruler, VectorSquare, ScanText, Spline, CornerDownLeft, Undo2, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalSpaceBetween, AlignStartHorizontal, AlignStartVertical, AlignVerticalSpaceBetween, BringToFront, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Contrast, Copy, Crosshair, Columns2, FlipHorizontal2, FlipVertical2, Group, Lasso, LayoutGrid, Link, LockOpen, Minus, Pentagon, Plus, RectangleHorizontal, RectangleVertical, RotateCcw, RotateCw, Scan, SendToBack, Square, SquareDashed, SquareMinus, SquarePlus, SquareSlash, Star, Trash2, ImageDown, WrapText, CircleOff, BetweenHorizontalStart, Shapes, Ungroup, Unlink, WandSparkles, Eraser, Sparkles, SquaresExclude, SquaresIntersect, SquaresSubtract, SquaresUnite, Table2, type LucideIcon, Droplet, Blend, MapPin, Brush, Focus } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -467,7 +467,7 @@ function ColorSelectOptions({ controls, painting }: { controls: ColorSelectContr
       />
       {!painting && <OnOff
         on={controls.touching}
-        icon={Footprints}
+        icon={Link}
         label={t('Only touching')}
         description={t('When on, only the part connected to where you click is selected. When off, that color is selected everywhere on the design. Professionals call this Contiguous.')}
         onChange={controls.onTouchingChange}
@@ -1614,7 +1614,7 @@ function AdjustOptions({ controls }: { controls: AdjustControls }) {
           onLostPointerCapture={stopComparing}
           className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:hover:bg-transparent aria-pressed:bg-accent-soft aria-pressed:text-accent"
         >
-          <Eye size={15} />
+          <Columns2 size={15} />
           {t('Hold to compare')}
         </button>
       </Tooltip>

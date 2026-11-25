@@ -151,3 +151,36 @@ input[type='range'] {
 *::-webkit-scrollbar-button {
   display: none;
 }
+
+/* Guided tours: the spotlight breathes, the card slides up, the guide dot pulses while it talks,
+   and little shapes burst out where the spotlight lands. Nothing moves when the system asks for
+   less motion. */
+@keyframes tour-burst {
+  0% { transform: translate(0, 0) scale(0.4) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(200deg); opacity: 0; }
+}
+@keyframes tour-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(51 102 255 / 0.45); }
+  50% { box-shadow: 0 0 0 10px rgb(51 102 255 / 0); }
+}
+@keyframes tour-card {
+  from { transform: translateY(14px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes tour-orb {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+@keyframes tour-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.tour-burst { animation: tour-burst 700ms cubic-bezier(.15,.7,.3,1) forwards; }
+.tour-glow { animation: tour-glow 1.6s ease-in-out infinite; }
+.tour-card { animation: tour-card 320ms cubic-bezier(.2,.8,.2,1); }
+.tour-orb { animation: tour-orb 0.9s ease-in-out infinite; }
+.tour-pop { animation: tour-pop 380ms cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .tour-burst, .tour-glow, .tour-card, .tour-orb, .tour-pop { animation: none; }
+}

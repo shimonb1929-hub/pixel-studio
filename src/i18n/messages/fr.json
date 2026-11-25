@@ -2478,5 +2478,21 @@
  "The first letter is as tall as 2 lines, with the words beside it.": "La première lettre est haute de 2 lignes, avec les mots à côté.",
  "The first letter is as tall as 3 lines, with the words beside it.": "La première lettre est haute de 3 lignes, avec les mots à côté.",
  "The first letter is as tall as 4 lines, with the words beside it.": "La première lettre est haute de 4 lignes, avec les mots à côté.",
- "The first letter is the same size as the others.": "La première lettre a la même taille que les autres."
+ "The first letter is the same size as the others.": "La première lettre a la même taille que les autres.",
+ "Back": "Retour",
+ "Close tour": "Fermer la visite",
+ "End the tour and start making.": "Terminez la visite et commencez à créer.",
+ "Go on with the tour.": "Continuer la visite.",
+ "Hear the step before this one again.": "Réécouter l’étape précédente.",
+ "Next": "Suivant",
+ "Pause": "Pause",
+ "Play": "Lecture",
+ "Skip ahead to the next step.": "Passer à l’étape suivante.",
+ "Sound off": "Son coupé",
+ "Sound on": "Son activé",
+ "Space": "Espace",
+ "Step {n} of {total}": "Étape {n} sur {total}",
+ "Stop here for a moment, to look or try it yourself.": "Faites une pause pour regarder ou essayer vous-même.",
+ "Stop the tour. Everything it made stays on your design.": "Arrêter la visite. Tout ce qu’elle a créé reste sur votre création.",
+ "Turn the voice and the little sounds on or off. The words stay on the screen.": "Activer ou couper la voix et les petits sons. Les mots restent à l’écran."
 }

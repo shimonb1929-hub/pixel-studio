@@ -1,4 +1,4 @@
-import { Eclipse, Eye, RotateCcw } from 'lucide-react'
+import { Eclipse, RotateCcw, Sparkles } from 'lucide-react'
 import { sizeToSlider, sliderToSize } from '../editor/brushes.ts'
 import { FADES, type FadeSide, type HideBrush, type HideMode } from '../editor/hide.ts'
 import { Tooltip } from './Tooltip.tsx'
@@ -9,7 +9,7 @@ import { t } from '../i18n/i18n.ts'
 export function FadeBar({ brush, mode, onBrush, onMode }: { brush: HideBrush; mode: HideMode; onBrush: (brush: HideBrush) => void; onMode: (mode: HideMode) => void }) {
   const choices = [
     { mode: 'hide' as const, label: t('Fade away'), icon: Eclipse, description: t('Brushing hides the part you brush over, softly, so what is behind shows through.') },
-    { mode: 'show' as const, label: t('Bring back'), icon: Eye, description: t('Brushing shows faded parts again, just as they were.') },
+    { mode: 'show' as const, label: t('Bring back'), icon: Sparkles, description: t('Brushing shows faded parts again, just as they were.') },
   ]
   return (
     <>

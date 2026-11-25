@@ -96,6 +96,7 @@ export function ToolDock({ tool, onToolChange, onAddPhoto }: ToolDockProps) {
               type="button"
               aria-label={t('{tool} tool', { tool: name })}
               aria-pressed={tool === id}
+              data-tour={`tool-${id}`}
               onClick={() => onToolChange(id)}
               className={`${BUTTON} ${tool === id ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-subtle hover:text-ink'}`}
             >
@@ -114,6 +115,7 @@ export function ToolDock({ tool, onToolChange, onAddPhoto }: ToolDockProps) {
               <button
                 type="button"
                 aria-label={t('Add a photo')}
+                data-tour="add-photo"
                 onClick={onAddPhoto}
                 className={`${BUTTON} text-ink-2 hover:bg-subtle hover:text-ink`}
               >
@@ -137,6 +139,7 @@ export function ToolDock({ tool, onToolChange, onAddPhoto }: ToolDockProps) {
           type="button"
           aria-label={showAll ? t('Fewer tools') : t('More tools')}
           aria-expanded={showAll}
+          data-tour="more-tools"
           onClick={() => setShowAll(!showAll)}
           className={`${BUTTON} text-ink-3 hover:bg-subtle hover:text-ink ${layout === 'captions' || layout === 'column' ? 'md:mt-1' : ''}`}
         >

@@ -74,6 +74,23 @@ describe('no pictures on the site itself', () => {
     expect(found).toEqual([])
   })
 
+  // Icons are drawings too: none of them may show people or parts of people (hands, eyes, faces,
+  // footprints). Lucide icons are named after what they show, so their names are enough to check.
+  it('no icon shows a person or a part of one', () => {
+    const PEOPLE = /^(Hand\w*|Grab|Pointer\w*|Eye\w*|ScanEye|ScanFace|Ear\w*|Footprints|Fingerprint\w*|Smile\w*|Frown|Meh|Laugh|Angry|Annoyed|User\w*|Users\w*|Contact\w*|Person\w*|Baby|Accessibility|PersonStanding|Brain\w*|Bone|Skull|ThumbsUp|ThumbsDown|HeartHandshake|Handshake|Speech|Glasses|Shirt|Footprint\w*|BicepsFlexed|Drama|Ghost|Venetian\w*|Hand)$/
+    const found: string[] = []
+    for (const name of APP) {
+      const text = readFileSync(join(ROOT, name), 'utf8')
+      for (const match of text.matchAll(/import\s*\{([^}]*)\}\s*from\s*'lucide-react'/g)) {
+        for (const part of match[1].split(',')) {
+          const icon = part.replace(/\btype\b/, '').split(/\s+as\s+/)[0].trim()
+          if (icon && PEOPLE.test(icon)) found.push(`${name}: ${icon}`)
+        }
+      }
+    }
+    expect(found).toEqual([])
+  })
+
   it('the install description only names the app icons', () => {
     const manifest = JSON.parse(readFileSync(join(ROOT, 'public/manifest.webmanifest'), 'utf8')) as {
       icons?: { src: string }[]

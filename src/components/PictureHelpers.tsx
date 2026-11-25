@@ -1,4 +1,4 @@
-import { Eye } from 'lucide-react'
+import { Columns2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { readWords, type OcrProgress } from '../ai/ocr.ts'
 import { OCR_ENGINE_BYTES, OCR_LANGUAGE_BYTES, type OcrLanguage } from '../ai/ocrFiles.ts'
@@ -153,7 +153,7 @@ function UpscalePreview({ source, factor, ai }: { source: HTMLCanvasElement; fac
         />
       </Tooltip>
       <p className="flex items-center justify-center gap-1.5 text-xs text-ink-2">
-        <Eye size={14} aria-hidden />
+        <Columns2 size={14} aria-hidden />
         {comparing ? t('Before: the photo as it is now, enlarged.') : ai && !aiReady ? t('The AI is working on this spot…') : t('After: press and hold the picture to compare.')}
       </p>
     </div>

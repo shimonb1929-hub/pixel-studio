@@ -2478,5 +2478,21 @@
  "The first letter is as tall as 2 lines, with the words beside it.": "האות הראשונה בגובה 2 שורות, והמילים לידה.",
  "The first letter is as tall as 3 lines, with the words beside it.": "האות הראשונה בגובה 3 שורות, והמילים לידה.",
  "The first letter is as tall as 4 lines, with the words beside it.": "האות הראשונה בגובה 4 שורות, והמילים לידה.",
- "The first letter is the same size as the others.": "האות הראשונה באותו גודל כמו השאר."
+ "The first letter is the same size as the others.": "האות הראשונה באותו גודל כמו השאר.",
+ "Back": "אחורה",
+ "Close tour": "סגירת הסיור",
+ "End the tour and start making.": "לסיים את הסיור ולהתחיל ליצור.",
+ "Go on with the tour.": "להמשיך בסיור.",
+ "Hear the step before this one again.": "לשמוע שוב את השלב הקודם.",
+ "Next": "הבא",
+ "Pause": "השהיה",
+ "Play": "המשך",
+ "Skip ahead to the next step.": "לדלג לשלב הבא.",
+ "Sound off": "הקול כבוי",
+ "Sound on": "הקול פועל",
+ "Space": "רווח",
+ "Step {n} of {total}": "שלב {n} מתוך {total}",
+ "Stop here for a moment, to look or try it yourself.": "לעצור לרגע, כדי להסתכל או לנסות בעצמך.",
+ "Stop the tour. Everything it made stays on your design.": "לעצור את הסיור. כל מה שנוצר בו נשאר בעיצוב שלך.",
+ "Turn the voice and the little sounds on or off. The words stay on the screen.": "להפעיל או לכבות את הקול ואת הצלילים הקטנים. המילים נשארות על המסך."
 }

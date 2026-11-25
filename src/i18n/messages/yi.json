@@ -2478,5 +2478,21 @@
  "The first letter is as tall as 2 lines, with the words beside it.": "דער ערשטער אות איז אזוי הויך ווי 2 שורות, מיט די ווערטער דערנעבן.",
  "The first letter is as tall as 3 lines, with the words beside it.": "דער ערשטער אות איז אזוי הויך ווי 3 שורות, מיט די ווערטער דערנעבן.",
  "The first letter is as tall as 4 lines, with the words beside it.": "דער ערשטער אות איז אזוי הויך ווי 4 שורות, מיט די ווערטער דערנעבן.",
- "The first letter is the same size as the others.": "דער ערשטער אות איז די זעלבע גרייס ווי די אנדערע."
+ "The first letter is the same size as the others.": "דער ערשטער אות איז די זעלבע גרייס ווי די אנדערע.",
+ "Back": "צוריק",
+ "Close tour": "פֿאַרמאַכן דעם טור",
+ "End the tour and start making.": "ענדיקן דעם טור און אָנהייבן מאַכן.",
+ "Go on with the tour.": "גיין ווייטער מיטן טור.",
+ "Hear the step before this one again.": "הערן נאָכאַמאָל דעם טריט פֿון פֿריער.",
+ "Next": "ווייטער",
+ "Pause": "אָפּשטעלן",
+ "Play": "ווייטער שפּילן",
+ "Skip ahead to the next step.": "שפּרינגען צום קומענדיקן טריט.",
+ "Sound off": "קול אויסגעלאָשן",
+ "Sound on": "קול אָנגעצונדן",
+ "Space": "צווישנראַום",
+ "Step {n} of {total}": "טריט {n} פֿון {total}",
+ "Stop here for a moment, to look or try it yourself.": "אָפּשטעלן אויף אַ רגע, צו קוקן אָדער אַליין פּרוּוון.",
+ "Stop the tour. Everything it made stays on your design.": "אָפּשטעלן דעם טור. אַלץ וואָס ער האָט געמאַכט בלייבט אויף דיין דיזיין.",
+ "Turn the voice and the little sounds on or off. The words stay on the screen.": "אָנצינדן אָדער אויסלעשן דאָס קול און די קליינע קלאַנגען. די ווערטער בלייבן אויפֿן עקראַן."
 }
