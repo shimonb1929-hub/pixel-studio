@@ -1,4 +1,4 @@
-import { Bandage, Brush, Waves, Stamp, Crop, Eclipse, Eraser, Hand, MousePointer2, PaintBucket, Spline, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
+import { Bandage, Brush, Waves, Stamp, Crop, Eclipse, Eraser, Move, MousePointer2, PaintBucket, Spline, Pipette, Shapes, SlidersHorizontal, SquareDashed, Type, ZoomIn, type LucideIcon } from 'lucide-react'
 import type { ToolId } from './editor/types.ts'
 import { t } from './i18n/i18n.ts'
 import { ALT_LABEL, MOD_LABEL } from './keys.ts'
@@ -431,7 +431,7 @@ export const TOOLS: ToolInfo[] = [
       return t('Hand')
     },
     key: 'H',
-    icon: Hand,
+    icon: Move,
     get description() {
       return t('Slide your design around to see a different part of it. It never changes your design. Tip: hold Space to use the Hand at any time.')
     },

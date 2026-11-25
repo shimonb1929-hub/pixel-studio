@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, CircleHelp, Copy, Eclipse, Eye, EyeOff, Files, GripVertical, Grid2x2, Link2, Lock, LockOpen, Merge, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, CircleHelp, Copy, Eclipse, Files, GripVertical, Grid2x2, Lightbulb, LightbulbOff, Link2, Lock, LockOpen, Merge, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { adjustmentName, isNeutral } from '../editor/adjust.ts'
 import { drawLayer } from '../editor/compose.ts'
@@ -476,7 +476,7 @@ export function LayersPanel(props: LayersPanelProps) {
                       onClick={() => props.onToggleGroupVisibility(group.id)}
                       className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-surface hover:text-ink ${visible ? 'text-ink-3' : 'text-ink'}`}
                     >
-                      {visible ? <Eye size={16} /> : <EyeOff size={16} />}
+                      {visible ? <Lightbulb size={16} /> : <LightbulbOff size={16} />}
                     </button>
                   </Tooltip>
                   <RowDelete
@@ -628,7 +628,7 @@ export function LayersPanel(props: LayersPanelProps) {
                       layer.visible ? 'text-ink-3' : 'text-ink'
                     }`}
                   >
-                    {layer.visible ? <Eye size={16} /> : <EyeOff size={16} />}
+                    {layer.visible ? <Lightbulb size={16} /> : <LightbulbOff size={16} />}
                   </button>
                 </Tooltip>
                 <RowDelete
