@@ -37,6 +37,8 @@ import { OPEN_YOUR_PANELS, PanelButtons, SidePanels, type OpenPanel } from './co
 import { PHONE_SCREEN, useMediaQuery, WIDE_SCREEN } from './hooks/useMediaQuery.ts'
 import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
+import { TourPlayer } from './tour/TourPlayer.tsx'
+import type { Tour, TourHost } from './tour/tour.ts'
 import { InstallDialog } from './components/InstallDialog.tsx'
 import { VersionsDialog } from './components/VersionsDialog.tsx'
 import { Rulers } from './components/Rulers.tsx'
@@ -454,6 +456,8 @@ export default function App() {
     }
   }, [])
   const [dialog, setDialog] = useState<DialogId | null>(null)
+  // The guided tour playing now, if any.
+  const [tour, setTour] = useState<Tour | null>(null)
   // Wide screens keep the panels beside the design; narrower ones open one over it when asked.
   const wide = useMediaQuery(WIDE_SCREEN)
   const phone = useMediaQuery(PHONE_SCREEN)
@@ -2035,6 +2039,39 @@ export default function App() {
     } catch (e) {
       problem(errorMessage(e))
     }
+  }
+
+  // Starts a guided tour; tours that show things on a design get a new, empty one first.
+  function startTour(next: Tour) {
+    setDialog(null)
+    if (!next.design) {
+      setTour(next)
+      return
+    }
+    try {
+      const blank = createBlankDocument(next.design.name, next.design.width, next.design.height, 'white')
+      void leaveDesign(() => {
+        setTool('move')
+        showDocument(blank)
+        setTour(next)
+      })
+    } catch (e) {
+      problem(errorMessage(e))
+    }
+  }
+
+  // Tests start tours from here until each tour has its own button.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const w = window as unknown as { pixelStudioTour?: (tour: Tour) => void }
+    w.pixelStudioTour = startTour
+  })
+
+  const tourHost: TourHost = {
+    pickTool: setTool,
+    getDoc: editor.getDoc,
+    change: (label, update, mergeKey) => editor.change(label, update, mergeKey ? { mergeKey, mergeAlways: true } : undefined),
+    select: editor.select,
   }
 
   // Names already used by designs kept in this browser, so a new one never looks like an old one.
@@ -4417,6 +4454,7 @@ export default function App() {
           onClose={() => setDialog(null)}
         />
       )}
+      {tour && <TourPlayer tour={tour} host={tourHost} onClose={() => setTour(null)} />}
       {dialog === 'help' && <HelpGuide actions={actions} hasDocument={!!doc} onPickTool={setTool} onClose={() => setDialog(null)} />}
       {dialog === 'find' && doc && (
         <FindDialog

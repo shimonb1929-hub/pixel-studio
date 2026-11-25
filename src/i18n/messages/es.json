@@ -2502,5 +2502,21 @@
  "Make words all capitals or small letters": "Poner palabras en mayúsculas o minúsculas",
  "Click the text, press More in the Text panel, and pick one under Change letters: ABC for all capitals, abc for small letters, or a capital at the start of each word or sentence.": "Haz clic en el texto, pulsa Más en el panel de Texto y elige una opción en Cambiar letras: ABC para todo en mayúsculas, abc para minúsculas, o mayúscula al principio de cada palabra o frase.",
  "Add my own lines to line things up with": "Añadir mis propias líneas para alinear cosas",
- "Menu › Show the rulers, then drag from the top ruler or the left ruler onto your design. Things click onto the line as you move them. With Arrange, drag a line to move it, or back onto its ruler to take it away. Guide lines are never printed or downloaded.": "Menú › Mostrar las reglas, y arrastra desde la regla de arriba o la de la izquierda hasta tu diseño. Las cosas se ajustan a la línea al moverlas. Con Organizar, arrastra una línea para moverla, o de vuelta a su regla para quitarla. Las guías nunca se imprimen ni se descargan."
+ "Menu › Show the rulers, then drag from the top ruler or the left ruler onto your design. Things click onto the line as you move them. With Arrange, drag a line to move it, or back onto its ruler to take it away. Guide lines are never printed or downloaded.": "Menú › Mostrar las reglas, y arrastra desde la regla de arriba o la de la izquierda hasta tu diseño. Las cosas se ajustan a la línea al moverlas. Con Organizar, arrastra una línea para moverla, o de vuelta a su regla para quitarla. Las guías nunca se imprimen ni se descargan.",
+ "Back": "Atrás",
+ "Close tour": "Cerrar el recorrido",
+ "End the tour and start making.": "Termina el recorrido y empieza a crear.",
+ "Go on with the tour.": "Sigue con el recorrido.",
+ "Hear the step before this one again.": "Vuelve a escuchar el paso anterior.",
+ "Next": "Siguiente",
+ "Pause": "Pausa",
+ "Play": "Reproducir",
+ "Skip ahead to the next step.": "Salta al siguiente paso.",
+ "Sound off": "Sonido apagado",
+ "Sound on": "Sonido activado",
+ "Space": "Espacio",
+ "Step {n} of {total}": "Paso {n} de {total}",
+ "Stop here for a moment, to look or try it yourself.": "Detente un momento para mirar o probarlo tú.",
+ "Stop the tour. Everything it made stays on your design.": "Detén el recorrido. Todo lo que hizo se queda en tu diseño.",
+ "Turn the voice and the little sounds on or off. The words stay on the screen.": "Activa o apaga la voz y los sonidos. Las palabras siguen en pantalla."
 }

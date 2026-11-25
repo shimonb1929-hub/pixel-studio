@@ -2502,5 +2502,21 @@
  "Make words all capitals or small letters": "שרייבן ווערטער מיט גרויסע אדער קליינע אותיות",
  "Click the text, press More in the Text panel, and pick one under Change letters: ABC for all capitals, abc for small letters, or a capital at the start of each word or sentence.": "קליקט אויפן טעקסט, דריקט מער אינעם טעקסט־פאנעל, און קלייבט איינס אונטער טוישן אותיות: ABC פאר גרויסע אותיות, abc פאר קליינע, אדער א גרויסער אות אין אנהייב פון יעדן ווארט אדער זאץ.",
  "Add my own lines to line things up with": "צולייגן מיינע אייגענע ליניעס אויסצושטעלן זאכן",
- "Menu › Show the rulers, then drag from the top ruler or the left ruler onto your design. Things click onto the line as you move them. With Arrange, drag a line to move it, or back onto its ruler to take it away. Guide lines are never printed or downloaded.": "מעניו › ווײַזן די ווירעס, דערנאך שלעפט פון דער אויבערשטער אדער לינקער ווירע אויף אייער דיזיין. זאכן קלעפן זיך צו דער ליניע ווען מען רירט זיי. מיט ארדענען, שלעפט א ליניע זי צו רירן, אדער צוריק אויף איר ווירע זי אוועקצונעמען. הילף־ליניעס ווערן קיינמאל נישט געדרוקט אדער אראפגעלאדן."
+ "Menu › Show the rulers, then drag from the top ruler or the left ruler onto your design. Things click onto the line as you move them. With Arrange, drag a line to move it, or back onto its ruler to take it away. Guide lines are never printed or downloaded.": "מעניו › ווײַזן די ווירעס, דערנאך שלעפט פון דער אויבערשטער אדער לינקער ווירע אויף אייער דיזיין. זאכן קלעפן זיך צו דער ליניע ווען מען רירט זיי. מיט ארדענען, שלעפט א ליניע זי צו רירן, אדער צוריק אויף איר ווירע זי אוועקצונעמען. הילף־ליניעס ווערן קיינמאל נישט געדרוקט אדער אראפגעלאדן.",
+ "Back": "צוריק",
+ "Close tour": "פֿאַרמאַכן דעם טור",
+ "End the tour and start making.": "ענדיקן דעם טור און אָנהייבן מאַכן.",
+ "Go on with the tour.": "גיין ווייטער מיטן טור.",
+ "Hear the step before this one again.": "הערן נאָכאַמאָל דעם טריט פֿון פֿריער.",
+ "Next": "ווייטער",
+ "Pause": "אָפּשטעלן",
+ "Play": "ווייטער שפּילן",
+ "Skip ahead to the next step.": "שפּרינגען צום קומענדיקן טריט.",
+ "Sound off": "קול אויסגעלאָשן",
+ "Sound on": "קול אָנגעצונדן",
+ "Space": "צווישנראַום",
+ "Step {n} of {total}": "טריט {n} פֿון {total}",
+ "Stop here for a moment, to look or try it yourself.": "אָפּשטעלן אויף אַ רגע, צו קוקן אָדער אַליין פּרוּוון.",
+ "Stop the tour. Everything it made stays on your design.": "אָפּשטעלן דעם טור. אַלץ וואָס ער האָט געמאַכט בלייבט אויף דיין דיזיין.",
+ "Turn the voice and the little sounds on or off. The words stay on the screen.": "אָנצינדן אָדער אויסלעשן דאָס קול און די קליינע קלאַנגען. די ווערטער בלייבן אויפֿן עקראַן."
 }

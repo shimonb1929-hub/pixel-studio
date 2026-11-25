@@ -1,4 +1,4 @@
-import { Contrast, Palette } from 'lucide-react'
+import { CircleAlert, Palette } from 'lucide-react'
 import { useEffect } from 'react'
 import type { PaletteColor } from '../editor/palette.ts'
 import type { Readability, ReadableFix } from '../editor/readable.ts'
@@ -66,7 +66,7 @@ export function ReadableNote({ check, fixes, onFix, onHover }: { check: Readabil
         })}
       >
         <p className="flex cursor-help items-center gap-1.5 text-[12px] font-medium text-ink">
-          <Contrast size={13} className="shrink-0 text-ink-3" aria-hidden />
+          <CircleAlert size={13} className="shrink-0 text-ink-3" aria-hidden />
           {t('Hard to read here')}
         </p>
       </Tooltip>
