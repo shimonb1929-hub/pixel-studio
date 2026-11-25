@@ -358,7 +358,7 @@ export function AdjustPanel({ settings, thumbnails, histogram, blocked, onChange
                 {group.keys.map(slider)}
                 {group.id === 'light' && (
                   <>
-                    <More open={isOpen('light')} onToggle={() => toggle('light')} label={t('Whites and blacks')}>
+                    <More open={isOpen('light')} onToggle={() => toggle('light')} label={t('Whites and blacks')} help={t('Show two more sliders: how bright the very brightest parts are, and how dark the very darkest parts are.')}>
                       {group.more.map(slider)}
                     </More>
                     <More
@@ -373,7 +373,7 @@ export function AdjustPanel({ settings, thumbnails, histogram, blocked, onChange
                 )}
                 {group.id === 'color' && (
                   <>
-                    <More open={isOpen('color')} onToggle={() => toggle('color')} label={t('Gentle boost and green or pink')}>
+                    <More open={isOpen('color')} onToggle={() => toggle('color')} label={t('Gentle boost and green or pink')} help={t('Show two more sliders: one that makes dull colors richer without overdoing strong ones, and one that leans colors toward green or pink.')}>
                       {group.more.map(slider)}
                     </More>
                     <More
