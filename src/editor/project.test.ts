@@ -101,6 +101,13 @@ describe('project files', () => {
     expect(() => validateManifest({ ...original, layers: [words({ style: { ...(list as { style: object }).style, list: 'stars' } as never })] })).toThrow(ProjectError)
   })
 
+  it('keeps guide lines and refuses ones that cannot be right', () => {
+    expect(validateManifest(manifest({ guides: { x: [10, 200], y: [-5] } })).guides).toEqual({ x: [10, 200], y: [-5] })
+    expect(() => validateManifest(manifest({ guides: { x: ['10'], y: [] } } as never))).toThrow(ProjectError)
+    expect(() => validateManifest(manifest({ guides: { x: [Infinity], y: [] } }))).toThrow(ProjectError)
+    expect(() => validateManifest(manifest({ guides: { x: [] } } as never))).toThrow(ProjectError)
+  })
+
   it('keeps names in any language', async () => {
     const { manifest: read } = await unpackProject(packProject(manifest({ name: 'כרטיס ברכה ✓' }), IMAGES()))
     expect(read.name).toBe('כרטיס ברכה ✓')

@@ -16,7 +16,7 @@ import { settleText } from '../text/wrapAround.ts'
 const strokeRect = (result: StrokeResult): Rect => ({ x: result.x, y: result.y, width: result.after.width, height: result.after.height })
 
 // Everything about a design except its pixels, which change in place and are kept separately.
-type DocState = Pick<EditorDocument, 'width' | 'height' | 'background' | 'pageGradient' | 'layers' | 'activeLayerId' | 'selection' | 'pages' | 'pageIndex' | 'layout' | 'ppi' | 'colors' | 'textStyles'>
+type DocState = Pick<EditorDocument, 'width' | 'height' | 'background' | 'pageGradient' | 'layers' | 'activeLayerId' | 'selection' | 'pages' | 'pageIndex' | 'layout' | 'guides' | 'ppi' | 'colors' | 'textStyles'>
 
 // What one undo step remembers: pixels that changed on a layer, the design's structure, or a
 // few of those together (like growing a layer and then painting on it).
@@ -29,8 +29,8 @@ function mergeChanges(earlier: Change, later: Change): Change {
   return earlier.kind === 'structure' && later.kind === 'structure' ? { kind: 'structure', before: earlier.before, after: later.after } : later
 }
 
-function docState({ width, height, background, pageGradient, layers, activeLayerId, selection, pages, pageIndex, layout, ppi, colors, textStyles }: EditorDocument): DocState {
-  return { width, height, background, pageGradient, layers, activeLayerId, selection, pages, pageIndex, layout, ppi, colors, textStyles }
+function docState({ width, height, background, pageGradient, layers, activeLayerId, selection, pages, pageIndex, layout, guides, ppi, colors, textStyles }: EditorDocument): DocState {
+  return { width, height, background, pageGradient, layers, activeLayerId, selection, pages, pageIndex, layout, guides, ppi, colors, textStyles }
 }
 
 function regionBytes(region: HTMLCanvasElement): number {

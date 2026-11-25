@@ -16,6 +16,7 @@ import { TextStyles, type TextStylesProps } from './TextStyles.tsx'
 import { Tooltip } from './Tooltip.tsx'
 import { Slider } from './ui.tsx'
 import { live, msg, t } from '../i18n/i18n.ts'
+import type { LetterCase } from '../text/letterCase.ts'
 
 const MIN_SIZE = 4
 const MAX_SIZE = 2000
@@ -543,6 +544,14 @@ const DROP_CAPS: { value: string; label: string; shows: string; description: str
   { value: '4', label: msg('4 lines tall'), shows: '4', description: msg('The first letter is as tall as 4 lines, with the words beside it.') },
 ])
 
+// The four ways to change letters (pro: Change Case). The buttons show the letters as they become.
+const LETTER_CASE_CHOICES: { kind: LetterCase; label: string; shows: string; description: string }[] = live([
+  { kind: 'upper', label: msg('All capitals'), shows: 'ABC', description: msg('Every letter becomes a capital: HELLO THERE.') },
+  { kind: 'lower', label: msg('All small letters'), shows: 'abc', description: msg('Every letter becomes small: hello there.') },
+  { kind: 'title', label: msg('Each word capital'), shows: 'Ab Cd', description: msg('Each word starts with a capital: Hello There.') },
+  { kind: 'sentence', label: msg('First word capital'), shows: 'Ab cd.', description: msg('Only the first word of each sentence starts with a capital: Hello there.') },
+])
+
 type ListChoice = 'none' | ListKind
 
 // Letters show the alphabet the text is written in: א ב ג for Hebrew and Yiddish, a b c for English.
@@ -594,6 +603,9 @@ export interface TextPanelProps {
   onContinue?: () => void
   // Turns the letters into shapes. Missing while typing or with several things picked.
   onIntoShapes?: () => void
+  // Changes the letters to capitals or small letters. Missing while typing, or when the words have
+  // no capitals (Hebrew, Yiddish, numbers).
+  onLetterCase?: (kind: LetterCase) => void
   // The design's text styles.
   styles?: TextStylesProps | null
   // A note when the words are hard to read where they are, with fixes.
@@ -938,7 +950,7 @@ export function TextPanel(props: TextPanelProps) {
           )}
         </div>}
 
-        <Tooltip title={t('More')} description={t('Shows the spacing between letters, lines and paragraphs, a big first letter, and the reading direction.')} className="flex self-start">
+        <Tooltip title={t('More')} description={t('Shows capitals and small letters, the spacing between letters, lines and paragraphs, a big first letter, and the reading direction.')} className="flex self-start">
           <button
             type="button"
             aria-expanded={more}
@@ -951,6 +963,28 @@ export function TextPanel(props: TextPanelProps) {
         </Tooltip>
         {more && (
           <div className="flex flex-col gap-3 border-t border-line pt-3">
+            {props.onLetterCase && (
+              <div className="flex flex-col gap-1.5">
+                <Tooltip title={t('Change letters')} description={t('Changes the letters of the words to capitals or small letters. Words in Hebrew and Yiddish stay as they are.')} className="flex self-start">
+                  <span className="text-[12px] font-medium text-ink-2">{t('Change letters')}</span>
+                </Tooltip>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {LETTER_CASE_CHOICES.map((choice) => (
+                    <Tooltip key={choice.kind} title={choice.label} description={choice.description} className="flex min-w-0">
+                      <button
+                        type="button"
+                        aria-label={choice.label}
+                        onClick={() => props.onLetterCase?.(choice.kind)}
+                        className="flex h-8 w-full items-center justify-center whitespace-nowrap rounded-lg border border-line px-1 text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+                        dir="ltr"
+                      >
+                        {choice.shows}
+                      </button>
+                    </Tooltip>
+                  ))}
+                </div>
+              </div>
+            )}
             {!props.hasRtl && <ChoiceRow label={t("Reading direction")} value={style.direction} choices={DIRECTIONS} onChange={(direction) => props.onStyle({ direction, align: style.align === 'left' || style.align === 'right' ? 'auto' : style.align }, t('Reading direction'))} />}
             <Slider
               label={t("Letter spacing")}

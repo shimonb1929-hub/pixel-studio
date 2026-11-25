@@ -324,10 +324,18 @@ export interface EditorDocument {
   pageIndex?: number
   // Margins and columns: faint lines things line up with. Shared by every page; never printed.
   layout?: PageLayout
+  // Guide lines pulled out of the rulers: across lines at each `y`, up-and-down lines at each `x`,
+  // in design pixels. Things line up with them. Shared by every page; never printed.
+  guides?: Guides
   // The design's own colors, kept to use again anywhere in it. Shared by every page.
   colors?: string[]
   // The design's own text styles ("Title", "Details"): texts that use one change with it.
   textStyles?: SavedTextStyle[]
+}
+
+export interface Guides {
+  x: number[]
+  y: number[]
 }
 
 // A look for text kept under a name. `direction` is never taken from it.

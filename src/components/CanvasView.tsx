@@ -13,6 +13,7 @@ import { renderScene, type LayerOverride } from '../editor/render.ts'
 import { sampleColor } from '../editor/sample.ts'
 import { layoutFrames } from '../editor/pageLayout.ts'
 import { gridLines, gridPositions, gridStep } from '../editor/grid.ts'
+import { guideLines } from '../editor/guides.ts'
 import { documentPpi, formatInUnit, getUnit } from '../editor/units.ts'
 import { linedUp, snapLines, snapMove, type SnapResult } from '../editor/snap.ts'
 import {
@@ -1131,7 +1132,7 @@ export function CanvasView(props: CanvasViewProps) {
     const layer = activeLayer(doc)
     if (!layer) return null
     if (!layer.visible) {
-      props.onBlocked(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then move it again.', { name: layer.name }))
+      props.onBlocked(t('“{name}” is hidden. Click its light bulb in the Layers panel to show it, then move it again.', { name: layer.name }))
       return null
     }
     return layer
@@ -1198,10 +1199,10 @@ export function CanvasView(props: CanvasViewProps) {
     arrangeRef.current = { kind: 'marquee', pointerId: event.pointerId, start: point, current: point, startClient, moved: false, locked, adding: event.shiftKey }
   }
 
-  // The page, and the margins and columns on it, that things line up with.
+  // The page, and the margins, columns and guide lines on it, that things line up with.
   function snapPage(): Rect[] {
     const frames = layoutFrames(doc)
-    return [{ x: 0, y: 0, width: doc.width, height: doc.height }, ...(frames ? [frames.inside, ...frames.columns] : []), ...(props.grid ? gridLines(doc.width, doc.height) : [])]
+    return [{ x: 0, y: 0, width: doc.width, height: doc.height }, ...(frames ? [frames.inside, ...frames.columns] : []), ...(props.grid ? gridLines(doc.width, doc.height) : []), ...guideLines(doc.guides, doc.width, doc.height)]
   }
 
   // Where to put the pointer so a pulled handle lands on a line of the page or another thing, or
@@ -1411,7 +1412,7 @@ export function CanvasView(props: CanvasViewProps) {
     const layer = doc.layers.find((l) => l.id === source.layerId)
     if (layer?.kind !== 'raster') return
     if (!layer.visible) {
-      props.onBlocked(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then paint again.', { name: layer.name }))
+      props.onBlocked(t('“{name}” is hidden. Click its light bulb in the Layers panel to show it, then paint again.', { name: layer.name }))
       return
     }
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -1439,8 +1440,8 @@ export function CanvasView(props: CanvasViewProps) {
     if (layer && !layer.visible) {
       props.onBlocked(
         erasing
-          ? t('“{name}” is hidden. Click its eye in the Layers panel to show it, then erase again.', { name: layer.name })
-          : t('“{name}” is hidden. Click its eye in the Layers panel to show it, then paint again.', { name: layer.name }),
+          ? t('“{name}” is hidden. Click its light bulb in the Layers panel to show it, then erase again.', { name: layer.name })
+          : t('“{name}” is hidden. Click its light bulb in the Layers panel to show it, then paint again.', { name: layer.name }),
       )
       return
     }
@@ -1510,7 +1511,7 @@ export function CanvasView(props: CanvasViewProps) {
       return
     }
     if (!layer.visible) {
-      props.onBlocked(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then brush again.', { name: layer.name }))
+      props.onBlocked(t('“{name}” is hidden. Click its light bulb in the Layers panel to show it, then brush again.', { name: layer.name }))
       return
     }
     event.currentTarget.setPointerCapture(event.pointerId)

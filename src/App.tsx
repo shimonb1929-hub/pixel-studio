@@ -42,6 +42,9 @@ import type { Tour, TourHost } from './tour/tour.ts'
 import { InstallDialog } from './components/InstallDialog.tsx'
 import { VersionsDialog } from './components/VersionsDialog.tsx'
 import { Rulers } from './components/Rulers.tsx'
+import { GuideLines } from './components/GuideLines.tsx'
+import { changeCaseOf, hasCase, type LetterCase } from './text/letterCase.ts'
+import { hasGuides, withGuides } from './editor/guides.ts'
 import { QuickBar } from './components/QuickBar.tsx'
 import { setPointerSpot } from './hooks/usePointerSpot.ts'
 import { useRememberedChoice } from './hooks/useRememberedChoice.ts'
@@ -282,7 +285,7 @@ function tidyCropBox(box: TransformBox): TransformBox {
 
 // Why a layer can't be adjusted right now, in plain words, or null if it can.
 function adjustProblem(doc: EditorDocument, layer: Layer): string | null {
-  if (!layer.visible) return t('“{name}” is hidden. Click its eye in the Layers panel to show it, then adjust it.', { name: layer.name })
+  if (!layer.visible) return t('“{name}” is hidden. Click its light bulb in the Layers panel to show it, then adjust it.', { name: layer.name })
   if (layer.kind === 'raster' && isBlank(layerPixels(layer).canvas)) {
     return t('There is nothing on “{name}” to adjust yet. Pick another layer in the Layers panel, or paint something first.', { name: layer.name })
   }
@@ -1309,7 +1312,7 @@ export default function App() {
     const layer = current()?.layers.find((l) => l.id === layerId)
     if (layer?.kind !== 'text') return
     if (!layer.visible) {
-      problem(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then change it.', { name: layer.name }))
+      problem(t('“{name}” is hidden. Click its light bulb in the Layers panel to show it, then change it.', { name: layer.name }))
       return
     }
     pickOne(layerId)
@@ -1322,7 +1325,7 @@ export default function App() {
     const table = current()?.layers.find((l) => l.id === layerId)
     if (table?.kind !== 'table') return
     if (!table.visible) {
-      problem(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then change it.', { name: table.name }))
+      problem(t('“{name}” is hidden. Click its light bulb in the Layers panel to show it, then change it.', { name: table.name }))
       return
     }
     const cell = cellAt(table, point) ?? { row: 0, column: 0 }
@@ -2335,7 +2338,7 @@ export default function App() {
       return
     }
     if (layer && !layer.visible) {
-      problem(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then fill again.', { name: layer.name }))
+      problem(t('“{name}” is hidden. Click its light bulb in the Layers panel to show it, then fill again.', { name: layer.name }))
       return
     }
     const target = drawingTarget()
@@ -2387,7 +2390,7 @@ export default function App() {
       return null
     }
     if (!layer.visible) {
-      problem(t('“{name}” is hidden. Click its eye in the Layers panel to show it, then {doing} again.', { name: layer.name, doing }))
+      problem(t('“{name}” is hidden. Click its light bulb in the Layers panel to show it, then {doing} again.', { name: layer.name, doing }))
       return null
     }
     return layer
@@ -2878,6 +2881,7 @@ export default function App() {
     earlierVersions: () => setDialog('versions'),
     toggleGrid: () => setShowGrid(!showGrid),
     toggleRulers: () => setShowRulers(!showRulers),
+    clearGuides: () => editor.change(t('Remove all guide lines'), (d) => withGuides(d, { x: [], y: [] })),
     close: () =>
       void leaveDesign(() => {
         editor.close()
@@ -3674,7 +3678,7 @@ export default function App() {
         alongShape: alongPair(doc) ? wordsAlongShape : undefined,
       }
     }
-    if (!activeNow.visible) return { ...base, blocked: t('“{name}” is hidden. Click its eye in the Layers panel to show it.', { name: activeNow.name }) }
+    if (!activeNow.visible) return { ...base, blocked: t('“{name}” is hidden. Click its light bulb in the Layers panel to show it.', { name: activeNow.name }) }
     if (activeNow.locked) return { ...base, locked: true, blocked: t("“{name}” is locked, so it doesn't move by accident.", { name: activeNow.name }) }
     const objectBox = arrangeBox(activeNow)
     if (!objectBox) return { ...base, blocked: t('There is nothing on “{name}” yet. Paint something, or click something else on your design to pick it.', { name: activeNow.name }) }
@@ -3792,6 +3796,11 @@ export default function App() {
   const effectColorShown = effectTarget ? (effectsLayer?.effects?.[effectTarget]?.color ?? null) : null
   // With several things picked, the Shape and Text panels change all the shapes or texts among them.
   const pickedShapes = picked && doc ? doc.layers.filter((l) => picked.includes(l.id) && l.kind === 'shape').length : 0
+  // Capitals or small letters for the picked texts (pro: Change Case).
+  const changeLetterCase = (kind: LetterCase) => {
+    const ids = picked?.length ? picked : pickedText ? [pickedText.id] : []
+    editor.change(t('Change letters'), (d) => changeCaseOf(d, ids, kind))
+  }
   const pickedTexts = picked && doc ? doc.layers.filter((l) => picked.includes(l.id) && l.kind === 'text').length : 0
   // With several things picked, it colors every shape and text among them.
   const manyColored = picked && doc && !textEdit ? [...doc.layers].reverse().filter((l) => picked.includes(l.id) && (l.kind === 'shape' || l.kind === 'text')) : []
@@ -4078,6 +4087,17 @@ export default function App() {
                 <QuickBar around={quickAround} width={workspace.width} height={workspace.height} actions={actions} onMore={(x, y) => setContextMenu({ x, y, thing: true })} />
               )}
               {showRulers && <Rulers doc={doc} viewport={viewport} width={workspace.width} height={workspace.height} />}
+              {(showRulers || hasGuides(doc.guides)) && (
+                <GuideLines
+                  doc={doc}
+                  viewport={viewport}
+                  width={workspace.width}
+                  height={workspace.height}
+                  rulers={showRulers}
+                  canMove={tool === 'move' && !textEdit}
+                  onChange={(guides, label) => editor.change(label, (d) => withGuides(d, guides))}
+                />
+              )}
               {gradientHandles && <GradientHandles {...gradientHandles} viewport={viewport} />}
               {straightenPhoto.panel && <StraightenPanel state={straightenPhoto.panel} />}
               {repeat.panel && <RepeatPanel state={{ ...repeat.panel, apply: applyRepeat }} />}
@@ -4230,6 +4250,7 @@ export default function App() {
                     onGradientStop={setGradientStop}
                     flow={textTarget?.flow && doc ? { box: textTarget.flow.index + 1, boxes: storyBoxes(doc, textTarget).length } : null}
                     onIntoShapes={pickedText && pickedTexts <= 1 && canBeShapes(pickedText) && !tableTarget ? () => void wordsIntoShapes() : undefined}
+                    onLetterCase={pickedText && !tableTarget && !pickedText.pageNumber && hasCase(pickedText.flow?.full ?? pickedText.text) ? changeLetterCase : undefined}
                     onContinue={!tableTarget && pickedText && !pickedText.everyPage && !textEdit && pickedTexts <= 1 && !pickedText.along && !pickedText.style.bend ? continueInAnotherBox : undefined}
                     along={textTarget?.along ? { at: textTarget.along.at, flip: textTarget.along.flip } : null}
                     onAlong={changeAlong}

@@ -100,3 +100,19 @@ describe('no pictures on the site itself', () => {
     for (const icon of manifest.icons ?? []) expect(ICONS.has(`public/${icon.src}`), icon.src).toBe(true)
   })
 })
+
+// No icon shows a person or a part of one: faces, hands, feet, eyes, bodies.
+const PEOPLE_ICONS = /^(User|Users|Person|Contact|Smile|Frown|Meh|Laugh|Angry|Annoyed|Baby|Hand|Grab|Footprints|Ear|Eye|Brain|Bone|Skull|Accessibility|Drama|Ghost|ThumbsUp|ThumbsDown|Fingerprint|HeartHandshake|Glasses|Shirt|Speech|Venus|Mars|PersonStanding|Biceps|Tooth|Lips|Nose)/
+describe('icons', () => {
+  it('never show people or parts of them', () => {
+    const found: string[] = []
+    for (const name of APP.filter((n) => /\.tsx?$/.test(n))) {
+      for (const m of readFileSync(join(ROOT, name), 'utf8').matchAll(/import\s*\{([^}]*)\}\s*from\s*'lucide-react'/g)) {
+        for (const icon of m[1].split(',').map((s) => s.trim().split(/\s+as\s+/)[0].replace(/^type\s+/, ''))) {
+          if (icon && PEOPLE_ICONS.test(icon)) found.push(`${name}: ${icon}`)
+        }
+      }
+    }
+    expect(found).toEqual([])
+  })
+})

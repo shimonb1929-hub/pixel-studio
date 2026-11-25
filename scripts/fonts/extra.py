@@ -135,8 +135,7 @@ FAMILIES = {
     'pfennig': ('Pfennig', 'OFL-1.1', [s(L + 'Daniel Johnson (OFL)/pfennig/OFL.txt')], True,
                 [(s(L + 'Daniel Johnson (OFL)/pfennig/Pfennig.ttf'), 'normal'), (s(L + 'Daniel Johnson (OFL)/pfennig/PfennigBold.ttf'), 'normal'),
                  (s(L + 'Daniel Johnson (OFL)/pfennig/PfennigItalic.ttf'), 'italic'), (s(L + 'Daniel Johnson (OFL)/pfennig/PfennigBoldItalic.ttf'), 'italic')]),
-    'squarish-sans': ('Squarish Sans', 'OFL-1.1', [s(L + 'Christtrekker (OFL)/squarish sans/Squarish Sans CT Regular.ttf')], True,
-                      [(s(L + 'Christtrekker (OFL)/squarish sans/Squarish Sans CT Regular.ttf'), 'normal')]),
+    # 'squarish-sans' left out: it has smiling faces, gender signs and a cross.
     'dyslexia-hebrew': ('Dyslexia Hebrew', 'OFL-1.1', [s(V + 'Shoag, Jake (OFL)/OFL-license.txt')], True,
                         [(s(V + 'Shoag, Jake (OFL)/DyslexiaHebrew-Regular.otf'), 'normal')]),
     'scroll-4q416': ('Scroll 4Q416', 'OFL-1.1', [s(SCROLLS + 'Eshbal Ratson and Einat Tamir (SIL OFL)/LICENSE.txt')], True,

@@ -15,7 +15,8 @@ import type { TextPath } from '../text/textCurve.ts'
 import { tidyGroups } from './layers.ts'
 import { allPages, pageIndex } from './pages.ts'
 import { hasLayout } from './pageLayout.ts'
-import type { DesignPage, EditorDocument, Layer, LayerHide, PageLayout, LayerGroup, SavedTextStyle, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TableLines, TextFlow, TextSpan, TextStyle, TextWrap } from './types.ts'
+import { hasGuides, MAX_GUIDES } from './guides.ts'
+import type { DesignPage, EditorDocument, Guides, Layer, LayerHide, PageLayout, LayerGroup, SavedTextStyle, Point, ShapeGeometry, ShapeOutline, ShapeType, SpanStyle, TableLines, TextFlow, TextSpan, TextStyle, TextWrap } from './types.ts'
 import type { Gradient, GradientStop } from './gradient.ts'
 import { PATTERN_KINDS, type Pattern, type PatternKind } from './pattern.ts'
 import { paintPage } from './gradient.ts'
@@ -172,6 +173,7 @@ export interface ProjectManifest {
   pages?: ProjectPage[]
   page?: number
   layout?: PageLayout
+  guides?: Guides
   // The design's own colors and text styles. Older files don't have them.
   colors?: string[]
   textStyles?: SavedTextStyle[]
@@ -725,6 +727,7 @@ export function validateManifest(value: unknown): ProjectManifest {
     selection: readSelection(value.selection),
     ...(pages ? { pages, page } : {}),
     ...(value.layout === undefined ? {} : { layout: readLayout(value.layout) }),
+    ...(value.guides === undefined ? {} : { guides: readGuides(value.guides) }),
     ...(value.colors === undefined ? {} : { colors: readColors(value.colors) }),
     ...(value.textStyles === undefined ? {} : { textStyles: readTextStyles(value.textStyles) }),
     ...(value.fonts === undefined ? {} : { fonts: readFonts(value.fonts) }),
@@ -756,6 +759,12 @@ function readFonts(value: unknown): ProjectFont[] {
 function readLayout(value: unknown): PageLayout {
   if (!isRecord(value) || !isBetween(value.margin, 0, 100_000) || !isWhole(value.columns, 1, 24) || !isBetween(value.gap, 0, 100_000)) damaged()
   return { margin: value.margin as number, columns: value.columns as number, gap: value.gap as number }
+}
+
+function readGuides(value: unknown): Guides {
+  const read = (list: unknown) => (Array.isArray(list) && list.length <= MAX_GUIDES && list.every((at) => isBetween(at, -100_000, 100_000)) ? (list as number[]) : damaged())
+  if (!isRecord(value)) damaged()
+  return { x: read(value.x), y: read(value.y) }
 }
 
 function readPage(value: Record<string, unknown>): ProjectPage {
@@ -872,6 +881,7 @@ export async function encodeProject(doc: EditorDocument): Promise<Blob> {
     selection: doc.selection,
     ...(several ? { pages: described, page: pageIndex(doc) } : {}),
     ...(hasLayout(doc.layout) ? { layout: doc.layout } : {}),
+    ...(hasGuides(doc.guides) ? { guides: doc.guides } : {}),
     ...(doc.colors?.length ? { colors: doc.colors } : {}),
     ...(doc.textStyles?.length ? { textStyles: doc.textStyles } : {}),
     ...(fonts.length ? { fonts: fonts.map(({ data, ...font }) => ({ ...font, bytes: data.size })) } : {}),
@@ -991,6 +1001,7 @@ export async function decodeProject(file: Blob, id = createDesignId()): Promise<
     selection: manifest.selection,
     ...(pages.length > 1 ? { pages, pageIndex: index } : {}),
     ...(manifest.layout ? { layout: manifest.layout } : {}),
+    ...(hasGuides(manifest.guides) ? { guides: manifest.guides } : {}),
     ...(manifest.colors ? { colors: manifest.colors } : {}),
     ...(manifest.textStyles ? { textStyles: manifest.textStyles } : {}),
   }

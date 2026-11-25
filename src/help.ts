@@ -306,6 +306,14 @@ export const GOALS: Goal[] = [
     keywords: ['drop cap', 'initial', 'big letter', 'first letter', 'raised cap'],
   },
   {
+    id: 'letter-case',
+    goal: msg('Make words all capitals or small letters'),
+    how: msg('Click the text, press More in the Text panel, and pick one under Change letters: ABC for all capitals, abc for small letters, or a capital at the start of each word or sentence.'),
+    tool: 'text',
+    pro: 'Change Case, All Caps, UPPERCASE, Title Case',
+    keywords: ['capitals', 'caps', 'uppercase', 'lowercase', 'title case', 'sentence case', 'change case', 'all caps', 'big letters', 'small letters'],
+  },
+  {
     id: 'flow',
     goal: msg('Let text flow on to another box or page'),
     how: msg('Click the text, press Wrap in a box, then Continue in another box and draw the next box. The words flow on by themselves.'),
@@ -416,6 +424,14 @@ export const GOALS: Goal[] = [
     action: 'grid',
     pro: 'Grid, Snap to Grid, Rulers',
     keywords: ['grid', 'ruler', 'rulers', 'measure', 'snap', 'graph paper', 'even', 'inches', 'centimeters', 'place exactly'],
+  },
+  {
+    id: 'guides',
+    goal: msg('Add my own lines to line things up with'),
+    how: msg('Menu › Show the rulers, then drag from the top ruler or the left ruler onto your design. Things click onto the line as you move them. With Arrange, drag a line to move it, or back onto its ruler to take it away. Guide lines are never printed or downloaded.'),
+    action: 'rulers',
+    pro: 'Guides, Smart Guides, Snap to Guides',
+    keywords: ['guide', 'guides', 'guide line', 'guide lines', 'line up', 'snap', 'ruler', 'margin', 'straight line', 'align'],
   },
   {
     id: 'copy-drag',

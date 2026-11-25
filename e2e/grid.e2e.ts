@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { designPixel, drag, expectColor, newDesign, WHITE, type Size } from './helpers.ts'
+import { designPixel, drag, expectColor, newDesign, screenPoint, WHITE, type Size } from './helpers.ts'
 import { expect, test } from './setup.ts'
 
 const BLUE: [number, number, number] = [59, 91, 253]
@@ -88,4 +88,44 @@ test('rulers measure from the corner of the page, in the unit chosen for sizes',
   expect(drawn).toBeGreaterThan(50)
   await menu(page, 'Hide the rulers')
   await expect(page.locator('[data-rulers]')).toHaveCount(0)
+})
+
+test('guide lines pulled out of the rulers: things click onto them, and they go back onto the ruler', async ({ page }) => {
+  const size = await newDesign(page)
+  await rectangle(page, size)
+  await menu(page, 'Show the rulers')
+  const ruler = (await page.locator('[data-ruler-pull="y"]').boundingBox())!
+  // Pull a line across out of the top ruler, down to y = 110 on the design.
+  const at = await screenPoint(page, size, 200, 110)
+  await page.mouse.move(at.x, ruler.y + ruler.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(at.x, at.y, { steps: 10 })
+  await expect(page.locator('[data-guide-label]')).toHaveText('110 px')
+  await page.mouse.up()
+  await expect(page.locator('[data-guide="y"]')).toHaveCount(1)
+
+  // A dragged thing clicks onto it: the top of the square lands on 110, not 107.
+  await drag(page, size, [
+    [40, 40],
+    [40, 127],
+  ])
+  expectColor(await designPixel(page, size, 40, 109), WHITE)
+  expectColor(await designPixel(page, size, 40, 112), BLUE)
+
+  // It is kept with the design.
+  await expect(page.locator('header').getByText(/^(Saving…|Saved|Not saved)$/)).toHaveText('Saved')
+  await page.reload()
+  await page.getByRole('region', { name: 'Your designs' }).getByRole('button', { name: 'Open My design 1' }).click()
+  await expect(page.locator('[data-guide="y"]')).toHaveCount(1)
+
+  // Dragged back onto its ruler, it goes away.
+  const line = await screenPoint(page, size, 300, 110)
+  await page.mouse.move(line.x, line.y)
+  await page.mouse.down()
+  await page.mouse.move(line.x, ruler.y + 4, { steps: 10 })
+  await expect(page.locator('[data-guide-label]')).toHaveText('Let go to remove')
+  await page.mouse.up()
+  await expect(page.locator('[data-guide="y"]')).toHaveCount(0)
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect(page.locator('[data-guide="y"]')).toHaveCount(1)
 })
