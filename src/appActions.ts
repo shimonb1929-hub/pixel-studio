@@ -12,6 +12,7 @@ import type { EditorDocument, ToolId } from './editor/types.ts'
 import { shortcut } from './keys.ts'
 import { TEXT_KINDS, type TextKind } from './text/presets.ts'
 import { TOOLS } from './tools.ts'
+import { hasGuides } from './editor/guides.ts'
 import { inSentence, msg, t } from './i18n/i18n.ts'
 
 export interface AppCommands {
@@ -34,6 +35,7 @@ export interface AppCommands {
   earlierVersions: () => void
   toggleGrid: () => void
   toggleRulers: () => void
+  clearGuides: () => void
   close: () => void
   undo: () => void
   redo: () => void
@@ -963,10 +965,21 @@ export function buildActions({ doc, undoLabel, redoLabel, organize, view }: Acti
       id: 'rulers',
       group: 'View',
       title: view?.rulers ? t('Hide the rulers') : t('Show the rulers'),
-      description: t('Rulers along the top and left edges, measuring from the corner of the page in the unit you chose for sizes. A blue mark shows where the pointer is.'),
-      keywords: ['ruler', 'rulers', 'measure', 'measurement', 'inches', 'centimeters', 'size', 'show rulers', 'hide rulers'],
+      description: t('Rulers along the top and left edges, measuring from the corner of the page in the unit you chose for sizes. A blue mark shows where the pointer is. Drag from a ruler to add a guide line.'),
+      keywords: ['ruler', 'rulers', 'measure', 'measurement', 'inches', 'centimeters', 'size', 'show rulers', 'hide rulers', 'guides', 'guide lines'],
       needsDocument: true,
       run: c.toggleRulers,
+    },
+    {
+      id: 'clear-guides',
+      group: 'View',
+      extra: true,
+      title: t('Remove all guide lines'),
+      description: t('Take away every guide line you pulled out of the rulers. To take away just one, drag it back onto its ruler.'),
+      keywords: ['guides', 'guide lines', 'clear guides', 'delete guides', 'remove guides', 'lines'],
+      needsDocument: true,
+      disabledReason: doc && !hasGuides(doc.guides) ? t('There are no guide lines yet. Show the rulers and drag from one onto your design.') : undefined,
+      run: c.clearGuides,
     },
     {
       id: 'actual-size',
