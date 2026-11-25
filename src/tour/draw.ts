@@ -1,6 +1,10 @@
 import { createId } from '../editor/document.ts'
 import { insertLayerAboveActive } from '../editor/layers.ts'
-import type { EditorDocument, ShapeLayer, ShapeType } from '../editor/types.ts'
+import { defaultShadow, effectUnit, NO_EFFECTS } from '../editor/effects.ts'
+import type { EditorDocument, ShapeLayer, ShapeType, TextLayer } from '../editor/types.ts'
+import { DEFAULT_FONT, loadFont } from '../text/fonts.ts'
+import { DEFAULT_TEXT_STYLE } from '../text/presets.ts'
+import { fitText } from '../text/textLayer.ts'
 import type { TourHost } from './tour.ts'
 
 // Shapes the tours put on the design while the guide talks. Places and sizes are shares of the
@@ -77,4 +81,61 @@ export function glide(host: TourHost, label: string, names: string[], dx: number
     if (fraction < 1) requestAnimationFrame(step)
   }
   requestAnimationFrame(step)
+}
+
+export interface TourText {
+  name: string
+  text: string
+  x: number
+  y: number
+  // Width of the paragraph box, as a share of the page's width.
+  w: number
+  // Letter size, as a share of the page's width.
+  size: number
+  weight: number
+  color: string
+}
+
+// Adds a centered paragraph of words, picked, as one undo step. Its font is fetched first if needed
+// (the words show right away and sharpen into the font as it arrives).
+export function addText(host: TourHost, label: string, words: TourText) {
+  let id = ''
+  host.change(label, (doc) => {
+    const style = { ...DEFAULT_TEXT_STYLE, font: DEFAULT_FONT, size: Math.round(words.size * doc.width), weight: words.weight, color: words.color, align: 'center' as const }
+    const layer: TextLayer = {
+      id: createId('layer'),
+      kind: 'text',
+      name: words.name,
+      visible: true,
+      opacity: 1,
+      locked: false,
+      adjust: null,
+      box: { cx: words.x * doc.width, cy: words.y * doc.height, width: words.w * doc.width, height: style.size * style.lineHeight, rotation: 0 },
+      text: words.text,
+      style,
+      wrap: true,
+    }
+    const fitted = fitText(layer)
+    id = layer.id
+    return insertLayerAboveActive(doc, { ...fitted, box: { ...fitted.box, cx: layer.box.cx, cy: layer.box.cy } })
+  })
+  if (id) host.select(id)
+  void loadFont({ ...DEFAULT_TEXT_STYLE, font: DEFAULT_FONT, weight: words.weight }, words.text)
+}
+
+// A soft shadow under the named layer, the way the Effects panel adds one.
+export function addShadow(host: TourHost, label: string, name: string) {
+  host.change(label, (doc) => ({
+    ...doc,
+    layers: doc.layers.map((l) => (l.name === name ? { ...l, effects: { ...(l.effects ?? NO_EFFECTS), shadow: defaultShadow(effectUnit(doc.width, doc.height)) } } : l)),
+  }))
+}
+
+export function setPageColor(host: TourHost, label: string, color: string) {
+  host.change(label, (doc) => ({ ...doc, background: color }))
+}
+
+export function pickNamed(host: TourHost, name: string) {
+  const layer = host.getDoc()?.layers.find((l) => l.name === name)
+  if (layer) host.select(layer.id)
 }

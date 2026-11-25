@@ -92,19 +92,38 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
   // onClose each time; steps only start again when the step itself changes.
   const closeRef = useRef(onClose)
   closeRef.current = onClose
+  // Each demo runs once, even when a step is heard again, so nothing is added twice.
+  const ranRef = useRef(new Set<string>())
+  const indexRef = useRef(index)
+  indexRef.current = index
+  // Skipping ahead or closing still finishes what the step was making, quietly, so nothing is left
+  // half done.
+  const finishStep = useCallback(() => {
+    const i = indexRef.current
+    tour.steps[i].parts?.forEach((part, n) => {
+      const key = `${i}:${n}`
+      if (ranRef.current.has(key)) return
+      ranRef.current.add(key)
+      part.run(hostRef.current)
+    })
+  }, [tour.steps])
   const go = useCallback(
     (next: number) => {
+      if (next === indexRef.current) return
+      finishStep()
       if (next >= tour.steps.length) {
         closeRef.current()
         return
       }
       setIndex(Math.max(0, next))
     },
-    [tour.steps.length],
+    [finishStep, tour.steps.length],
   )
+  const close = useCallback(() => {
+    finishStep()
+    closeRef.current()
+  }, [finishStep])
 
-  // Each demo runs once, even when a step is heard again, so nothing is added twice.
-  const ranRef = useRef(new Set<string>())
   const playingRef = useRef(playing)
   playingRef.current = playing
 
@@ -229,7 +248,7 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') close()
       else if (event.key === 'ArrowRight') go(index + 1)
       else if (event.key === 'ArrowLeft') go(index - 1)
       else if (event.key === ' ') setPlaying((p) => !p)
@@ -239,7 +258,7 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [go, index, onClose])
+  }, [go, index, close])
 
   const toggleSounds = () => {
     setSoundsOn(!sounds)
@@ -275,8 +294,8 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
       )}
       {burst && <Burst key={`${burst.seed}-${burst.big}`} {...burst} />}
 
-      <div className="absolute inset-x-0 bottom-0 flex justify-center px-4 pb-5">
-        <div key={index} className={`w-full max-w-xl rounded-card border border-line bg-surface p-5 shadow-float ${motion ? 'tour-card' : ''}`}>
+      <div className="absolute inset-x-0 bottom-0 flex justify-center px-4 pb-5 md:justify-end md:pe-5">
+        <div key={index} className={`w-full max-w-xl rounded-card md:max-w-md border border-line bg-surface p-5 shadow-float ${motion ? 'tour-card' : ''}`}>
           <div className="flex items-center gap-3">
             <span aria-hidden className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft ${motion && playing ? 'tour-orb' : ''}`}>
               <span className="h-3.5 w-3.5 rounded-full bg-accent" />
@@ -291,7 +310,7 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
               </button>
             </Tooltip>
             <Tooltip title={t('Close tour')} description={t('Stop the tour. Everything it made stays on your design.')} shortcut="Esc">
-              <button type="button" aria-label={t('Close tour')} onClick={onClose} className="rounded-lg p-2 text-ink-2 hover:bg-subtle hover:text-ink">
+              <button type="button" aria-label={t('Close tour')} onClick={close} className="rounded-lg p-2 text-ink-2 hover:bg-subtle hover:text-ink">
                 <X size={18} />
               </button>
             </Tooltip>

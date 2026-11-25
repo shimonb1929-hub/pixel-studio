@@ -10,6 +10,7 @@ import { YourDesigns } from './YourDesigns.tsx'
 import { t, useLanguage } from '../i18n/i18n.ts'
 import { LAYOUT_KINDS, LAYOUTS, buildLayout, loadLayoutFonts, type LayoutKind } from '../layouts/layouts.ts'
 import { useFontsVersion } from '../hooks/useFontsVersion.ts'
+import { TourButtons } from '../tour/TourButtons.tsx'
 import { DesignPreview } from './LayoutsDialog.tsx'
 
 const PREVIEW_MAX = 40
@@ -105,9 +106,11 @@ interface WelcomeScreenProps {
   onLayouts: (kind: 'all' | LayoutKind, layoutId?: string) => void
   // Puts Pixel Studio on this device as an app. Left out when it's already the installed app.
   onInstall?: () => void
+  // Starts a guided tour.
+  onTour?: (id: string) => void
 }
 
-export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign, onLayouts, onInstall }: WelcomeScreenProps) {
+export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign, onLayouts, onInstall, onTour }: WelcomeScreenProps) {
   const { designs, loadedAt, refresh } = useSavedDesigns()
   // People coming back see their designs first, then the ways to start something new.
   const returning = designs.length > 0
@@ -135,6 +138,8 @@ export function WelcomeScreen({ onPreset, onCustom, onOpen, onOpenDesign, onLayo
             </Button>
           </div>
         )}
+
+        {onTour && <TourButtons onTour={onTour} className="mt-4" />}
 
         {returning && (
           <>

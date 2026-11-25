@@ -39,6 +39,7 @@ import { TopBar } from './components/TopBar.tsx'
 import { WelcomeScreen } from './components/WelcomeScreen.tsx'
 import { TourPlayer } from './tour/TourPlayer.tsx'
 import type { Tour, TourHost } from './tour/tour.ts'
+import { TOURS } from './tour/tours.ts'
 import { InstallDialog } from './components/InstallDialog.tsx'
 import { VersionsDialog } from './components/VersionsDialog.tsx'
 import { Rulers } from './components/Rulers.tsx'
@@ -2060,13 +2061,6 @@ export default function App() {
     }
   }
 
-  // Tests start tours from here until each tour has its own button.
-  useEffect(() => {
-    if (!import.meta.env.DEV) return
-    const w = window as unknown as { pixelStudioTour?: (tour: Tour) => void }
-    w.pixelStudioTour = startTour
-  })
-
   const tourHost: TourHost = {
     pickTool: setTool,
     getDoc: editor.getDoc,
@@ -3227,6 +3221,10 @@ export default function App() {
     actualSize: () => doc && setViewport(centeredViewport(doc.width, doc.height, workspace.width, workspace.height, 1)),
     search: () => setDialog('search'),
     help: () => setDialog('help'),
+    tour: (id) => {
+      const found = TOURS.find((one) => one.id === id)
+      if (found) startTour(found.start())
+    },
     biggerBrush: () => changeBrushSize(1),
     smallerBrush: () => changeBrushSize(-1),
     setTool,
@@ -4179,6 +4177,7 @@ export default function App() {
               onOpen={commands.open}
               onOpenDesign={openSaved}
               onInstall={app.installed ? undefined : commands.installApp}
+              onTour={commands.tour}
               onLayouts={(kind, layoutId) => {
                 setLayoutsKind(kind)
                 setLayoutsStart(layoutId)
@@ -4455,7 +4454,7 @@ export default function App() {
         />
       )}
       {tour && <TourPlayer tour={tour} host={tourHost} onClose={() => setTour(null)} />}
-      {dialog === 'help' && <HelpGuide actions={actions} hasDocument={!!doc} onPickTool={setTool} onClose={() => setDialog(null)} />}
+      {dialog === 'help' && <HelpGuide actions={actions} hasDocument={!!doc} onPickTool={setTool} onClose={() => setDialog(null)} onTour={commands.tour} />}
       {dialog === 'find' && doc && (
         <FindDialog
           doc={doc}

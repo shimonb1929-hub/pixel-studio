@@ -320,6 +320,7 @@ export function TopBar({
         <Button
           variant="primary"
           aria-label={t('Download')}
+          data-tour="download"
           className="h-9 px-3 sm:px-4"
           disabled={!hasDocument}
           onClick={onDownload}

@@ -7,6 +7,7 @@ import { t } from '../i18n/i18n.ts'
 import { ALT_LABEL, shortcut } from '../keys.ts'
 import { PRO_NAMES } from '../proNames.ts'
 import { TOOLS, type ToolInfo } from '../tools.ts'
+import { TourButtons } from '../tour/TourButtons.tsx'
 import { Button } from './ui.tsx'
 
 type Tab = 'goals' | 'tools' | 'words'
@@ -16,6 +17,8 @@ interface HelpGuideProps {
   hasDocument: boolean
   onPickTool: (tool: ToolId) => void
   onClose: () => void
+  // Starts a guided tour.
+  onTour?: (id: string) => void
 }
 
 function normalize(text: string): string {
@@ -48,7 +51,7 @@ function wordList(): { plain: string; english: string; pro: string }[] {
 // "Help": what each tool does, when to use it and how, and which tool does what you have in mind.
 // For people who never used a design program, and for those who know the professional ones by
 // their own words.
-export function HelpGuide({ actions, hasDocument, onPickTool, onClose }: HelpGuideProps) {
+export function HelpGuide({ actions, hasDocument, onPickTool, onClose, onTour }: HelpGuideProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const pressedBackdropRef = useRef(false)
   const [tab, setTab] = useState<Tab>('goals')
@@ -158,6 +161,7 @@ export function HelpGuide({ actions, hasDocument, onPickTool, onClose }: HelpGui
         <div>
           <h2 className="text-base font-semibold tracking-tight">{t('Help')}</h2>
           <p className="mt-0.5 text-[13px] text-ink-2">{t('Find the right tool, and see when and how to use it.')}</p>
+          {onTour && <TourButtons onTour={onTour} className="mt-2 !justify-start" />}
         </div>
         <button
           type="button"

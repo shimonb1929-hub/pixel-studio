@@ -94,6 +94,8 @@ export interface AppCommands {
   actualSize: () => void
   search: () => void
   help: () => void
+  // Starts a guided tour (see src/tour/tours.ts).
+  tour: (id: string) => void
   biggerBrush: () => void
   smallerBrush: () => void
   setTool: (tool: ToolId) => void
@@ -314,6 +316,22 @@ export function buildActions({ doc, undoLabel, redoLabel, organize, view }: Acti
       keywords: ['help', 'how', 'how to', 'tutorial', 'learn', 'guide', 'explain', 'which tool', 'what does', 'manual', 'question', 'photoshop', 'illustrator', 'indesign'],
       shortcut: 'F1',
       run: c.help,
+    },
+    {
+      id: 'tour-tools',
+      group: 'Design',
+      title: t('Guided tour: meet the tools'),
+      description: t('A quick, spoken walk past every tool: what it does, in one sentence each. About two minutes.'),
+      keywords: ['tour', 'guided', 'tutorial', 'learn', 'intro', 'introduction', 'walkthrough', 'video', 'show me', 'teach', 'beginner', 'start'],
+      run: () => c.tour('tools'),
+    },
+    {
+      id: 'tour-poster',
+      group: 'Design',
+      title: t('Guided tour: make a poster'),
+      description: t('Watch a whole poster being made, from an empty page to a download, with a tip at every step.'),
+      keywords: ['tour', 'guided', 'tutorial', 'learn', 'poster', 'flyer', 'example', 'walkthrough', 'show me', 'teach', 'step by step', 'how to make'],
+      run: () => c.tour('poster'),
     },
     {
       id: 'earlier-versions',

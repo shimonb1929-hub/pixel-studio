@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import { caption, readingTime, wordsSpoken } from './tour.ts'
-import { RECORDED } from './lines.ts'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import { caption, readingTime, wordsSpoken } from './tour.ts'
+import { posterTour, toolsTour, TOURS } from './tours.ts'
 
 describe('tour words', () => {
   it('leaves out how-to-sound notes', () => {
@@ -27,8 +27,21 @@ describe('tour words', () => {
     expect(readingTime('Hi')).toBe(2.5)
     expect(readingTime('one two three four five six seven eight nine ten eleven twelve')).toBeGreaterThan(4)
   })
+})
 
-  it('every recorded line has its recording', () => {
-    for (const id of Object.keys(RECORDED)) expect(existsSync(join(import.meta.dirname, '../../public/tour', `tools-${id}.mp3`)), id).toBe(true)
+describe('tours', () => {
+  it('every step is spoken from a recording that is there', () => {
+    for (const tour of [toolsTour(), posterTour()]) {
+      expect(tour.steps.length).toBeGreaterThan(5)
+      for (const step of tour.steps) {
+        expect(step.line, `${tour.id} ${step.id}`).toBeTruthy()
+        expect(step.audio, `${tour.id} ${step.id}`).toBeTruthy()
+        expect(existsSync(join(import.meta.dirname, '../../public', step.audio!)), step.audio).toBe(true)
+      }
+    }
+  })
+
+  it('every tour can be started from the list', () => {
+    expect(TOURS.map((tour) => tour.start().id)).toEqual(TOURS.map((tour) => tour.id))
   })
 })
