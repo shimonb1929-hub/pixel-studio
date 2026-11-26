@@ -37,3 +37,44 @@ export const POSTER: Record<string, string> = {
   download: "Done? Press Download. Pick PNG for sharing, or PDF for printing. That's your poster!",
   end: "[excited] You made a whole poster! Now try your own idea. You've got this.",
 }
+
+// The deep dive: every tool up close, how to use it and what it can do, in public/tour/detail-<id>.mp3.
+export const DETAIL: Record<string, string> = {
+  intro: "[excited] Welcome to the deep dive! We'll look at every tool up close: how to use it, and the cool things it can do. Let's build as we go!",
+  settings: 'First, a tip. Whenever you pick a tool, its settings show up right here, in this bar. Size, color, softness and more. Always look here first!',
+  move: 'Arrange is your main tool. Click something to pick it. Drag to move it, pull a corner to make it bigger, and spin the round handle to turn it. Hold Alt and drag to pull out a copy.',
+  select: 'Select picks just one part of a picture. Drag a box or an oval, or let it find the main thing for you. Hold Shift to add more. Then painting and moving only change that part.',
+  crop: 'Crop trims your design. Drag the edges to choose what to keep, then press Enter. Nothing is thrown away, so you can crop again to bring parts back.',
+  shape: 'Shapes has rectangles, ovals, polygons, stars, lines and arrows. Hold Shift for a perfect square or circle. In the settings, round the corners or add an outline, any time.',
+  photo: "Here's a great trick. Add one of your own photos, then drop it right onto a shape, and the photo fills the shape perfectly.",
+  pen: 'Curve draws a shape of your own. Click for sharp corners, or press and drag for smooth curves. Click the first point to close it. Later, drag any point to reshape it.',
+  text: 'Text writes words. Click and type, or drag a box for a whole paragraph. Pick the font, size and color. Hebrew and Yiddish go right to left by themselves. And you can even bend words into an arch!',
+  brush: 'Brush paints by hand. Pick a ready brush, like Pencil, Marker or Oil paint, or set the size and softness yourself. Shift and click draws a straight line.',
+  eraser: 'Eraser rubs paint away, so whatever is underneath shows through again.',
+  fade: 'Fade gently melts part of a photo, a shape or some words into the background. Nothing is lost. Switch to Bring back, and brush to show it again.',
+  fill: 'Fill bucket colors a whole area with one click, like a coloring book. Shapes are even easier: pick one, and choose a new color.',
+  color: "The Color panel keeps your colors. Press Keep to save one for this design. And Change it everywhere swaps a color in every place it's used, all at once.",
+  adjust: 'Adjust changes light and color. Try a ready look, like Black and white, or fine tune it with the sliders. Press and hold on your design to compare before and after.',
+  heal: "Fix spots makes dust and scratches vanish from a photo. Just brush over the spot, and it's filled in from what's around it.",
+  clone: 'Copy paint copies one part of a photo onto another. Click the part to copy, then paint where it should go. Like a second cloud in the sky!',
+  push: 'Push and pull smudges a photo like wet paint, or makes one part bigger or smaller. A taller tree, or a rounder cloud.',
+  effects: 'Effects add a finishing touch: a soft shadow, a glow, or an outline, on any shape, word or photo. Watch this star glow!',
+  layers: 'Everything you add gets its own layer, right here. Drag a layer up or down to change what sits in front. Click the light bulb to hide one for a moment.',
+  end: "[excited] Now you know every tool, up close! Hover over any button for a quick reminder. Go create something amazing!",
+}
+
+// The showcase: one night garden scene that uses many tools together, in public/tour/showcase-<id>.mp3.
+export const SHOWCASE: Record<string, string> = {
+  intro: "[excited] Let's make a whole night garden, using lots of tools together. Watch how each one adds something new!",
+  sky: 'First, a big rectangle for the sky. In its settings, switch the fill to Gradient, so it fades from deep blue at the top to purple near the ground.',
+  moon: 'Now a circle for the moon. Open Effects and add a glow, so it really shines.',
+  stars: 'Stars from the Shapes tool fill the sky. Small ones, big ones, all different sizes.',
+  hills: 'With Curve, draw your own rolling hills. Press and drag to make the top nice and smooth.',
+  grass: 'Next, Brush. Add a paint layer, and paint some grass by hand, stroke by stroke.',
+  flowers: 'Flowers! Each one is just a star with a bright color. Hold Alt and drag to copy them fast.',
+  title: 'Now a title with the Text tool. Then bend the words into a gentle arch over the garden.',
+  shadow: 'A soft shadow from Effects makes the words float above the picture.',
+  adjust: 'Adjust can change the mood. A warm look makes the grass glow, like a summer night.',
+  arrange: 'And finally, Arrange. Nudge things around until everything feels just right.',
+  end: "[excited] That's the night garden, made only with shapes, paint and words! Every part stays changeable. Now it's your turn!",
+}

@@ -1768,6 +1768,7 @@ export function ToolOptions(props: ToolOptionsProps) {
   return (
     <div
       aria-label={t('{tool} settings', { tool: info.name })}
+      data-tour="settings"
       role="toolbar"
       className="relative mx-2 mb-2 h-[62px] shrink-0 overflow-hidden rounded-card border border-line bg-surface shadow-card [--row-end:right] rtl:[--row-end:left] md:mx-3 md:mb-3"
     >

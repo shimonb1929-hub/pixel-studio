@@ -2066,6 +2066,7 @@ export default function App() {
     getDoc: editor.getDoc,
     change: (label, update, mergeKey) => editor.change(label, update, mergeKey ? { mergeKey, mergeAlways: true } : undefined),
     select: editor.select,
+    paint: editor.paint,
   }
 
   // Names already used by designs kept in this browser, so a new one never looks like an old one.

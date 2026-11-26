@@ -270,7 +270,7 @@ export function ColorPanel({ color, recent, onChange, onPickFromDesign, design, 
   const pure = hsvToHex({ h: hsv.h, s: 1, v: 1 })
 
   return (
-    <section aria-label={t("Color")} className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
+    <section aria-label={t("Color")} data-tour="color" className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
       <div className="mb-3 flex items-center justify-between">
         <Tooltip title={t("Color")} description={t("The color your brush paints with. Pick one below, or take one from your design.")}>
           <h2 className="flex cursor-help items-center gap-1.5 text-[14px] font-semibold text-ink">

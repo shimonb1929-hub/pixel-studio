@@ -1,4 +1,4 @@
-import type { EditorDocument, ToolId } from '../editor/types.ts'
+import type { EditorDocument, PixelLayer, ToolId } from '../editor/types.ts'
 import type { SoundName } from './sounds.ts'
 
 // What a tour can do in the app while it talks: pick a tool and change the design (each change is
@@ -9,6 +9,8 @@ export interface TourHost {
   // Quick changes with the same `mergeKey` become one undo step (like something gliding).
   change: (label: string, update: (doc: EditorDocument) => EditorDocument, mergeKey?: string) => void
   select: (layerId: string) => void
+  // Paints on a layer of pixels, inside `area` (design coordinates), as one undo step.
+  paint: (label: string, layerId: string, area: { x: number; y: number; width: number; height: number }, draw: (ctx: CanvasRenderingContext2D, layer: PixelLayer) => void) => void
 }
 
 export interface TourStep {

@@ -52,3 +52,28 @@ test('Help offers the tours too', async ({ page }) => {
   await help.getByRole('button', { name: 'Meet the tools' }).click()
   await expect(page.getByRole('dialog', { name: 'Meet the tools' })).toBeVisible()
 })
+
+// Skips through a tour quickly: each step's demo still happens when it is reached.
+async function skipThrough(page: import('@playwright/test').Page, title: string, steps: number) {
+  await page.getByRole('button', { name: title }).click()
+  const player = page.getByRole('dialog', { name: title })
+  await expect(player).toBeVisible()
+  for (let step = 1; step < steps; step++) {
+    await expect(player).toContainText(`Step ${step} of ${steps}`)
+    await page.waitForTimeout(300)
+    await player.getByRole('button', { name: 'Next' }).click()
+  }
+  await expect(player).toContainText(`Step ${steps} of ${steps}`)
+  await player.getByRole('button', { name: 'Finish' }).click()
+  await expect(player).toBeHidden()
+}
+
+test('the deep dive shows every tool working', async ({ page }) => {
+  await skipThrough(page, 'Every tool, up close', 21)
+  for (const name of ['Star', 'Box', 'Hexagon', 'Arrow', 'Leaf', 'Hello', 'Paint']) await expect(page.getByText(name, { exact: true }).first()).toBeVisible()
+})
+
+test('the showcase paints a whole night garden', async ({ page }) => {
+  await skipThrough(page, 'Night garden showcase', 12)
+  for (const name of ['Sky', 'Moon', 'Star', 'Hills', 'Grass', 'Flower', 'Night Garden']) await expect(page.getByText(name, { exact: true }).first()).toBeVisible()
+})

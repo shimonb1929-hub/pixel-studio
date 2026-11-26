@@ -149,7 +149,7 @@ export function EffectsPanel(props: EffectsPanelProps) {
   const colorButton = (kind: EffectKind) => () => props.onColorTarget(props.colorTarget === kind ? null : kind)
 
   return (
-    <section aria-label={t("Effects")} className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
+    <section aria-label={t("Effects")} data-tour="effects" className="shrink-0 rounded-card border border-line bg-surface p-4 shadow-card">
       <div className={`flex items-center justify-between gap-2 ${props.open ? 'mb-3' : ''}`}>
         <Tooltip
           title={t("Effects")}

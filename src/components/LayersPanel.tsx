@@ -358,7 +358,7 @@ export function LayersPanel(props: LayersPanelProps) {
   }
 
   return (
-    <section aria-label={t("Layers")} className="flex min-h-0 flex-1 flex-col rounded-card border border-line bg-surface shadow-card">
+    <section aria-label={t("Layers")} data-tour="layers" className="flex min-h-0 flex-1 flex-col rounded-card border border-line bg-surface shadow-card">
       <div className="flex h-12 shrink-0 items-center justify-between ps-4 pe-2">
         <Tooltip
           title={t("Layers")}
