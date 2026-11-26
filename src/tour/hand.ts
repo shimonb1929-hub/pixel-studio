@@ -209,6 +209,25 @@ export class HandStep {
     return true
   }
 
+  // Clicks a button by the words on it, like Apply, looking only inside `within`.
+  async clickText(text: string, within = 'body', ms = 600) {
+    // The button may take a moment to wake up after the change before it (Apply, Crop).
+    const ready = () =>
+      [...document.querySelectorAll<HTMLButtonElement>(`${within} button`)].find((b) => b.textContent?.trim() === text && b.getClientRects().length > 0 && !b.disabled)
+    let button = ready()
+    for (let i = 0; !button && i < 90; i++) {
+      await frame()
+      button = ready()
+    }
+    if (!button) return false
+    button.dataset.tourPress = ''
+    try {
+      return await this.click('[data-tour-press]', ms)
+    } finally {
+      delete button.dataset.tourPress
+    }
+  }
+
   // Presses on the page, moves through the points (shares of the page), and lets go: a drag with
   // whatever tool is picked. One point is a click.
   async drag(doc: { width: number; height: number }, points: [number, number][], options: PressOptions & { ms?: number } = {}) {
@@ -234,6 +253,8 @@ export class HandStep {
         }),
       )
     await this.moveTo(screens[0].x, screens[0].y, 500)
+    // Like a real mouse, the pointer is over the spot before it presses (Zoom zooms where it is).
+    fire('pointermove', screens[0], 0)
     await this.wait(120)
     this.hand.press(true)
     fire('pointerdown', screens[0], 1)

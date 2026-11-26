@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { caption, readingTime, wordsSpoken } from './tour.ts'
-import { detailTour, posterTour, showcaseTour, toolsTour, TOURS } from './tours.ts'
+import { detailTour, posterTour, showcaseTour, sunsetTour, toolsTour, TOURS } from './tours.ts'
 
 describe('tour words', () => {
   it('leaves out how-to-sound notes', () => {
@@ -31,7 +31,7 @@ describe('tour words', () => {
 
 describe('tours', () => {
   it('every step is spoken from a recording that is there', () => {
-    for (const tour of [toolsTour(), posterTour(), detailTour(), showcaseTour()]) {
+    for (const tour of [toolsTour(), posterTour(), detailTour(), showcaseTour(), sunsetTour()]) {
       expect(tour.steps.length).toBeGreaterThan(5)
       for (const step of tour.steps) {
         expect(step.line, `${tour.id} ${step.id}`).toBeTruthy()
@@ -48,8 +48,9 @@ describe('tours', () => {
 
 describe('the deep dive and the showcase', () => {
   it('speak the recorded words, word for word', async () => {
-    const { DETAIL, SHOWCASE } = await import('./lines.ts')
+    const { DETAIL, SHOWCASE, SUNSET } = await import('./lines.ts')
     expect(detailTour().steps.map((s) => s.line)).toEqual(Object.values(DETAIL))
     expect(showcaseTour().steps.map((s) => s.line)).toEqual(Object.values(SHOWCASE))
+    expect(sunsetTour().steps.map((s) => s.line)).toEqual(Object.values(SUNSET))
   })
 })

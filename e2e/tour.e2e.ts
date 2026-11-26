@@ -80,6 +80,15 @@ test('the showcase paints a whole night garden', async ({ page }) => {
     await expect(page.getByRole('button', { name: `Layer: ${name}`, exact: true })).toBeVisible()
 })
 
+test('the sunset paints a picture and fixes it up with the fixing tools', async ({ page }) => {
+  await skipThrough(page, 'Sunset by the sea', 16)
+  // The sky and sea are one drawing, the sun is on its own, and Crop made the design square. Skipped
+  // steps still really paint, fix and crop, which takes a moment on a big screen.
+  await expect(page.getByRole('button', { name: 'Arrange tool' })).toHaveAttribute('aria-pressed', 'true', { timeout: 30000 })
+  for (const name of ['Drawing 1', 'Drawing 2']) await expect(page.getByRole('button', { name: `Layer: ${name}`, exact: true })).toBeVisible()
+  await expect(page.getByText(/1000\s*×\s*1000/).first()).toBeVisible()
+})
+
 test('the guide speaks: its recorded voice plays from inside the app', async ({ page }) => {
   await page.addInitScript(() => {
     const played: string[] = []

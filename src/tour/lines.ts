@@ -81,3 +81,24 @@ export const SHOWCASE: Record<string, string> = {
   shadow: 'Last touch. With the title picked, go to Effects and press Add shadow. Now the words float above the sky.',
   end: "[excited] That's your night garden! Every part stays changeable. Click anything, and change it any time.",
 }
+
+// The sunset by the sea: a simple painting, then cleaned up with the fixing tools, in
+// src/tour/voice/sunset-<id>.mp3.
+export const SUNSET: Record<string, string> = {
+  intro: "[excited] Now let's paint a sunset by the sea, and then clean it up. This time you'll meet the fixing tools. Each one does one simple job, and I'll show you when to use it.",
+  select: "Start with Select. Choose Rectangle, and drag over the top of the page. Only the part you select can change, so nothing spills outside it by mistake.",
+  fill: "Now take the Fill bucket, choose orange, and click inside. It fills just the selected part, like coloring inside the lines. Then click Let go, so the whole page can change again.",
+  sea: "For the sea, choose blue and click the white part. No selecting needed this time: the bucket fills the area you click, up to where the color changes.",
+  drops: "Oops! A few dark drops fell on the sky. Here's one way to fix them. Open More tools, take the Picker, and click the sky right next to a drop. Now the brush paints in exactly that orange.",
+  fix: "For the other drops, use Fix spots. Brush over a drop, let go, and it's filled in from what's around it, as if it was never there. It works on dust and scratches in photos too.",
+  cloud: "Paint one white cloud with the Brush. Want another one just like it? Take Copy paint, from More tools. Click the cloud, then paint somewhere else, and the copy appears as you paint.",
+  push: "Push and pull reshapes paint without adding any. Choose Bigger and press on a cloud to make it puffier. Then choose Push, and drag along the sea line to make little waves.",
+  adjust: "To change the colors of a whole picture, use Adjust. Pick the Warm look for a golden glow, and press Apply to keep it. Until you press Apply, nothing changes for good.",
+  sun: "For the sun, add a new layer in the Layers panel, so it stays separate from the sky. Take the Brush, choose yellow, make it big, and paint a round sun on the sea line.",
+  eraser: "The sun should sink into the sea. Take the Eraser and rub out its bottom half. The Eraser only rubs out the picked layer, so the sea shows through from underneath.",
+  fade: "Fade is the soft way to hide. Paint a yellow stripe on the water under the sun, then take Fade and brush over its ends. They melt softly into the sea, and Bring back shows them again.",
+  zoom: "To look closely, take Zoom from More tools, and click on the sun. Each click goes closer. Hold Alt and click to step back out.",
+  hand: "When you're zoomed in, the Hand tool slides the page around. Just drag. Holding the Space bar does the same, with any tool. To see everything again, click Fit.",
+  crop: "Last, Crop. Choose Square, drag the frame to the part you like, and click Crop. A square is just right for a post.",
+  end: "[excited] Your sunset is done! Select keeps changes inside the lines, the bucket colors whole areas, the Picker, Fix spots and Copy paint clean up, and Crop finishes it off.",
+}

@@ -2,7 +2,7 @@ import type { ToolId } from '../editor/types.ts'
 import { t } from '../i18n/i18n.ts'
 import type { PathNode, ShapePath } from '../editor/path.ts'
 import { addGlow, addPaintLayer, addShadow, addShapes, addText, animate, bend, glide, pickNamed, setFill, setLook, setPageColor, stroke, type TourShape } from './draw.ts'
-import { DETAIL, POSTER, RECORDED, SHOWCASE } from './lines.ts'
+import { DETAIL, POSTER, RECORDED, SHOWCASE, SUNSET } from './lines.ts'
 import type { HandStep } from './hand.ts'
 import type { Tour, TourHost, TourStep } from './tour.ts'
 
@@ -385,10 +385,239 @@ export function showcaseTour(): Tour {
   }
 }
 
+// The sunset by the sea: a simple painting made with the fill, select and paint tools, then
+// cleaned up with the fixing tools. Each step shows one tool doing one simple job.
+export function sunsetTour(): Tour {
+  const line = (id: keyof typeof SUNSET, extra: Partial<TourStep> = {}): TourStep => ({ id, line: SUNSET[id], audio: `tour/sunset-${id}.mp3`, ...extra })
+  const radio = (label: string) => `[role="radio"][aria-label="${label}"]`
+  const named = (label: string) => `[aria-label="${label}"]`
+  const PAGE = '[data-tour="canvas"]'
+  const COLOR = `section[aria-label="${t('Color')}"]`
+  const size = (host: TourHost) => host.getDoc() ?? { width: 1600, height: 1000 }
+  const SEA = 0.62
+  const SKY = '#f4a04e'
+  // Picks a tool, opening More tools first when it is tucked away there.
+  let opened = false
+  const pick = async (h: HandStep, id: ToolId) => {
+    if (!h.find(TOOL(id))?.getClientRects().length) {
+      opened = true
+      await h.click('[data-tour="more-tools"]')
+    }
+    await h.click(TOOL(id))
+  }
+  const color = async (h: HandStep, host: TourHost, hex: string) => {
+    await h.point(COLOR)
+    await h.do(() => host.pickColor(hex))
+    h.sound('change')
+  }
+  // A round dab of paint: little circles that fill in a disc.
+  const dab = (cx: number, cy: number, r: number, aspect: number): [number, number][] => {
+    const points: [number, number][] = []
+    for (let ring = r; ring > 0; ring -= r / 3) for (let a = 0; a <= 12; a++) points.push([cx + Math.cos((a / 12) * Math.PI * 2) * ring, cy + Math.sin((a / 12) * Math.PI * 2) * ring * aspect])
+    return points
+  }
+  const drops: [number, number][] = [[0.2, 0.2], [0.34, 0.36], [0.64, 0.14], [0.82, 0.3]]
+  const cloud: [number, number] = [0.24, 0.24]
+  const sun: [number, number] = [0.6, SEA]
+  return {
+    id: 'sunset',
+    title: t('Sunset by the sea'),
+    design: { name: t('Sunset'), width: 1600, height: 1000 },
+    pointer: true,
+    steps: [
+      line('intro', { sound: 'sparkle' }),
+      line('select', {
+        act: async (h, host) => {
+          await pick(h, 'select')
+          await h.click(radio(t('Rectangle')))
+          h.spot(PAGE)
+          await h.drag(size(host), [[0, 0], [0.5, 0.3], [1, SEA]], { ms: 1100 })
+        },
+      }),
+      line('fill', {
+        act: async (h, host) => {
+          await pick(h, 'fill')
+          await color(h, host, SKY)
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.4, 0.3]], { ms: 100 })
+          h.sound('pop')
+          await h.wait(400)
+          await h.clickText(t('Let go'))
+        },
+      }),
+      line('sea', {
+        act: async (h, host) => {
+          await color(h, host, '#2f6fb0')
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.4, 0.82]], { ms: 100 })
+          h.sound('pop')
+        },
+      }),
+      line('drops', {
+        act: async (h, host) => {
+          const doc = size(host)
+          await pick(h, 'brush')
+          await h.slide(t('Size'), 0.2)
+          await h.do(() => host.pickColor('#3b2418'))
+          h.spot(PAGE)
+          for (const [x, y] of drops) await h.drag(doc, [[x, y], [x + 0.003, y + 0.004]], { ms: 120 })
+          await pick(h, 'picker')
+          h.spot(PAGE)
+          await h.drag(doc, [[drops[0][0] + 0.05, drops[0][1]]], { ms: 100 })
+          h.sound('change')
+          h.spot(PAGE)
+          await h.drag(doc, dab(drops[0][0], drops[0][1], 0.012, 1.6), { ms: 500 })
+          h.sound('brush')
+        },
+      }),
+      line('fix', {
+        act: async (h, host) => {
+          const doc = size(host)
+          await pick(h, 'heal')
+          h.spot(PAGE)
+          for (const [x, y] of drops.slice(1)) {
+            await h.drag(doc, [[x - 0.01, y - 0.01], [x + 0.01, y + 0.015], [x - 0.005, y + 0.01]], { ms: 400 })
+            h.sound('rub')
+            await h.wait(300)
+          }
+        },
+      }),
+      line('cloud', {
+        act: async (h, host) => {
+          const doc = size(host)
+          await pick(h, 'brush')
+          await h.slide(t('Size'), 0.45)
+          await h.do(() => host.pickColor('#fff6ea'))
+          h.spot(PAGE)
+          const [cx, cy] = cloud
+          await h.drag(doc, [[cx - 0.06, cy + 0.02], [cx - 0.02, cy - 0.02], [cx + 0.02, cy - 0.03], [cx + 0.06, cy + 0.01], [cx - 0.05, cy + 0.03]], { ms: 900 })
+          h.sound('brush')
+          await pick(h, 'clone')
+          h.spot(PAGE)
+          await h.drag(doc, [cloud], { ms: 100 })
+          // The copy is painted in rows over where the new cloud goes, so all of it comes across.
+          const to: [number, number] = [0.5, 0.14]
+          const rows: [number, number][] = []
+          for (let r = 0; r < 5; r++) {
+            const y = to[1] - 0.045 + r * 0.022
+            rows.push(r % 2 ? [to[0] + 0.075, y] : [to[0] - 0.075, y], r % 2 ? [to[0] - 0.075, y] : [to[0] + 0.075, y])
+          }
+          await h.drag(doc, [[to[0], to[1]], ...rows], { ms: 1600 })
+          h.sound('brush')
+        },
+      }),
+      line('push', {
+        act: async (h, host) => {
+          const doc = size(host)
+          await pick(h, 'push')
+          await h.click(radio(t('Bigger')))
+          h.spot(PAGE)
+          await h.drag(doc, [cloud, [cloud[0] + 0.01, cloud[1]], cloud, [cloud[0] - 0.01, cloud[1]], cloud], { ms: 900 })
+          h.sound('grow')
+          await h.click(radio(t('Push')))
+          h.spot(PAGE)
+          for (let x = 0.06; x < 0.98; x += 0.11) await h.drag(doc, [[x, SEA + 0.02], [x + 0.03, SEA - 0.015]], { ms: 220 })
+        },
+      }),
+      line('adjust', {
+        act: async (h) => {
+          await pick(h, 'adjust')
+          await h.click(radio(t('Warm')))
+          h.sound('change')
+          await h.wait(500)
+          await h.clickText(t('Apply'))
+        },
+      }),
+      line('sun', {
+        act: async (h, host) => {
+          await h.click(named(t('New layer')))
+          h.sound('pop')
+          await pick(h, 'brush')
+          await h.slide(t('Size'), 0.6)
+          await h.do(() => host.pickColor('#ffd54a'))
+          h.spot(PAGE)
+          await h.drag(size(host), dab(sun[0], sun[1], 0.05, 1.6), { ms: 1400 })
+          h.sound('brush')
+        },
+      }),
+      line('eraser', {
+        act: async (h, host) => {
+          await pick(h, 'eraser')
+          await h.slide(t('Size'), 0.6)
+          h.spot(PAGE)
+          await h.drag(size(host), [[sun[0] - 0.1, SEA + 0.07], [sun[0] + 0.1, SEA + 0.07], [sun[0] + 0.1, SEA + 0.13], [sun[0] - 0.1, SEA + 0.13]], { ms: 1000 })
+          h.sound('rub')
+        },
+      }),
+      line('fade', {
+        act: async (h, host) => {
+          const doc = size(host)
+          await pick(h, 'brush')
+          await h.slide(t('Size'), 0.4)
+          h.spot(PAGE)
+          for (let i = 0; i < 6; i++) {
+            const half = 0.07 - i * 0.01
+            await h.drag(doc, [[sun[0] - half, SEA + 0.05 + i * 0.04], [sun[0] + half, SEA + 0.05 + i * 0.04]], { ms: 250 })
+          }
+          h.sound('brush')
+          await pick(h, 'fade')
+          await h.slide(t('Size'), 0.7)
+          h.spot(PAGE)
+          await h.drag(doc, [[sun[0] - 0.07, SEA + 0.05], [sun[0] - 0.05, SEA + 0.25]], { ms: 600 })
+          await h.drag(doc, [[sun[0] + 0.07, SEA + 0.05], [sun[0] + 0.05, SEA + 0.25]], { ms: 600 })
+          await h.drag(doc, [[sun[0] - 0.05, SEA + 0.3], [sun[0] + 0.05, SEA + 0.3]], { ms: 500 })
+          h.sound('rub')
+        },
+      }),
+      line('zoom', {
+        act: async (h, host) => {
+          const doc = size(host)
+          await pick(h, 'zoom')
+          h.spot(PAGE)
+          for (let i = 0; i < 3; i++) {
+            await h.drag(doc, [sun], { ms: 100 })
+            h.sound('grow')
+            await h.wait(500)
+          }
+          await h.drag(doc, [sun], { ms: 100, alt: true })
+        },
+      }),
+      line('hand', {
+        act: async (h, host) => {
+          await pick(h, 'hand')
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.6, 0.6], [0.45, 0.5], [0.7, 0.55]], { ms: 1200 })
+          await h.click(named(t('Fit on screen')))
+        },
+      }),
+      line('crop', {
+        act: async (h, host) => {
+          await pick(h, 'crop')
+          await h.click(radio(t('Square')))
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.5, 0.5], [0.58, 0.5]], { ms: 700 })
+          await h.wait(300)
+          await h.clickText(t('Crop'), '[data-tour="settings"]')
+        },
+      }),
+      line('end', {
+        sound: 'sparkle',
+        act: async (h) => {
+          // Arrange shows the finished picture without the crop frame.
+          await h.click(TOOL('move'))
+          // More tools goes back to how it was before the tour opened it.
+          if (opened && h.find('[data-tour="more-tools"][aria-expanded="true"]')) await h.click('[data-tour="more-tools"]')
+        },
+      }),
+    ],
+  }
+}
+
 // The tours people can start, in the order they're offered.
 export const TOURS = [
   { id: 'tools', start: toolsTour, title: () => t('Meet the tools'), description: () => t('A quick, spoken walk past every tool: what it does, in one sentence each. About two minutes.') },
   { id: 'detail', start: detailTour, title: () => t('Every tool, up close'), description: () => t('The deep dive: each tool shown working, how to use it and what it can do. About four minutes.') },
   { id: 'showcase', start: showcaseTour, title: () => t('Night garden showcase'), description: () => t('A whole night scene made with many tools together: gradients, glow, curves, paint and bent words.') },
+  { id: 'sunset', start: sunsetTour, title: () => t('Sunset by the sea'), description: () => t('Paint a simple sunset, then clean it up with the fixing tools: when to use each one, and how.') },
   { id: 'poster', start: posterTour, title: () => t('Make a poster'), description: () => t('Watch a whole poster being made, from an empty page to a download, with a tip at every step.') },
 ]
