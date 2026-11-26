@@ -12,50 +12,217 @@ import type { Tour, TourHost, TourStep } from './tour.ts'
 
 const TOOL = (id: ToolId) => `[data-tour="tool-${id}"]`
 
-function toolStep(id: ToolId, extra: Partial<TourStep> = {}): TourStep {
-  return { id, line: RECORDED[id], audio: `tour/tools-${id}.mp3`, target: TOOL(id), run: (host) => host.pickTool(id), ...extra }
-}
-
 const star = (name: string, x: number, y: number, size: number, color: string): TourShape => ({ name, type: 'star', x, y, w: size, h: size * 1.5, color })
 
-// The quick tour: every tool in a sentence, picked and lit up, with a few things made on the page
-// along the way so the tools are seen working.
+// The quick tour: every tool in a sentence, and the tour's pointer really using each one on the
+// page while it is spoken: a star to move, a part selected, the page cropped, shapes, a curve,
+// words, paint rubbed out, a shape faded, colors filled, a look, and spots fixed.
 export function toolsTour(): Tour {
+  const line = (id: keyof typeof RECORDED, extra: Partial<TourStep> = {}): TourStep => ({ id, line: RECORDED[id], audio: `tour/tools-${id}.mp3`, ...extra })
+  const radio = (label: string) => `[role="radio"][aria-label="${label}"]`
+  const named = (label: string) => `[aria-label="${label}"]`
+  const PAGE = '[data-tour="canvas"]'
+  const COLOR = `section[aria-label="${t('Color')}"]`
+  const size = (host: TourHost) => host.getDoc() ?? { width: 1200, height: 800 }
+  let opened = false
+  // Picks a tool, opening More tools first when it is tucked away there.
+  const pick = async (h: HandStep, id: ToolId) => {
+    if (!h.find(TOOL(id))?.getClientRects().length) {
+      opened = true
+      await h.click('[data-tour="more-tools"]')
+    }
+    await h.click(TOOL(id))
+  }
+  const color = async (h: HandStep, host: TourHost, hex: string) => {
+    await h.point(COLOR, 400)
+    await h.do(() => host.pickColor(hex))
+    h.sound('change')
+  }
+  // Where the picked thing's middle is, as shares of the page.
+  const middle = (host: TourHost): [number, number] => {
+    const doc = host.getDoc()
+    const layer = doc?.layers.find((l) => l.id === doc.activeLayerId)
+    if (!doc || !layer || !('box' in layer) || !layer.box) return [0.5, 0.5]
+    return [layer.box.cx / doc.width, layer.box.cy / doc.height]
+  }
+  // A shape drawn with Shapes, the way a person draws one.
+  const shape = async (h: HandStep, host: TourHost, kind: string, from: [number, number], to: [number, number], hex: string, shift = false) => {
+    await pick(h, 'shape')
+    await h.click(radio(kind), 400)
+    h.spot(PAGE)
+    await h.drag(size(host), [from, to], { ms: 500, shift })
+    h.sound('pop')
+    await color(h, host, hex)
+  }
+  const drawing = (host: TourHost) => host.getDoc()?.layers.find((l) => l.kind === 'raster')?.name
   return {
     id: 'tools',
     title: t('Meet the tools'),
     design: { name: t('Meet the tools'), width: 1200, height: 800 },
+    pointer: true,
     steps: [
-      { id: 'intro', line: RECORDED.intro, audio: 'tour/tools-intro.mp3', sound: 'sparkle' },
-      toolStep('move'),
-      toolStep('select'),
-      toolStep('crop'),
-      toolStep('shape', {
-        parts: [
-          { at: 0.25, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: t('Box'), type: 'rectangle', x: 0.25, y: 0.45, w: 0.16, h: 0.24, color: '#3366ff', corners: 0.3 }]) },
-          { at: 0.45, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: t('Circle'), type: 'ellipse', x: 0.45, y: 0.45, w: 0.14, h: 0.21, color: '#ffb020' }]) },
-          { at: 0.65, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [star(t('Star'), 0.65, 0.45, 0.15, '#22c38e')]) },
-        ],
+      line('intro', { sound: 'sparkle', act: (h, host) => shape(h, host, t('Star'), [0.12, 0.12], [0.2, 0.26], '#ffb020') }),
+      line('move', {
+        act: async (h, host) => {
+          await pick(h, 'move')
+          h.spot(PAGE)
+          await h.drag(size(host), [middle(host), [0.3, 0.3], [0.5, 0.24]], { ms: 800 })
+          h.sound('slide')
+          // Pulls the corner out to make it bigger.
+          const doc = host.getDoc()
+          const layer = doc?.layers.find((l) => l.id === doc.activeLayerId)
+          if (doc && layer && 'box' in layer && layer.box) {
+            const corner: [number, number] = [(layer.box.cx + layer.box.width / 2) / doc.width, (layer.box.cy + layer.box.height / 2) / doc.height]
+            await h.drag(doc, [corner, [corner[0] + 0.05, corner[1] + 0.07]], { ms: 600 })
+            h.sound('grow')
+          }
+        },
       }),
-      toolStep('pen'),
-      toolStep('text', {
-        parts: [{ at: 0.3, sound: 'type', run: (h) => addText(h, t('Add text'), { name: t('Hello'), text: 'Hello! שלום!', x: 0.5, y: 0.18, w: 0.8, size: 0.07, weight: 800, color: '#1a1f2c' }) }],
+      line('select', {
+        act: async (h, host) => {
+          await pick(h, 'select')
+          await h.click(radio(t('Rectangle')), 400)
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.06, 0.5], [0.3, 0.7], [0.55, 0.92]], { ms: 900 })
+          await h.wait(900)
+          await h.clickText(t('Let go'))
+        },
       }),
-      { id: 'photo', line: RECORDED.photo, audio: 'tour/tools-photo.mp3', target: '[data-tour="add-photo"]' },
-      toolStep('brush'),
-      toolStep('eraser'),
-      toolStep('fade'),
-      toolStep('fill'),
-      toolStep('adjust'),
-      toolStep('heal'),
-      { id: 'more', line: RECORDED.more, audio: 'tour/tools-more.mp3', target: '[data-tour="more-tools"]', run: (h) => h.pickTool('move') },
-      {
-        id: 'end',
-        line: RECORDED.end,
-        audio: 'tour/tools-end.mp3',
+      line('crop', {
+        act: async (h, host) => {
+          await pick(h, 'crop')
+          h.spot(PAGE)
+          await h.drag(size(host), [[1, 1], [0.94, 0.94], [0.9, 0.9]], { ms: 800 })
+          await h.wait(300)
+          await h.clickText(t('Crop'), '[data-tour="settings"]')
+          h.sound('change')
+        },
+      }),
+      line('shape', {
+        act: async (h, host) => {
+          await shape(h, host, t('Rectangle'), [0.08, 0.38], [0.24, 0.62], '#3366ff')
+          await shape(h, host, t('Oval'), [0.3, 0.4], [0.44, 0.6], '#22c38e', true)
+          await shape(h, host, t('Star'), [0.5, 0.38], [0.62, 0.62], '#ff6fa1')
+        },
+      }),
+      line('pen', {
+        act: async (h, host) => {
+          const doc = size(host)
+          await pick(h, 'pen')
+          h.spot(PAGE)
+          await h.drag(doc, [[0.72, 0.62]], { ms: 100 })
+          await h.drag(doc, [[0.8, 0.34], [0.9, 0.34]], { ms: 500 })
+          await h.drag(doc, [[0.92, 0.62]], { ms: 100 })
+          await h.drag(doc, [[0.72, 0.62]], { ms: 100 })
+          h.sound('pop')
+          await color(h, host, '#7c4dff')
+        },
+      }),
+      line('text', {
+        act: async (h, host) => {
+          await pick(h, 'text')
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.6, 0.06], [0.95, 0.18]], { ms: 600 })
+          await h.wait(300)
+          await h.type('Hello! שלום!', 80)
+          await h.key('Escape')
+        },
+      }),
+      line('photo', { target: '[data-tour="add-photo"]', act: async (h) => void (await h.point('[data-tour="add-photo"]')) }),
+      line('brush', {
+        act: async (h, host) => {
+          await pick(h, 'brush')
+          await h.slide(t('Size'), 0.3)
+          await color(h, host, '#e0457b')
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.06, 0.82], [0.2, 0.74], [0.35, 0.86], [0.5, 0.74], [0.65, 0.86], [0.8, 0.76]], { ms: 1100 })
+          h.sound('brush')
+        },
+      }),
+      line('eraser', {
+        act: async (h, host) => {
+          await pick(h, 'eraser')
+          await h.slide(t('Size'), 0.4)
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.4, 0.7], [0.44, 0.9], [0.48, 0.7]], { ms: 700 })
+          h.sound('rub')
+        },
+      }),
+      line('fade', {
+        act: async (h, host) => {
+          await pick(h, 'move')
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.16, 0.5]], { ms: 100 })
+          await pick(h, 'fade')
+          await h.slide(t('Size'), 0.6)
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.06, 0.6], [0.26, 0.6], [0.06, 0.64], [0.26, 0.64]], { ms: 900 })
+          h.sound('rub')
+        },
+      }),
+      line('fill', {
+        act: async (h, host) => {
+          await pick(h, 'fill')
+          await color(h, host, '#dff1ff')
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.05, 0.3]], { ms: 100 })
+          h.sound('pop')
+          await color(h, host, '#ff8a3d')
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.37, 0.5]], { ms: 100 })
+          h.sound('pop')
+        },
+      }),
+      line('adjust', {
+        act: async (h, host) => {
+          const name = drawing(host)
+          if (name) await h.click(named(t('Layer: {name}', { name })))
+          await pick(h, 'adjust')
+          await h.click(radio(t('Black & white')))
+          h.sound('change')
+          await h.wait(600)
+          await h.clickText(t('Apply'))
+        },
+      }),
+      line('heal', {
+        act: async (h, host) => {
+          const doc = size(host)
+          await pick(h, 'brush')
+          await h.slide(t('Size'), 0.2)
+          await color(h, host, '#2a2a2a')
+          h.spot(PAGE)
+          const spots: [number, number][] = [[0.2, 0.78], [0.62, 0.81]]
+          for (const p of spots) await h.drag(doc, [p, [p[0] + 0.004, p[1] + 0.004]], { ms: 100 })
+          await pick(h, 'heal')
+          h.spot(PAGE)
+          for (const [x, y] of spots) {
+            await h.drag(doc, [[x, y], [x + 0.015, y + 0.01], [x - 0.01, y + 0.015]], { ms: 400 })
+            h.sound('rub')
+          }
+        },
+      }),
+      line('more', {
+        target: '[data-tour="more-tools"]',
+        act: async (h) => {
+          if (!h.find(TOOL('clone'))?.getClientRects().length) {
+            opened = true
+            await h.click('[data-tour="more-tools"]')
+          }
+          for (const id of ['clone', 'push', 'picker', 'zoom'] as ToolId[]) await h.point(TOOL(id), 350)
+        },
+      }),
+      line('end', {
         sound: 'sparkle',
-        parts: [{ at: 0.3, sound: 'slide', run: (h) => glide(h, t('Move'), [t('Star')], 0.15, 0) }],
-      },
+        act: async (h, host) => {
+          await pick(h, 'move')
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.56, 0.5]], { ms: 100 })
+          await h.drag(size(host), [middle(host), [0.56, 0.3], [0.56, 0.5]], { ms: 900 })
+          h.sound('slide')
+          // More tools goes back to how it was before the tour opened it.
+          if (opened && h.find('[data-tour="more-tools"][aria-expanded="true"]')) await h.click('[data-tour="more-tools"]')
+        },
+      }),
     ],
   }
 }
