@@ -70,7 +70,12 @@ async function skipThrough(page: import('@playwright/test').Page, title: string,
 
 test('the deep dive shows every tool working', async ({ page }) => {
   await skipThrough(page, 'Every tool, up close', 21)
-  for (const name of ['Star', 'Box', 'Hexagon', 'Arrow', 'Leaf', 'Hello', 'Paint']) await expect(page.getByText(name, { exact: true }).first()).toBeVisible()
+  // The tour's pointer made each of these with the real tools. Skipped steps still really work.
+  await expect(page.getByRole('button', { name: 'Arrange tool' })).toHaveAttribute('aria-pressed', 'true', { timeout: 30000 })
+  for (const name of ['Star 1', 'Star 1 copy', 'Rectangle 1', 'Polygon 1', 'Line 1', 'Drawn shape 1', 'Drawing 1'])
+    await expect(page.getByRole('button', { name: `Layer: ${name}`, exact: true })).toBeVisible()
+  // Words with Hebrew in them are named with marks that keep their direction right.
+  await expect(page.getByRole('button', { name: /^Layer: .?Hello! שלום!.?$/ })).toBeVisible()
 })
 
 test('the showcase paints a whole night garden', async ({ page }) => {

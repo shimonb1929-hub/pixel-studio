@@ -178,6 +178,12 @@ export class HandStep {
     this.hand.place(x, y)
   }
 
+  // Glides the arrow to a point of the page (shares of it), without pressing.
+  async pointAt(doc: { width: number; height: number }, at: [number, number], ms = 600) {
+    const p = this.hand.screen(at[0], at[1], doc)
+    if (p) await this.moveTo(p.x, p.y, ms)
+  }
+
   // Finds a button or control by a CSS selector.
   find(selector: string): HTMLElement | null {
     const all = [...document.querySelectorAll<HTMLElement>(selector)]
