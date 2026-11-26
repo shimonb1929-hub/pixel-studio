@@ -31,14 +31,14 @@ export function toolsTour(): Tour {
       toolStep('crop'),
       toolStep('shape', {
         parts: [
-          { at: 0.25, run: (h) => addShapes(h, t('Add shape'), [{ name: t('Box'), type: 'rectangle', x: 0.25, y: 0.45, w: 0.16, h: 0.24, color: '#3366ff', corners: 0.3 }]) },
-          { at: 0.45, run: (h) => addShapes(h, t('Add shape'), [{ name: t('Circle'), type: 'ellipse', x: 0.45, y: 0.45, w: 0.14, h: 0.21, color: '#ffb020' }]) },
-          { at: 0.65, run: (h) => addShapes(h, t('Add shape'), [star(t('Star'), 0.65, 0.45, 0.15, '#22c38e')]) },
+          { at: 0.25, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: t('Box'), type: 'rectangle', x: 0.25, y: 0.45, w: 0.16, h: 0.24, color: '#3366ff', corners: 0.3 }]) },
+          { at: 0.45, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: t('Circle'), type: 'ellipse', x: 0.45, y: 0.45, w: 0.14, h: 0.21, color: '#ffb020' }]) },
+          { at: 0.65, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [star(t('Star'), 0.65, 0.45, 0.15, '#22c38e')]) },
         ],
       }),
       toolStep('pen'),
       toolStep('text', {
-        parts: [{ at: 0.3, run: (h) => addText(h, t('Add text'), { name: t('Hello'), text: 'Hello! שלום!', x: 0.5, y: 0.18, w: 0.8, size: 0.07, weight: 800, color: '#1a1f2c' }) }],
+        parts: [{ at: 0.3, sound: 'type', run: (h) => addText(h, t('Add text'), { name: t('Hello'), text: 'Hello! שלום!', x: 0.5, y: 0.18, w: 0.8, size: 0.07, weight: 800, color: '#1a1f2c' }) }],
       }),
       { id: 'photo', line: RECORDED.photo, audio: 'tour/tools-photo.mp3', target: '[data-tour="add-photo"]' },
       toolStep('brush'),
@@ -53,7 +53,7 @@ export function toolsTour(): Tour {
         line: RECORDED.end,
         audio: 'tour/tools-end.mp3',
         sound: 'sparkle',
-        parts: [{ at: 0.3, run: (h) => glide(h, t('Move'), [t('Star')], 0.15, 0) }],
+        parts: [{ at: 0.3, sound: 'slide', run: (h) => glide(h, t('Move'), [t('Star')], 0.15, 0) }],
       },
     ],
   }
@@ -71,44 +71,45 @@ export function posterTour(): Tour {
     design: { name: t('My poster'), width: 1080, height: 1350 },
     steps: [
       line('intro', { sound: 'sparkle' }),
-      line('page', { parts: [{ at: 0.75, run: (h) => setPageColor(h, t('Page color'), SKY) }] }),
+      line('page', { parts: [{ at: 0.75, sound: 'change', run: (h) => setPageColor(h, t('Page color'), SKY) }] }),
       line('sun', {
         target: TOOL('shape'),
         run: (h) => h.pickTool('shape'),
-        parts: [{ at: 0.55, run: (h) => addShapes(h, t('Add shape'), [{ name: t('Sun'), type: 'ellipse', x: 0.76, y: 0.16, w: 0.26, h: 0.208, color: '#ffc233' }]) }],
+        parts: [{ at: 0.55, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: t('Sun'), type: 'ellipse', x: 0.76, y: 0.16, w: 0.26, h: 0.208, color: '#ffc233' }]) }],
       }),
       line('hills', {
         parts: [
-          { at: 0.15, run: (h) => addShapes(h, t('Add shape'), [{ name: t('Hill'), type: 'ellipse', x: 0.22, y: 0.97, w: 1.05, h: 0.36, color: '#7ccf6b' }]) },
-          { at: 0.35, run: (h) => addShapes(h, t('Add shape'), [{ name: t('Hill'), type: 'ellipse', x: 0.85, y: 1.0, w: 1.1, h: 0.38, color: '#57b25a' }]) },
+          { at: 0.15, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: t('Hill'), type: 'ellipse', x: 0.22, y: 0.97, w: 1.05, h: 0.36, color: '#7ccf6b' }]) },
+          { at: 0.35, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: t('Hill'), type: 'ellipse', x: 0.85, y: 1.0, w: 1.1, h: 0.38, color: '#57b25a' }]) },
         ],
       }),
       line('flowers', {
         parts: [0.12, 0.3, 0.48, 0.66, 0.84].map((at, i) => ({
           at,
+          sound: 'pop' as const,
           run: (h) => addShapes(h, t('Add shape'), [star(t('Flower'), 0.1 + i * 0.2, 0.84 + (i % 2) * 0.05, 0.07, i % 2 ? '#ffffff' : '#ff6fa1')]),
         })),
       }),
       line('title', {
         target: TOOL('text'),
         run: (h) => h.pickTool('text'),
-        parts: [{ at: 0.55, run: (h) => addText(h, t('Add text'), { name: TITLE, text: TITLE, x: 0.5, y: 0.42, w: 0.86, size: 0.105, weight: 800, color: '#1d3557' }) }],
+        parts: [{ at: 0.55, sound: 'type', run: (h) => addText(h, t('Add text'), { name: TITLE, text: TITLE, x: 0.5, y: 0.42, w: 0.86, size: 0.105, weight: 800, color: '#1d3557' }) }],
       }),
       line('details', {
-        parts: [{ at: 0.45, run: (h) => addText(h, t('Add text'), { name: t('Details'), text: 'Sunday, May 3 · 10 AM to 4 PM\nCity Park', x: 0.5, y: 0.6, w: 0.8, size: 0.042, weight: 500, color: '#1d3557' }) }],
+        parts: [{ at: 0.45, sound: 'type', run: (h) => addText(h, t('Add text'), { name: t('Details'), text: 'Sunday, May 3 · 10 AM to 4 PM\nCity Park', x: 0.5, y: 0.6, w: 0.8, size: 0.042, weight: 500, color: '#1d3557' }) }],
       }),
       line('shadow', {
         parts: [
-          { at: 0.1, run: (h) => pickNamed(h, TITLE) },
-          { at: 0.7, run: (h) => addShadow(h, t('Shadow'), TITLE) },
+          { at: 0.1, sound: 'tick', run: (h) => pickNamed(h, TITLE) },
+          { at: 0.7, sound: 'shine', run: (h) => addShadow(h, t('Shadow'), TITLE) },
         ],
       }),
       line('arrange', {
         target: TOOL('move'),
         run: (h) => h.pickTool('move'),
         parts: [
-          { at: 0.25, run: (h) => pickNamed(h, t('Sun')) },
-          { at: 0.35, run: (h) => glide(h, t('Move'), [t('Sun')], -0.06, 0.03, 1400) },
+          { at: 0.25, sound: 'tick', run: (h) => pickNamed(h, t('Sun')) },
+          { at: 0.35, sound: 'slide', run: (h) => glide(h, t('Move'), [t('Sun')], -0.06, 0.03, 1400) },
         ],
       }),
       line('download', { target: '[data-tour="download"]' }),
@@ -142,54 +143,55 @@ export function detailTour(): Tour {
       line('settings', { target: '[data-tour="settings"]', run: (h) => h.pickTool('shape') }),
       tool('move', {
         parts: [
-          { at: 0.12, run: (h) => addShapes(h, t('Add shape'), [star(STAR, 0.5, 0.5, 0.12, '#ffb020')]) },
-          { at: 0.3, run: (h) => glide(h, t('Move'), [STAR], 0.16, 0) },
-          { at: 0.5, run: (h) => animate(h, t('Resize'), [STAR], (b, e) => ({ ...b, width: b.width * (1 + 0.5 * e), height: b.height * (1 + 0.5 * e) })) },
-          { at: 0.68, run: (h) => animate(h, t('Turn'), [STAR], (b, e) => ({ ...b, rotation: b.rotation + e * (Math.PI / 5) })) },
+          { at: 0.12, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [star(STAR, 0.5, 0.5, 0.12, '#ffb020')]) },
+          { at: 0.3, sound: 'slide', run: (h) => glide(h, t('Move'), [STAR], 0.16, 0) },
+          { at: 0.5, sound: 'grow', run: (h) => animate(h, t('Resize'), [STAR], (b, e) => ({ ...b, width: b.width * (1 + 0.5 * e), height: b.height * (1 + 0.5 * e) })) },
+          { at: 0.68, sound: 'slide', run: (h) => animate(h, t('Turn'), [STAR], (b, e) => ({ ...b, rotation: b.rotation + e * (Math.PI / 5) })) },
         ],
       }),
       tool('select'),
       tool('crop'),
       tool('shape', {
         parts: [
-          { at: 0.1, run: (h) => addShapes(h, t('Add shape'), [{ name: BOX, type: 'rectangle', x: 0.17, y: 0.3, w: 0.16, h: 0.22, color: '#3366ff' }]) },
-          { at: 0.22, run: (h) => addShapes(h, t('Add shape'), [{ name: HEX, type: 'polygon', x: 0.17, y: 0.72, w: 0.13, h: 0.2, color: '#ff7a45', sides: 6 }]) },
-          { at: 0.36, run: (h) => addShapes(h, t('Add shape'), [{ name: t('Arrow'), type: 'line', x: 0.4, y: 0.3, w: 0.14, h: 0.04, color: '#1a1f2c', outline: { color: '#1a1f2c', width: 0.006 } }]) },
+          { at: 0.1, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: BOX, type: 'rectangle', x: 0.17, y: 0.3, w: 0.16, h: 0.22, color: '#3366ff' }]) },
+          { at: 0.22, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: HEX, type: 'polygon', x: 0.17, y: 0.72, w: 0.13, h: 0.2, color: '#ff7a45', sides: 6 }]) },
+          { at: 0.36, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: t('Arrow'), type: 'line', x: 0.4, y: 0.3, w: 0.14, h: 0.04, color: '#1a1f2c', outline: { color: '#1a1f2c', width: 0.006 } }]) },
           {
             at: 0.75,
+            sound: 'change',
             run: (h) => h.change(t('Corners'), (doc) => ({ ...doc, layers: doc.layers.map((l) => (l.name === BOX && l.kind === 'shape' ? { ...l, geometry: { ...l.geometry, corners: 0.35 }, outline: { color: '#1a1f2c', width: Math.round(0.005 * doc.width) } } : l)) })),
           },
         ],
       }),
       line('photo', { target: '[data-tour="add-photo"]', run: (h) => h.pickTool('move') }),
       tool('pen', {
-        parts: [{ at: 0.3, run: (h) => addShapes(h, t('Add shape'), [{ name: t('Leaf'), type: 'path', x: 0.85, y: 0.5, w: 0.08, h: 0.28, color: '#22c38e', turn: 30, path: LEAF }]) }],
+        parts: [{ at: 0.3, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: t('Leaf'), type: 'path', x: 0.85, y: 0.5, w: 0.08, h: 0.28, color: '#22c38e', turn: 30, path: LEAF }]) }],
       }),
       tool('text', {
         parts: [
-          { at: 0.15, run: (h) => addText(h, t('Add text'), { name: WORDS, text: 'Hello! שלום!', x: 0.5, y: 0.13, w: 0.7, size: 0.07, weight: 800, color: '#1a1f2c' }) },
-          { at: 0.85, run: (h) => bend(h, t('Bend'), WORDS, 0.12) },
+          { at: 0.15, sound: 'type', run: (h) => addText(h, t('Add text'), { name: WORDS, text: 'Hello! שלום!', x: 0.5, y: 0.13, w: 0.7, size: 0.07, weight: 800, color: '#1a1f2c' }) },
+          { at: 0.85, sound: 'grow', run: (h) => bend(h, t('Bend'), WORDS, 0.12) },
         ],
       }),
       tool('brush', {
         parts: [
-          { at: 0.1, run: (h) => addPaintLayer(h, t('New layer'), PAINT) },
-          { at: 0.2, run: (h) => stroke(h, t('Brush'), PAINT, [[0.08, 0.92], [0.2, 0.86], [0.32, 0.92], [0.44, 0.86], [0.56, 0.92], [0.68, 0.86], [0.8, 0.92], [0.92, 0.86]], '#7c5cff', 0.02, 2200) },
+          { at: 0.1, sound: 'tick', run: (h) => addPaintLayer(h, t('New layer'), PAINT) },
+          { at: 0.2, sound: 'brush', run: (h) => stroke(h, t('Brush'), PAINT, [[0.08, 0.92], [0.2, 0.86], [0.32, 0.92], [0.44, 0.86], [0.56, 0.92], [0.68, 0.86], [0.8, 0.92], [0.92, 0.86]], '#7c5cff', 0.02, 2200) },
         ],
       }),
-      tool('eraser', { parts: [{ at: 0.2, run: (h) => stroke(h, t('Eraser'), PAINT, [[0.5, 0.8], [0.5, 0.98]], '#000', 0.05, 900, true) }] }),
+      tool('eraser', { parts: [{ at: 0.2, sound: 'rub', run: (h) => stroke(h, t('Eraser'), PAINT, [[0.5, 0.8], [0.5, 0.98]], '#000', 0.05, 900, true) }] }),
       tool('fade'),
       tool('fill', {
         parts: [
-          { at: 0.55, run: (h) => pickNamed(h, BOX) },
-          { at: 0.75, run: (h) => setFill(h, t('Color'), BOX, '#ff6fa1') },
+          { at: 0.55, sound: 'tick', run: (h) => pickNamed(h, BOX) },
+          { at: 0.75, sound: 'change', run: (h) => setFill(h, t('Color'), BOX, '#ff6fa1') },
         ],
       }),
       line('color', { target: '[data-tour="color"]', run: (h) => h.pickTool('move') }),
       tool('adjust', {
         parts: [
-          { at: 0.1, run: (h) => pickNamed(h, HEX) },
-          { at: 0.35, run: (h) => setLook(h, t('Black & white'), HEX, 'mono') },
+          { at: 0.1, sound: 'tick', run: (h) => pickNamed(h, HEX) },
+          { at: 0.35, sound: 'change', run: (h) => setLook(h, t('Black & white'), HEX, 'mono') },
         ],
       }),
       tool('heal'),
@@ -201,7 +203,7 @@ export function detailTour(): Tour {
           h.pickTool('move')
           pickNamed(h, STAR)
         },
-        parts: [{ at: 0.75, run: (h) => addGlow(h, t('Glow'), STAR, '#ffd400') }],
+        parts: [{ at: 0.75, sound: 'shine', run: (h) => addGlow(h, t('Glow'), STAR, '#ffd400') }],
       }),
       line('layers', { target: '[data-tour="layers"]' }),
       line('end', { sound: 'sparkle' }),
@@ -237,9 +239,10 @@ export function showcaseTour(): Tour {
         target: TOOL('shape'),
         run: (h) => h.pickTool('shape'),
         parts: [
-          { at: 0.2, run: (h) => addShapes(h, t('Add shape'), [{ name: SKY, type: 'rectangle', x: 0.5, y: 0.5, w: 1, h: 1, color: '#16224f' }]) },
+          { at: 0.2, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: SKY, type: 'rectangle', x: 0.5, y: 0.5, w: 1, h: 1, color: '#16224f' }]) },
           {
             at: 0.6,
+            sound: 'change',
             run: (h) =>
               h.change(t('Gradient'), (doc) => ({
                 ...doc,
@@ -254,25 +257,26 @@ export function showcaseTour(): Tour {
       }),
       line('moon', {
         parts: [
-          { at: 0.1, run: (h) => addShapes(h, t('Add shape'), [{ name: MOON, type: 'ellipse', x: 0.8, y: 0.2, w: 0.1, h: 0.16, color: '#fff4c2' }]) },
-          { at: 0.65, run: (h) => addGlow(h, t('Glow'), MOON, '#fff1a8') },
+          { at: 0.1, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: MOON, type: 'ellipse', x: 0.8, y: 0.2, w: 0.1, h: 0.16, color: '#fff4c2' }]) },
+          { at: 0.65, sound: 'shine', run: (h) => addGlow(h, t('Glow'), MOON, '#fff1a8') },
         ],
       }),
       line('stars', {
-        parts: SKY_STARS.map(([x, y, size], i) => ({ at: 0.08 + i * 0.1, run: (h: TourHost) => addShapes(h, t('Add shape'), [star(t('Star'), x, y, size, i % 3 ? '#ffffff' : '#ffe680')]) })),
+        parts: SKY_STARS.map(([x, y, size], i) => ({ at: 0.08 + i * 0.1, sound: 'pop', run: (h: TourHost) => addShapes(h, t('Add shape'), [star(t('Star'), x, y, size, i % 3 ? '#ffffff' : '#ffe680')]) })),
       }),
       line('hills', {
         target: TOOL('pen'),
         run: (h) => h.pickTool('pen'),
-        parts: [{ at: 0.3, run: (h) => addShapes(h, t('Add shape'), [{ name: t('Hills'), type: 'path', x: 0.5, y: 0.84, w: 1.04, h: 0.4, color: '#1f5a3a', path: HILLS }]) }],
+        parts: [{ at: 0.3, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: t('Hills'), type: 'path', x: 0.5, y: 0.84, w: 1.04, h: 0.4, color: '#1f5a3a', path: HILLS }]) }],
       }),
       line('grass', {
         target: TOOL('brush'),
         run: (h) => h.pickTool('brush'),
         parts: [
-          { at: 0.15, run: (h) => addPaintLayer(h, t('New layer'), GRASS) },
+          { at: 0.15, sound: 'tick', run: (h) => addPaintLayer(h, t('New layer'), GRASS) },
           {
             at: 0.3,
+            sound: 'brush',
             run: (h) =>
               strokes(
                 h,
@@ -293,29 +297,29 @@ export function showcaseTour(): Tour {
       line('flowers', {
         target: TOOL('shape'),
         run: (h) => h.pickTool('shape'),
-        parts: FLOWERS.map((x, i) => ({ at: 0.1 + i * 0.13, run: (h: TourHost) => addShapes(h, t('Add shape'), [star(t('Flower'), x, 0.86 + (i % 2) * 0.05, 0.045, ['#ff6fa1', '#ffd23f', '#ffffff'][i % 3])]) })),
+        parts: FLOWERS.map((x, i) => ({ at: 0.1 + i * 0.13, sound: 'pop', run: (h: TourHost) => addShapes(h, t('Add shape'), [star(t('Flower'), x, 0.86 + (i % 2) * 0.05, 0.045, ['#ff6fa1', '#ffd23f', '#ffffff'][i % 3])]) })),
       }),
       line('title', {
         target: TOOL('text'),
         run: (h) => h.pickTool('text'),
         parts: [
-          { at: 0.2, run: (h) => addText(h, t('Add text'), { name: GARDEN, text: GARDEN, x: 0.45, y: 0.42, w: 0.6, size: 0.085, weight: 800, color: '#ffffff' }) },
-          { at: 0.7, run: (h) => bend(h, t('Bend'), GARDEN, 0.1) },
+          { at: 0.2, sound: 'type', run: (h) => addText(h, t('Add text'), { name: GARDEN, text: GARDEN, x: 0.45, y: 0.42, w: 0.6, size: 0.085, weight: 800, color: '#ffffff' }) },
+          { at: 0.7, sound: 'grow', run: (h) => bend(h, t('Bend'), GARDEN, 0.1) },
         ],
       }),
-      line('shadow', { target: '[data-tour="effects"]', run: (h) => h.pickTool('move'), parts: [{ at: 0.4, run: (h) => addShadow(h, t('Shadow'), GARDEN) }] }),
+      line('shadow', { target: '[data-tour="effects"]', run: (h) => h.pickTool('move'), parts: [{ at: 0.4, sound: 'shine', run: (h) => addShadow(h, t('Shadow'), GARDEN) }] }),
       line('adjust', {
         parts: [
-          { at: 0.2, run: (h) => pickNamed(h, GRASS) },
-          { at: 0.45, run: (h) => setLook(h, t('Warm'), GRASS, 'warm') },
+          { at: 0.2, sound: 'tick', run: (h) => pickNamed(h, GRASS) },
+          { at: 0.45, sound: 'change', run: (h) => setLook(h, t('Warm'), GRASS, 'warm') },
         ],
       }),
       line('arrange', {
         target: TOOL('move'),
         run: (h) => h.pickTool('move'),
         parts: [
-          { at: 0.3, run: (h) => pickNamed(h, MOON) },
-          { at: 0.4, run: (h) => glide(h, t('Move'), [MOON], -0.05, 0.03, 1400) },
+          { at: 0.3, sound: 'tick', run: (h) => pickNamed(h, MOON) },
+          { at: 0.4, sound: 'slide', run: (h) => glide(h, t('Move'), [MOON], -0.05, 0.03, 1400) },
         ],
       }),
       line('end', { sound: 'sparkle' }),

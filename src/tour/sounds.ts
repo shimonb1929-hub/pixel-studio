@@ -1,8 +1,11 @@
 // Light sounds for the tours, made on the spot by the browser (no sound files): a soft chime when
 // a new step starts, a pop when something appears, a whoosh when the spotlight moves, and a little
-// sparkle at the end. They stay quiet under the voice, and can be turned off.
+// sparkle at the end. What the tour does on the page gets its own sound too: a brush swish while
+// painting, a soft rub for the eraser, little taps for typing, a slide for moving, a rising note
+// for growing, a shimmer for a glow and a bright "ta-da" when a color or look changes. They stay
+// quiet under the voice, and can be turned off.
 
-export type SoundName = 'chime' | 'pop' | 'whoosh' | 'sparkle' | 'tick'
+export type SoundName = 'chime' | 'pop' | 'whoosh' | 'sparkle' | 'tick' | 'brush' | 'rub' | 'type' | 'slide' | 'grow' | 'shine' | 'change'
 
 const KEY = 'pixel-studio-tour-sounds'
 let context: AudioContext | null = null
@@ -45,7 +48,7 @@ function note(ctx: AudioContext, frequency: number, start: number, length: numbe
   osc.stop(start + length + 0.05)
 }
 
-function noise(ctx: AudioContext, start: number, length: number, volume: number) {
+function noise(ctx: AudioContext, start: number, length: number, volume: number, low = 400, high = 2400) {
   const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * length), ctx.sampleRate)
   const data = buffer.getChannelData(0)
   for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
@@ -54,9 +57,9 @@ function noise(ctx: AudioContext, start: number, length: number, volume: number)
   const filter = ctx.createBiquadFilter()
   filter.type = 'bandpass'
   filter.Q.value = 0.8
-  filter.frequency.setValueAtTime(400, start)
-  filter.frequency.exponentialRampToValueAtTime(2400, start + length * 0.6)
-  filter.frequency.exponentialRampToValueAtTime(700, start + length)
+  filter.frequency.setValueAtTime(low, start)
+  filter.frequency.exponentialRampToValueAtTime(high, start + length * 0.6)
+  filter.frequency.exponentialRampToValueAtTime(low * 1.75, start + length)
   const gain = ctx.createGain()
   gain.gain.setValueAtTime(0.0001, start)
   gain.gain.exponentialRampToValueAtTime(volume, start + length * 0.45)
@@ -86,6 +89,32 @@ export function play(name: SoundName) {
       break
     case 'tick':
       note(ctx, 1400, now, 0.05, 0.03, 'square')
+      break
+    case 'brush':
+      // Two soft strokes of a brush on paper.
+      noise(ctx, now, 0.45, 0.03, 1200, 4200)
+      noise(ctx, now + 0.4, 0.5, 0.025, 1000, 3600)
+      break
+    case 'rub':
+      for (let i = 0; i < 4; i++) noise(ctx, now + i * 0.13, 0.12, 0.03, 300, 900)
+      break
+    case 'type':
+      for (let i = 0; i < 6; i++) note(ctx, 1500 + (i % 3) * 180, now + i * 0.075, 0.035, 0.022, 'square')
+      break
+    case 'slide':
+      noise(ctx, now, 0.45, 0.025)
+      note(ctx, 330, now, 0.45, 0.025, 'sine', 520)
+      break
+    case 'grow':
+      note(ctx, 300, now, 0.5, 0.05, 'sine', 760)
+      break
+    case 'shine':
+      note(ctx, 880, now, 0.7, 0.025, 'triangle', 1760)
+      ;[1568, 2093, 2637].forEach((f, i) => note(ctx, f, now + 0.15 + i * 0.09, 0.35, 0.02, 'triangle'))
+      break
+    case 'change':
+      note(ctx, 660, now, 0.14, 0.045, 'triangle')
+      note(ctx, 990, now + 0.1, 0.3, 0.04, 'triangle')
       break
   }
 }
