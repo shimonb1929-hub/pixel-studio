@@ -74,8 +74,10 @@ test('the deep dive shows every tool working', async ({ page }) => {
 })
 
 test('the showcase paints a whole night garden', async ({ page }) => {
-  await skipThrough(page, 'Night garden showcase', 12)
-  for (const name of ['Sky', 'Moon', 'Star', 'Hills', 'Grass', 'Flower', 'Night Garden']) await expect(page.getByText(name, { exact: true }).first()).toBeVisible()
+  // The tour's pointer makes it with the real tools, so the layers have the tools' own names.
+  await skipThrough(page, 'Night garden showcase', 14)
+  for (const name of ['Rectangle 1', 'Oval 1', 'Star 1', 'Star 1 copy copy copy copy', 'Drawn shape 1', 'Drawing 1', 'Star 2 copy copy', 'Night Garden'])
+    await expect(page.getByRole('button', { name: `Layer: ${name}`, exact: true })).toBeVisible()
 })
 
 test('the guide speaks: its recorded voice plays from inside the app', async ({ page }) => {

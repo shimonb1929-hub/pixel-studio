@@ -1,4 +1,6 @@
-import type { EditorDocument, PixelLayer, ToolId } from '../editor/types.ts'
+import type { BrushSettings } from '../editor/brushes.ts'
+import type { EditorDocument, PixelLayer, ToolId, Viewport } from '../editor/types.ts'
+import type { HandStep } from './hand.ts'
 import type { SoundName } from './sounds.ts'
 
 // What a tour can do in the app while it talks: pick a tool and change the design (each change is
@@ -11,6 +13,12 @@ export interface TourHost {
   select: (layerId: string) => void
   // Paints on a layer of pixels, inside `area` (design coordinates), as one undo step.
   paint: (label: string, layerId: string, area: { x: number; y: number; width: number; height: number }, draw: (ctx: CanvasRenderingContext2D, layer: PixelLayer) => void) => void
+  // How the page is shown (so the tour's pointer knows where things are on screen).
+  getViewport: () => Viewport
+  // Chooses a color, exactly as picking it in the Color panel would (for what is picked, if anything).
+  pickColor: (hex: string) => void
+  // Changes the brush's settings, as moving its sliders would.
+  setBrush: (change: Partial<BrushSettings>) => void
 }
 
 export interface TourStep {
@@ -27,6 +35,9 @@ export interface TourStep {
   run?: (host: TourHost) => void
   parts?: { at: number; run: (host: TourHost) => void; sound?: SoundName }[]
   sound?: SoundName
+  // Shows the tools being used by the tour's pointer, step by step, while the line is spoken. The
+  // next line waits until it is done.
+  act?: (hand: HandStep, host: TourHost) => Promise<void>
 }
 
 export interface Tour {
@@ -35,6 +46,8 @@ export interface Tour {
   steps: TourStep[]
   // Tours that show things on a design start on a new, empty one of this size.
   design?: { name: string; width: number; height: number }
+  // The tour's pointer does the work on the page: the words then sit at the side, out of its way.
+  pointer?: boolean
 }
 
 // The words shown on screen while a line is spoken.

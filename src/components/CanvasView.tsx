@@ -2151,6 +2151,7 @@ export function CanvasView(props: CanvasViewProps) {
       <canvas
         ref={overlayRef}
         aria-label={t('{name}, {width} by {height} pixels', { name: doc.name, width: doc.width, height: doc.height })}
+        data-tour="canvas"
         className="absolute inset-0 block touch-none"
         style={{ width, height, cursor }}
         onPointerDown={handlePointerDown}

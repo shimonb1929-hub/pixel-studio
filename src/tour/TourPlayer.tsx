@@ -5,6 +5,7 @@ import { t } from '../i18n/i18n.ts'
 import { play, setSoundsOn, soundsOn } from './sounds.ts'
 import { caption, readingTime, wordsSpoken, type Tour, type TourHost } from './tour.ts'
 import { recording, voicePlayer } from './voice.ts'
+import { Hand } from './hand.ts'
 
 interface TourPlayerProps {
   tour: Tour
@@ -83,6 +84,10 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hostRef = useRef(host)
   hostRef.current = host
+  // Where the tour's pointer is working, lit up instead of the step's own spot while it does.
+  const [handSpot, setHandSpot] = useState<string | null>(null)
+  const [hand] = useState(() => new Hand({ getViewport: () => hostRef.current.getViewport(), spot: setHandSpot }))
+  useEffect(() => () => hand.remove(), [hand])
   const step = tour.steps[index]
   const last = index === tour.steps.length - 1
   const words = useMemo(() => caption(step.line).split(/\s+/).filter(Boolean), [step])
@@ -112,18 +117,20 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
     (next: number) => {
       if (next === indexRef.current) return
       finishStep()
+      hand.hurry()
       if (next >= tour.steps.length) {
         closeRef.current()
         return
       }
       setIndex(Math.max(0, next))
     },
-    [finishStep, tour.steps.length],
+    [finishStep, hand, tour.steps.length],
   )
   const close = useCallback(() => {
     finishStep()
+    hand.remove()
     closeRef.current()
-  }, [finishStep])
+  }, [finishStep, hand])
 
   const playingRef = useRef(playing)
   playingRef.current = playing
@@ -148,7 +155,22 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
       return true
     }
     setProgress(0)
+    setHandSpot(null)
     once(`${index}`, () => step.run?.(hostRef.current))
+    // What the pointer shows; the next line waits for it.
+    let acting = false
+    let spoken = false
+    if (step.act && !ran.has(`${index}:act`)) {
+      ran.add(`${index}:act`)
+      acting = true
+      const act = step.act
+      void hand
+        .run((h) => act(h, hostRef.current))
+        .then(() => {
+          acting = false
+          if (spoken) finish()
+        })
+    }
     play(step.sound ?? (step.target ? 'whoosh' : 'chime'))
 
     const runParts = (fraction: number) => {
@@ -159,6 +181,8 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
     }
     const finish = () => {
       if (cancelled) return
+      spoken = true
+      if (acting) return
       runParts(1)
       setProgress(1)
       // While paused, wait here; playing again moves on.
@@ -239,7 +263,7 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
       audio?.removeEventListener('error', fallBack)
       audio?.pause()
     }
-  }, [index, step, go])
+  }, [index, step, go, hand])
 
   // Pause and play the voice in place.
   useEffect(() => {
@@ -254,7 +278,7 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
     let frame = 0
     let previous: Spot | null = null
     const follow = () => {
-      const next = spotOf(step.target)
+      const next = spotOf(handSpot ?? step.target)
       if (!sameSpot(previous, next)) {
         previous = next
         setSpot(next)
@@ -263,7 +287,7 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
     }
     follow()
     return () => cancelAnimationFrame(frame)
-  }, [step])
+  }, [step, handSpot])
 
   // A little burst of shapes where the spotlight lands, and a big one at the end.
   useEffect(() => {
@@ -277,6 +301,8 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // Keys the tour's own pointer presses (like Escape to finish typing) are for the app.
+      if (!event.isTrusted) return
       if (event.key === 'Escape') close()
       else if (event.key === 'ArrowRight') go(index + 1)
       else if (event.key === 'ArrowLeft') go(index - 1)
@@ -324,7 +350,7 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
       {burst && <Burst key={`${burst.seed}-${burst.big}`} {...burst} />}
 
       <div className="absolute inset-x-0 bottom-0 flex justify-center px-4 pb-5 md:justify-end md:pe-5">
-        <div key={index} className={`w-full max-w-xl rounded-card md:max-w-md border border-line bg-surface p-5 shadow-float ${motion ? 'tour-card' : ''}`}>
+        <div key={index} className={`w-full max-w-xl rounded-card border border-line bg-surface p-5 shadow-float ${tour.pointer ? 'md:max-w-[300px]' : 'md:max-w-md'} ${motion ? 'tour-card' : ''}`}>
           <div className="flex items-center gap-3">
             <span aria-hidden className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft ${motion && playing ? 'tour-orb' : ''}`}>
               <span className="h-3.5 w-3.5 rounded-full bg-accent" />

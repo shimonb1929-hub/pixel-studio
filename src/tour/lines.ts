@@ -1,5 +1,5 @@
 // What the tour guide says, word for word. Each line was recorded once with the tour voice and is
-// kept in public/tour (the quick tour's in tools-<id>.mp3), so tours speak offline and behind
+// kept in src/tour/voice (the quick tour's in tools-<id>.mp3), so tours speak offline and behind
 // filters. A recording only matches its own words, so never change a line here without recording
 // it again. Words in [brackets] only told the voice how to sound; they aren't shown.
 export const VOICE = 'Liam (ElevenLabs)'
@@ -23,7 +23,7 @@ export const RECORDED: Record<string, string> = {
   end: "[excited] That's the whole toolbox! Hover over any button to see what it does. Now go make something awesome!",
 }
 
-// The poster tour: a whole design from an empty page to a download, in public/tour/poster-<id>.mp3.
+// The poster tour: a whole design from an empty page to a download, in src/tour/voice/poster-<id>.mp3.
 export const POSTER: Record<string, string> = {
   intro: "[excited] Let's make a real poster, start to finish, and learn a trick at every step. Here we go!",
   page: "First, the page color. Click the empty page, then pick a color. Let's go with a soft sky blue.",
@@ -38,7 +38,7 @@ export const POSTER: Record<string, string> = {
   end: "[excited] You made a whole poster! Now try your own idea. You've got this.",
 }
 
-// The deep dive: every tool up close, how to use it and what it can do, in public/tour/detail-<id>.mp3.
+// The deep dive: every tool up close, how to use it and what it can do, in src/tour/voice/detail-<id>.mp3.
 export const DETAIL: Record<string, string> = {
   intro: "[excited] Welcome to the deep dive! We'll look at every tool up close: how to use it, and the cool things it can do. Let's build as we go!",
   settings: 'First, a tip. Whenever you pick a tool, its settings show up right here, in this bar. Size, color, softness and more. Always look here first!',
@@ -63,18 +63,21 @@ export const DETAIL: Record<string, string> = {
   end: "[excited] Now you know every tool, up close! Hover over any button for a quick reminder. Go create something amazing!",
 }
 
-// The showcase: one night garden scene that uses many tools together, in public/tour/showcase-<id>.mp3.
+// The night garden: a whole picture made step by step by the tour's pointer, using the real tools
+// and settings, in src/tour/voice/showcase-<id>.mp3.
 export const SHOWCASE: Record<string, string> = {
-  intro: "[excited] Let's make a whole night garden, using lots of tools together. Watch how each one adds something new!",
-  sky: 'First, a big rectangle for the sky. In its settings, switch the fill to Gradient, so it fades from deep blue at the top to purple near the ground.',
-  moon: 'Now a circle for the moon. Open Effects and add a glow, so it really shines.',
-  stars: 'Stars from the Shapes tool fill the sky. Small ones, big ones, all different sizes.',
-  hills: 'With Curve, draw your own rolling hills. Press and drag to make the top nice and smooth.',
-  grass: 'Next, Brush. Add a paint layer, and paint some grass by hand, stroke by stroke.',
-  flowers: 'Flowers! Each one is just a star with a bright color. Hold Alt and drag to copy them fast.',
-  title: 'Now a title with the Text tool. Then bend the words into a gentle arch over the garden.',
-  shadow: 'A soft shadow from Effects makes the words float above the picture.',
-  adjust: 'Adjust can change the mood. A warm look makes the grass glow, like a summer night.',
-  arrange: 'And finally, Arrange. Nudge things around until everything feels just right.',
-  end: "[excited] That's the night garden, made only with shapes, paint and words! Every part stays changeable. Now it's your turn!",
+  intro: "[excited] Let's paint a night garden together, step by step. Watch which tool I pick, and which settings I choose. Then you can do it too!",
+  sky: 'First, the sky. Pick Shapes, choose Rectangle, and drag from one corner of the page all the way to the other.',
+  gradient: 'Now look at the Shape panel. Under Fill, choose Gradient. Then the colors: dark blue at the top, fading into purple.',
+  moon: 'Next, the moon. Choose Oval, and hold Shift while you drag. Shift makes a perfect circle. Then pick a pale yellow.',
+  glow: 'To make the moon shine, go to Effects and press Add glow. A soft light, all around it.',
+  stars: 'Stars! Choose Star, drag out a small one, and make it white. Then pick Arrange, hold Alt, and drag the star to pull out a copy. Again, and again.',
+  hills: 'For the hills, pick Curve. Click to start. Where you want a round hilltop, press and drag. Go down and around, click the first point to close it, and make it dark green.',
+  brush: 'Now the grass, painted by hand. Pick Brush. Open the brushes and choose Ink pen. Set the size, not too thick, and pick a fresh green.',
+  grass: 'Paint short strokes, from the bottom up, each one leaning a little. Every blade of grass is one quick stroke.',
+  flowers: 'Flowers are just small stars. Pick Shapes, drag one out on the grass, and make it pink. Copy it with Alt and drag, and make one yellow.',
+  title: 'Time for words. Pick Text, drag a box above the hills, and type Night Garden.',
+  style: 'Make it stand out. Slide the size up, choose white, and slide Bend a little, for a gentle arch.',
+  shadow: 'Last touch. With the title picked, go to Effects and press Add shadow. Now the words float above the sky.',
+  end: "[excited] That's your night garden! Every part stays changeable. Click anything, and change it any time.",
 }

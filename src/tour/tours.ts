@@ -1,8 +1,9 @@
 import type { ToolId } from '../editor/types.ts'
 import { t } from '../i18n/i18n.ts'
 import type { PathNode, ShapePath } from '../editor/path.ts'
-import { addGlow, addPaintLayer, addShadow, addShapes, addText, animate, bend, glide, pickNamed, setFill, setLook, setPageColor, stroke, strokes, type TourShape } from './draw.ts'
+import { addGlow, addPaintLayer, addShadow, addShapes, addText, animate, bend, glide, pickNamed, setFill, setLook, setPageColor, stroke, type TourShape } from './draw.ts'
 import { DETAIL, POSTER, RECORDED, SHOWCASE } from './lines.ts'
+import type { HandStep } from './hand.ts'
 import type { Tour, TourHost, TourStep } from './tour.ts'
 
 // The guided tours. Each line is spoken by the recorded voice (see lines.ts) while the spotlight
@@ -213,114 +214,171 @@ export function detailTour(): Tour {
 
 const GARDEN = 'Night Garden'
 
-// Rolling hills: a smooth wave along the top, straight down at the sides and along the bottom.
-const HILLS: ShapePath = {
-  closed: true,
-  nodes: [node(-0.5, -0.1, -0.5, -0.1, -0.25, -0.5), node(0.05, -0.05, -0.2, 0.35, 0.3, -0.45), node(0.5, -0.2, 0.35, 0.1), node(0.5, 0.5), node(-0.5, 0.5)],
-}
-
-// The showcase: one night garden scene made with many tools working together.
+// The night garden: the tour's pointer makes a whole picture with the real tools, picking each
+// tool and its settings where they really are, so every step can be copied exactly.
 export function showcaseTour(): Tour {
   const line = (id: keyof typeof SHOWCASE, extra: Partial<TourStep> = {}): TourStep => ({ id, line: SHOWCASE[id], audio: `tour/showcase-${id}.mp3`, ...extra })
-  const SKY = t('Sky')
-  const MOON = t('Moon')
-  const GRASS = t('Grass')
-  const SKY_STARS: [number, number, number][] = [
-    [0.1, 0.12, 0.025], [0.22, 0.28, 0.018], [0.34, 0.1, 0.03], [0.5, 0.2, 0.02], [0.62, 0.08, 0.026], [0.94, 0.36, 0.02], [0.08, 0.42, 0.016], [0.42, 0.34, 0.014],
-  ]
-  const FLOWERS = [0.12, 0.27, 0.44, 0.6, 0.76, 0.9]
+  const radio = (label: string) => `[role="radio"][aria-label="${label}"]`
+  const named = (label: string) => `[aria-label="${label}"]`
+  const PAGE = '[data-tour="canvas"]'
+  const size = (host: TourHost) => host.getDoc() ?? { width: 1600, height: 1000 }
+  // Opens the Effects panel (if it is folded) and adds one effect, the way a person would.
+  const addEffect = async (h: HandStep, label: string) => {
+    await h.click('[data-tour="effects"] button[aria-expanded="false"]')
+    await h.click(named(label))
+  }
+  // The middle of what is picked, as shares of the page, so a drag starts right on it.
+  const middle = (host: TourHost): [number, number] => {
+    const doc = host.getDoc()
+    const layer = doc?.layers.find((l) => l.id === doc.activeLayerId)
+    if (!doc || !layer || !('box' in layer) || !layer.box) return [0.5, 0.5]
+    return [layer.box.cx / doc.width, layer.box.cy / doc.height]
+  }
   return {
     id: 'showcase',
     title: t('Night garden showcase'),
     design: { name: t('Night garden'), width: 1600, height: 1000 },
+    pointer: true,
     steps: [
       line('intro', { sound: 'sparkle' }),
       line('sky', {
-        target: TOOL('shape'),
-        run: (h) => h.pickTool('shape'),
-        parts: [
-          { at: 0.2, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: SKY, type: 'rectangle', x: 0.5, y: 0.5, w: 1, h: 1, color: '#16224f' }]) },
-          {
-            at: 0.6,
-            sound: 'change',
-            run: (h) =>
-              h.change(t('Gradient'), (doc) => ({
-                ...doc,
-                layers: doc.layers.map((l) =>
-                  l.name === SKY && l.kind === 'shape'
-                    ? { ...l, fill: { kind: 'gradient', gradient: { type: 'linear', angle: 90, stops: [{ at: 0, color: '#0b1640', opacity: 1 }, { at: 0.6, color: '#2d2470', opacity: 1 }, { at: 1, color: '#6b3fa0', opacity: 1 }] } } }
-                    : l,
-                ),
-              })),
-          },
-        ],
+        act: async (h, host) => {
+          await h.click(TOOL('shape'))
+          await h.click(radio(t('Rectangle')))
+          h.spot(PAGE)
+          await h.drag(size(host), [[0, 0], [0.5, 0.5], [1, 1]], { ms: 1200 })
+        },
+      }),
+      line('gradient', {
+        act: async (h, host) => {
+          await h.click(`[role="radiogroup"][aria-label="${t('Fill kind')}"] ${radio(t('Gradient'))}`)
+          await h.wait(400)
+          await h.point(`section[aria-label="${t('Shape')}"]`)
+          await h.do(() =>
+            host.change(t('Gradient'), (doc) => ({
+              ...doc,
+              layers: doc.layers.map((l) =>
+                l.id === doc.activeLayerId && l.kind === 'shape'
+                  ? { ...l, fill: { kind: 'gradient', gradient: { type: 'linear', angle: 90, stops: [{ at: 0, color: '#0b1640', opacity: 1 }, { at: 0.6, color: '#2d2470', opacity: 1 }, { at: 1, color: '#6b3fa0', opacity: 1 }] } } }
+                  : l,
+              ),
+            })),
+          )
+          h.sound('change')
+        },
       }),
       line('moon', {
-        parts: [
-          { at: 0.1, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: MOON, type: 'ellipse', x: 0.8, y: 0.2, w: 0.1, h: 0.16, color: '#fff4c2' }]) },
-          { at: 0.65, sound: 'shine', run: (h) => addGlow(h, t('Glow'), MOON, '#fff1a8') },
-        ],
+        act: async (h, host) => {
+          await h.click(TOOL('shape'))
+          await h.click(radio(t('Oval')))
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.74, 0.1], [0.84, 0.26]], { ms: 900, shift: true })
+          await h.point(`section[aria-label="${t('Color')}"]`)
+          await h.do(() => host.pickColor('#fff4c2'))
+          h.sound('change')
+        },
+      }),
+      line('glow', {
+        act: async (h) => {
+          await addEffect(h, t('Add glow'))
+          h.sound('shine')
+        },
       }),
       line('stars', {
-        parts: SKY_STARS.map(([x, y, size], i) => ({ at: 0.08 + i * 0.1, sound: 'pop', run: (h: TourHost) => addShapes(h, t('Add shape'), [star(t('Star'), x, y, size, i % 3 ? '#ffffff' : '#ffe680')]) })),
+        act: async (h, host) => {
+          const doc = size(host)
+          await h.click(TOOL('shape'))
+          await h.click(radio(t('Star')))
+          h.spot(PAGE)
+          await h.drag(doc, [[0.2, 0.12], [0.24, 0.18]], { ms: 500 })
+          await h.do(() => host.pickColor('#ffffff'))
+          await h.click(TOOL('move'))
+          h.spot(PAGE)
+          for (const to of [[0.36, 0.1], [0.5, 0.22], [0.62, 0.08], [0.1, 0.32]] as [number, number][]) {
+            await h.drag(doc, [middle(host), to], { ms: 500, alt: true })
+            h.sound('pop')
+          }
+        },
       }),
       line('hills', {
-        target: TOOL('pen'),
-        run: (h) => h.pickTool('pen'),
-        parts: [{ at: 0.3, sound: 'pop', run: (h) => addShapes(h, t('Add shape'), [{ name: t('Hills'), type: 'path', x: 0.5, y: 0.84, w: 1.04, h: 0.4, color: '#1f5a3a', path: HILLS }]) }],
+        act: async (h, host) => {
+          const doc = size(host)
+          await h.click(TOOL('pen'))
+          h.spot(PAGE)
+          await h.drag(doc, [[0, 0.74]], { ms: 100 })
+          await h.drag(doc, [[0.28, 0.6], [0.4, 0.6]], { ms: 500 })
+          await h.drag(doc, [[0.68, 0.72], [0.8, 0.72]], { ms: 500 })
+          for (const p of [[1, 0.64], [1, 1], [0, 1], [0, 0.74]] as [number, number][]) await h.drag(doc, [p], { ms: 100 })
+          await h.wait(300)
+          await h.point(`section[aria-label="${t('Color')}"]`)
+          await h.do(() => host.pickColor('#1f5a3a'))
+          h.sound('change')
+        },
+      }),
+      line('brush', {
+        act: async (h, host) => {
+          await h.click(TOOL('brush'))
+          await h.click(`[aria-label^="${t('Brushes: {brush}', { brush: '' })}"]`)
+          await h.click(radio(t('Ink pen')))
+          await h.slide(t('Size'), 0.24)
+          await h.point(`section[aria-label="${t('Color')}"]`)
+          await h.do(() => host.pickColor('#3fa34d'))
+        },
       }),
       line('grass', {
-        target: TOOL('brush'),
-        run: (h) => h.pickTool('brush'),
-        parts: [
-          { at: 0.15, sound: 'tick', run: (h) => addPaintLayer(h, t('New layer'), GRASS) },
-          {
-            at: 0.3,
-            sound: 'brush',
-            run: (h) =>
-              strokes(
-                h,
-                t('Brush'),
-                GRASS,
-                Array.from({ length: 34 }, (_, i): [number, number][] => {
-                  const x = 0.015 + i * 0.03
-                  const lean = i % 2 ? 0.012 : -0.01
-                  return [[x, 1], [x + lean * 0.3, 0.94], [x + lean, 0.87 - (i % 3) * 0.025]]
-                }),
-                (i) => (i % 4 === 1 ? '#7bd389' : '#3fa34d'),
-                0.006,
-                2200,
-              ),
-          },
-        ],
+        act: async (h, host) => {
+          const doc = size(host)
+          h.spot(PAGE)
+          for (let i = 0; i < 16; i++) {
+            const x = 0.04 + i * 0.062 + (i % 3) * 0.008
+            const lean = i % 2 ? 0.018 : -0.014
+            await h.drag(doc, [[x, 0.99], [x + lean * 0.4, 0.93], [x + lean, 0.86 - (i % 3) * 0.025]], { ms: 260 })
+            if (i % 2 === 0) h.sound('brush')
+          }
+        },
       }),
       line('flowers', {
-        target: TOOL('shape'),
-        run: (h) => h.pickTool('shape'),
-        parts: FLOWERS.map((x, i) => ({ at: 0.1 + i * 0.13, sound: 'pop', run: (h: TourHost) => addShapes(h, t('Add shape'), [star(t('Flower'), x, 0.86 + (i % 2) * 0.05, 0.045, ['#ff6fa1', '#ffd23f', '#ffffff'][i % 3])]) })),
+        act: async (h, host) => {
+          const doc = size(host)
+          await h.click(TOOL('shape'))
+          h.spot(PAGE)
+          await h.drag(doc, [[0.2, 0.84], [0.235, 0.9]], { ms: 500 })
+          await h.do(() => host.pickColor('#ff6fa1'))
+          await h.click(TOOL('move'))
+          h.spot(PAGE)
+          for (const to of [[0.45, 0.9], [0.72, 0.86]] as [number, number][]) {
+            await h.drag(doc, [middle(host), to], { ms: 500, alt: true })
+            h.sound('pop')
+          }
+          await h.do(() => host.pickColor('#ffd23f'))
+          h.sound('change')
+        },
       }),
       line('title', {
-        target: TOOL('text'),
-        run: (h) => h.pickTool('text'),
-        parts: [
-          { at: 0.2, sound: 'type', run: (h) => addText(h, t('Add text'), { name: GARDEN, text: GARDEN, x: 0.45, y: 0.42, w: 0.6, size: 0.085, weight: 800, color: '#ffffff' }) },
-          { at: 0.7, sound: 'grow', run: (h) => bend(h, t('Bend'), GARDEN, 0.1) },
-        ],
+        act: async (h, host) => {
+          await h.click(TOOL('text'))
+          h.spot(PAGE)
+          await h.drag(size(host), [[0.2, 0.36], [0.7, 0.46]], { ms: 700 })
+          await h.wait(300)
+          await h.type(GARDEN, 90)
+          await h.key('Escape')
+        },
       }),
-      line('shadow', { target: '[data-tour="effects"]', run: (h) => h.pickTool('move'), parts: [{ at: 0.4, sound: 'shine', run: (h) => addShadow(h, t('Shadow'), GARDEN) }] }),
-      line('adjust', {
-        parts: [
-          { at: 0.2, sound: 'tick', run: (h) => pickNamed(h, GRASS) },
-          { at: 0.45, sound: 'change', run: (h) => setLook(h, t('Warm'), GRASS, 'warm') },
-        ],
+      line('style', {
+        act: async (h, host) => {
+          await h.slide(t('Size'), 0.62)
+          await h.point(`section[aria-label="${t('Color')}"]`)
+          await h.do(() => host.pickColor('#ffffff'))
+          h.sound('change')
+          await h.slide(t('Bend'), 0.56)
+          h.sound('grow')
+        },
       }),
-      line('arrange', {
-        target: TOOL('move'),
-        run: (h) => h.pickTool('move'),
-        parts: [
-          { at: 0.3, sound: 'tick', run: (h) => pickNamed(h, MOON) },
-          { at: 0.4, sound: 'slide', run: (h) => glide(h, t('Move'), [MOON], -0.05, 0.03, 1400) },
-        ],
+      line('shadow', {
+        act: async (h) => {
+          await addEffect(h, t('Add shadow'))
+          h.sound('shine')
+        },
       }),
       line('end', { sound: 'sparkle' }),
     ],

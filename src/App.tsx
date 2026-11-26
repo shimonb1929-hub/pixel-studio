@@ -441,6 +441,10 @@ export default function App() {
   const autosave = useAutosave(editor)
   const app = useInstallApp()
   const [viewport, setViewport] = useState<Viewport>({ zoom: 1, panX: 0, panY: 0 })
+  // For the tour's pointer, which needs the latest view between draws.
+  const viewportRef = useRef(viewport)
+  viewportRef.current = viewport
+  const panelColorRef = useRef<(hex: string) => void>(() => {})
   // A new design starts on Arrange: clicking never paints by surprise.
   const [tool, setToolState] = useState<ToolId>('move')
   // The grid and the rulers, as chosen last time.
@@ -2070,6 +2074,9 @@ export default function App() {
     change: (label, update, mergeKey) => editor.change(label, update, mergeKey ? { mergeKey, mergeAlways: true } : undefined),
     select: editor.select,
     paint: editor.paint,
+    getViewport: () => viewportRef.current,
+    pickColor: (hex) => panelColorRef.current(hex),
+    setBrush: (change) => setBrush((b) => ({ ...b, settings: { ...b.settings, ...change } })),
   }
 
   // Names already used by designs kept in this browser, so a new one never looks like an old one.
@@ -3827,7 +3834,7 @@ export default function App() {
   const tablePartShown: TablePart = tableTarget && tablePartColor(tableTarget, tablePart) !== null ? tablePart : 'words'
   const tableColor = tableTarget ? tablePartColor(tableTarget, tablePartShown) : null
   const panelColor = effectColorShown ?? tableColor ?? textColor ?? shapeColor ?? manyColor ?? (pageColorOn ? pageShownColor : null)
-  const onPanelColor =
+  const onPanelColor: (hex: string) => void =
     effectColorShown !== null
       ? colorEffect
       : tableColor !== null
@@ -3856,6 +3863,7 @@ export default function App() {
               } else editor.change(t('Page color'), (d) => ({ ...d, background: hex }), { mergeKey: 'page-color' })
             }
           : setColor
+  panelColorRef.current = onPanelColor
 
   // Changing a color everywhere: the Color panel shows it, and every pick changes it in the whole design.
   const recolorOn = recolor && doc && doc.id === recolor.before.id && doc.activeLayerId === recolor.activeLayerId && tool === recolor.tool && !textEdit ? recolor : null

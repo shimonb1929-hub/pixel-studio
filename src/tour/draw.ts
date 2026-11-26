@@ -221,46 +221,6 @@ export function stroke(host: TourHost, label: string, layerName: string, points:
   requestAnimationFrame(frame)
 }
 
-// Paints several short strokes one after another (like blades of grass), each through its points.
-// Strokes that come due in the same moment are painted together, as one undo step.
-export function strokes(host: TourHost, label: string, layerName: string, paths: [number, number][][], color: (index: number) => string, width: number, ms = 1500) {
-  const doc = host.getDoc()
-  const layer = doc?.layers.find((l) => l.name === layerName && l.kind === 'raster')
-  if (!doc || !layer) return
-  const W = doc.width
-  const H = doc.height
-  const size = width * W
-  let done = 0
-  const began = performance.now()
-  const frame = () => {
-    const upto = Math.min(paths.length, Math.ceil(((performance.now() - began) / ms) * paths.length))
-    if (upto > done) {
-      const batch = paths.slice(done, upto).map((path) => path.map(([x, y]) => ({ x: x * W, y: y * H })))
-      const first = done
-      done = upto
-      const xs = batch.flat().map((p) => p.x)
-      const ys = batch.flat().map((p) => p.y)
-      const area = { x: Math.min(...xs) - size, y: Math.min(...ys) - size, width: Math.max(...xs) - Math.min(...xs) + size * 2, height: Math.max(...ys) - Math.min(...ys) + size * 2 }
-      host.paint(label, layer.id, area, (ctx, l) => {
-        ctx.translate(-l.x, -l.y)
-        ctx.lineWidth = size
-        ctx.lineCap = 'round'
-        ctx.lineJoin = 'round'
-        batch.forEach((pts, i) => {
-          ctx.strokeStyle = color(first + i)
-          ctx.beginPath()
-          ctx.moveTo(pts[0].x, pts[0].y)
-          for (let k = 1; k < pts.length - 1; k++) ctx.quadraticCurveTo(pts[k].x, pts[k].y, (pts[k].x + pts[k + 1].x) / 2, (pts[k].y + pts[k + 1].y) / 2)
-          ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y)
-          ctx.stroke()
-        })
-      })
-    }
-    if (done < paths.length) requestAnimationFrame(frame)
-  }
-  requestAnimationFrame(frame)
-}
-
 // Changes the named layers in one undo step.
 export function changeNamed(host: TourHost, label: string, name: string, update: (layer: EditorDocument['layers'][number], doc: EditorDocument) => EditorDocument['layers'][number]) {
   host.change(label, (doc) => ({ ...doc, layers: doc.layers.map((l) => (l.name === name ? update(l, doc) : l)) }))
