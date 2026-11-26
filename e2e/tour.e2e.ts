@@ -77,3 +77,21 @@ test('the showcase paints a whole night garden', async ({ page }) => {
   await skipThrough(page, 'Night garden showcase', 12)
   for (const name of ['Sky', 'Moon', 'Star', 'Hills', 'Grass', 'Flower', 'Night Garden']) await expect(page.getByText(name, { exact: true }).first()).toBeVisible()
 })
+
+test('the guide speaks: its recorded voice plays from inside the app', async ({ page }) => {
+  await page.addInitScript(() => {
+    const played: string[] = []
+    ;(window as unknown as { played: string[] }).played = played
+    const original = HTMLMediaElement.prototype.play
+    HTMLMediaElement.prototype.play = function () {
+      const src = this.src
+      return original.call(this).then(() => {
+        if (src.startsWith('data:audio/mpeg') && src.length > 5000) played.push(src.slice(0, 20))
+      })
+    }
+  })
+  await page.reload()
+  await page.getByRole('button', { name: 'Meet the tools' }).click()
+  await expect(page.getByRole('dialog', { name: 'Meet the tools' })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { played: string[] }).played.length), { timeout: 15000 }).toBeGreaterThan(0)
+})

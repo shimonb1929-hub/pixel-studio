@@ -39,8 +39,6 @@ function offlineHelper(): Plugin {
     apply: 'build',
     generateBundle(_, bundle) {
       const publicFiles = readdirSync('public').filter((name) => !name.startsWith('_') && statSync(`public/${name}`).isFile())
-      // The tours' recorded voice is small and kept up front too, so tours speak without internet.
-      if (existsSync('public/tour')) publicFiles.push(...readdirSync('public/tour').filter((name) => name.endsWith('.mp3')).map((name) => `tour/${name}`))
       // The AI files are big and only needed by the AI tools, so they're kept the first time
       // they're used instead.
       const files = [...Object.keys(bundle).filter((name) => !AI_FILES.test(name)), ...publicFiles].sort()

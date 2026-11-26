@@ -36,7 +36,7 @@ describe('tours', () => {
       for (const step of tour.steps) {
         expect(step.line, `${tour.id} ${step.id}`).toBeTruthy()
         expect(step.audio, `${tour.id} ${step.id}`).toBeTruthy()
-        expect(existsSync(join(import.meta.dirname, '../../public', step.audio!)), step.audio).toBe(true)
+        expect(existsSync(join(import.meta.dirname, 'voice', step.audio!.split('/').pop()!)), step.audio).toBe(true)
       }
     }
   })

@@ -4,6 +4,7 @@ import { Tooltip } from '../components/Tooltip.tsx'
 import { t } from '../i18n/i18n.ts'
 import { play, setSoundsOn, soundsOn } from './sounds.ts'
 import { caption, readingTime, wordsSpoken, type Tour, type TourHost } from './tour.ts'
+import { recording, voicePlayer } from './voice.ts'
 
 interface TourPlayerProps {
   tour: Tour
@@ -126,6 +127,12 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
 
   const playingRef = useRef(playing)
   playingRef.current = playing
+  // Starts the voice right inside the tap, so browsers that want a tap before sound play it.
+  const togglePlaying = useCallback(() => {
+    const audio = audioRef.current
+    if (!playingRef.current && audio && audio.paused && !audio.ended && audio.src) void audio.play().catch(() => {})
+    setPlaying(!playingRef.current)
+  }, [])
 
   // Each step: do what it shows, then speak (or show the words for as long as they take to read).
   // Pausing stops the voice and the clock where they are; playing goes on from there.
@@ -179,35 +186,57 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
       else frame = requestAnimationFrame(tickReading)
     }
 
-    const audio = step.audio ? new Audio(step.audio) : null
+    const source = step.audio ? recording(step.audio) : null
+    const audio = source ? voicePlayer() : null
     audioRef.current = audio
-    if (audio) {
-      audio.muted = !soundsOn()
-      let fellBack = false
-      const fallBack = () => {
-        if (fellBack || cancelled) return
-        fellBack = true
-        audioRef.current = null
-        cancelAnimationFrame(frame)
-        readFrom = performance.now()
-        tickReading()
-      }
-      const tickAudio = () => {
-        if (cancelled || fellBack) return
-        const fraction = audio.duration ? audio.currentTime / audio.duration : 0
-        setProgress(fraction)
-        runParts(fraction)
-        frame = requestAnimationFrame(tickAudio)
-      }
-      audio.addEventListener('ended', finish)
-      audio.addEventListener('error', fallBack)
-      if (playingRef.current) audio.play().catch(fallBack)
+    let fellBack = false
+    const fallBack = () => {
+      if (fellBack || cancelled) return
+      fellBack = true
+      audioRef.current = null
+      cancelAnimationFrame(frame)
+      readFrom = performance.now()
+      tickReading()
+    }
+    const tickAudio = () => {
+      if (cancelled || fellBack || !audio) return
+      const fraction = audio.duration && audio.src === loaded ? audio.currentTime / audio.duration : 0
+      setProgress(fraction)
+      runParts(fraction)
       frame = requestAnimationFrame(tickAudio)
+    }
+    let loaded = ''
+    const onEnded = () => {
+      if (audio?.src === loaded) finish()
+    }
+    if (audio && source) {
+      audio.pause()
+      audio.addEventListener('ended', onEnded)
+      audio.addEventListener('error', fallBack)
+      source.then(
+        (url) => {
+          if (cancelled) return
+          loaded = url
+          audio.src = url
+          audio.muted = !soundsOn()
+          if (playingRef.current)
+            audio.play().catch((error: unknown) => {
+              if (cancelled) return
+              // The browser wants a tap before it plays sound: wait on Play, which gives it one.
+              if (error instanceof DOMException && error.name === 'NotAllowedError') setPlaying(false)
+              else fallBack()
+            })
+          frame = requestAnimationFrame(tickAudio)
+        },
+        () => fallBack(),
+      )
     } else tickReading()
     return () => {
       cancelled = true
       window.clearTimeout(timer)
       cancelAnimationFrame(frame)
+      audio?.removeEventListener('ended', onEnded)
+      audio?.removeEventListener('error', fallBack)
       audio?.pause()
     }
   }, [index, step, go])
@@ -251,7 +280,7 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
       if (event.key === 'Escape') close()
       else if (event.key === 'ArrowRight') go(index + 1)
       else if (event.key === 'ArrowLeft') go(index - 1)
-      else if (event.key === ' ') setPlaying((p) => !p)
+      else if (event.key === ' ') togglePlaying()
       else return
       event.preventDefault()
       event.stopPropagation()
@@ -340,7 +369,7 @@ export function TourPlayer({ tour, host, onClose }: TourPlayerProps) {
               </button>
             </Tooltip>
             <Tooltip title={playing ? t('Pause') : t('Play')} description={playing ? t('Stop here for a moment, to look or try it yourself.') : t('Go on with the tour.')} shortcut={t('Space')}>
-              <button type="button" aria-label={playing ? t('Pause') : t('Play')} onClick={() => setPlaying(!playing)} className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-accent text-white shadow-sm hover:bg-accent-hover">
+              <button type="button" aria-label={playing ? t('Pause') : t('Play')} onClick={() => togglePlaying()} className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-accent text-white shadow-sm hover:bg-accent-hover">
                 {playing ? <Pause size={18} /> : <Play size={18} className="translate-x-px" />}
               </button>
             </Tooltip>

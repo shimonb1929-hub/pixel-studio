@@ -1,3 +1,4 @@
+import { unlockVoice } from './tour/voice.ts'
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import type { Action } from './actions.ts'
 import { ContextMenu } from './components/ContextMenu.tsx'
@@ -2044,6 +2045,8 @@ export default function App() {
 
   // Starts a guided tour; tours that show things on a design get a new, empty one first.
   function startTour(next: Tour) {
+    // Right inside the click, so the browser lets the guide's voice play.
+    unlockVoice()
     setDialog(null)
     if (!next.design) {
       setTour(next)
